@@ -4,7 +4,7 @@
 
 ## 프로젝트 정보
 - **경로**: `/Users/nhn/zman-lab/lawear`
-- **브랜치 규칙**: main 직접 커밋 가능. 워크트리 모드일 때는 `wt/*` 브랜치에서 커밋
+- **브랜치 규칙**: main 직접 커밋 OK
 - **커밋 형식**: `[근형] type: description`
 - **types**: feat | fix | refactor | style | docs | chore | test | security
 - **Co-Authored-By 절대 금지**
@@ -19,9 +19,7 @@
 ```bash
 git -C {ROOT} branch --show-current
 ```
-- main이면 그대로 진행 (직접 커밋 허용)
-- `wt/*` 또는 `feature/*` 브랜치도 허용
-- **develop 또는 master이면 즉시 중단** → "잘못된 브랜치입니다." 경고
+- main이면 그대로 진행
 
 ### Step 3: 상태 확인
 ```bash
@@ -33,18 +31,16 @@ git -C {ROOT} diff --stat
 
 ### Step 4: 변경 파일 판별
 변경된 파일 경로를 분석해 테스트 대상 결정:
-- `tests/` 포함 또는 Python 소스 파일 변경 → **테스트 필요**
+- `src/` 또는 `tests/` → **BE 테스트 필요** (tests/ 존재 시)
 - 문서만 (`*.md`, `docs/`, `.claude/`) → **테스트 스킵**
 - `.commit-test-ignore` 파일에 나열된 패턴은 테스트 판별에서 제외
 
 ### Step 5: 테스트 게이트
-**테스트 (tests/ 디렉토리가 있을 때만):**
+**BE 테스트** (tests/ 디렉토리 존재 시만):
 ```bash
-python -m pytest {ROOT}/tests/ -v --tb=short
+cd {ROOT} && python -m pytest tests/ -v --tb=short
 ```
-
-- 테스트 스킵 조건에 해당하면 이 단계 건너뜀
-- tests/ 디렉토리가 없으면 `[테스트 게이트] 테스트 대상 없음 — 스킵` 출력
+- tests/ 없으면 테스트 게이트 스킵 (경고 출력: `[테스트 게이트] 테스트 대상 없음 — 스킵`)
 
 ### Step 6: 테스트 실패 시 자동 수정 루프 (최대 3회)
 1. 실패 로그 + 원래 변경 의도를 수집
@@ -59,7 +55,7 @@ git -C {ROOT} add {변경파일들}
 git -C {ROOT} commit -m "[근형] type: description"
 ```
 - `git add .` 지양, 변경 파일 명시적 지정
-- **.env, *.db, __pycache__ 는 커밋 대상 아님** — 반드시 제외 확인
+- .env, *.db, __pycache__/ 등 커밋 금지
 
 ### Step 8: push + gc
 ```bash
@@ -71,6 +67,6 @@ git -C {ROOT} reflog expire --expire=now --all && git -C {ROOT} gc --prune=now
 - 패스 시에만 보고: 커밋 해시, 브랜치, 변경 요약
 - 형식:
   ```
-  커밋: `해시` - [근형] type: description → 레포: lawear, 브랜치: {브랜치명}
-  푸시: lawear → {브랜치명}
+  커밋: `해시` - [근형] type: description → 레포: lawear, 브랜치: main
+  푸시: lawear → main
   ```
