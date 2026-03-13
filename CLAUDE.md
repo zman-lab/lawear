@@ -36,7 +36,7 @@
 - 의심스러우면 원본 표현 유지
 
 ### TTS 규칙
-- 상세 규칙: `docs/인수인계/tts_rules.md`
+- 상세 규칙: `docs/handover/tts_rules.md`
 - 기본 10개 + 사용자 피드백 11개 (R-01 ~ R-11)
 - 규칙 충돌 시 R-09(자의적 해석 금지)가 최우선
 - **게시판 #453 댓글 #462가 tts_rules.md보다 우선** (사용자 직접 작성)
@@ -61,7 +61,7 @@
 
 ```
 docs/
-├── 인수인계/          — airlock에서 인계받은 분석/설계 문서
+├── handover/          — airlock에서 인계받은 분석/설계 문서
 │   ├── README.md
 │   ├── analysis_summary.md
 │   ├── tts_rules.md
