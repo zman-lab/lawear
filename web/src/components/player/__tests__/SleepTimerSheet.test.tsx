@@ -302,6 +302,81 @@ describe('SleepTimerSheet', () => {
   });
 });
 
+describe('SleepTimerSheet - 무한 루프 스크롤', () => {
+  // 16. 반복 데이터 구조 확인 (분 피커: 0~59 × 5 = 300개 아이템)
+  it('분 피커에 반복된 데이터가 렌더링된다 (5세트)', () => {
+    render(<SleepTimerSheet isOpen={true} onClose={mockOnClose} />);
+    fireEvent.click(screen.getByText('직접설정'));
+
+    const picker = screen.getByTestId('scroll-picker-분');
+    // role="option"인 아이템 수 = 60 * 5 = 300
+    const options = picker.querySelectorAll('[role="option"]');
+    expect(options.length).toBe(60 * 5);
+  });
+
+  // 17. 시간 피커 반복 확인 (0~12 × 5 = 65개)
+  it('시간 피커에 반복된 데이터가 렌더링된다 (5세트)', () => {
+    render(<SleepTimerSheet isOpen={true} onClose={mockOnClose} />);
+    fireEvent.click(screen.getByText('직접설정'));
+
+    const picker = screen.getByTestId('scroll-picker-시간');
+    const options = picker.querySelectorAll('[role="option"]');
+    expect(options.length).toBe(13 * 5);
+  });
+
+  // 18. 가운데 세트에만 data-testid가 부여됨
+  it('가운데 세트 아이템에만 data-testid가 부여된다', () => {
+    render(<SleepTimerSheet isOpen={true} onClose={mockOnClose} />);
+    fireEvent.click(screen.getByText('직접설정'));
+
+    // 분 피커: data-testid="picker-item-분-*"은 60개만 (가운데 세트)
+    const picker = screen.getByTestId('scroll-picker-분');
+    const withTestId = picker.querySelectorAll('[data-testid^="picker-item-분-"]');
+    expect(withTestId.length).toBe(60);
+  });
+
+  // 19. 스크롤이 경계에 도달하면 가운데로 리셋
+  it('스크롤이 첫 번째 세트 상단에 도달하면 가운데 세트로 리셋된다', async () => {
+    render(<SleepTimerSheet isOpen={true} onClose={mockOnClose} />);
+    fireEvent.click(screen.getByText('직접설정'));
+
+    const picker = screen.getByTestId('scroll-picker-분');
+    // 첫 번째 세트 영역(index=5)으로 스크롤 (경계 이내 — itemCount 미만)
+    const ITEM_H = 44;
+    const firstSetIdx = 5;
+    Object.defineProperty(picker, 'scrollTop', {
+      value: firstSetIdx * ITEM_H,
+      writable: true,
+      configurable: true,
+    });
+    fireEvent.scroll(picker);
+
+    // debounce 120ms 대기 (실제 타이머 사용)
+    await act(async () => {
+      await new Promise(r => setTimeout(r, 200));
+    });
+
+    // scrollTo가 호출됨 (경계 감지 후 리셋)
+    expect(picker.scrollTo).toHaveBeenCalled();
+  });
+
+  // 20. 순환 스크롤 시 값이 올바르게 유지됨
+  it('반복 아이템 클릭 시 실제 값(modulo)이 onChange로 전달된다', async () => {
+    render(<SleepTimerSheet isOpen={true} onClose={mockOnClose} />);
+    fireEvent.click(screen.getByText('직접설정'));
+
+    // 가운데 세트의 분=30 클릭 → onChange(30)
+    const min30 = screen.getByTestId('picker-item-분-30');
+    fireEvent.click(min30);
+
+    // 시작 눌러서 값 확인: 0시 30분 0초 = 1800초
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('start-btn'));
+    });
+    expect(mockSetSleepTimer).toHaveBeenCalledWith(1800);
+  });
+});
+
 describe('SleepTimerSheet - formatRemaining', () => {
   // formatRemaining은 컴포넌트 내부 함수이므로 렌더링을 통해 테스트
   it('시간이 포함된 남은 시간을 H:MM:SS 형식으로 표시한다', () => {

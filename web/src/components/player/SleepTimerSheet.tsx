@@ -14,7 +14,7 @@ const PRESETS = [
   { label: '1시간', seconds: 60 * 60 },
 ];
 
-// ── 스크롤 피커 컴포넌트 (CSS scroll-snap 기반) ──────────────────────────────
+// ── 무한 루프 스크롤 피커 (데이터 반복 + instant 리셋) ───────────────────────
 interface ScrollPickerProps {
   values: number[];
   selectedValue: number;
@@ -27,47 +27,74 @@ const ITEM_HEIGHT = 44;
 const VISIBLE_COUNT = 5;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_COUNT;
 const PADDING_ITEMS = Math.floor(VISIBLE_COUNT / 2); // 위아래 패딩 아이템 수 (2개)
+const REPEAT_COUNT = 5; // 데이터 반복 횟수
 
 function ScrollPicker({ values, selectedValue, onChange, label, formatValue }: ScrollPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const isUserScrolling = useRef(false);
   const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didInitialScroll = useRef(false);
+  const isResetting = useRef(false);
 
   const fmt = formatValue ?? ((v: number) => String(v).padStart(2, '0'));
 
-  // 선택된 값의 인덱스
-  const selectedIdx = values.indexOf(selectedValue);
+  const itemCount = values.length;
+  const middleSetStart = Math.floor(REPEAT_COUNT / 2) * itemCount; // 가운데 세트 시작 인덱스
 
-  // 초기 스크롤 위치 설정 (마운트 시 1회만)
+  // 반복된 아이템 배열
+  const repeatedValues = Array.from(
+    { length: itemCount * REPEAT_COUNT },
+    (_, i) => values[i % itemCount],
+  );
+
+  // 초기 스크롤 위치: 가운데 세트의 selectedValue 위치
   useEffect(() => {
     const el = containerRef.current;
     if (!el || didInitialScroll.current) return;
-    const idx = values.indexOf(selectedValue);
-    if (idx >= 0) {
-      // 즉시 설정 (smooth 아님) -> 초기 렌더링이므로 애니메이션 불필요
-      el.scrollTop = idx * ITEM_HEIGHT;
+    const localIdx = values.indexOf(selectedValue);
+    if (localIdx >= 0) {
+      el.scrollTop = (middleSetStart + localIdx) * ITEM_HEIGHT;
       didInitialScroll.current = true;
     }
-  }, [values, selectedValue]);
+  }, [values, selectedValue, middleSetStart]);
 
   // selectedValue prop이 외부에서 변경되면 스크롤 위치 동기화
   useEffect(() => {
-    if (!didInitialScroll.current) return; // 초기 설정 전이면 무시
-    if (isUserScrolling.current) return; // 유저가 스크롤 중이면 무시
+    if (!didInitialScroll.current) return;
+    if (isUserScrolling.current) return;
     const el = containerRef.current;
     if (!el) return;
-    const idx = values.indexOf(selectedValue);
-    if (idx >= 0) {
-      const targetTop = idx * ITEM_HEIGHT;
+    const localIdx = values.indexOf(selectedValue);
+    if (localIdx >= 0) {
+      const targetTop = (middleSetStart + localIdx) * ITEM_HEIGHT;
       if (Math.abs(el.scrollTop - targetTop) > ITEM_HEIGHT / 2) {
         el.scrollTo({ top: targetTop, behavior: 'smooth' });
       }
     }
-  }, [selectedValue, values]);
+  }, [selectedValue, values, middleSetStart]);
 
-  // 스크롤 이벤트 -> debounce로 스냅 값 감지
+  // 경계 근접 시 가운데 세트로 instant 리셋
+  const resetToMiddle = useCallback((currentGlobalIdx: number) => {
+    const el = containerRef.current;
+    if (!el) return;
+    const localIdx = currentGlobalIdx % itemCount;
+    const lowerBound = itemCount; // 1번째 세트 시작
+    const upperBound = (REPEAT_COUNT - 1) * itemCount; // 마지막 세트 시작
+
+    if (currentGlobalIdx < lowerBound || currentGlobalIdx >= upperBound) {
+      isResetting.current = true;
+      const resetIdx = middleSetStart + localIdx;
+      el.scrollTo({ top: resetIdx * ITEM_HEIGHT, behavior: 'instant' as ScrollBehavior });
+      // 리셋 플래그 해제 (다음 프레임에서)
+      requestAnimationFrame(() => {
+        isResetting.current = false;
+      });
+    }
+  }, [itemCount, middleSetStart]);
+
+  // 스크롤 이벤트 -> debounce로 스냅 값 감지 + 경계 리셋
   const handleScroll = useCallback(() => {
+    if (isResetting.current) return; // 리셋 중 무시
     isUserScrolling.current = true;
 
     if (scrollTimer.current) {
@@ -79,30 +106,35 @@ function ScrollPicker({ values, selectedValue, onChange, label, formatValue }: S
       const el = containerRef.current;
       if (!el) return;
 
-      // 현재 스크롤 위치에서 가장 가까운 아이템 인덱스 계산
-      const idx = Math.round(el.scrollTop / ITEM_HEIGHT);
-      const clamped = Math.max(0, Math.min(idx, values.length - 1));
+      // 현재 스크롤 위치에서 가장 가까운 글로벌 인덱스
+      const globalIdx = Math.round(el.scrollTop / ITEM_HEIGHT);
+      const clamped = Math.max(0, Math.min(globalIdx, repeatedValues.length - 1));
+      const actualValue = repeatedValues[clamped];
 
-      // 정확한 위치로 스냅 (CSS scroll-snap이 처리하지만, 보험)
+      // 정확한 위치로 스냅
       const targetTop = clamped * ITEM_HEIGHT;
       if (Math.abs(el.scrollTop - targetTop) > 1) {
         el.scrollTo({ top: targetTop, behavior: 'smooth' });
       }
 
       // 값 변경 알림
-      if (values[clamped] !== selectedValue) {
-        onChange(values[clamped]);
+      if (actualValue !== selectedValue) {
+        onChange(actualValue);
       }
-    }, 120);
-  }, [values, selectedValue, onChange]);
 
-  // 아이템 클릭으로 선택
-  const handleItemClick = useCallback((idx: number) => {
+      // 경계 근접 시 가운데 세트로 리셋
+      resetToMiddle(clamped);
+    }, 120);
+  }, [repeatedValues, selectedValue, onChange, resetToMiddle]);
+
+  // 아이템 클릭으로 선택 (클릭된 글로벌 인덱스 기준)
+  const handleItemClick = useCallback((globalIdx: number) => {
     const el = containerRef.current;
     if (!el) return;
-    el.scrollTo({ top: idx * ITEM_HEIGHT, behavior: 'smooth' });
-    onChange(values[idx]);
-  }, [values, onChange]);
+    el.scrollTo({ top: globalIdx * ITEM_HEIGHT, behavior: 'smooth' });
+    const actualValue = repeatedValues[globalIdx];
+    onChange(actualValue);
+  }, [repeatedValues, onChange]);
 
   // cleanup
   useEffect(() => {
@@ -141,11 +173,12 @@ function ScrollPicker({ values, selectedValue, onChange, label, formatValue }: S
           {Array.from({ length: PADDING_ITEMS }).map((_, i) => (
             <div key={`pad-top-${i}`} style={{ height: ITEM_HEIGHT }} aria-hidden />
           ))}
-          {values.map((v, idx) => {
-            const isSelected = idx === selectedIdx;
+          {repeatedValues.map((v, globalIdx) => {
+            const isMiddleSet = globalIdx >= middleSetStart && globalIdx < middleSetStart + itemCount;
+            const isSelected = v === selectedValue && isMiddleSet;
             return (
               <div
-                key={v}
+                key={`${globalIdx}`}
                 className={`flex items-center justify-center cursor-pointer select-none transition-colors ${
                   isSelected ? 'text-blue-400 font-bold text-xl' : 'text-white/40 text-lg'
                 }`}
@@ -153,8 +186,8 @@ function ScrollPicker({ values, selectedValue, onChange, label, formatValue }: S
                   height: ITEM_HEIGHT,
                   scrollSnapAlign: 'start',
                 }}
-                onClick={() => handleItemClick(idx)}
-                data-testid={`picker-item-${label}-${v}`}
+                onClick={() => handleItemClick(globalIdx)}
+                data-testid={isMiddleSet ? `picker-item-${label}-${v}` : undefined}
                 role="option"
                 aria-selected={isSelected}
               >
