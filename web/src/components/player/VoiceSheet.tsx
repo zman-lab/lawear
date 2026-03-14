@@ -11,8 +11,15 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
 
   if (!isOpen) return null;
 
-  // 한국어 음성 우선, 나머지도 표시
-  const koreanVoices = voices.filter((v) => v.lang.startsWith('ko'));
+  // 한국어 음성 우선, Google TTS 음성 상위 정렬
+  const koreanVoices = voices
+    .filter((v) => v.lang.startsWith('ko'))
+    .sort((a, b) => {
+      // Google 음성 우선
+      const aGoogle = a.name.toLowerCase().includes('google') ? 0 : 1;
+      const bGoogle = b.name.toLowerCase().includes('google') ? 0 : 1;
+      return aGoogle - bGoogle;
+    });
   const otherVoices = voices.filter((v) => !v.lang.startsWith('ko'));
 
   const handleSelect = (voiceURI: string | null) => {
@@ -28,8 +35,19 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
       <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[70] bg-[#161b22] rounded-t-2xl border-t border-[#21262d] max-h-[70vh] flex flex-col">
         <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 shrink-0" />
         <div className="px-5 pt-4 pb-2 shrink-0">
-          <h3 className="text-sm font-bold text-white">음성 선택</h3>
-          <p className="text-[10px] text-[#8b949e] mt-1">TTS 음성을 선택하세요</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-white">음성 선택</h3>
+              <p className="text-[10px] text-[#8b949e] mt-1">TTS 음성을 선택하세요</p>
+            </div>
+            <button
+              className="text-xs text-[#8b949e] px-2 py-1"
+              onClick={onClose}
+              aria-label="닫기"
+            >
+              닫기
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-6">

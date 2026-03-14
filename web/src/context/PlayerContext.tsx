@@ -349,10 +349,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       pause();
       setState((prev) => ({ ...prev, isPlaying: false }));
     } else {
-      resume();
-      setState((prev) => ({ ...prev, isPlaying: true }));
+      // speechSynthesis가 paused 상태이면 resume, 아닌 경우 처음부터 speak
+      const synth = window.speechSynthesis;
+      if (synth.paused) {
+        resume();
+        setState((prev) => ({ ...prev, isPlaying: true }));
+      } else {
+        // 현재 문장부터 새로 시작
+        setState((prev) => ({ ...prev, isPlaying: true }));
+        speakCurrentSentence(current.currentSentenceIndex, current.speed);
+      }
     }
-  }, [pause, resume]);
+  }, [pause, resume, speakCurrentSentence]);
 
   // ── stop ──────────────────────────────────────────────────────────────────
   const stop = useCallback(() => {
