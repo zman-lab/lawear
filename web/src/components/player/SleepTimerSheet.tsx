@@ -14,7 +14,7 @@ const PRESETS = [
   { label: '1시간', seconds: 60 * 60 },
 ];
 
-// ── 스크롤 피커 컴포넌트 ──────────────────────────────────────────────────
+// ── 스크롤 피커 컴포넌트 (CSS scroll-snap 기반) ──────────────────────────────
 interface ScrollPickerProps {
   values: number[];
   selectedValue: number;
@@ -26,81 +26,75 @@ interface ScrollPickerProps {
 const ITEM_HEIGHT = 44;
 const VISIBLE_COUNT = 5;
 const PICKER_HEIGHT = ITEM_HEIGHT * VISIBLE_COUNT;
+const PADDING_ITEMS = Math.floor(VISIBLE_COUNT / 2); // 위아래 패딩 아이템 수 (2개)
 
 function ScrollPicker({ values, selectedValue, onChange, label, formatValue }: ScrollPickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const isDragging = useRef(false);
-  const startY = useRef(0);
-  const startScroll = useRef(0);
-  const momentum = useRef(0);
-  const lastY = useRef(0);
-  const lastTime = useRef(0);
-  const animFrame = useRef<number | null>(null);
+  const isUserScrolling = useRef(false);
+  const scrollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didInitialScroll = useRef(false);
 
   const fmt = formatValue ?? ((v: number) => String(v).padStart(2, '0'));
 
-  // 선택된 값으로 스크롤 위치 초기화
+  // 선택된 값의 인덱스
   const selectedIdx = values.indexOf(selectedValue);
-  const initialScroll = selectedIdx * ITEM_HEIGHT;
 
+  // 초기 스크롤 위치 설정 (마운트 시 1회만)
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
-    el.scrollTop = initialScroll;
-  }, [initialScroll]);
-
-  const snapToNearest = useCallback(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const idx = Math.round(el.scrollTop / ITEM_HEIGHT);
-    const clamped = Math.max(0, Math.min(idx, values.length - 1));
-    el.scrollTo({ top: clamped * ITEM_HEIGHT, behavior: 'smooth' });
-    onChange(values[clamped]);
-  }, [values, onChange]);
-
-  // 터치 이벤트 핸들러
-  const handleTouchStart = useCallback((e: React.TouchEvent) => {
-    isDragging.current = true;
-    startY.current = e.touches[0].clientY;
-    startScroll.current = containerRef.current?.scrollTop ?? 0;
-    lastY.current = e.touches[0].clientY;
-    lastTime.current = Date.now();
-    momentum.current = 0;
-    if (animFrame.current) cancelAnimationFrame(animFrame.current);
-  }, []);
-
-  const handleTouchMove = useCallback((e: React.TouchEvent) => {
-    if (!isDragging.current || !containerRef.current) return;
-    const y = e.touches[0].clientY;
-    const delta = startY.current - y;
-    containerRef.current.scrollTop = startScroll.current + delta;
-
-    const now = Date.now();
-    const dt = now - lastTime.current;
-    if (dt > 0) {
-      momentum.current = (lastY.current - y) / dt;
+    if (!el || didInitialScroll.current) return;
+    const idx = values.indexOf(selectedValue);
+    if (idx >= 0) {
+      // 즉시 설정 (smooth 아님) -> 초기 렌더링이므로 애니메이션 불필요
+      el.scrollTop = idx * ITEM_HEIGHT;
+      didInitialScroll.current = true;
     }
-    lastY.current = y;
-    lastTime.current = now;
-  }, []);
+  }, [values, selectedValue]);
 
-  const handleTouchEnd = useCallback(() => {
-    isDragging.current = false;
-    // 모멘텀 스크롤 후 스냅
-    setTimeout(snapToNearest, 100);
-  }, [snapToNearest]);
-
-  // 마우스 휠 이벤트
-  const handleWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault();
+  // selectedValue prop이 외부에서 변경되면 스크롤 위치 동기화
+  useEffect(() => {
+    if (!didInitialScroll.current) return; // 초기 설정 전이면 무시
+    if (isUserScrolling.current) return; // 유저가 스크롤 중이면 무시
     const el = containerRef.current;
     if (!el) return;
-    el.scrollTop += e.deltaY;
-    if (animFrame.current) cancelAnimationFrame(animFrame.current);
-    animFrame.current = requestAnimationFrame(() => {
-      setTimeout(snapToNearest, 80);
-    });
-  }, [snapToNearest]);
+    const idx = values.indexOf(selectedValue);
+    if (idx >= 0) {
+      const targetTop = idx * ITEM_HEIGHT;
+      if (Math.abs(el.scrollTop - targetTop) > ITEM_HEIGHT / 2) {
+        el.scrollTo({ top: targetTop, behavior: 'smooth' });
+      }
+    }
+  }, [selectedValue, values]);
+
+  // 스크롤 이벤트 -> debounce로 스냅 값 감지
+  const handleScroll = useCallback(() => {
+    isUserScrolling.current = true;
+
+    if (scrollTimer.current) {
+      clearTimeout(scrollTimer.current);
+    }
+
+    scrollTimer.current = setTimeout(() => {
+      isUserScrolling.current = false;
+      const el = containerRef.current;
+      if (!el) return;
+
+      // 현재 스크롤 위치에서 가장 가까운 아이템 인덱스 계산
+      const idx = Math.round(el.scrollTop / ITEM_HEIGHT);
+      const clamped = Math.max(0, Math.min(idx, values.length - 1));
+
+      // 정확한 위치로 스냅 (CSS scroll-snap이 처리하지만, 보험)
+      const targetTop = clamped * ITEM_HEIGHT;
+      if (Math.abs(el.scrollTop - targetTop) > 1) {
+        el.scrollTo({ top: targetTop, behavior: 'smooth' });
+      }
+
+      // 값 변경 알림
+      if (values[clamped] !== selectedValue) {
+        onChange(values[clamped]);
+      }
+    }, 120);
+  }, [values, selectedValue, onChange]);
 
   // 아이템 클릭으로 선택
   const handleItemClick = useCallback((idx: number) => {
@@ -109,6 +103,13 @@ function ScrollPicker({ values, selectedValue, onChange, label, formatValue }: S
     el.scrollTo({ top: idx * ITEM_HEIGHT, behavior: 'smooth' });
     onChange(values[idx]);
   }, [values, onChange]);
+
+  // cleanup
+  useEffect(() => {
+    return () => {
+      if (scrollTimer.current) clearTimeout(scrollTimer.current);
+    };
+  }, []);
 
   return (
     <div className="flex flex-col items-center">
@@ -120,7 +121,7 @@ function ScrollPicker({ values, selectedValue, onChange, label, formatValue }: S
         {/* 선택 인디케이터 (중앙 하이라이트) */}
         <div
           className="absolute left-0 right-0 pointer-events-none z-10 border-t border-b border-blue-500/30 bg-blue-500/5"
-          style={{ top: ITEM_HEIGHT * 2, height: ITEM_HEIGHT }}
+          style={{ top: ITEM_HEIGHT * PADDING_ITEMS, height: ITEM_HEIGHT }}
         />
         {/* 위아래 페이드 그라디언트 */}
         <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-[#161b22] to-transparent z-10 pointer-events-none" />
@@ -128,35 +129,24 @@ function ScrollPicker({ values, selectedValue, onChange, label, formatValue }: S
 
         <div
           ref={containerRef}
-          className="h-full overflow-y-scroll scrollbar-hide"
+          className="h-full overflow-y-auto scrollbar-hide"
           style={{
             scrollSnapType: 'y mandatory',
             WebkitOverflowScrolling: 'touch',
-            msOverflowStyle: 'none',
-            scrollbarWidth: 'none',
           }}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
-          onTouchEnd={handleTouchEnd}
-          onWheel={handleWheel}
-          onScroll={() => {
-            // 스크롤 종료 시 스냅 (passive)
-            if (!isDragging.current) {
-              if (animFrame.current) cancelAnimationFrame(animFrame.current);
-              animFrame.current = requestAnimationFrame(() => {
-                setTimeout(snapToNearest, 150);
-              });
-            }
-          }}
+          onScroll={handleScroll}
+          data-testid={`scroll-picker-${label}`}
         >
-          {/* 상단 패딩 (2 아이템 높이) */}
-          <div style={{ height: ITEM_HEIGHT * 2 }} />
+          {/* 상단 패딩 아이템 (빈 공간 -> 첫 번째 값이 중앙에 올 수 있게) */}
+          {Array.from({ length: PADDING_ITEMS }).map((_, i) => (
+            <div key={`pad-top-${i}`} style={{ height: ITEM_HEIGHT }} aria-hidden />
+          ))}
           {values.map((v, idx) => {
-            const isSelected = v === selectedValue;
+            const isSelected = idx === selectedIdx;
             return (
               <div
                 key={v}
-                className={`flex items-center justify-center cursor-pointer transition-all ${
+                className={`flex items-center justify-center cursor-pointer select-none transition-colors ${
                   isSelected ? 'text-blue-400 font-bold text-xl' : 'text-white/40 text-lg'
                 }`}
                 style={{
@@ -164,13 +154,18 @@ function ScrollPicker({ values, selectedValue, onChange, label, formatValue }: S
                   scrollSnapAlign: 'start',
                 }}
                 onClick={() => handleItemClick(idx)}
+                data-testid={`picker-item-${label}-${v}`}
+                role="option"
+                aria-selected={isSelected}
               >
                 {fmt(v)}
               </div>
             );
           })}
-          {/* 하단 패딩 (2 아이템 높이) */}
-          <div style={{ height: ITEM_HEIGHT * 2 }} />
+          {/* 하단 패딩 아이템 */}
+          {Array.from({ length: PADDING_ITEMS }).map((_, i) => (
+            <div key={`pad-bot-${i}`} style={{ height: ITEM_HEIGHT }} aria-hidden />
+          ))}
         </div>
       </div>
     </div>
@@ -184,6 +179,13 @@ export function SleepTimerSheet({ isOpen, onClose }: SleepTimerSheetProps) {
   const [hours, setHours] = useState(0);
   const [minutes, setMinutes] = useState(15);
   const [seconds, setSeconds] = useState(0);
+
+  // 시트가 닫힐 때 커스텀 모드 초기화
+  useEffect(() => {
+    if (!isOpen) {
+      setCustomMode(false);
+    }
+  }, [isOpen]);
 
   const handlePreset = (secs: number) => {
     setSleepTimer(secs);
@@ -209,12 +211,15 @@ export function SleepTimerSheet({ isOpen, onClose }: SleepTimerSheetProps) {
   const minuteValues = Array.from({ length: 60 }, (_, i) => i);
   const secondValues = Array.from({ length: 60 }, (_, i) => i);
 
+  const isCustomValid = hours * 3600 + minutes * 60 + seconds > 0;
+
   return (
     <>
       {/* backdrop */}
       <div
         className="fixed inset-0 bg-black/40 z-[60]"
         onClick={onClose}
+        data-testid="sleep-timer-backdrop"
       />
       {/* sheet */}
       <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[70] bg-[#161b22] rounded-t-2xl border-t border-[#21262d]">
@@ -233,15 +238,16 @@ export function SleepTimerSheet({ isOpen, onClose }: SleepTimerSheetProps) {
 
           {/* 타이머 활성 상태 표시 */}
           {state.sleepTimer && sleepTimerRemaining !== null && (
-            <div className="mb-4 p-3 bg-blue-500/10 rounded-xl flex items-center justify-between">
+            <div className="mb-4 p-3 bg-blue-500/10 rounded-xl flex items-center justify-between" data-testid="active-timer-display">
               <span className="text-xs text-blue-400">타이머 활성</span>
               <div className="flex items-center gap-2">
-                <span className="text-sm font-mono font-bold text-blue-400">
+                <span className="text-sm font-mono font-bold text-blue-400" data-testid="timer-remaining">
                   {formatRemaining(sleepTimerRemaining)}
                 </span>
                 <button
                   className="text-[10px] text-red-400 bg-red-400/10 rounded px-2 py-0.5"
                   onClick={handleCancel}
+                  data-testid="cancel-timer-btn"
                 >
                   해제
                 </button>
@@ -258,6 +264,7 @@ export function SleepTimerSheet({ isOpen, onClose }: SleepTimerSheetProps) {
                     key={p.seconds}
                     className="py-3 rounded-xl bg-white/5 text-sm font-medium text-white active:bg-white/10 transition-colors min-h-[44px]"
                     onClick={() => handlePreset(p.seconds)}
+                    data-testid={`preset-${p.seconds}`}
                   >
                     {p.label}
                   </button>
@@ -265,6 +272,7 @@ export function SleepTimerSheet({ isOpen, onClose }: SleepTimerSheetProps) {
                 <button
                   className="py-3 rounded-xl bg-white/5 text-sm font-medium text-[#8b949e] active:bg-white/10 transition-colors min-h-[44px]"
                   onClick={() => setCustomMode(true)}
+                  data-testid="custom-mode-btn"
                 >
                   직접설정
                 </button>
@@ -274,6 +282,7 @@ export function SleepTimerSheet({ isOpen, onClose }: SleepTimerSheetProps) {
               <button
                 className="w-full py-2.5 rounded-xl bg-white/5 text-sm text-[#8b949e] active:bg-white/10 transition-colors"
                 onClick={onClose}
+                data-testid="cancel-btn"
               >
                 취소
               </button>
@@ -307,12 +316,19 @@ export function SleepTimerSheet({ isOpen, onClose }: SleepTimerSheetProps) {
                 <button
                   className="flex-1 py-2.5 rounded-xl bg-white/5 text-sm text-[#8b949e] min-h-[44px]"
                   onClick={() => setCustomMode(false)}
+                  data-testid="back-btn"
                 >
                   뒤로
                 </button>
                 <button
-                  className="flex-1 py-2.5 rounded-xl bg-blue-600 text-sm font-bold text-white min-h-[44px]"
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-bold min-h-[44px] transition-colors ${
+                    isCustomValid
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-white/5 text-white/30 cursor-not-allowed'
+                  }`}
                   onClick={handleCustom}
+                  disabled={!isCustomValid}
+                  data-testid="start-btn"
                 >
                   시작
                 </button>
