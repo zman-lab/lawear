@@ -31,14 +31,14 @@ export function useSpeechSynthesis() {
     };
   }, [isSupported]);
 
-  // 한국어 음성 선택
+  // 한국어 음성 선택 (Google TTS 우선)
   const getKoreanVoice = useCallback((): SpeechSynthesisVoice | null => {
     const allVoices = window.speechSynthesis.getVoices();
-    return (
-      allVoices.find((v) => v.lang === 'ko-KR') ||
-      allVoices.find((v) => v.lang.startsWith('ko')) ||
-      null
-    );
+    const koVoices = allVoices.filter((v) => v.lang === 'ko-KR' || v.lang.startsWith('ko'));
+    if (koVoices.length === 0) return null;
+    // Google TTS 음성 우선
+    const googleVoice = koVoices.find((v) => v.name.toLowerCase().includes('google'));
+    return googleVoice ?? koVoices[0];
   }, []);
 
   const speak = useCallback(
@@ -73,7 +73,9 @@ export function useSpeechSynthesis() {
         options.onEnd?.();
       };
 
-      utterance.onerror = () => {
+      utterance.onerror = (e) => {
+        // cancel()에 의한 interrupted는 정상 동작이므로 무시
+        if (e.error === 'interrupted' || e.error === 'canceled') return;
         setIsSpeaking(false);
         setIsPaused(false);
         currentUtteranceRef.current = null;
@@ -84,7 +86,11 @@ export function useSpeechSynthesis() {
       }
 
       currentUtteranceRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
+      // Android Chrome에서 cancel 직후 speak이 씹히는 버그 방지
+      // requestAnimationFrame으로 다음 프레임에서 speak 호출
+      requestAnimationFrame(() => {
+        window.speechSynthesis.speak(utterance);
+      });
     },
     [isSupported, getKoreanVoice],
   );

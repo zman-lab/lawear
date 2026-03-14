@@ -3,6 +3,8 @@ import { usePlayer } from '../../context/PlayerContext';
 import { subjects } from '../../data/ttsData';
 import { SleepTimerSheet } from './SleepTimerSheet';
 import { VoiceSheet } from './VoiceSheet';
+import { SpeedSheet } from './SpeedSheet';
+import { RepeatModeSheet } from './RepeatModeSheet';
 import type { Speed, RepeatMode } from '../../types';
 
 function formatTime(seconds: number): string {
@@ -30,15 +32,6 @@ const SPEED_LABELS: Record<Speed, string> = {
   3.0: '3.0x',
 };
 
-const SPEEDS: Speed[] = [0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0];
-
-const REPEAT_MODE_ORDER: RepeatMode[] = [
-  'stop-after-one',
-  'stop-after-all',
-  'repeat-all',
-  'repeat-one',
-  'shuffle',
-];
 
 const REPEAT_MODE_LABELS: Record<RepeatMode, string> = {
   'stop-after-one': '1곡 후 정지',
@@ -91,8 +84,6 @@ export function PlayerBar() {
     state,
     isTTSSupported,
     togglePlay,
-    setSpeed,
-    setRepeatMode,
     sleepTimerRemaining,
     nextSentence,
     prevSentence,
@@ -101,6 +92,8 @@ export function PlayerBar() {
 
   const [showTimerSheet, setShowTimerSheet] = useState(false);
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
+  const [showSpeedSheet, setShowSpeedSheet] = useState(false);
+  const [showRepeatSheet, setShowRepeatSheet] = useState(false);
 
   const {
     isPlaying,
@@ -111,18 +104,6 @@ export function PlayerBar() {
     currentQuestionId,
     currentSentenceIndex,
   } = state;
-
-  const cycleSpeed = () => {
-    const idx = SPEEDS.indexOf(speed);
-    const next = SPEEDS[(idx + 1) % SPEEDS.length];
-    setSpeed(next);
-  };
-
-  const cycleRepeatMode = () => {
-    const idx = REPEAT_MODE_ORDER.indexOf(repeatMode);
-    const next = REPEAT_MODE_ORDER[(idx + 1) % REPEAT_MODE_ORDER.length];
-    setRepeatMode(next);
-  };
 
   const progressBarRef = useRef<HTMLDivElement>(null);
 
@@ -210,23 +191,23 @@ export function PlayerBar() {
 
       {/* 컨트롤 */}
       <div className="px-4 pb-3 pt-1 flex items-center justify-between">
-        {/* 속도 버튼 */}
+        {/* 속도 버튼 — 탭: 시트, 길게 누르기: 순환 */}
         <button
-          className="text-xs font-bold text-blue-400 bg-blue-400/10 rounded-md px-2 py-1 min-w-[3rem] text-center"
-          onClick={cycleSpeed}
+          className="text-xs font-bold text-blue-400 bg-blue-400/10 rounded-md px-2 py-1 min-w-[3rem] text-center min-h-[44px]"
+          onClick={() => setShowSpeedSheet(true)}
           aria-label={`재생 속도: ${SPEED_LABELS[speed]}`}
         >
           {SPEED_LABELS[speed]}
         </button>
 
-        {/* 반복 모드 */}
+        {/* 반복 모드 — 탭: 시트 열기 */}
         <button
           className={`min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors ${
             repeatMode === 'stop-after-one'
               ? 'text-[#8b949e]'
               : 'text-blue-400'
           }`}
-          onClick={cycleRepeatMode}
+          onClick={() => setShowRepeatSheet(true)}
           aria-label={`반복 모드: ${REPEAT_MODE_LABELS[repeatMode]}`}
           title={REPEAT_MODE_LABELS[repeatMode]}
         >
@@ -322,6 +303,12 @@ export function PlayerBar() {
 
       {/* 음성 선택 바텀시트 */}
       <VoiceSheet isOpen={showVoiceSheet} onClose={() => setShowVoiceSheet(false)} />
+
+      {/* 속도 선택 바텀시트 */}
+      <SpeedSheet isOpen={showSpeedSheet} onClose={() => setShowSpeedSheet(false)} />
+
+      {/* 반복 모드 바텀시트 */}
+      <RepeatModeSheet isOpen={showRepeatSheet} onClose={() => setShowRepeatSheet(false)} />
     </div>
   );
 }
