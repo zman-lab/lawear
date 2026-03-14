@@ -163,7 +163,7 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
     state,
     setViewMode,
     setSentenceIndex,
-    play,
+    selectQuestion,
   } = usePlayer();
 
   const { isPlaying, currentSentenceIndex, viewMode } = state;
@@ -180,13 +180,10 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
   const fileGroup = subject?.files.find((f) => f.id === fileId);
   const question = fileGroup?.questions.find((q) => q.id === questionId);
 
-  // 플레이어 초기화 (처음 마운트 시)
+  // 플레이어 초기화 (처음 마운트 시 또는 문제 변경 시)
   useEffect(() => {
-    if (!isPlaying) {
-      play(subjectId, fileId, questionId);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subjectId, fileId, questionId]);
+    selectQuestion(subjectId, fileId, questionId);
+  }, [subjectId, fileId, questionId, selectQuestion]);
 
   // 문장 ref 맵
   const sentenceRefs = useRef<Map<number, HTMLElement | null>>(new Map());

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 
 interface SpeakOptions {
   rate?: number;
+  voiceURI?: string;
   onEnd?: () => void;
   onBoundary?: (event: SpeechSynthesisEvent) => void;
 }
@@ -51,8 +52,14 @@ export function useSpeechSynthesis() {
       utterance.lang = 'ko-KR';
       utterance.rate = Math.min(10, Math.max(0.1, options.rate ?? rateRef.current));
 
-      const korVoice = getKoreanVoice();
-      if (korVoice) utterance.voice = korVoice;
+      if (options.voiceURI) {
+        const allVoices = window.speechSynthesis.getVoices();
+        const selectedVoice = allVoices.find((v) => v.voiceURI === options.voiceURI);
+        if (selectedVoice) utterance.voice = selectedVoice;
+      } else {
+        const korVoice = getKoreanVoice();
+        if (korVoice) utterance.voice = korVoice;
+      }
 
       utterance.onstart = () => {
         setIsSpeaking(true);

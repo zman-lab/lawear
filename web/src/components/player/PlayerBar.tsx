@@ -1,7 +1,9 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
 import { subjects } from '../../data/ttsData';
-import type { Speed } from '../../types';
+import { SleepTimerSheet } from './SleepTimerSheet';
+import { VoiceSheet } from './VoiceSheet';
+import type { Speed, RepeatMode } from '../../types';
 
 function formatTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -18,14 +20,71 @@ function parseDuration(duration: string): number {
 }
 
 const SPEED_LABELS: Record<Speed, string> = {
+  0.5: '0.5x',
   0.8: '0.8x',
   1.0: '1.0x',
   1.2: '1.2x',
   1.5: '1.5x',
   2.0: '2.0x',
+  2.5: '2.5x',
+  3.0: '3.0x',
 };
 
-const SPEEDS: Speed[] = [0.8, 1.0, 1.2, 1.5, 2.0];
+const SPEEDS: Speed[] = [0.5, 0.8, 1.0, 1.2, 1.5, 2.0, 2.5, 3.0];
+
+const REPEAT_MODE_ORDER: RepeatMode[] = [
+  'stop-after-one',
+  'stop-after-all',
+  'repeat-all',
+  'repeat-one',
+  'shuffle',
+];
+
+const REPEAT_MODE_LABELS: Record<RepeatMode, string> = {
+  'stop-after-one': '1곡 후 정지',
+  'stop-after-all': '전곡 후 정지',
+  'repeat-all': '전곡 반복',
+  'repeat-one': '1곡 반복',
+  shuffle: '셔플',
+};
+
+function RepeatModeIcon({ mode }: { mode: RepeatMode }) {
+  switch (mode) {
+    case 'stop-after-one':
+      return (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+          <text x="18" y="20" fontSize="9" fontWeight="bold" fill="currentColor" stroke="none">1</text>
+        </svg>
+      );
+    case 'stop-after-all':
+      return (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h7" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4 2-4 2" />
+        </svg>
+      );
+    case 'repeat-all':
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
+        </svg>
+      );
+    case 'repeat-one':
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z" />
+          <text x="12" y="15" fontSize="8" fontWeight="bold" textAnchor="middle" fill="currentColor">1</text>
+        </svg>
+      );
+    case 'shuffle':
+      return (
+        <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M10.59 9.17L5.41 4 4 5.41l5.17 5.17 1.42-1.41zM14.5 4l2.04 2.04L4 18.59 5.41 20 17.96 7.46 20 9.5V4h-5.5zm.33 9.41l-1.41 1.41 3.13 3.13L14.5 20H20v-5.5l-2.04 2.04-3.13-3.13z" />
+        </svg>
+      );
+  }
+}
 
 export function PlayerBar() {
   const {
@@ -33,14 +92,20 @@ export function PlayerBar() {
     isTTSSupported,
     togglePlay,
     setSpeed,
+    setRepeatMode,
+    sleepTimerRemaining,
     nextSentence,
     prevSentence,
     setSentenceIndex,
   } = usePlayer();
 
+  const [showTimerSheet, setShowTimerSheet] = useState(false);
+  const [showVoiceSheet, setShowVoiceSheet] = useState(false);
+
   const {
     isPlaying,
     speed,
+    repeatMode,
     currentSubjectId,
     currentFileId,
     currentQuestionId,
@@ -51,6 +116,12 @@ export function PlayerBar() {
     const idx = SPEEDS.indexOf(speed);
     const next = SPEEDS[(idx + 1) % SPEEDS.length];
     setSpeed(next);
+  };
+
+  const cycleRepeatMode = () => {
+    const idx = REPEAT_MODE_ORDER.indexOf(repeatMode);
+    const next = REPEAT_MODE_ORDER[(idx + 1) % REPEAT_MODE_ORDER.length];
+    setRepeatMode(next);
   };
 
   const progressBarRef = useRef<HTMLDivElement>(null);
@@ -148,6 +219,20 @@ export function PlayerBar() {
           {SPEED_LABELS[speed]}
         </button>
 
+        {/* 반복 모드 */}
+        <button
+          className={`min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors ${
+            repeatMode === 'stop-after-one'
+              ? 'text-[#8b949e]'
+              : 'text-blue-400'
+          }`}
+          onClick={cycleRepeatMode}
+          aria-label={`반복 모드: ${REPEAT_MODE_LABELS[repeatMode]}`}
+          title={REPEAT_MODE_LABELS[repeatMode]}
+        >
+          <RepeatModeIcon mode={repeatMode} />
+        </button>
+
         {/* 중앙 컨트롤 */}
         <div className="flex items-center gap-6">
           {/* 이전 */}
@@ -194,21 +279,57 @@ export function PlayerBar() {
           </button>
         </div>
 
-        {/* 재생목록 */}
-        <button
-          className="text-[#8b949e] min-w-[44px] min-h-[44px] flex items-center justify-center"
-          aria-label="재생목록"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 6h16M4 12h16M4 18h7"
-            />
-          </svg>
-        </button>
+        {/* 우: 타이머 + 음성 */}
+        <div className="flex items-center gap-1.5">
+          {/* 슬립 타이머 */}
+          {sleepTimerRemaining !== null ? (
+            <button
+              className="text-xs font-mono text-blue-400 bg-blue-400/10 rounded-md px-2 py-1 min-w-[3rem] text-center"
+              onClick={() => setShowTimerSheet(true)}
+              aria-label="슬립 타이머 설정"
+            >
+              {formatTimerDisplay(sleepTimerRemaining)}
+            </button>
+          ) : (
+            <button
+              className="text-[#8b949e] min-w-[36px] min-h-[44px] flex items-center justify-center"
+              onClick={() => setShowTimerSheet(true)}
+              aria-label="슬립 타이머 설정"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </button>
+          )}
+
+          {/* 음성 선택 */}
+          <button
+            className={`min-w-[36px] min-h-[44px] flex items-center justify-center ${
+              state.selectedVoiceURI ? 'text-blue-400' : 'text-[#8b949e]'
+            }`}
+            onClick={() => setShowVoiceSheet(true)}
+            aria-label="음성 선택"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+          </button>
+        </div>
       </div>
+
+      {/* 슬립 타이머 바텀시트 */}
+      <SleepTimerSheet isOpen={showTimerSheet} onClose={() => setShowTimerSheet(false)} />
+
+      {/* 음성 선택 바텀시트 */}
+      <VoiceSheet isOpen={showVoiceSheet} onClose={() => setShowVoiceSheet(false)} />
     </div>
   );
+}
+
+function formatTimerDisplay(totalSeconds: number): string {
+  const h = Math.floor(totalSeconds / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
 }
