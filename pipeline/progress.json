@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-03-15T09:09:44.907726+00:00",
+  "lastUpdated": "2026-03-15T09:19:05.713707+00:00",
   "subjects": {
     "minso": {
       "files": {
@@ -24,12 +24,12 @@
           "label": "미케03"
         },
         "yebi_mike04": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 9,
           "label": "미케04"
         },
         "yebi_mike05": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 14,
           "label": "미케05"
         },
@@ -240,7 +240,7 @@
   "stats": {
     "totalFiles": 43,
     "extractedFiles": 43,
-    "ttsDoneFiles": 2,
+    "ttsDoneFiles": 4,
     "totalCases": 252,
     "extractedCases": 252
   }
