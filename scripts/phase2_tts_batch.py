@@ -666,14 +666,21 @@ def cmd_save(args):
     # 에이전트 응답 로드
     # input_path가 "-"이면 stdin에서 읽기
     if input_path == "-":
-        agent_output = sys.stdin.read()
+        raw_content = sys.stdin.read()
     else:
         input_file = Path(input_path)
         if not input_file.exists():
             log.error("입력 파일 없음: %s", input_path)
             sys.exit(1)
         with open(input_file, "r", encoding="utf-8") as f:
-            agent_output = f.read()
+            raw_content = f.read()
+
+    # JSON Lines 형식인 경우 assistant 응답 텍스트 추출
+    agent_output = extract_agent_text(raw_content)
+    if agent_output is raw_content:
+        log.info("일반 텍스트 입력으로 처리")
+    else:
+        log.info("JSON Lines 형식 감지: assistant 응답 추출 완료 (%d chars)", len(agent_output))
 
     # --case 필터: 단일 Case 결과 저장
     if args.case:
@@ -762,14 +769,83 @@ def cmd_save(args):
     save_progress(progress)
 
 
+def extract_agent_text(raw_content: str) -> str:
+    """
+    에이전트 응답 파일에서 실제 텍스트를 추출한다.
+
+    지원 형식:
+    1. JSON Lines (.output 파일): 마지막 assistant 메시지의 content[].text 추출
+    2. 일반 텍스트: 그대로 반환
+    """
+    stripped = raw_content.strip()
+    if not stripped.startswith("{"):
+        return raw_content
+
+    # JSON Lines 형식 시도
+    lines = stripped.split("\n")
+    assistant_text = ""
+    for line in reversed(lines):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        msg = obj.get("message", {})
+        if not isinstance(msg, dict):
+            continue
+        if msg.get("role") != "assistant":
+            continue
+        content_items = msg.get("content", [])
+        if isinstance(content_items, list):
+            parts = []
+            for item in content_items:
+                if isinstance(item, dict) and item.get("type") == "text":
+                    parts.append(item.get("text", ""))
+            if parts:
+                assistant_text = "\n".join(parts)
+                break
+        elif isinstance(content_items, str):
+            assistant_text = content_items
+            break
+
+    return assistant_text if assistant_text else raw_content
+
+
 def _split_multi_case_output(
     agent_output: str, cases_meta: list[dict]
 ) -> list[tuple[dict, str]]:
     """
     여러 Case가 포함된 에이전트 응답을 Case별로 분리한다.
-    Case 구분 마커: "## Case XX", "# Case XX", "--- Case XX ---"
+
+    지원 마커 (우선순위 순):
+    1. "=== CASE: caseXX ===" (에이전트 출력 표준 마커)
+    2. "## Case XX", "# Case XX", "--- Case XX ---"
     """
-    # Case 구분 패턴 찾기
+    # 우선: "=== CASE: caseXX ===" 마커 패턴
+    case_id_pattern = re.compile(
+        r"===\s*CASE:\s*(case\d+)\s*===",
+        re.IGNORECASE,
+    )
+    id_matches = list(case_id_pattern.finditer(agent_output))
+
+    if id_matches:
+        results = []
+        for i, match in enumerate(id_matches):
+            case_id = match.group(1).lower()
+            start = match.end()
+            end = id_matches[i + 1].start() if i + 1 < len(id_matches) else len(agent_output)
+            case_text = agent_output[start:end]
+
+            meta = next(
+                (c for c in cases_meta if c.get("id") == case_id),
+                {"id": case_id, "label": case_id, "subtitle": ""},
+            )
+            results.append((meta, case_text))
+        return results
+
+    # 폴백: "## Case XX" / "# Case XX" 등 숫자 기반 마커
     case_pattern = re.compile(
         r"(?:^|\n)(?:#{1,3}\s*)?(?:Case\s*(\d+)|case(\d+))",
         re.IGNORECASE,
