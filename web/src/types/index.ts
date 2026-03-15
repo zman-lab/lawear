@@ -1,3 +1,10 @@
+// ---- TTS Voice (네이티브/웹 통합) ----
+export interface TTSVoice {
+  voiceURI: string;
+  name: string;
+  lang: string;
+}
+
 export type Theme = 'dark' | 'light';
 export type Level = 1 | 2 | 3;
 export type ViewMode = 'reader' | 'lyrics';

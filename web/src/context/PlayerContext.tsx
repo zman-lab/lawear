@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { PlayerState, Speed, Level, ViewMode, RepeatMode, SleepTimer } from '../types';
+import { PlayerState, Speed, Level, ViewMode, RepeatMode, SleepTimer, TTSVoice } from '../types';
 import { subjects } from '../data/ttsData';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 
@@ -105,7 +105,7 @@ interface PlayerContextValue {
   state: PlayerState;
   sentences: string[];
   isTTSSupported: boolean;
-  voices: SpeechSynthesisVoice[];
+  voices: TTSVoice[];
   play: (subjectId: string, fileId: string, questionId: string) => void;
   selectQuestion: (subjectId: string, fileId: string, questionId: string) => void;
   togglePlay: () => void;
@@ -132,7 +132,7 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PlayerState>(initialState);
   const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
-  const { isSupported, speak, pause, resume, cancel, setRate, voices } = useSpeechSynthesis();
+  const { isSupported, isNative, speak, pause, resume, cancel, setRate, voices } = useSpeechSynthesis();
 
   // 백그라운드 재생 허용 — visibilitychange 핸들러 제거됨
 
@@ -349,18 +349,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       pause();
       setState((prev) => ({ ...prev, isPlaying: false }));
     } else {
-      // speechSynthesis가 paused 상태이면 resume, 아닌 경우 처음부터 speak
-      const synth = window.speechSynthesis;
-      if (synth.paused) {
-        resume();
-        setState((prev) => ({ ...prev, isPlaying: true }));
-      } else {
-        // 현재 문장부터 새로 시작
+      if (isNative) {
+        // 네이티브: pause/resume 미지원이므로 항상 현재 문장부터 새로 speak
         setState((prev) => ({ ...prev, isPlaying: true }));
         speakCurrentSentence(current.currentSentenceIndex, current.speed);
+      } else {
+        // 웹: speechSynthesis가 paused 상태이면 resume, 아닌 경우 처음부터 speak
+        const synth = window.speechSynthesis;
+        if (synth.paused) {
+          resume();
+          setState((prev) => ({ ...prev, isPlaying: true }));
+        } else {
+          setState((prev) => ({ ...prev, isPlaying: true }));
+          speakCurrentSentence(current.currentSentenceIndex, current.speed);
+        }
       }
     }
-  }, [pause, resume, speakCurrentSentence]);
+  }, [pause, resume, speakCurrentSentence, isNative]);
 
   // ── stop ──────────────────────────────────────────────────────────────────
   const stop = useCallback(() => {

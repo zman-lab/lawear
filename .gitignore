@@ -28,3 +28,8 @@ Thumbs.db
 # Web frontend
 web/node_modules/
 web/dist/
+
+# APK binaries
+*.apk
+*.apk.bin
+web/public/lawear-debug.apk.bin
