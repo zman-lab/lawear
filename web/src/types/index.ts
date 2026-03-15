@@ -53,6 +53,12 @@ export interface TocItem {
   indent: number;
 }
 
+export interface PlaylistItem {
+  subjectId: string;
+  fileId: string;
+  questionId: string;
+}
+
 export interface PlayerState {
   isPlaying: boolean;
   currentSubjectId: string | null;
@@ -65,6 +71,8 @@ export interface PlayerState {
   selectedVoiceURI: string | null;
   level: Level;
   viewMode: ViewMode;
+  playlist: PlaylistItem[];
+  playlistIndex: number;
 }
 
 // ---- 레거시 보일러플레이트 타입 (기존 컴포넌트 호환) ----

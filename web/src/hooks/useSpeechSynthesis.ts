@@ -201,15 +201,30 @@ export function useSpeechSynthesis() {
   const setRate = useCallback(
     (speed: number) => {
       rateRef.current = Math.min(10, Math.max(0.1, speed));
-      if (!isNative && currentUtteranceRef.current && isSpeaking) {
-        const text = currentUtteranceRef.current.text;
-        const onEnd = currentUtteranceRef.current.onend as (() => void) | null;
-        speak(text, { rate: rateRef.current, onEnd: onEnd ?? undefined });
+      if (isSpeaking) {
+        if (isNative) {
+          // 네이티브: 현재 재생을 중단하고 onRateChange 콜백 호출
+          // PlayerContext에서 현재 문장을 새 rate로 다시 speak
+          TextToSpeech.stop().catch(() => {});
+          nativeSpeakingRef.current = false;
+          nativeOnEndRef.current = null;
+          setIsSpeaking(false);
+          onRateChangeRef.current?.();
+        } else if (currentUtteranceRef.current) {
+          const text = currentUtteranceRef.current.text;
+          const onEnd = currentUtteranceRef.current.onend as (() => void) | null;
+          speak(text, { rate: rateRef.current, onEnd: onEnd ?? undefined });
+        }
       }
-      // 네이티브에서 속도 변경 시 현재 문장 재시작은 PlayerContext에서 처리
     },
     [isSpeaking, speak],
   );
+
+  // 네이티브에서 rate 변경 시 PlayerContext에 알림을 위한 콜백
+  const onRateChangeRef = useRef<(() => void) | null>(null);
+  const setOnRateChange = useCallback((cb: (() => void) | null) => {
+    onRateChangeRef.current = cb;
+  }, []);
 
   return {
     isSupported,
@@ -222,6 +237,7 @@ export function useSpeechSynthesis() {
     resume,
     cancel,
     setRate,
+    setOnRateChange,
     voices,
   };
 }

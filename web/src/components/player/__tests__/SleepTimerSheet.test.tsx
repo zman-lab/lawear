@@ -19,6 +19,8 @@ const defaultPlayerState: PlayerState = {
   selectedVoiceURI: null,
   level: 1,
   viewMode: 'reader',
+  playlist: [],
+  playlistIndex: -1,
 };
 
 interface MockPlayerValue {

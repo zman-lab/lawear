@@ -87,6 +87,8 @@ export function PlayerBar() {
     sleepTimerRemaining,
     nextSentence,
     prevSentence,
+    nextQuestion,
+    prevQuestion,
     setSentenceIndex,
   } = usePlayer();
 
@@ -103,7 +105,11 @@ export function PlayerBar() {
     currentFileId,
     currentQuestionId,
     currentSentenceIndex,
+    playlist,
+    playlistIndex,
   } = state;
+
+  const hasPlaylist = playlist.length > 1;
 
   const progressBarRef = useRef<HTMLDivElement>(null);
 
@@ -162,8 +168,19 @@ export function PlayerBar() {
           </p>
         </div>
       )}
+      {/* 플레이리스트 트랙 정보 */}
+      {hasPlaylist && hasContent && (
+        <div className="px-4 pt-2 pb-0.5 flex items-center justify-between">
+          <p className="text-[10px] text-[#8b949e] truncate flex-1">
+            {question?.label}
+          </p>
+          <span className="text-[10px] text-blue-400/60 font-mono ml-2 shrink-0">
+            {playlistIndex + 1}/{playlist.length}
+          </span>
+        </div>
+      )}
       {/* 프로그레스 바 */}
-      <div className="px-4 pt-3">
+      <div className={`px-4 ${hasPlaylist && hasContent ? 'pt-1' : 'pt-3'}`}>
         <div
           ref={progressBarRef}
           className="h-1 bg-white/5 rounded-full overflow-hidden cursor-pointer"
@@ -215,8 +232,24 @@ export function PlayerBar() {
         </button>
 
         {/* 중앙 컨트롤 */}
-        <div className="flex items-center gap-6">
-          {/* 이전 */}
+        <div className="flex items-center gap-3">
+          {/* 이전 트랙 (플레이리스트 모드) */}
+          {hasPlaylist && (
+            <button
+              className={`min-w-[32px] min-h-[44px] flex items-center justify-center transition-colors ${
+                playlistIndex > 0 ? 'text-[#8b949e] active:text-white' : 'text-[#8b949e]/20'
+              }`}
+              onClick={prevQuestion}
+              aria-label="이전 트랙"
+              disabled={!hasContent || playlistIndex <= 0}
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+              </svg>
+            </button>
+          )}
+
+          {/* 이전 문장 */}
           <button
             className="text-[#8b949e] active:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             onClick={prevSentence}
@@ -224,7 +257,7 @@ export function PlayerBar() {
             disabled={!hasContent}
           >
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 6h2v12H6zm3.5 6l8.5 6V6z" />
+              <path d="M11 18V6l-8.5 6 8.5 6zm.5-6l8.5 6V6l-8.5 6z" />
             </svg>
           </button>
 
@@ -235,19 +268,17 @@ export function PlayerBar() {
             aria-label={isPlaying ? '일시정지' : '재생'}
           >
             {isPlaying ? (
-              // 일시정지 아이콘
               <svg className="w-6 h-6" fill="#0d1117" viewBox="0 0 24 24">
                 <path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z" />
               </svg>
             ) : (
-              // 재생 아이콘
               <svg className="w-6 h-6" fill="#0d1117" viewBox="0 0 24 24">
                 <path d="M8 5v14l11-7z" />
               </svg>
             )}
           </button>
 
-          {/* 다음 */}
+          {/* 다음 문장 */}
           <button
             className="text-[#8b949e] active:text-white transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             onClick={nextSentence}
@@ -255,9 +286,25 @@ export function PlayerBar() {
             disabled={!hasContent}
           >
             <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+              <path d="M4 18l8.5-6L4 6v12zm9-12v12l8.5-6L13 6z" />
             </svg>
           </button>
+
+          {/* 다음 트랙 (플레이리스트 모드) */}
+          {hasPlaylist && (
+            <button
+              className={`min-w-[32px] min-h-[44px] flex items-center justify-center transition-colors ${
+                playlistIndex < playlist.length - 1 ? 'text-[#8b949e] active:text-white' : 'text-[#8b949e]/20'
+              }`}
+              onClick={nextQuestion}
+              aria-label="다음 트랙"
+              disabled={!hasContent || playlistIndex >= playlist.length - 1}
+            >
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" />
+              </svg>
+            </button>
+          )}
         </div>
 
         {/* 우: 타이머 + 음성 */}

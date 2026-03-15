@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { PlayerState, Speed, Level, ViewMode, RepeatMode, SleepTimer, TTSVoice } from '../types';
+import { PlayerState, PlaylistItem, Speed, Level, ViewMode, RepeatMode, SleepTimer, TTSVoice } from '../types';
 import { subjects } from '../data/ttsData';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 
@@ -24,61 +24,29 @@ function getSentences(
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
-// 헬퍼: 다음/이전 question id 찾기
+// 헬퍼: 과목의 모든 question을 PlaylistItem[]로 변환
 // ──────────────────────────────────────────────────────────────────────────────
-function getAdjacentQuestion(
-  subjectId: string | null,
-  fileId: string | null,
-  questionId: string | null,
-  direction: 1 | -1,
-): { subjectId: string; fileId: string; questionId: string } | null {
-  if (!subjectId || !fileId || !questionId) return null;
+function getSubjectPlaylist(subjectId: string): PlaylistItem[] {
   const subject = subjects.find((s) => s.id === subjectId);
-  if (!subject) return null;
-  const file = subject.files.find((f) => f.id === fileId);
-  if (!file) return null;
-  const idx = file.questions.findIndex((q) => q.id === questionId);
-  if (idx === -1) return null;
-  const nextIdx = idx + direction;
-  if (nextIdx < 0 || nextIdx >= file.questions.length) return null;
-  return { subjectId, fileId, questionId: file.questions[nextIdx].id };
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// 헬퍼: 파일 내 첫 설문 찾기
-// ──────────────────────────────────────────────────────────────────────────────
-function getFirstQuestion(
-  subjectId: string | null,
-  fileId: string | null,
-): { subjectId: string; fileId: string; questionId: string } | null {
-  if (!subjectId || !fileId) return null;
-  const subject = subjects.find((s) => s.id === subjectId);
-  if (!subject) return null;
-  const file = subject.files.find((f) => f.id === fileId);
-  if (!file || file.questions.length === 0) return null;
-  return { subjectId, fileId, questionId: file.questions[0].id };
-}
-
-// ──────────────────────────────────────────────────────────────────────────────
-// 헬퍼: 파일 내 랜덤 설문 (현재 제외, 1개뿐이면 동일)
-// ──────────────────────────────────────────────────────────────────────────────
-function getRandomQuestion(
-  subjectId: string | null,
-  fileId: string | null,
-  currentQuestionId: string | null,
-): { subjectId: string; fileId: string; questionId: string } | null {
-  if (!subjectId || !fileId) return null;
-  const subject = subjects.find((s) => s.id === subjectId);
-  if (!subject) return null;
-  const file = subject.files.find((f) => f.id === fileId);
-  if (!file || file.questions.length === 0) return null;
-  const candidates = file.questions.filter((q) => q.id !== currentQuestionId);
-  if (candidates.length === 0) {
-    // 1개뿐 → 같은 설문
-    return { subjectId, fileId, questionId: file.questions[0].id };
+  if (!subject) return [];
+  const items: PlaylistItem[] = [];
+  for (const file of subject.files) {
+    for (const q of file.questions) {
+      items.push({ subjectId, fileId: file.id, questionId: q.id });
+    }
   }
-  const picked = candidates[Math.floor(Math.random() * candidates.length)];
-  return { subjectId, fileId, questionId: picked.id };
+  return items;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 헬퍼: 파일의 모든 question을 PlaylistItem[]로 변환
+// ──────────────────────────────────────────────────────────────────────────────
+function getFilePlaylist(subjectId: string, fileId: string): PlaylistItem[] {
+  const subject = subjects.find((s) => s.id === subjectId);
+  if (!subject) return [];
+  const file = subject.files.find((f) => f.id === fileId);
+  if (!file) return [];
+  return file.questions.map((q) => ({ subjectId, fileId, questionId: q.id }));
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -96,6 +64,8 @@ const initialState: PlayerState = {
   selectedVoiceURI: null,
   level: 1,
   viewMode: 'reader',
+  playlist: [],
+  playlistIndex: -1,
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -122,6 +92,9 @@ interface PlayerContextValue {
   setSentenceIndex: (idx: number) => void;
   nextQuestion: () => void;
   prevQuestion: () => void;
+  playSubject: (subjectId: string) => void;
+  playFile: (subjectId: string, fileId: string) => void;
+  playSelected: (items: PlaylistItem[]) => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -132,7 +105,7 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PlayerState>(initialState);
   const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
-  const { isSupported, isNative, speak, pause, resume, cancel, setRate, voices } = useSpeechSynthesis();
+  const { isSupported, isNative, speak, pause, resume, cancel, setRate, setOnRateChange, voices } = useSpeechSynthesis();
 
   // 백그라운드 재생 허용 — visibilitychange 핸들러 제거됨
 
@@ -200,66 +173,95 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             sentenceIndexRef.current = nextIdx;
             speakCurrentSentence(nextIdx, stateRef.current.speed);
           } else {
-            // 모든 문장 완료 → repeatMode에 따라 분기
-            const mode = stateRef.current.repeatMode;
+            // 모든 문장 완료 → 플레이리스트 or repeatMode에 따라 분기
+            const current = stateRef.current;
+            const { playlist, playlistIndex, repeatMode: mode } = current;
 
+            // 플레이리스트가 있으면 플레이리스트 기반으로 다음 트랙
+            if (playlist.length > 0) {
+              const nextTrackIdx = playlistIndex + 1;
+              if (nextTrackIdx < playlist.length) {
+                // 다음 트랙 재생
+                const nextItem = playlist[nextTrackIdx];
+                const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId);
+                sentencesRef.current = newSents;
+                sentenceIndexRef.current = 0;
+                setState((prev) => ({
+                  ...prev,
+                  currentSubjectId: nextItem.subjectId,
+                  currentFileId: nextItem.fileId,
+                  currentQuestionId: nextItem.questionId,
+                  currentSentenceIndex: 0,
+                  playlistIndex: nextTrackIdx,
+                }));
+                speakCurrentSentence(0, stateRef.current.speed);
+              } else if (mode === 'repeat-all') {
+                // 플레이리스트 처음으로
+                const firstItem = playlist[0];
+                const newSents = getSentences(firstItem.subjectId, firstItem.fileId, firstItem.questionId);
+                sentencesRef.current = newSents;
+                sentenceIndexRef.current = 0;
+                setState((prev) => ({
+                  ...prev,
+                  currentSubjectId: firstItem.subjectId,
+                  currentFileId: firstItem.fileId,
+                  currentQuestionId: firstItem.questionId,
+                  currentSentenceIndex: 0,
+                  playlistIndex: 0,
+                }));
+                speakCurrentSentence(0, stateRef.current.speed);
+              } else if (mode === 'repeat-one') {
+                // 현재 트랙 반복
+                setState((prev) => ({ ...prev, currentSentenceIndex: 0 }));
+                sentenceIndexRef.current = 0;
+                speakCurrentSentence(0, stateRef.current.speed);
+              } else {
+                // stop-after-all or stop-after-one: 정지
+                setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
+              }
+              return;
+            }
+
+            // 플레이리스트 없으면 기존 repeatMode 로직
             if (mode === 'stop-after-one') {
-              // 정지
               setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
             } else if (mode === 'repeat-one') {
-              // 현재 설문 처음부터 재시작
               setState((prev) => ({ ...prev, currentSentenceIndex: 0 }));
               sentenceIndexRef.current = 0;
               speakCurrentSentence(0, stateRef.current.speed);
             } else if (mode === 'stop-after-all') {
-              // 다음 설문으로 이동, 마지막이면 정지
-              const current = stateRef.current;
-              const next = getAdjacentQuestion(
-                current.currentSubjectId,
-                current.currentFileId,
-                current.currentQuestionId,
-                1,
-              );
-              if (next) {
-                const newSents = getSentences(next.subjectId, next.fileId, next.questionId);
+              const nextQ = getAdjacentQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId, 1);
+              if (nextQ) {
+                const newSents = getSentences(nextQ.subjectId, nextQ.fileId, nextQ.questionId);
                 sentencesRef.current = newSents;
                 sentenceIndexRef.current = 0;
                 setState((prev) => ({
                   ...prev,
-                  currentSubjectId: next.subjectId,
-                  currentFileId: next.fileId,
-                  currentQuestionId: next.questionId,
+                  currentSubjectId: nextQ.subjectId,
+                  currentFileId: nextQ.fileId,
+                  currentQuestionId: nextQ.questionId,
                   currentSentenceIndex: 0,
                 }));
                 speakCurrentSentence(0, stateRef.current.speed);
               } else {
-                // 마지막 설문 → 정지
                 setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
               }
             } else if (mode === 'repeat-all') {
-              // 다음 설문, 마지막이면 첫 설문으로 순환
-              const current = stateRef.current;
-              const next = getAdjacentQuestion(
-                current.currentSubjectId,
-                current.currentFileId,
-                current.currentQuestionId,
-                1,
-              );
-              if (next) {
-                const newSents = getSentences(next.subjectId, next.fileId, next.questionId);
+              const nextQ = getAdjacentQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId, 1);
+              if (nextQ) {
+                const newSents = getSentences(nextQ.subjectId, nextQ.fileId, nextQ.questionId);
                 sentencesRef.current = newSents;
                 sentenceIndexRef.current = 0;
                 setState((prev) => ({
                   ...prev,
-                  currentSubjectId: next.subjectId,
-                  currentFileId: next.fileId,
-                  currentQuestionId: next.questionId,
+                  currentSubjectId: nextQ.subjectId,
+                  currentFileId: nextQ.fileId,
+                  currentQuestionId: nextQ.questionId,
                   currentSentenceIndex: 0,
                 }));
                 speakCurrentSentence(0, stateRef.current.speed);
               } else {
-                // 마지막 → 첫 설문으로 돌아감
-                const firstQ = getFirstQuestion(current.currentSubjectId, current.currentFileId);
+                const firstQ = getFirstQuestionInFile(current.currentSubjectId, current.currentFileId);
                 if (firstQ) {
                   const newSents = getSentences(firstQ.subjectId, firstQ.fileId, firstQ.questionId);
                   sentencesRef.current = newSents;
@@ -275,13 +277,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 }
               }
             } else if (mode === 'shuffle') {
-              // 파일 내 랜덤 설문 선택
-              const current = stateRef.current;
-              const randomQ = getRandomQuestion(
-                current.currentSubjectId,
-                current.currentFileId,
-                current.currentQuestionId,
-              );
+              const randomQ = getRandomQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId);
               if (randomQ) {
                 const newSents = getSentences(randomQ.subjectId, randomQ.fileId, randomQ.questionId);
                 sentencesRef.current = newSents;
@@ -303,6 +299,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     [speak, cancel],
   );
 
+  // ── 네이티브 rate 변경 시 현재 문장 재시작 콜백 등록 ─────────────────────
+  useEffect(() => {
+    setOnRateChange(() => {
+      const current = stateRef.current;
+      if (current.isPlaying) {
+        setState((prev) => ({ ...prev, isPlaying: true }));
+        speakCurrentSentence(sentenceIndexRef.current, current.speed);
+      }
+    });
+    return () => setOnRateChange(null);
+  }, [setOnRateChange, speakCurrentSentence]);
+
   // ── selectQuestion (재생 없이 문제 선택만) ────────────────────────────────
   const selectQuestion = useCallback(
     (subjectId: string, fileId: string, questionId: string) => {
@@ -320,9 +328,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     [],
   );
 
-  // ── play ──────────────────────────────────────────────────────────────────
+  // ── play (단일 문제 재생 — 플레이리스트 1개짜리로 설정) ─────────────────
   const play = useCallback(
     (subjectId: string, fileId: string, questionId: string) => {
+      const item: PlaylistItem = { subjectId, fileId, questionId };
       setState((prev) => ({
         ...prev,
         isPlaying: true,
@@ -330,10 +339,82 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentFileId: fileId,
         currentQuestionId: questionId,
         currentSentenceIndex: 0,
+        playlist: [item],
+        playlistIndex: 0,
       }));
       sentenceIndexRef.current = 0;
-      // sentences 갱신은 다음 render에서 반영되므로 직접 계산
       const sents = getSentences(subjectId, fileId, questionId);
+      sentencesRef.current = sents;
+      speakCurrentSentence(0, stateRef.current.speed);
+    },
+    [speakCurrentSentence],
+  );
+
+  // ── playSubject (과목 전체 재생) ──────────────────────────────────────────
+  const playSubject = useCallback(
+    (subjectId: string) => {
+      const playlist = getSubjectPlaylist(subjectId);
+      if (playlist.length === 0) return;
+      const first = playlist[0];
+      setState((prev) => ({
+        ...prev,
+        isPlaying: true,
+        currentSubjectId: first.subjectId,
+        currentFileId: first.fileId,
+        currentQuestionId: first.questionId,
+        currentSentenceIndex: 0,
+        playlist,
+        playlistIndex: 0,
+      }));
+      sentenceIndexRef.current = 0;
+      const sents = getSentences(first.subjectId, first.fileId, first.questionId);
+      sentencesRef.current = sents;
+      speakCurrentSentence(0, stateRef.current.speed);
+    },
+    [speakCurrentSentence],
+  );
+
+  // ── playFile (파일 전체 재생) ─────────────────────────────────────────────
+  const playFile = useCallback(
+    (subjectId: string, fileId: string) => {
+      const playlist = getFilePlaylist(subjectId, fileId);
+      if (playlist.length === 0) return;
+      const first = playlist[0];
+      setState((prev) => ({
+        ...prev,
+        isPlaying: true,
+        currentSubjectId: first.subjectId,
+        currentFileId: first.fileId,
+        currentQuestionId: first.questionId,
+        currentSentenceIndex: 0,
+        playlist,
+        playlistIndex: 0,
+      }));
+      sentenceIndexRef.current = 0;
+      const sents = getSentences(first.subjectId, first.fileId, first.questionId);
+      sentencesRef.current = sents;
+      speakCurrentSentence(0, stateRef.current.speed);
+    },
+    [speakCurrentSentence],
+  );
+
+  // ── playSelected (선택된 항목들 재생) ─────────────────────────────────────
+  const playSelected = useCallback(
+    (items: PlaylistItem[]) => {
+      if (items.length === 0) return;
+      const first = items[0];
+      setState((prev) => ({
+        ...prev,
+        isPlaying: true,
+        currentSubjectId: first.subjectId,
+        currentFileId: first.fileId,
+        currentQuestionId: first.questionId,
+        currentSentenceIndex: 0,
+        playlist: items,
+        playlistIndex: 0,
+      }));
+      sentenceIndexRef.current = 0;
+      const sents = getSentences(first.subjectId, first.fileId, first.questionId);
       sentencesRef.current = sents;
       speakCurrentSentence(0, stateRef.current.speed);
     },
@@ -381,8 +462,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── setSpeed ──────────────────────────────────────────────────────────────
   const setSpeed = useCallback(
     (speed: Speed) => {
-      setRate(speed);
       setState((prev) => ({ ...prev, speed }));
+      setRate(speed);
     },
     [setRate],
   );
@@ -490,53 +571,121 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     [cancel, speakCurrentSentence],
   );
 
-  // ── nextQuestion ──────────────────────────────────────────────────────────
+  // ── nextQuestion (플레이리스트 기반) ──────────────────────────────────────
   const nextQuestion = useCallback(() => {
     const current = stateRef.current;
-    const adjacent = getAdjacentQuestion(
-      current.currentSubjectId,
-      current.currentFileId,
-      current.currentQuestionId,
-      1,
-    );
-    if (!adjacent) return;
-    cancel();
-    if (current.isPlaying) {
-      play(adjacent.subjectId, adjacent.fileId, adjacent.questionId);
-    } else {
-      setState((prev) => ({
-        ...prev,
-        currentSubjectId: adjacent.subjectId,
-        currentFileId: adjacent.fileId,
-        currentQuestionId: adjacent.questionId,
-        currentSentenceIndex: 0,
-      }));
-    }
-  }, [cancel, play]);
+    const { playlist, playlistIndex } = current;
 
-  // ── prevQuestion ──────────────────────────────────────────────────────────
+    if (playlist.length > 0) {
+      // 플레이리스트 모드
+      const nextIdx = playlistIndex + 1;
+      if (nextIdx >= playlist.length) return;
+      cancel();
+      const item = playlist[nextIdx];
+      const sents = getSentences(item.subjectId, item.fileId, item.questionId);
+      sentencesRef.current = sents;
+      sentenceIndexRef.current = 0;
+      if (current.isPlaying) {
+        setState((prev) => ({
+          ...prev,
+          currentSubjectId: item.subjectId,
+          currentFileId: item.fileId,
+          currentQuestionId: item.questionId,
+          currentSentenceIndex: 0,
+          playlistIndex: nextIdx,
+        }));
+        speakCurrentSentence(0, current.speed);
+      } else {
+        setState((prev) => ({
+          ...prev,
+          currentSubjectId: item.subjectId,
+          currentFileId: item.fileId,
+          currentQuestionId: item.questionId,
+          currentSentenceIndex: 0,
+          playlistIndex: nextIdx,
+        }));
+      }
+    } else {
+      // 레거시: 파일 내 다음 문제
+      const adjacent = getAdjacentQuestionInFile(
+        current.currentSubjectId,
+        current.currentFileId,
+        current.currentQuestionId,
+        1,
+      );
+      if (!adjacent) return;
+      cancel();
+      if (current.isPlaying) {
+        play(adjacent.subjectId, adjacent.fileId, adjacent.questionId);
+      } else {
+        setState((prev) => ({
+          ...prev,
+          currentSubjectId: adjacent.subjectId,
+          currentFileId: adjacent.fileId,
+          currentQuestionId: adjacent.questionId,
+          currentSentenceIndex: 0,
+        }));
+      }
+    }
+  }, [cancel, play, speakCurrentSentence]);
+
+  // ── prevQuestion (플레이리스트 기반) ──────────────────────────────────────
   const prevQuestion = useCallback(() => {
     const current = stateRef.current;
-    const adjacent = getAdjacentQuestion(
-      current.currentSubjectId,
-      current.currentFileId,
-      current.currentQuestionId,
-      -1,
-    );
-    if (!adjacent) return;
-    cancel();
-    if (current.isPlaying) {
-      play(adjacent.subjectId, adjacent.fileId, adjacent.questionId);
+    const { playlist, playlistIndex } = current;
+
+    if (playlist.length > 0) {
+      // 플레이리스트 모드
+      const prevIdx = playlistIndex - 1;
+      if (prevIdx < 0) return;
+      cancel();
+      const item = playlist[prevIdx];
+      const sents = getSentences(item.subjectId, item.fileId, item.questionId);
+      sentencesRef.current = sents;
+      sentenceIndexRef.current = 0;
+      if (current.isPlaying) {
+        setState((prev) => ({
+          ...prev,
+          currentSubjectId: item.subjectId,
+          currentFileId: item.fileId,
+          currentQuestionId: item.questionId,
+          currentSentenceIndex: 0,
+          playlistIndex: prevIdx,
+        }));
+        speakCurrentSentence(0, current.speed);
+      } else {
+        setState((prev) => ({
+          ...prev,
+          currentSubjectId: item.subjectId,
+          currentFileId: item.fileId,
+          currentQuestionId: item.questionId,
+          currentSentenceIndex: 0,
+          playlistIndex: prevIdx,
+        }));
+      }
     } else {
-      setState((prev) => ({
-        ...prev,
-        currentSubjectId: adjacent.subjectId,
-        currentFileId: adjacent.fileId,
-        currentQuestionId: adjacent.questionId,
-        currentSentenceIndex: 0,
-      }));
+      // 레거시: 파일 내 이전 문제
+      const adjacent = getAdjacentQuestionInFile(
+        current.currentSubjectId,
+        current.currentFileId,
+        current.currentQuestionId,
+        -1,
+      );
+      if (!adjacent) return;
+      cancel();
+      if (current.isPlaying) {
+        play(adjacent.subjectId, adjacent.fileId, adjacent.questionId);
+      } else {
+        setState((prev) => ({
+          ...prev,
+          currentSubjectId: adjacent.subjectId,
+          currentFileId: adjacent.fileId,
+          currentQuestionId: adjacent.questionId,
+          currentSentenceIndex: 0,
+        }));
+      }
     }
-  }, [cancel, play]);
+  }, [cancel, play, speakCurrentSentence]);
 
   const value: PlayerContextValue = {
     state,
@@ -559,6 +708,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     setSentenceIndex,
     nextQuestion,
     prevQuestion,
+    playSubject,
+    playFile,
+    playSelected,
   };
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
@@ -573,4 +725,55 @@ export function usePlayer(): PlayerContextValue {
     throw new Error('usePlayer must be used within a PlayerProvider');
   }
   return ctx;
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 내부 헬퍼 (파일 내 인접 문제 찾기 — 기존 getAdjacentQuestion 이름 변경)
+// ──────────────────────────────────────────────────────────────────────────────
+function getAdjacentQuestionInFile(
+  subjectId: string | null,
+  fileId: string | null,
+  questionId: string | null,
+  direction: 1 | -1,
+): { subjectId: string; fileId: string; questionId: string } | null {
+  if (!subjectId || !fileId || !questionId) return null;
+  const subject = subjects.find((s) => s.id === subjectId);
+  if (!subject) return null;
+  const file = subject.files.find((f) => f.id === fileId);
+  if (!file) return null;
+  const idx = file.questions.findIndex((q) => q.id === questionId);
+  if (idx === -1) return null;
+  const nextIdx = idx + direction;
+  if (nextIdx < 0 || nextIdx >= file.questions.length) return null;
+  return { subjectId, fileId, questionId: file.questions[nextIdx].id };
+}
+
+function getFirstQuestionInFile(
+  subjectId: string | null,
+  fileId: string | null,
+): { subjectId: string; fileId: string; questionId: string } | null {
+  if (!subjectId || !fileId) return null;
+  const subject = subjects.find((s) => s.id === subjectId);
+  if (!subject) return null;
+  const file = subject.files.find((f) => f.id === fileId);
+  if (!file || file.questions.length === 0) return null;
+  return { subjectId, fileId, questionId: file.questions[0].id };
+}
+
+function getRandomQuestionInFile(
+  subjectId: string | null,
+  fileId: string | null,
+  currentQuestionId: string | null,
+): { subjectId: string; fileId: string; questionId: string } | null {
+  if (!subjectId || !fileId) return null;
+  const subject = subjects.find((s) => s.id === subjectId);
+  if (!subject) return null;
+  const file = subject.files.find((f) => f.id === fileId);
+  if (!file || file.questions.length === 0) return null;
+  const candidates = file.questions.filter((q) => q.id !== currentQuestionId);
+  if (candidates.length === 0) {
+    return { subjectId, fileId, questionId: file.questions[0].id };
+  }
+  const picked = candidates[Math.floor(Math.random() * candidates.length)];
+  return { subjectId, fileId, questionId: picked.id };
 }
