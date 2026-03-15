@@ -1,0 +1,247 @@
+{
+  "lastUpdated": "2026-03-15T08:26:45.059133+00:00",
+  "subjects": {
+    "minso": {
+      "files": {
+        "yebi_mike02": {
+          "status": "extracted",
+          "cases": 9,
+          "label": "미케02"
+        },
+        "immun_mike02": {
+          "status": "extracted",
+          "cases": 12,
+          "label": "미케02"
+        },
+        "yebi_mike01": {
+          "status": "extracted",
+          "cases": 5,
+          "label": "미케01"
+        },
+        "yebi_mike03": {
+          "status": "extracted",
+          "cases": 11,
+          "label": "미케03"
+        },
+        "yebi_mike04": {
+          "status": "extracted",
+          "cases": 9,
+          "label": "미케04"
+        },
+        "yebi_mike05": {
+          "status": "extracted",
+          "cases": 14,
+          "label": "미케05"
+        },
+        "yebi_mogo01": {
+          "status": "extracted",
+          "cases": 2,
+          "label": "모고01"
+        },
+        "yebi_mogo02": {
+          "status": "extracted",
+          "cases": 2,
+          "label": "모고02"
+        },
+        "immun_mike01": {
+          "status": "extracted",
+          "cases": 8,
+          "label": "미케01"
+        },
+        "immun_mike03": {
+          "status": "extracted",
+          "cases": 6,
+          "label": "미케03"
+        },
+        "immun_mike04": {
+          "status": "extracted",
+          "cases": 8,
+          "label": "미케04"
+        }
+      }
+    },
+    "minbeop": {
+      "files": {
+        "yebi_mike01": {
+          "status": "extracted",
+          "cases": 8,
+          "label": "미케01"
+        },
+        "yebi_mike02": {
+          "status": "extracted",
+          "cases": 10,
+          "label": "미케02"
+        },
+        "yebi_mike03": {
+          "status": "extracted",
+          "cases": 14,
+          "label": "미케03"
+        },
+        "yebi_mike04": {
+          "status": "extracted",
+          "cases": 19,
+          "label": "미케04"
+        },
+        "yebi_mogo01": {
+          "status": "extracted",
+          "cases": 2,
+          "label": "모고01"
+        },
+        "yebi_mogo02": {
+          "status": "extracted",
+          "cases": 2,
+          "label": "모고02"
+        },
+        "immun_mike01": {
+          "status": "extracted",
+          "cases": 13,
+          "label": "미케01"
+        },
+        "immun_mike02": {
+          "status": "extracted",
+          "cases": 11,
+          "label": "미케02"
+        },
+        "immun_mike03": {
+          "status": "extracted",
+          "cases": 10,
+          "label": "미케03"
+        },
+        "immun_mike04": {
+          "status": "extracted",
+          "cases": 26,
+          "label": "미케04"
+        }
+      }
+    },
+    "hyeongbeop": {
+      "files": {
+        "yebi01": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비01"
+        },
+        "yebi02": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비02"
+        },
+        "yebi03": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비03"
+        },
+        "yebi04": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비04"
+        },
+        "yebi05": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비05"
+        },
+        "yebi06": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비06"
+        },
+        "yebi07": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비07"
+        },
+        "yebi08": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비08"
+        },
+        "yebi09": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비09"
+        },
+        "yebi10": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비10"
+        },
+        "yebi11": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비11"
+        },
+        "yebi12": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비12"
+        },
+        "yebi13": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비13"
+        },
+        "yebi14": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비14"
+        },
+        "yebi15": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비15"
+        },
+        "yebi16": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비16"
+        },
+        "yebi17": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "예비17"
+        },
+        "immun01": {
+          "status": "extracted",
+          "cases": 1,
+          "label": "입문01"
+        },
+        "immun02": {
+          "status": "extracted",
+          "cases": 3,
+          "label": "입문02"
+        }
+      }
+    },
+    "hyeongso": {
+      "files": {
+        "yebi_mogo01": {
+          "status": "extracted",
+          "cases": 5,
+          "label": "모고01"
+        },
+        "yebi_mogo02": {
+          "status": "extracted",
+          "cases": 5,
+          "label": "모고02"
+        }
+      }
+    },
+    "budeung": {
+      "files": {
+        "immun01": {
+          "status": "extracted",
+          "cases": 20,
+          "label": "입문1"
+        }
+      }
+    }
+  },
+  "stats": {
+    "totalFiles": 43,
+    "extractedFiles": 43,
+    "ttsDoneFiles": 0,
+    "totalCases": 252,
+    "extractedCases": 252
+  }
+}

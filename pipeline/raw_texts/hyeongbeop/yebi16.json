@@ -1,0 +1,46 @@
+{
+  "subject": "형법",
+  "subjectId": "hyeongbeop",
+  "file": "예비16",
+  "fileId": "yebi16",
+  "pdfPath": "예비_형법/예비_형법_16_문.pdf",
+  "extractedAt": "2026-03-15T08:26:44.711398+00:00",
+  "caseCount": 1,
+  "cases": [
+    {
+      "id": "mun16",
+      "label": "문 16",
+      "subtitle": "",
+      "pages": [
+        1
+      ],
+      "problem": "회연습\n2026\n16\n형\n법",
+      "answer": {
+        "conclusion": "",
+        "sections": [
+          {
+            "title": "횡령죄의성부",
+            "content": ""
+          },
+          {
+            "title": "횡령죄의구성요건",
+            "content": "(1)\n판례의태도\n(2)\n검토\n(3)\n장물취득죄의성부"
+          },
+          {
+            "title": "장물취득죄의성립요건",
+            "content": "(1)\n사기죄의객체가재물인지재산상이익인지여부\n(2)\n판례의태도\n(3)\n\n회연습문제해설\n이\n재\n영\n1/20\n16\n(\n)\n2\n검토\n(4)\n을이사기죄의공범이아닌경우\n.\nⅡ\n병에대한횡령죄의성부"
+          },
+          {
+            "title": "판례의태도",
+            "content": "(1)\n검토\n(2)\n에대한횡령죄의성부"
+          },
+          {
+            "title": "B",
+            "content": "판례의태도\n(1)\n검토\n(2)"
+          }
+        ]
+      },
+      "blanks": {}
+    }
+  ]
+}
