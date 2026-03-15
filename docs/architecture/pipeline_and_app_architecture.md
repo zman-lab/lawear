@@ -397,6 +397,40 @@ rules.py (R-16 적용)
 +--------------------------------------------------------------+
 ```
 
+#### 1.5a-1 TTS 엔진 자동 탐지 (v2 추가)
+
+앱 초기화 시 기기에 설치된 모든 TTS 엔진을 자동 탐지하여 사용자에게 선택지 제공:
+
+**플랫폼별 API**:
+- Android: `TextToSpeech.getEngines()` → 설치된 TTS 엔진 목록 (Google, Samsung, Naver 등)
+- iOS: `AVSpeechSynthesisVoice.speechVoices()` → 사용 가능한 음성 목록
+- Web: `window.speechSynthesis.getVoices()` → 브라우저 음성 목록
+
+**자동 탐지 흐름**:
+1. 앱 시작 → 플랫폼 감지
+2. 해당 플랫폼 API로 사용 가능한 엔진/음성 전체 조회
+3. 한국어(ko-KR) 지원 음성만 필터링
+4. 설정 화면에 목록 표시 (엔진명, 음성명, 성별, 샘플 재생 버튼)
+5. 사용자 선택 → 설정 저장
+6. 유료 TTS 앱을 사용자가 설치하면 다음 앱 시작 시 자동으로 목록에 추가됨
+
+**인터페이스 확장**:
+
+```typescript
+interface TtsEngineAdapter {
+  listEngines(): TtsEngine[]                               // (v2 추가) 설치된 엔진 목록
+  listVoices(engineId?: string): Voice[]                   // 특정 엔진의 음성 목록 (미지정 시 전체)
+  speak(text: string, voice: Voice): void
+  renderToFile(text: string, voice: Voice, path: string): Promise<string>
+}
+
+interface TtsEngine {
+  id: string          // 'com.google.android.tts', 'com.samsung.SMT' 등
+  name: string        // 'Google', 'Samsung' 등
+  installed: boolean
+}
+```
+
 #### 1.5b 버전 관리 + 변경 감지 (v2 신규)
 
 ```
