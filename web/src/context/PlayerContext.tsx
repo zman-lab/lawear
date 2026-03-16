@@ -2,6 +2,14 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 import { PlayerState, PlaylistItem, Speed, Level, ViewMode, RepeatMode, SleepTimer, TTSVoice } from '../types';
 import { subjects } from '../data/ttsData';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
+import {
+  initMediaSession,
+  updateMediaTrack,
+  updateMediaPlaybackState,
+  destroyMediaSession,
+  cleanupMediaSession,
+  MediaTrackInfo,
+} from '../services/mediaSession';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 헬퍼: 현재 question의 전체 문장 배열 반환
@@ -21,6 +29,29 @@ function getSentences(
   const { problem, toc, answer } = question.content;
   const tocSentences = toc.map((t) => `${t.number} ${t.text}`);
   return [...problem, ...tocSentences, ...answer];
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// 헬퍼: 현재 트랙의 미디어 세션 메타데이터 생성
+// ──────────────────────────────────────────────────────────────────────────────
+function getTrackInfo(
+  subjectId: string | null,
+  fileId: string | null,
+  questionId: string | null,
+): MediaTrackInfo | null {
+  if (!subjectId || !fileId || !questionId) return null;
+  const subject = subjects.find((s) => s.id === subjectId);
+  if (!subject) return null;
+  const file = subject.files.find((f) => f.id === fileId);
+  if (!file) return null;
+  const question = file.questions.find((q) => q.id === questionId);
+  if (!question) return null;
+  return {
+    subject: subject.name,
+    file: file.name,
+    label: question.label,
+    subtitle: question.subtitle,
+  };
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -151,6 +182,70 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
     return () => { wakeLock?.release(); };
   }, [state.isPlaying]);
+
+  // ── MediaSession 초기화 (알림바/잠금화면 미니플레이어) ──────────────────
+  const mediaSessionInitRef = useRef(false);
+  useEffect(() => {
+    if (mediaSessionInitRef.current) return;
+    mediaSessionInitRef.current = true;
+
+    initMediaSession({
+      onPlay: () => {
+        // 알림바에서 재생 버튼 탭 → togglePlay와 동일
+        const current = stateRef.current;
+        if (!current.currentQuestionId) return;
+        if (!current.isPlaying) {
+          setState((prev) => ({ ...prev, isPlaying: true }));
+          // speakCurrentSentence는 아래 effect에서 호출됨
+          mediaSessionResumeRef.current = true;
+        }
+      },
+      onPause: () => {
+        const current = stateRef.current;
+        if (current.isPlaying) {
+          pause();
+          setState((prev) => ({ ...prev, isPlaying: false }));
+          updateMediaPlaybackState(false);
+        }
+      },
+      onNext: () => {
+        nextQuestionRef.current?.();
+      },
+      onPrev: () => {
+        prevQuestionRef.current?.();
+      },
+    });
+
+    return () => {
+      cleanupMediaSession();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 알림바 재생 버튼으로 resume 시 speakCurrentSentence 호출을 위한 ref
+  const mediaSessionResumeRef = useRef(false);
+
+  // nextQuestion/prevQuestion을 콜백에서 호출하기 위한 ref
+  const nextQuestionRef = useRef<(() => void) | null>(null);
+  const prevQuestionRef = useRef<(() => void) | null>(null);
+
+  // ── MediaSession: 트랙/상태 동기화 ─────────────────────────────────────
+  useEffect(() => {
+    const { isPlaying, currentSubjectId, currentFileId, currentQuestionId, playlist, playlistIndex } = state;
+    const trackInfo = getTrackInfo(currentSubjectId, currentFileId, currentQuestionId);
+
+    if (trackInfo && currentQuestionId) {
+      const hasPrev = playlist.length > 0 ? playlistIndex > 0 : false;
+      const hasNext = playlist.length > 0 ? playlistIndex < playlist.length - 1 : false;
+      updateMediaTrack(trackInfo, isPlaying, hasPrev, hasNext);
+    }
+
+    updateMediaPlaybackState(isPlaying);
+
+    if (!isPlaying && !currentQuestionId) {
+      destroyMediaSession();
+    }
+  }, [state.isPlaying, state.currentSubjectId, state.currentFileId, state.currentQuestionId, state.playlistIndex, state]);
 
   // sentences는 state 변경 시 재계산
   const sentences = getSentences(
@@ -712,6 +807,30 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       }
     }
   }, [cancel, play, speakCurrentSentence]);
+
+  // ── MediaSession: nextQuestion/prevQuestion ref 연결 ────────────────────
+  useEffect(() => {
+    nextQuestionRef.current = nextQuestion;
+    prevQuestionRef.current = prevQuestion;
+  }, [nextQuestion, prevQuestion]);
+
+  // ── MediaSession: 알림바 재생 버튼으로 resume 시 speak 호출 ─────────────
+  useEffect(() => {
+    if (mediaSessionResumeRef.current && state.isPlaying) {
+      mediaSessionResumeRef.current = false;
+      const current = stateRef.current;
+      if (isNative) {
+        speakCurrentSentence(current.currentSentenceIndex, current.speed);
+      } else {
+        const synth = window.speechSynthesis;
+        if (synth.paused) {
+          resume();
+        } else {
+          speakCurrentSentence(current.currentSentenceIndex, current.speed);
+        }
+      }
+    }
+  }, [state.isPlaying, isNative, resume, speakCurrentSentence]);
 
   const value: PlayerContextValue = {
     state,
