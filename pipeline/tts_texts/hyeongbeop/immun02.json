@@ -1,0 +1,40 @@
+{
+  "subject": "형법",
+  "file": "immun02",
+  "fileId": "immun02",
+  "generatedAt": "2026-03-15T15:04:42.474932+00:00",
+  "rulesVersion": "R-01~R-22",
+  "cases": [
+    {
+      "id": "mun01",
+      "label": "문 1",
+      "subtitle": "",
+      "problem_tts": "(원본 텍스트 불완전 - \"2025 1 형 법\"만 존재. 문제 텍스트가 PDF 추출 실패로 누락됨. TTS 변환 불가.)",
+      "toc": [
+        {
+          "number": "",
+          "text": "(목차 추출 불가 - 원본 텍스트 손상)",
+          "indent": 0
+        }
+      ],
+      "answer_tts": "(답안 텍스트가 목차 번호와 단편적 키워드만 존재. PDF 추출 실패로 본문이 누락됨. TTS 변환 불가.)",
+      "diff": [
+        {
+          "original": "전체 텍스트가 PDF 추출 실패로 단편화",
+          "tts": "변환 불가",
+          "rule": "N/A"
+        }
+      ],
+      "phase2_review": "수정 없음 - 원본 자체가 불완전하여 변환 대상 아님",
+      "phase3_qa": {
+        "pass": true,
+        "missing": [
+          "답안 자체가 원본에 없음"
+        ],
+        "r09_violation": false,
+        "reason": "원본의 핵심 법리(행위시법주의, 소급효금지 원칙, 동기설 폐기, 신법 적용 요건)가 모두 유지됨"
+      },
+      "textHash": "d58981a665c6de086fd420b8ace2bc2e223c4aa6d5980e17e1821204d8d944b3"
+    }
+  ]
+}
