@@ -50,6 +50,31 @@ function getFilePlaylist(subjectId: string, fileId: string): PlaylistItem[] {
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
+// localStorage 키
+// ──────────────────────────────────────────────────────────────────────────────
+const STORAGE_KEY_VOICE = 'lawear-selected-voice-uri';
+
+function loadSavedVoiceURI(): string | null {
+  try {
+    return localStorage.getItem(STORAGE_KEY_VOICE);
+  } catch {
+    return null;
+  }
+}
+
+function saveVoiceURI(voiceURI: string | null): void {
+  try {
+    if (voiceURI) {
+      localStorage.setItem(STORAGE_KEY_VOICE, voiceURI);
+    } else {
+      localStorage.removeItem(STORAGE_KEY_VOICE);
+    }
+  } catch {
+    // localStorage 사용 불가 시 무시
+  }
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
 // 초기 상태
 // ──────────────────────────────────────────────────────────────────────────────
 const initialState: PlayerState = {
@@ -61,7 +86,7 @@ const initialState: PlayerState = {
   speed: 1.0,
   repeatMode: 'stop-after-one',
   sleepTimer: null,
-  selectedVoiceURI: null,
+  selectedVoiceURI: loadSavedVoiceURI(),
   level: 1,
   viewMode: 'reader',
   playlist: [],
@@ -499,6 +524,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── setVoice ────────────────────────────────────────────────────────────
   const setVoice = useCallback((voiceURI: string | null) => {
     setState((prev) => ({ ...prev, selectedVoiceURI: voiceURI }));
+    saveVoiceURI(voiceURI);
   }, []);
 
   // ── 슬립 타이머 카운트다운 ──────────────────────────────────────────────

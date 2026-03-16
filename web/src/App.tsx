@@ -3,12 +3,14 @@ import { PlayerProvider } from './context/PlayerContext';
 import { HomeScreen } from './components/screens/HomeScreen';
 import { ListScreen } from './components/screens/ListScreen';
 import { PlayerScreen } from './components/screens/PlayerScreen';
+import { SettingsScreen } from './components/screens/SettingsScreen';
 import { PlayerBar } from './components/player/PlayerBar';
 
 type Screen =
   | { type: 'home' }
   | { type: 'list'; subjectId: string }
-  | { type: 'player'; subjectId: string; fileId: string; questionId: string };
+  | { type: 'player'; subjectId: string; fileId: string; questionId: string }
+  | { type: 'settings' };
 
 export default function App() {
   const [screen, setScreen] = useState<Screen>({ type: 'home' });
@@ -36,6 +38,7 @@ export default function App() {
         {screen.type === 'home' && (
           <HomeScreen
             onSelectSubject={(id) => navigate({ type: 'list', subjectId: id })}
+            onOpenSettings={() => navigate({ type: 'settings' })}
           />
         )}
         {screen.type === 'list' && (
@@ -54,6 +57,9 @@ export default function App() {
             questionId={screen.questionId}
             onBack={goBack}
           />
+        )}
+        {screen.type === 'settings' && (
+          <SettingsScreen onBack={goBack} />
         )}
         <PlayerBar />
       </div>

@@ -84,6 +84,11 @@ export function useSpeechSynthesis() {
         setIsSpeaking(true);
         setIsPaused(false);
 
+        // 네이티브 voice는 인덱스(number) — voiceURI로 인덱스 검색
+        const nativeVoiceIdx = options.voiceURI
+          ? voices.findIndex((v) => v.voiceURI === options.voiceURI)
+          : -1;
+
         TextToSpeech.speak({
           text,
           lang: 'ko-KR',
@@ -91,6 +96,7 @@ export function useSpeechSynthesis() {
           pitch: 1.0,
           volume: 1.0,
           category: 'playback',
+          ...(nativeVoiceIdx >= 0 ? { voice: nativeVoiceIdx } : {}),
         })
           .then(() => {
             // speak이 resolve되면 재생 완료
