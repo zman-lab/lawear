@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { TTSVoice } from '../types';
+import { getCachedAudioUri } from '../services/audioCache';
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -10,6 +11,12 @@ interface SpeakOptions {
   voiceURI?: string;
   onEnd?: () => void;
   onBoundary?: (event: SpeechSynthesisEvent) => void;
+  /** 캐시 조회용: 과목 ID */
+  subjectId?: string;
+  /** 캐시 조회용: 파일 ID */
+  fileId?: string;
+  /** 캐시 조회용: 문제 ID */
+  questionId?: string;
 }
 
 export function useSpeechSynthesis() {
@@ -17,8 +24,13 @@ export function useSpeechSynthesis() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [voices, setVoices] = useState<TTSVoice[]>([]);
+  /** 현재 캐시된 MP3로 재생 중인지 */
+  const [isPlayingCached, setIsPlayingCached] = useState(false);
   const currentUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const rateRef = useRef<number>(1.0);
+  // 캐시된 오디오 재생용 Audio 객체
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const audioObjectUrlRef = useRef<string | null>(null);
   // 네이티브 TTS는 pause를 지원하지 않으므로 중단 시 현재 텍스트를 저장
   const nativeSpeakingRef = useRef(false);
   const nativeOnEndRef = useRef<(() => void) | null>(null);
@@ -69,11 +81,109 @@ export function useSpeechSynthesis() {
     return googleVoice ?? koVoices[0];
   }, []);
 
+  // ── 캐시된 오디오 정리 헬퍼 ─────────────────────────────────────────────
+  const cleanupAudioElement = useCallback(() => {
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current.removeAttribute('src');
+      audioElementRef.current.load();
+      audioElementRef.current = null;
+    }
+    if (audioObjectUrlRef.current) {
+      URL.revokeObjectURL(audioObjectUrlRef.current);
+      audioObjectUrlRef.current = null;
+    }
+    setIsPlayingCached(false);
+  }, []);
+
   const speak = useCallback(
     (text: string, options: SpeakOptions = {}) => {
       if (!isSupported) return;
 
       const rate = Math.min(10, Math.max(0.1, options.rate ?? rateRef.current));
+
+      // ── 캐시된 MP3 우선 재생 ──────────────────────────────────────────
+      // subjectId/fileId/questionId가 제공되면 캐시를 확인한다.
+      // 캐시가 있으면 HTML5 Audio로 재생하고 TTS를 사용하지 않는다.
+      if (options.subjectId && options.fileId && options.questionId) {
+        // 비동기 캐시 확인 → 있으면 Audio 재생, 없으면 TTS 폴백
+        getCachedAudioUri(options.subjectId, options.fileId, options.questionId)
+          .then((uri) => {
+            if (uri) {
+              playCachedAudio(uri, rate, options.onEnd ?? null);
+            } else {
+              speakWithTts(text, rate, options);
+            }
+          })
+          .catch(() => {
+            speakWithTts(text, rate, options);
+          });
+        return;
+      }
+
+      // 캐시 정보 없으면 바로 TTS로 재생
+      speakWithTts(text, rate, options);
+    },
+    [isSupported, getKoreanVoice, cleanupAudioElement],
+  );
+
+  // ── 캐시된 오디오 재생 (HTML5 Audio) ──────────────────────────────────
+  const playCachedAudio = useCallback(
+    (uri: string, rate: number, onEnd: (() => void) | null) => {
+      // 기존 재생 중단
+      cleanupAudioElement();
+      if (isNative) {
+        TextToSpeech.stop().catch(() => {});
+        nativeSpeakingRef.current = false;
+      } else {
+        window.speechSynthesis.cancel();
+        currentUtteranceRef.current = null;
+      }
+
+      const audio = new Audio(uri);
+      audio.playbackRate = rate;
+      audioElementRef.current = audio;
+      // Object URL이면 나중에 revoke 해야 하므로 저장
+      if (uri.startsWith('blob:')) {
+        audioObjectUrlRef.current = uri;
+      }
+
+      audio.onplay = () => {
+        setIsSpeaking(true);
+        setIsPaused(false);
+        setIsPlayingCached(true);
+      };
+
+      audio.onended = () => {
+        setIsSpeaking(false);
+        setIsPaused(false);
+        setIsPlayingCached(false);
+        cleanupAudioElement();
+        onEnd?.();
+      };
+
+      audio.onerror = () => {
+        setIsSpeaking(false);
+        setIsPaused(false);
+        setIsPlayingCached(false);
+        cleanupAudioElement();
+        // 캐시 재생 실패 시 조용히 종료 (TTS 폴백은 하지 않음 — 이미 문장이 진행됨)
+      };
+
+      audio.play().catch(() => {
+        setIsSpeaking(false);
+        setIsPlayingCached(false);
+        cleanupAudioElement();
+      });
+    },
+    [cleanupAudioElement],
+  );
+
+  // ── TTS 엔진으로 재생 (기존 로직) ────────────────────────────────────
+  const speakWithTts = useCallback(
+    (text: string, rate: number, options: SpeakOptions) => {
+      // 캐시 오디오가 재생 중이면 중단
+      cleanupAudioElement();
 
       if (isNative) {
         // 기존 재생 중단
@@ -160,11 +270,20 @@ export function useSpeechSynthesis() {
         });
       }
     },
-    [isSupported, getKoreanVoice],
+    [cleanupAudioElement, getKoreanVoice],
   );
 
   const pause = useCallback(() => {
     if (!isSupported || !isSpeaking) return;
+
+    // 캐시된 오디오 재생 중이면 Audio 일시정지
+    if (audioElementRef.current && isPlayingCached) {
+      audioElementRef.current.pause();
+      setIsPaused(true);
+      setIsSpeaking(false);
+      return;
+    }
+
     if (isNative) {
       // 네이티브 TTS는 pause/resume 미지원 — stop으로 대체
       // PlayerContext에서 togglePlay 시 현재 문장부터 다시 speak
@@ -177,10 +296,19 @@ export function useSpeechSynthesis() {
       window.speechSynthesis.pause();
       setIsPaused(true);
     }
-  }, [isSupported, isSpeaking]);
+  }, [isSupported, isSpeaking, isPlayingCached]);
 
   const resume = useCallback(() => {
     if (!isSupported || !isPaused) return;
+
+    // 캐시된 오디오 재생 중이면 Audio resume
+    if (audioElementRef.current && isPlayingCached) {
+      audioElementRef.current.play().catch(() => {});
+      setIsPaused(false);
+      setIsSpeaking(true);
+      return;
+    }
+
     if (isNative) {
       // 네이티브에서는 resume 불가 — PlayerContext에서 speakCurrentSentence 재호출
       setIsPaused(false);
@@ -188,10 +316,14 @@ export function useSpeechSynthesis() {
       window.speechSynthesis.resume();
       setIsPaused(false);
     }
-  }, [isSupported, isPaused]);
+  }, [isSupported, isPaused, isPlayingCached]);
 
   const cancel = useCallback(() => {
     if (!isSupported) return;
+
+    // 캐시된 오디오 정리
+    cleanupAudioElement();
+
     if (isNative) {
       TextToSpeech.stop().catch(() => {});
       nativeSpeakingRef.current = false;
@@ -202,11 +334,18 @@ export function useSpeechSynthesis() {
     }
     setIsSpeaking(false);
     setIsPaused(false);
-  }, [isSupported]);
+  }, [isSupported, cleanupAudioElement]);
 
   const setRate = useCallback(
     (speed: number) => {
       rateRef.current = Math.min(10, Math.max(0.1, speed));
+
+      // 캐시된 오디오 재생 중이면 playbackRate만 변경
+      if (audioElementRef.current && isPlayingCached) {
+        audioElementRef.current.playbackRate = rateRef.current;
+        return;
+      }
+
       if (isSpeaking) {
         if (isNative) {
           // 네이티브: 현재 재생을 중단하고 onRateChange 콜백 호출
@@ -223,7 +362,7 @@ export function useSpeechSynthesis() {
         }
       }
     },
-    [isSpeaking, speak],
+    [isSpeaking, isPlayingCached, speak],
   );
 
   // 네이티브에서 rate 변경 시 PlayerContext에 알림을 위한 콜백
@@ -237,6 +376,7 @@ export function useSpeechSynthesis() {
     isSpeaking,
     isPaused,
     isNative,
+    isPlayingCached,
     currentUtterance: currentUtteranceRef.current,
     speak,
     pause,

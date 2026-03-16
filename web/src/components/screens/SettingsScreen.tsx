@@ -1,9 +1,18 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
 import { VoiceSheet } from '../player/VoiceSheet';
 import { SpeedSheet } from '../player/SpeedSheet';
 import { RepeatModeSheet } from '../player/RepeatModeSheet';
 import type { Speed, RepeatMode } from '../../types';
+import {
+  getCacheSizeBySubject,
+  getTotalCacheSize,
+  getTotalCacheCount,
+  clearAllCache,
+  formatBytes,
+  type CacheSizeInfo,
+} from '../../services/audioCache';
+import { subjects } from '../../data/ttsData';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -35,6 +44,39 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
   const [showSpeedSheet, setShowSpeedSheet] = useState(false);
   const [showRepeatSheet, setShowRepeatSheet] = useState(false);
+
+  // ── 캐시 관련 상태 ──────────────────────────────────────────────────────
+  const [cacheBySubject, setCacheBySubject] = useState<Record<string, CacheSizeInfo>>({});
+  const [totalCacheSize, setTotalCacheSize] = useState(0);
+  const [totalCacheCount, setTotalCacheCount] = useState(0);
+  const [isClearing, setIsClearing] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  const loadCacheInfo = useCallback(async () => {
+    const [bySubject, size, count] = await Promise.all([
+      getCacheSizeBySubject(),
+      getTotalCacheSize(),
+      getTotalCacheCount(),
+    ]);
+    setCacheBySubject(bySubject);
+    setTotalCacheSize(size);
+    setTotalCacheCount(count);
+  }, []);
+
+  useEffect(() => {
+    loadCacheInfo();
+  }, [loadCacheInfo]);
+
+  const handleClearAll = useCallback(async () => {
+    setIsClearing(true);
+    try {
+      await clearAllCache();
+      await loadCacheInfo();
+    } finally {
+      setIsClearing(false);
+      setShowClearConfirm(false);
+    }
+  }, [loadCacheInfo]);
 
   // 현재 선택된 음성 이름 찾기
   const currentVoiceName = selectedVoiceURI
@@ -167,6 +209,95 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
             </svg>
           </button>
         </div>
+
+        {/* 오프라인 저장 섹션 */}
+        <p className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-widest pt-3 pb-1">
+          오프라인 저장
+        </p>
+
+        <div className="bg-[#161b22] border border-[#21262d] rounded-xl overflow-hidden">
+          {/* 캐시 요약 */}
+          <div className="px-4 py-3.5 flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-lg bg-amber-500/15 flex items-center justify-center shrink-0">
+                <svg className="w-4.5 h-4.5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm text-white font-medium">캐시된 오디오</p>
+                <p className="text-[11px] text-amber-400">
+                  {totalCacheCount > 0
+                    ? `${totalCacheCount}건 - ${formatBytes(totalCacheSize)}`
+                    : '캐시된 파일 없음'}
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 과목별 캐시 현황 */}
+          {totalCacheCount > 0 && (
+            <>
+              <div className="h-px bg-[#21262d] mx-4" />
+              <div className="px-4 py-3 space-y-2">
+                {subjects.map((subject) => {
+                  const info = cacheBySubject[subject.id];
+                  if (!info) return null;
+                  return (
+                    <div key={subject.id} className="flex items-center justify-between text-[11px]">
+                      <span className="text-[#8b949e]">{subject.name}</span>
+                      <span className="text-[#8b949e]/80">
+                        {info.count}건 - {formatBytes(info.totalBytes)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          <div className="h-px bg-[#21262d] mx-4" />
+
+          {/* 캐시 전체 삭제 버튼 */}
+          {!showClearConfirm ? (
+            <button
+              className="w-full px-4 py-3.5 flex items-center justify-center active:bg-white/[0.04] transition-colors disabled:opacity-40"
+              onClick={() => setShowClearConfirm(true)}
+              disabled={totalCacheCount === 0}
+            >
+              <span className="text-sm text-red-400/80">
+                캐시 전체 삭제
+              </span>
+            </button>
+          ) : (
+            <div className="px-4 py-3.5 space-y-2">
+              <p className="text-[11px] text-[#8b949e] text-center">
+                캐시된 오디오 {totalCacheCount}건 ({formatBytes(totalCacheSize)})을 삭제합니다.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  className="flex-1 py-2 rounded-lg bg-[#21262d] text-sm text-[#8b949e] active:bg-[#30363d] transition-colors"
+                  onClick={() => setShowClearConfirm(false)}
+                  disabled={isClearing}
+                >
+                  취소
+                </button>
+                <button
+                  className="flex-1 py-2 rounded-lg bg-red-500/20 text-sm text-red-400 active:bg-red-500/30 transition-colors disabled:opacity-40"
+                  onClick={handleClearAll}
+                  disabled={isClearing}
+                >
+                  {isClearing ? '삭제 중...' : '삭제'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 안내 문구 */}
+        <p className="text-[10px] text-[#8b949e]/40 leading-relaxed px-1">
+          렌더링된 MP3 파일은 기기 내부 저장소에 보관됩니다. 캐시된 오디오가 있으면 실시간 TTS 대신 MP3로 재생하여 배터리를 절약합니다.
+        </p>
 
         {/* 앱 정보 */}
         <p className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-widest pt-3 pb-1">

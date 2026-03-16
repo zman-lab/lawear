@@ -282,9 +282,22 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
+      // 첫 문장(idx===0)일 때만 캐시 정보를 전달하여 MP3 캐시 재생을 시도한다.
+      // 캐시된 MP3는 문제 전체를 하나의 파일로 담고 있으므로, 문장 단위가 아닌 트랙 단위로 재생.
+      // idx > 0이면 중간부터 재생하는 것이므로 캐시를 사용하지 않고 TTS로 재생.
+      const currentState = stateRef.current;
+      const cacheOpts = idx === 0 && currentState.currentSubjectId && currentState.currentFileId && currentState.currentQuestionId
+        ? {
+            subjectId: currentState.currentSubjectId,
+            fileId: currentState.currentFileId,
+            questionId: currentState.currentQuestionId,
+          }
+        : {};
+
       speak(sents[idx], {
         rate: speed,
-        voiceURI: stateRef.current.selectedVoiceURI ?? undefined,
+        voiceURI: currentState.selectedVoiceURI ?? undefined,
+        ...cacheOpts,
         onEnd: () => {
           const nextIdx = sentenceIndexRef.current + 1;
           if (nextIdx < sentencesRef.current.length) {
