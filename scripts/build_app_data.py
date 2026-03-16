@@ -54,6 +54,8 @@ DIR_TO_SUBJECT = {
     "minbeop": "minbeop",
     "hyung": "hyung",
     "hyungso": "hyungso",
+    "hyeongbeop": "hyung",
+    "hyeongso": "hyungso",
     "budeung": "budeung",
 }
 

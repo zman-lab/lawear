@@ -1,10 +1,10 @@
 {
-  "lastUpdated": "2026-03-15T15:13:14.276695+00:00",
+  "lastUpdated": "2026-03-16T02:35:34.034562+00:00",
   "subjects": {
     "minso": {
       "files": {
         "yebi_mike02": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 9,
           "label": "미케02"
         },
@@ -44,17 +44,17 @@
           "label": "모고02"
         },
         "immun_mike01": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 8,
           "label": "미케01"
         },
         "immun_mike03": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 6,
           "label": "미케03"
         },
         "immun_mike04": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 8,
           "label": "미케04"
         }
@@ -73,12 +73,12 @@
           "label": "미케02"
         },
         "yebi_mike03": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 14,
           "label": "미케03"
         },
         "yebi_mike04": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 19,
           "label": "미케04"
         },
@@ -93,22 +93,22 @@
           "label": "모고02"
         },
         "immun_mike01": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 13,
           "label": "미케01"
         },
         "immun_mike02": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 11,
           "label": "미케02"
         },
         "immun_mike03": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 10,
           "label": "미케03"
         },
         "immun_mike04": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 26,
           "label": "미케04"
         }
@@ -127,17 +127,17 @@
           "label": "예비02"
         },
         "yebi03": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 1,
           "label": "예비03"
         },
         "yebi04": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 1,
           "label": "예비04"
         },
         "yebi05": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 1,
           "label": "예비05"
         },
@@ -147,32 +147,32 @@
           "label": "예비06"
         },
         "yebi07": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 1,
           "label": "예비07"
         },
         "yebi08": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 1,
           "label": "예비08"
         },
         "yebi09": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 1,
           "label": "예비09"
         },
         "yebi10": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 1,
           "label": "예비10"
         },
         "yebi11": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 1,
           "label": "예비11"
         },
         "yebi12": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 1,
           "label": "예비12"
         },
@@ -207,7 +207,7 @@
           "label": "입문01"
         },
         "immun02": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 3,
           "label": "입문02"
         }
@@ -216,12 +216,12 @@
     "hyeongso": {
       "files": {
         "yebi_mogo01": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 5,
           "label": "모고01"
         },
         "yebi_mogo02": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 5,
           "label": "모고02"
         }
@@ -230,7 +230,7 @@
     "budeung": {
       "files": {
         "immun01": {
-          "status": "extracted",
+          "status": "tts_done",
           "cases": 20,
           "label": "입문1"
         }
@@ -240,7 +240,7 @@
   "stats": {
     "totalFiles": 43,
     "extractedFiles": 43,
-    "ttsDoneFiles": 8,
+    "ttsDoneFiles": 31,
     "totalCases": 252,
     "extractedCases": 252
   }
