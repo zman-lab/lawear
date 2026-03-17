@@ -26,6 +26,7 @@ import {
 } from '../../services/renderQueue';
 import { subjects } from '../../data/ttsData';
 import { APP_VERSION, BUILD_DATE } from '../../version';
+import { GITHUB_OWNER, GITHUB_REPO, GITHUB_API } from '../../config';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -84,15 +85,19 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
     setVersionStatus('checking');
     try {
       const res = await fetch(
-        'http://192.168.219.111:8585/api/files/download/zman-lab/lawear/latest.json',
-        { cache: 'no-store' },
+        `${GITHUB_API}/repos/${GITHUB_OWNER}/${GITHUB_REPO}/releases/latest`,
+        { cache: 'no-store', headers: { Accept: 'application/vnd.github+json' } },
       );
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
-      const remote = data.version as string;
+      // tag_name: "v0.1.0.0" → "0.1.0.0"
+      const remote = (data.tag_name as string).replace(/^v/, '');
       setLatestVersion(remote);
-      setDownloadUrl(data.downloadUrl ?? null);
-      setChangelog(data.changelog ?? null);
+      // APK asset URL 찾기
+      const apkAsset = (data.assets as Array<{ browser_download_url: string; name: string }>)
+        ?.find((a) => a.name.endsWith('.apk'));
+      setDownloadUrl(apkAsset?.browser_download_url ?? data.html_url);
+      setChangelog(data.body ?? null);
       setVersionStatus(remote === APP_VERSION ? 'latest' : 'update');
     } catch {
       setVersionStatus('error');
@@ -520,7 +525,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
                     rel="noopener noreferrer"
                     className="block w-full py-2.5 rounded-lg bg-cyan-500/20 text-sm text-cyan-400 text-center active:bg-cyan-500/30 transition-colors"
                   >
-                    다운로드 페이지 열기
+                    APK 다운로드 (v{latestVersion})
                   </a>
                 )}
               </div>
