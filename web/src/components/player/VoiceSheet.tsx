@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { usePlayer } from '../../context/PlayerContext';
 import { TTSFile } from '../../plugins/ttsFile';
+import { log } from '../../services/logger';
 import type { TTSVoice, TTSEngine } from '../../types';
 
 const isNative = Capacitor.isNativePlatform();
@@ -132,6 +133,7 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
   }, []);
 
   const handlePreview = useCallback((voiceURI: string | null) => {
+    log.ui('voice_preview', { voiceURI });
     const previewKey = voiceURI ?? '__auto__';
 
     if (previewingURI === previewKey) {
@@ -190,6 +192,7 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
   }, [previewingURI, stopPreview, voiceIndexMap]);
 
   const handleSelect = (voiceURI: string | null) => {
+    log.ui('voice_select', { voiceURI });
     stopPreview();
     setVoice(voiceURI);
     onClose();
@@ -201,6 +204,7 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
   };
 
   const handleOpenTTSSettings = () => {
+    log.ui('open_tts_settings');
     if (isNative) {
       TTSFile.openTTSSettings().catch(() => {});
     }

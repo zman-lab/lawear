@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { subjects } from '../../data/ttsData';
 import { usePlayer } from '../../context/PlayerContext';
+import { log } from '../../services/logger';
 import type { ViewMode, TocItem } from '../../types';
 
 interface PlayerScreenProps {
@@ -182,6 +183,7 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
 
   // 플레이어 초기화 (처음 마운트 시 또는 문제 변경 시)
   useEffect(() => {
+    log.nav('player_open', { subjectId, fileId, questionId });
     selectQuestion(subjectId, fileId, questionId);
   }, [subjectId, fileId, questionId, selectQuestion]);
 

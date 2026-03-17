@@ -9,6 +9,7 @@
 import { Capacitor } from '@capacitor/core';
 import { TTSFile } from '../plugins/ttsFile';
 import { hasCachedAudio, markAsCached } from './audioCache';
+import { log } from './logger';
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -134,6 +135,7 @@ export async function startQueue(): Promise<void> {
 
   _isRunning = true;
   _isCancelled = false;
+  log.cache('render_start', { total: _queue.length, voiceURI: _voiceURI });
   notifyProgress();
 
   while (_queue.length > 0 && !_isCancelled) {
@@ -146,10 +148,12 @@ export async function startQueue(): Promise<void> {
       if (cached) {
         _currentStatus = 'skipped';
         _skipped++;
+        log.cache('render_item_skip', { subjectId: item.subjectId, fileId: item.fileId, questionId: item.questionId });
         notifyProgress();
         continue;
       }
 
+      log.cache('render_item', { subjectId: item.subjectId, fileId: item.fileId, questionId: item.questionId });
       _currentStatus = 'rendering';
       notifyProgress();
 
@@ -174,9 +178,11 @@ export async function startQueue(): Promise<void> {
 
       _currentStatus = 'done';
       _completed++;
+      log.cache('render_item_done', { subjectId: item.subjectId, fileId: item.fileId, questionId: item.questionId });
     } catch {
       _currentStatus = 'error';
       _errors++;
+      log.error('cache', 'render_item_error', { subjectId: item.subjectId, fileId: item.fileId, questionId: item.questionId });
     }
 
     notifyProgress();
@@ -184,6 +190,7 @@ export async function startQueue(): Promise<void> {
 
   _currentItem = null;
   _isRunning = false;
+  log.cache('render_complete', { completed: _completed, errors: _errors, skipped: _skipped });
   notifyProgress();
 }
 
@@ -192,6 +199,7 @@ export async function startQueue(): Promise<void> {
  * 현재 렌더링 중인 항목은 완료 후 중단된다.
  */
 export function stopQueue(): void {
+  log.cache('render_stop');
   _isCancelled = true;
 }
 

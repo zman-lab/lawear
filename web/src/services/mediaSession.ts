@@ -8,6 +8,7 @@
  * PlayerContext에서 재생 상태가 바뀔 때마다 호출하여 알림을 동기화한다.
  */
 import { Capacitor } from '@capacitor/core';
+import { log } from './logger';
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -65,6 +66,7 @@ export async function initMediaSession(callbacks: MediaSessionCallbacks): Promis
     } catch {
       // 플러그인 미설치 시 조용히 실패
       console.warn('[MediaSession] capacitor-music-controls-plugin not available');
+      log.warn('media', 'create failed');
     }
   } else {
     // 웹: Web MediaSession API
@@ -72,6 +74,7 @@ export async function initMediaSession(callbacks: MediaSessionCallbacks): Promis
   }
 
   _initialized = true;
+  log.media('init', { isNative, pluginLoaded: !!_nativePlugin });
 }
 
 // ── 트랙 정보 업데이트 ─────────────────────────────────────────────────────
@@ -84,6 +87,7 @@ export async function updateMediaTrack(
 ): Promise<void> {
   const title = `${track.subject} · ${track.file} ${track.label}`;
   const artist = track.subtitle || track.subject;
+  log.media('update_track', { title: track.subject + ' ' + track.label });
 
   if (isNative && _nativePlugin) {
     try {
@@ -119,6 +123,7 @@ export async function updateMediaTrack(
 // ── 재생 상태 업데이트 ─────────────────────────────────────────────────────
 
 export function updateMediaPlaybackState(isPlaying: boolean): void {
+  log.media('playback_state', { isPlaying });
   if (isNative && _nativePlugin) {
     try {
       _nativePlugin.updateIsPlaying({ isPlaying });
@@ -133,6 +138,7 @@ export function updateMediaPlaybackState(isPlaying: boolean): void {
 // ── 알림 제거 ──────────────────────────────────────────────────────────────
 
 export async function destroyMediaSession(): Promise<void> {
+  log.media('destroy');
   if (isNative && _nativePlugin) {
     try {
       await _nativePlugin.destroy();
@@ -157,6 +163,7 @@ export function cleanupMediaSession(): void {
 // ── 내부: 네이티브 이벤트 처리 ─────────────────────────────────────────────
 
 function handleNativeEvent(message: string): void {
+  log.media('native_event', { message });
   if (!_callbacks) return;
   switch (message) {
     case 'music-controls-play':

@@ -10,6 +10,7 @@ import {
   cleanupMediaSession,
   MediaTrackInfo,
 } from '../services/mediaSession';
+import { log } from '../services/logger';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 헬퍼: 현재 question의 전체 문장 배열 반환
@@ -215,6 +216,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         prevQuestionRef.current?.();
       },
     });
+    log.life('media_session_init');
 
     return () => {
       cleanupMediaSession();
@@ -270,6 +272,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── 문장 재생 ──────────────────────────────────────────────────────────────
   const speakCurrentSentence = useCallback(
     (idx: number, speed: Speed) => {
+      log.tts('speak_sentence', { idx, total: sentencesRef.current.length });
       const sents = sentencesRef.current;
       if (idx >= sents.length) {
         // 모든 문장 완료 → 정지
@@ -307,6 +310,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             speakCurrentSentence(nextIdx, stateRef.current.speed);
           } else {
             // 모든 문장 완료 → 플레이리스트 or repeatMode에 따라 분기
+            log.player('track_complete');
             const current = stateRef.current;
             const { playlist, playlistIndex, repeatMode: mode } = current;
 
@@ -447,6 +451,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── selectQuestion (재생 없이 문제 선택만) ────────────────────────────────
   const selectQuestion = useCallback(
     (subjectId: string, fileId: string, questionId: string) => {
+      log.player('select_question', { subjectId, fileId, questionId });
       setState((prev) => ({
         ...prev,
         currentSubjectId: subjectId,
@@ -464,6 +469,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── play (단일 문제 재생 — 플레이리스트 1개짜리로 설정) ─────────────────
   const play = useCallback(
     (subjectId: string, fileId: string, questionId: string) => {
+      log.player('play', { subjectId, fileId, questionId });
       const item: PlaylistItem = { subjectId, fileId, questionId };
       setState((prev) => ({
         ...prev,
@@ -486,6 +492,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── playSubject (과목 전체 재생) ──────────────────────────────────────────
   const playSubject = useCallback(
     (subjectId: string) => {
+      log.player('play_subject', { subjectId });
       const playlist = getSubjectPlaylist(subjectId);
       if (playlist.length === 0) return;
       const first = playlist[0];
@@ -510,6 +517,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── playFile (파일 전체 재생) ─────────────────────────────────────────────
   const playFile = useCallback(
     (subjectId: string, fileId: string) => {
+      log.player('play_file', { subjectId, fileId });
       const playlist = getFilePlaylist(subjectId, fileId);
       if (playlist.length === 0) return;
       const first = playlist[0];
@@ -534,6 +542,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── playSelected (선택된 항목들 재생) ─────────────────────────────────────
   const playSelected = useCallback(
     (items: PlaylistItem[]) => {
+      log.player('play_selected', { count: items.length });
       if (items.length === 0) return;
       const first = items[0];
       setState((prev) => ({
@@ -556,6 +565,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── togglePlay ────────────────────────────────────────────────────────────
   const togglePlay = useCallback(() => {
+    log.player('toggle_play', { wasPlaying: stateRef.current.isPlaying });
     const current = stateRef.current;
     if (!current.currentQuestionId) return;
 
@@ -583,6 +593,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── stop ──────────────────────────────────────────────────────────────────
   const stop = useCallback(() => {
+    log.player('stop');
     cancel();
     setState((prev) => ({
       ...prev,
@@ -595,6 +606,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── setSpeed ──────────────────────────────────────────────────────────────
   const setSpeed = useCallback(
     (speed: Speed) => {
+      log.player('speed_change', { speed });
       setState((prev) => ({ ...prev, speed }));
       setRate(speed);
     },
@@ -631,6 +643,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── setVoice ────────────────────────────────────────────────────────────
   const setVoice = useCallback((voiceURI: string | null) => {
+    log.player('voice_change', { voiceURI });
     setState((prev) => ({ ...prev, selectedVoiceURI: voiceURI }));
     saveVoiceURI(voiceURI);
   }, []);
@@ -707,6 +720,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── nextQuestion (플레이리스트 기반) ──────────────────────────────────────
   const nextQuestion = useCallback(() => {
+    log.player('next_question', { playlistIndex: stateRef.current.playlistIndex });
     const current = stateRef.current;
     const { playlist, playlistIndex } = current;
 
@@ -765,6 +779,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── prevQuestion (플레이리스트 기반) ──────────────────────────────────────
   const prevQuestion = useCallback(() => {
+    log.player('prev_question', { playlistIndex: stateRef.current.playlistIndex });
     const current = stateRef.current;
     const { playlist, playlistIndex } = current;
 
