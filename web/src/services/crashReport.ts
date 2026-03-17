@@ -8,6 +8,7 @@ import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
 import { Capacitor } from '@capacitor/core';
 import { GITHUB_OWNER, GITHUB_REPO, GITHUB_API, GITHUB_TOKEN } from '../config';
 import { APP_VERSION, BUILD_DATE } from '../version';
+import { getTrail } from './logger';
 
 interface CrashLog {
   timestamp: string;
@@ -22,6 +23,7 @@ interface CrashLog {
     line?: number;
     col?: number;
   };
+  trail: string;
 }
 
 const CRASH_DIR = 'lawear-crashes';
@@ -69,6 +71,8 @@ async function sendToGithub(log: CrashLog): Promise<boolean> {
     '```',
     '',
     log.error.source ? `Source: ${log.error.source}:${log.error.line}:${log.error.col}` : '',
+    '',
+    log.trail ? `<details><summary>Breadcrumb Trail</summary>\n\n\`\`\`\n${log.trail}\n\`\`\`\n</details>` : '',
   ].join('\n');
 
   try {
@@ -169,6 +173,7 @@ async function reportError(
     platform: Capacitor.getPlatform(),
     userAgent: navigator.userAgent,
     error: { message, stack, source, line, col },
+    trail: getTrail(),
   };
 
   await saveLocal(log);
