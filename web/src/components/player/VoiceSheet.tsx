@@ -1,8 +1,10 @@
-import { useState, useCallback, useRef, useMemo } from 'react';
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react';
 import { Capacitor } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { usePlayer } from '../../context/PlayerContext';
-import type { TTSVoice } from '../../types';
+import { TTSFile } from '../../plugins/ttsFile';
+import { log } from '../../services/logger';
+import type { TTSVoice, TTSEngine } from '../../types';
 
 const isNative = Capacitor.isNativePlatform();
 const PREVIEW_TEXT = '법무사 시험 학습을 시작합니다.';
@@ -76,11 +78,36 @@ function VoiceItem({ voice, isSelected, onSelect, previewingURI, onPreview }: {
   );
 }
 
+/** 엔진 패키지명 → 짧은 표시명 */
+function getEngineDisplayName(engine: TTSEngine): string {
+  const { name, label } = engine;
+  if (label && label.length < 30) return label;
+  if (name.includes('google')) return 'Google TTS';
+  if (name.includes('samsung') || name.includes('SMT')) return 'Samsung TTS';
+  if (name.includes('naver')) return 'NAVER TTS';
+  if (name.includes('kakao')) return 'Kakao TTS';
+  return label || name.split('.').pop() || name;
+}
+
 export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
   const { state, voices, setVoice } = usePlayer();
   const { selectedVoiceURI } = state;
   const [previewingURI, setPreviewingURI] = useState<string | null>(null);
   const previewUtteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+
+  // 엔진 정보 (네이티브 전용)
+  const [engines, setEngines] = useState<TTSEngine[]>([]);
+  const [defaultEngine, setDefaultEngine] = useState<string>('');
+
+  useEffect(() => {
+    if (!isNative || !isOpen) return;
+    TTSFile.getEngines()
+      .then((result) => {
+        setEngines(result.engines);
+        setDefaultEngine(result.defaultEngine);
+      })
+      .catch(() => {});
+  }, [isOpen]);
 
   // voiceURI -> 인덱스 맵 (네이티브에서 voice는 number 인덱스)
   const voiceIndexMap = useMemo(() => {
@@ -88,6 +115,12 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
     voices.forEach((v, i) => m.set(v.voiceURI, i));
     return m;
   }, [voices]);
+
+  // 현재 엔진 표시명
+  const currentEngineName = useMemo(() => {
+    const engine = engines.find((e) => e.name === defaultEngine);
+    return engine ? getEngineDisplayName(engine) : null;
+  }, [engines, defaultEngine]);
 
   const stopPreview = useCallback(() => {
     if (isNative) {
@@ -100,17 +133,15 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
   }, []);
 
   const handlePreview = useCallback((voiceURI: string | null) => {
+    log.ui('voice_preview', { voiceURI });
     const previewKey = voiceURI ?? '__auto__';
 
-    // 같은 음성 미리듣기 중이면 중지
     if (previewingURI === previewKey) {
       stopPreview();
       return;
     }
 
-    // 기존 미리듣기 중지
     stopPreview();
-
     setPreviewingURI(previewKey);
 
     if (isNative) {
@@ -136,7 +167,6 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
         const found = allVoices.find((v) => v.voiceURI === voiceURI);
         if (found) utterance.voice = found;
       } else {
-        // 자동: 한국어 Google 우선
         const allVoices = window.speechSynthesis.getVoices();
         const koVoices = allVoices.filter((v) => v.lang === 'ko-KR' || v.lang.startsWith('ko'));
         const googleVoice = koVoices.find((v) => v.name.toLowerCase().includes('google'));
@@ -159,9 +189,10 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
         window.speechSynthesis.speak(utterance);
       });
     }
-  }, [previewingURI, stopPreview]);
+  }, [previewingURI, stopPreview, voiceIndexMap]);
 
   const handleSelect = (voiceURI: string | null) => {
+    log.ui('voice_select', { voiceURI });
     stopPreview();
     setVoice(voiceURI);
     onClose();
@@ -170,6 +201,13 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
   const handleClose = () => {
     stopPreview();
     onClose();
+  };
+
+  const handleOpenTTSSettings = () => {
+    log.ui('open_tts_settings');
+    if (isNative) {
+      TTSFile.openTTSSettings().catch(() => {});
+    }
   };
 
   if (!isOpen) return null;
@@ -205,6 +243,40 @@ export function VoiceSheet({ isOpen, onClose }: VoiceSheetProps) {
               닫기
             </button>
           </div>
+
+          {/* 현재 엔진 정보 (네이티브) */}
+          {isNative && currentEngineName && (
+            <div className="mt-2 flex items-center justify-between bg-white/5 rounded-lg px-3 py-2">
+              <div className="min-w-0">
+                <p className="text-[10px] text-[#8b949e]/60 uppercase tracking-wider">현재 엔진</p>
+                <p className="text-xs text-white/80 truncate">{currentEngineName}</p>
+              </div>
+              <button
+                className="text-[10px] text-blue-400 px-2 py-1 bg-blue-500/10 rounded-md shrink-0"
+                onClick={handleOpenTTSSettings}
+              >
+                변경
+              </button>
+            </div>
+          )}
+
+          {/* 설치된 엔진 목록 (2개 이상일 때) */}
+          {isNative && engines.length > 1 && (
+            <div className="mt-2 flex flex-wrap gap-1">
+              {engines.map((engine) => (
+                <span
+                  key={engine.name}
+                  className={`text-[10px] px-2 py-0.5 rounded-full ${
+                    engine.name === defaultEngine
+                      ? 'bg-blue-500/15 text-blue-400'
+                      : 'bg-white/5 text-[#8b949e]/60'
+                  }`}
+                >
+                  {getEngineDisplayName(engine)}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto px-5 pb-6">

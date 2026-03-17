@@ -5,6 +5,7 @@ import { ListScreen } from './components/screens/ListScreen';
 import { PlayerScreen } from './components/screens/PlayerScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
 import { PlayerBar } from './components/player/PlayerBar';
+import { log } from './services/logger';
 
 type Screen =
   | { type: 'home' }
@@ -17,12 +18,14 @@ export default function App() {
   const [history, setHistory] = useState<Screen[]>([]);
 
   const navigate = (next: Screen) => {
+    log.nav('screen_change', { to: next.type, ...(next.type === 'list' ? {subjectId: next.subjectId} : next.type === 'player' ? {subjectId: next.subjectId, fileId: next.fileId, questionId: next.questionId} : {}) });
     setHistory((prev) => [...prev, screen]);
     setScreen(next);
   };
 
   const goBack = () => {
     const prev = history[history.length - 1];
+    log.nav('go_back', { to: prev?.type ?? 'none' });
     if (prev) {
       setHistory((h) => h.slice(0, -1));
       setScreen(prev);

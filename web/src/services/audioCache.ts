@@ -11,6 +11,7 @@
  */
 import { Capacitor } from '@capacitor/core';
 import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+import { log } from './logger';
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -83,7 +84,7 @@ function cacheKey(subjectId: string, fileId: string, questionId: string): string
 }
 
 function cachePath(subjectId: string, fileId: string, questionId: string): string {
-  return `${CACHE_DIR}/${subjectId}/${fileId}/${questionId}.mp3`;
+  return `${CACHE_DIR}/${subjectId}/${fileId}/${questionId}.wav`;
 }
 
 async function loadManifest(): Promise<CacheManifest> {
@@ -184,11 +185,13 @@ export async function getCachedAudioUri(
         path: entry.path,
         directory: Directory.Data,
       });
+      log.cache('get_uri', { key, hit: true });
       return Capacitor.convertFileSrc(result.uri);
     } catch {
       // 파일이 사라졌으면 매니페스트에서도 제거
       delete manifest.entries[key];
       await saveManifest();
+      log.cache('get_uri', { key, hit: false });
       return null;
     }
   } else {
@@ -206,10 +209,13 @@ export async function getCachedAudioUri(
       if (!blob) {
         delete manifest.entries[key];
         await saveManifest();
+        log.cache('get_uri', { key, hit: false });
         return null;
       }
+      log.cache('get_uri', { key, hit: true });
       return URL.createObjectURL(blob);
     } catch {
+      log.cache('get_uri', { key, hit: false });
       return null;
     }
   }
@@ -267,6 +273,7 @@ export async function saveCachedAudio(
   };
 
   await saveManifest();
+  log.cache('save', { key, size: audioBlob.size });
 }
 
 /**
@@ -309,6 +316,7 @@ export async function removeCachedAudio(
 
   delete manifest.entries[key];
   await saveManifest();
+  log.cache('remove', { key });
 }
 
 /**
@@ -396,6 +404,7 @@ export async function clearAllCache(): Promise<void> {
 
   _manifest = { version: 1, entries: {} };
   await saveManifest();
+  log.cache('clear_all');
 }
 
 /**
@@ -446,6 +455,35 @@ function blobToBase64(blob: Blob): Promise<string> {
     reader.onerror = () => reject(reader.error);
     reader.readAsDataURL(blob);
   });
+}
+
+/**
+ * 네이티브에서 직접 파일을 쓴 경우, 매니페스트만 업데이트한다.
+ * (TTSFile 플러그인이 synthesizeToFile로 직접 파일 생성 후 호출)
+ */
+export async function markAsCached(
+  subjectId: string,
+  fileId: string,
+  questionId: string,
+  fileSizeBytes: number,
+  voiceURI: string | null,
+): Promise<void> {
+  const manifest = await loadManifest();
+  const key = cacheKey(subjectId, fileId, questionId);
+  const path = cachePath(subjectId, fileId, questionId);
+
+  manifest.entries[key] = {
+    subjectId,
+    fileId,
+    questionId,
+    path,
+    size: fileSizeBytes,
+    cachedAt: new Date().toISOString(),
+    voiceURI,
+  };
+
+  await saveManifest();
+  log.cache('mark_cached', { key: cacheKey(subjectId, fileId, questionId), size: fileSizeBytes });
 }
 
 /**

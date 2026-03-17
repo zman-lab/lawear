@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { subjects } from '../../data/ttsData';
 import { usePlayer } from '../../context/PlayerContext';
+import { log } from '../../services/logger';
 import type { Level, FileGroup, Question, PlaylistItem } from '../../types';
 
 interface ListScreenProps {
@@ -245,6 +246,7 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion }: ListScreenPr
 
   const toggleFile = (fileId: string) => {
     setExpandedFileIds((prev) => {
+      log.ui('list_toggle_file', {fileId, expanded: !prev.has(fileId)});
       const next = new Set(prev);
       if (next.has(fileId)) {
         next.delete(fileId);
@@ -269,6 +271,7 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion }: ListScreenPr
 
   const handlePlaySelected = () => {
     if (selectedIds.size === 0) return;
+    log.ui('list_play_selected', {count: selectedIds.size});
     // 선택된 항목들을 파일 순서 유지하여 플레이리스트 생성
     const items: PlaylistItem[] = [];
     for (const file of subject.files) {
@@ -352,7 +355,7 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion }: ListScreenPr
           {/* 과목 전체 재생 */}
           <button
             className="flex-1 py-2.5 rounded-xl bg-blue-500/15 border border-blue-500/20 text-blue-400 text-xs font-bold flex items-center justify-center gap-1.5 active:bg-blue-500/25 transition-colors"
-            onClick={() => playSubject(subjectId)}
+            onClick={() => { log.ui('list_play_subject', {subjectId}); playSubject(subjectId); }}
           >
             <PlayIcon className="w-3.5 h-3.5" />
             전체 재생
@@ -386,8 +389,11 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion }: ListScreenPr
             onToggle={() => toggleFile(fileGroup.id)}
             currentQuestionId={currentQuestionId}
             currentFileId={currentFileId}
-            onSelectQuestion={onSelectQuestion}
-            onPlayFile={playFile}
+            onSelectQuestion={(sid, fid, qid) => {
+              log.ui('list_select_case', { subjectId: sid, fileId: fid, questionId: qid });
+              onSelectQuestion(sid, fid, qid);
+            }}
+            onPlayFile={(sid, fid) => { log.ui('list_play_file', {subjectId: sid, fileId: fid}); playFile(sid, fid); }}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelectQuestion}
             selectMode={selectMode}

@@ -3,6 +3,7 @@ import { Capacitor } from '@capacitor/core';
 import { TextToSpeech } from '@capacitor-community/text-to-speech';
 import { TTSVoice } from '../types';
 import { getCachedAudioUri } from '../services/audioCache';
+import { log } from '../services/logger';
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -98,6 +99,7 @@ export function useSpeechSynthesis() {
 
   const speak = useCallback(
     (text: string, options: SpeakOptions = {}) => {
+      log.tts('speak', { text: text.slice(0, 60), hasCacheOpts: !!(options.subjectId) });
       if (!isSupported) return;
 
       const rate = Math.min(10, Math.max(0.1, options.rate ?? rateRef.current));
@@ -130,6 +132,7 @@ export function useSpeechSynthesis() {
   // ── 캐시된 오디오 재생 (HTML5 Audio) ──────────────────────────────────
   const playCachedAudio = useCallback(
     (uri: string, rate: number, onEnd: (() => void) | null) => {
+      log.tts('play_cached', { uri: uri.slice(0, 80) });
       // 기존 재생 중단
       cleanupAudioElement();
       if (isNative) {
@@ -163,6 +166,7 @@ export function useSpeechSynthesis() {
       };
 
       audio.onerror = () => {
+        log.error('tts', 'cached_audio_error');
         setIsSpeaking(false);
         setIsPaused(false);
         setIsPlayingCached(false);
@@ -182,6 +186,7 @@ export function useSpeechSynthesis() {
   // ── TTS 엔진으로 재생 (기존 로직) ────────────────────────────────────
   const speakWithTts = useCallback(
     (text: string, rate: number, options: SpeakOptions) => {
+      log.tts('speak_tts', { isNative, voiceURI: options.voiceURI ?? 'auto' });
       // 캐시 오디오가 재생 중이면 중단
       cleanupAudioElement();
 
@@ -219,6 +224,7 @@ export function useSpeechSynthesis() {
             }
           })
           .catch(() => {
+            log.warn('tts', 'native_speak_interrupted');
             // 중단(stop)에 의한 에러는 정상 동작
             nativeSpeakingRef.current = false;
             setIsSpeaking(false);
@@ -254,6 +260,7 @@ export function useSpeechSynthesis() {
         };
 
         utterance.onerror = (e) => {
+          log.error('tts', 'web_speak_error', { error: e.error });
           if (e.error === 'interrupted' || e.error === 'canceled') return;
           setIsSpeaking(false);
           setIsPaused(false);
@@ -274,6 +281,7 @@ export function useSpeechSynthesis() {
   );
 
   const pause = useCallback(() => {
+    log.tts('pause', { isPlayingCached });
     if (!isSupported || !isSpeaking) return;
 
     // 캐시된 오디오 재생 중이면 Audio 일시정지
@@ -299,6 +307,7 @@ export function useSpeechSynthesis() {
   }, [isSupported, isSpeaking, isPlayingCached]);
 
   const resume = useCallback(() => {
+    log.tts('resume', { isPlayingCached });
     if (!isSupported || !isPaused) return;
 
     // 캐시된 오디오 재생 중이면 Audio resume
@@ -319,6 +328,7 @@ export function useSpeechSynthesis() {
   }, [isSupported, isPaused, isPlayingCached]);
 
   const cancel = useCallback(() => {
+    log.tts('cancel');
     if (!isSupported) return;
 
     // 캐시된 오디오 정리

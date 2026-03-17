@@ -1,16 +1,15 @@
 /**
  * Render Queue Service
  *
- * TTS 텍스트를 백그라운드에서 MP3로 렌더링하는 큐 시스템.
+ * TTS 텍스트를 백그라운드에서 WAV 파일로 렌더링하는 큐 시스템.
  *
- * Web SpeechSynthesis + MediaRecorder로 오디오를 캡처하거나,
- * 네이티브 환경에서는 캡처가 불가능하므로 "렌더링 불가" 상태를 반환한다.
- * (네이티브 synthesizeToFile은 추후 커스텀 Capacitor 플러그인으로 구현)
- *
- * 렌더링 중에도 TTS 실시간 재생은 정상 동작한다. (별도 utterance 사용)
+ * 네이티브(Android): TTSFile 플러그인의 synthesizeToFile() 사용.
+ * 웹: 지원하지 않음 (SpeechSynthesis 오디오 캡처 불가).
  */
 import { Capacitor } from '@capacitor/core';
-import { saveCachedAudio } from './audioCache';
+import { TTSFile } from '../plugins/ttsFile';
+import { hasCachedAudio, markAsCached } from './audioCache';
+import { log } from './logger';
 
 const isNative = Capacitor.isNativePlatform();
 
@@ -61,30 +60,14 @@ let _progressCallback: ProgressCallback | null = null;
 let _voiceURI: string | null = null;
 let _rate: number = 1.0;
 
-// ── Web SpeechSynthesis 렌더링 지원 여부 ────────────────────────────────────
-
-/**
- * Web 환경에서 MediaRecorder + SpeechSynthesis 조합이 가능한지 확인한다.
- * Android WebView에서는 거의 불가능하므로, 데스크탑 Chrome 등에서만 동작.
- */
-function isWebRenderingSupported(): boolean {
-  if (isNative) return false;
-  // Web SpeechSynthesis + MediaRecorder가 모두 있어야 함
-  // 실제로는 SpeechSynthesis의 오디오 스트림을 캡처할 수 없으므로,
-  // OfflineAudioContext + decodeAudioData 등의 우회가 필요하지만
-  // 현 단계에서는 "지원 안 함"으로 처리하고, 추후 확장 가능하도록 구조만 잡는다.
-  return false;
-}
-
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /**
  * 렌더링이 지원되는 환경인지 반환한다.
- * 현재: Web SpeechSynthesis + MediaRecorder 조합이 가능한 환경만.
- * 추후: Android 네이티브 synthesizeToFile 플러그인 추가 시 true 확장.
+ * Android 네이티브에서만 동작 (TextToSpeech.synthesizeToFile).
  */
 export function isRenderingSupported(): boolean {
-  return isWebRenderingSupported();
+  return isNative;
 }
 
 /**
@@ -144,7 +127,6 @@ export function getProgress(): RenderProgress {
 export async function startQueue(): Promise<void> {
   if (_isRunning) return;
   if (!isRenderingSupported()) {
-    // 렌더링 미지원 환경: 큐 항목을 모두 skipped로 처리
     _skipped += _queue.length;
     _queue = [];
     notifyProgress();
@@ -153,34 +135,54 @@ export async function startQueue(): Promise<void> {
 
   _isRunning = true;
   _isCancelled = false;
+  log.cache('render_start', { total: _queue.length, voiceURI: _voiceURI });
   notifyProgress();
 
   while (_queue.length > 0 && !_isCancelled) {
     const item = _queue.shift()!;
     _currentItem = item;
-    _currentStatus = 'rendering';
-    notifyProgress();
 
     try {
-      // 실제 렌더링은 추후 구현 (현재 isRenderingSupported()가 false이므로 여기 도달 안 함)
-      const audioBlob = await renderSingleItem(item);
-      if (audioBlob) {
-        await saveCachedAudio(
-          item.subjectId,
-          item.fileId,
-          item.questionId,
-          audioBlob,
-          _voiceURI,
-        );
-        _currentStatus = 'done';
-        _completed++;
-      } else {
+      // 이미 캐시된 항목은 스킵
+      const cached = await hasCachedAudio(item.subjectId, item.fileId, item.questionId);
+      if (cached) {
         _currentStatus = 'skipped';
         _skipped++;
+        log.cache('render_item_skip', { subjectId: item.subjectId, fileId: item.fileId, questionId: item.questionId });
+        notifyProgress();
+        continue;
       }
+
+      log.cache('render_item', { subjectId: item.subjectId, fileId: item.fileId, questionId: item.questionId });
+      _currentStatus = 'rendering';
+      notifyProgress();
+
+      // 네이티브 synthesizeToFile 호출
+      const fileName = `lawear-audio/${item.subjectId}/${item.fileId}/${item.questionId}.wav`;
+
+      const result = await TTSFile.synthesizeToFile({
+        text: item.text,
+        fileName,
+        rate: _rate,
+        voiceName: _voiceURI ?? undefined,
+      });
+
+      // 매니페스트 업데이트 (파일은 네이티브에서 직접 기록됨)
+      await markAsCached(
+        item.subjectId,
+        item.fileId,
+        item.questionId,
+        result.size,
+        _voiceURI,
+      );
+
+      _currentStatus = 'done';
+      _completed++;
+      log.cache('render_item_done', { subjectId: item.subjectId, fileId: item.fileId, questionId: item.questionId });
     } catch {
       _currentStatus = 'error';
       _errors++;
+      log.error('cache', 'render_item_error', { subjectId: item.subjectId, fileId: item.fileId, questionId: item.questionId });
     }
 
     notifyProgress();
@@ -188,6 +190,7 @@ export async function startQueue(): Promise<void> {
 
   _currentItem = null;
   _isRunning = false;
+  log.cache('render_complete', { completed: _completed, errors: _errors, skipped: _skipped });
   notifyProgress();
 }
 
@@ -196,6 +199,7 @@ export async function startQueue(): Promise<void> {
  * 현재 렌더링 중인 항목은 완료 후 중단된다.
  */
 export function stopQueue(): void {
+  log.cache('render_stop');
   _isCancelled = true;
 }
 
@@ -204,26 +208,6 @@ export function stopQueue(): void {
  */
 export function isQueueRunning(): boolean {
   return _isRunning;
-}
-
-// ── 내부: 단일 항목 렌더링 ──────────────────────────────────────────────────
-
-/**
- * 단일 텍스트를 오디오 Blob으로 렌더링한다.
- * 현재 Web SpeechSynthesis에서 오디오 스트림 캡처가 불가능하므로,
- * 추후 아래 방법 중 하나로 확장:
- *   1. Android 네이티브 synthesizeToFile() → Capacitor 플러그인
- *   2. Web Audio API + OfflineAudioContext (실험적)
- *   3. 서버 사이드 TTS API 호출 (Cloud TTS)
- *
- * 현재는 placeholder로 null을 반환한다.
- */
-async function renderSingleItem(_item: RenderItem): Promise<Blob | null> {
-  // TODO: 실제 렌더링 구현
-  // 참고: _voiceURI, _rate를 사용
-  void _voiceURI;
-  void _rate;
-  return null;
 }
 
 // ── 내부: 진행률 알림 ───────────────────────────────────────────────────────

@@ -7,6 +7,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 WEB_DIR="$PROJECT_DIR/web"
 FTP_BASE="http://127.0.0.1:8585/api/files"
 FTP_UPLOAD_DIR="zman-lab/lawear"
+GH_REPO="zman-lab/lawear"
 
 # ── 버전 읽기 (version.ts에서) ────────────────────────────────
 VERSION_FILE="$WEB_DIR/src/version.ts"
@@ -78,8 +79,28 @@ curl -sf -X POST "${FTP_BASE}/upload" \
 rm -f "$TMPFILE"
 echo "  Uploaded: latest.json"
 
+# ── GitHub Release ──────────────────────────────────────────
+echo "[6/6] GitHub Release..."
+TAG="v${APP_VERSION}"
+
+# 이미 있는 릴리즈면 APK만 덮어쓰기, 없으면 새로 생성
+if GH_HOST=github.com gh release view "$TAG" --repo "$GH_REPO" > /dev/null 2>&1; then
+  # 기존 APK 삭제 후 재업로드
+  GH_HOST=github.com gh release delete-asset "$TAG" "$APK_NAME" --repo "$GH_REPO" -y 2>/dev/null || true
+  GH_HOST=github.com gh release upload "$TAG" "${APK_SRC}#${APK_NAME}" --repo "$GH_REPO"
+  echo "  Updated: ${TAG}"
+else
+  GH_HOST=github.com gh release create "$TAG" "${APK_SRC}#${APK_NAME}" \
+    --repo "$GH_REPO" \
+    --title "${TAG}" \
+    --notes "lawear ${TAG} (${BUILD_DATE})"
+  echo "  Created: ${TAG}"
+fi
+
+GH_RELEASE_URL="https://github.com/${GH_REPO}/releases/tag/${TAG}"
+
 echo ""
 echo "=== Deploy Complete ==="
-echo "APK: ${FTP_BASE}/download/${FTP_UPLOAD_DIR}/${APK_NAME}"
-echo "Latest: ${FTP_BASE}/download/${FTP_UPLOAD_DIR}/${APK_LATEST}"
-echo "Version info: ${FTP_BASE}/download/${FTP_UPLOAD_DIR}/latest.json"
+echo "FTP APK: ${FTP_BASE}/download/${FTP_UPLOAD_DIR}/${APK_NAME}"
+echo "FTP Latest: ${FTP_BASE}/download/${FTP_UPLOAD_DIR}/${APK_LATEST}"
+echo "GitHub: ${GH_RELEASE_URL}"
