@@ -13,6 +13,7 @@ import {
   type CacheSizeInfo,
 } from '../../services/audioCache';
 import { subjects } from '../../data/ttsData';
+import { APP_VERSION, BUILD_DATE } from '../../version';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -44,6 +45,31 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
   const [showSpeedSheet, setShowSpeedSheet] = useState(false);
   const [showRepeatSheet, setShowRepeatSheet] = useState(false);
+
+  // ── 버전 확인 상태 ──────────────────────────────────────────────────────
+  const [versionStatus, setVersionStatus] = useState<'idle' | 'checking' | 'latest' | 'update' | 'error'>('idle');
+  const [latestVersion, setLatestVersion] = useState<string | null>(null);
+  const [downloadUrl, setDownloadUrl] = useState<string | null>(null);
+  const [changelog, setChangelog] = useState<string | null>(null);
+
+  const checkForUpdate = useCallback(async () => {
+    setVersionStatus('checking');
+    try {
+      const res = await fetch(
+        'http://192.168.219.111:8585/api/files/download/zman-lab/lawear/latest.json',
+        { cache: 'no-store' },
+      );
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const remote = data.version as string;
+      setLatestVersion(remote);
+      setDownloadUrl(data.downloadUrl ?? null);
+      setChangelog(data.changelog ?? null);
+      setVersionStatus(remote === APP_VERSION ? 'latest' : 'update');
+    } catch {
+      setVersionStatus('error');
+    }
+  }, []);
 
   // ── 캐시 관련 상태 ──────────────────────────────────────────────────────
   const [cacheBySubject, setCacheBySubject] = useState<Record<string, CacheSizeInfo>>({});
@@ -305,10 +331,73 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
         </p>
 
         <div className="bg-[#161b22] border border-[#21262d] rounded-xl overflow-hidden">
+          {/* 현재 버전 */}
           <div className="px-4 py-3.5 flex items-center justify-between">
-            <p className="text-sm text-white/60">버전</p>
-            <p className="text-sm text-[#8b949e]">0.0.1</p>
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="w-9 h-9 rounded-lg bg-cyan-500/15 flex items-center justify-center shrink-0">
+                <svg className="w-4.5 h-4.5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="min-w-0">
+                <p className="text-sm text-white font-medium">버전</p>
+                <p className="text-[11px] text-cyan-400">v{APP_VERSION}</p>
+              </div>
+            </div>
           </div>
+
+          <div className="h-px bg-[#21262d] mx-4" />
+
+          {/* 빌드 날짜 */}
+          <div className="px-4 py-3 flex items-center justify-between">
+            <p className="text-[11px] text-[#8b949e]">빌드 날짜</p>
+            <p className="text-[11px] text-[#8b949e]/80">{BUILD_DATE}</p>
+          </div>
+
+          <div className="h-px bg-[#21262d] mx-4" />
+
+          {/* 최신 버전 확인 버튼 */}
+          <button
+            className="w-full px-4 py-3.5 flex items-center justify-center active:bg-white/[0.04] transition-colors disabled:opacity-40"
+            onClick={checkForUpdate}
+            disabled={versionStatus === 'checking'}
+          >
+            {versionStatus === 'checking' ? (
+              <span className="text-sm text-cyan-400/80">확인 중...</span>
+            ) : versionStatus === 'latest' ? (
+              <span className="text-sm text-emerald-400">최신 버전입니다</span>
+            ) : versionStatus === 'error' ? (
+              <span className="text-sm text-red-400/80">확인 실패 (탭하여 재시도)</span>
+            ) : (
+              <span className="text-sm text-cyan-400/80">최신 버전 확인</span>
+            )}
+          </button>
+
+          {/* 업데이트 가능 시 표시 */}
+          {versionStatus === 'update' && latestVersion && (
+            <>
+              <div className="h-px bg-[#21262d] mx-4" />
+              <div className="px-4 py-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-amber-400">새 버전 사용 가능</span>
+                  <span className="text-[11px] text-amber-400/80">v{latestVersion}</span>
+                </div>
+                {changelog && (
+                  <p className="text-[11px] text-[#8b949e] leading-relaxed">{changelog}</p>
+                )}
+                {downloadUrl && (
+                  <a
+                    href={downloadUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full py-2.5 rounded-lg bg-cyan-500/20 text-sm text-cyan-400 text-center active:bg-cyan-500/30 transition-colors"
+                  >
+                    다운로드 페이지 열기
+                  </a>
+                )}
+              </div>
+            </>
+          )}
         </div>
       </div>
 
