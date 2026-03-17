@@ -205,8 +205,50 @@ export function initCrashReport(): void {
     );
   };
 
-  // 앱 시작 시 미전송 로그 flush (비동기, 실패 무시)
+  // 앱 시작 시: 미전송 크래시 로그 flush + 이전 세션 trail 확인
   flushPending().catch(() => {});
+  sendOrphanTrail().catch(() => {});
+}
+
+const TRAIL_FILE = 'lawear-crashes/trail.log';
+
+/**
+ * 이전 세션에서 디스크에 남긴 trail.log가 있으면
+ * "비정상 종료 의심" 이슈로 전송 후 삭제
+ */
+async function sendOrphanTrail(): Promise<void> {
+  if (!GITHUB_TOKEN) return;
+
+  try {
+    const content = await Filesystem.readFile({
+      path: TRAIL_FILE,
+      directory: Directory.Data,
+      encoding: Encoding.UTF8,
+    });
+
+    const trail = content.data as string;
+    if (!trail.trim()) return;
+
+    const log: CrashLog = {
+      timestamp: new Date().toISOString(),
+      version: APP_VERSION,
+      buildDate: BUILD_DATE,
+      platform: Capacitor.getPlatform(),
+      userAgent: navigator.userAgent,
+      error: { message: '비정상 종료 감지 (이전 세션 trail 복구)' },
+      trail,
+    };
+
+    const sent = await sendToGithub(log);
+    if (sent) {
+      await Filesystem.deleteFile({
+        path: TRAIL_FILE,
+        directory: Directory.Data,
+      });
+    }
+  } catch {
+    // trail 파일 없으면 정상 종료였던 것 → 무시
+  }
 }
 
 /** 수동으로 미전송 로그 전송 시도 (설정 화면 등에서 호출) */

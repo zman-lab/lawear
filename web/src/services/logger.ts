@@ -31,16 +31,48 @@ export interface LogEntry {
   data?: Record<string, unknown>;
 }
 
+import { Filesystem, Directory, Encoding } from '@capacitor/filesystem';
+
 // ── 순환 버퍼 ────────────────────────────────────────────────────────────────
 
 const MAX_ENTRIES = 200;
 const _buffer: LogEntry[] = [];
+const TRAIL_FILE = 'lawear-crashes/trail.log';
+
+/** 디스크에 비동기 flush (fire-and-forget) */
+let _flushTimer: ReturnType<typeof setTimeout> | null = null;
+const FLUSH_INTERVAL_MS = 2000; // 2초마다 배치 flush
+
+function scheduleFlush(): void {
+  if (_flushTimer) return; // 이미 예약됨
+  _flushTimer = setTimeout(() => {
+    _flushTimer = null;
+    flushToDisk();
+  }, FLUSH_INTERVAL_MS);
+}
+
+function flushToDisk(): void {
+  const trail = _buffer.map((e) => {
+    const time = new Date(e.ts).toISOString().slice(11, 23);
+    const lvTag = e.lv === 'info' ? '' : ` [${e.lv.toUpperCase()}]`;
+    const dataStr = e.data ? ' ' + JSON.stringify(e.data) : '';
+    return `${time} [${e.cat}]${lvTag} ${e.msg}${dataStr}`;
+  }).join('\n');
+
+  Filesystem.writeFile({
+    path: TRAIL_FILE,
+    data: trail,
+    directory: Directory.Data,
+    encoding: Encoding.UTF8,
+  }).catch(() => { /* 실패해도 무시 */ });
+}
 
 function push(entry: LogEntry): void {
   if (_buffer.length >= MAX_ENTRIES) {
     _buffer.shift();
   }
   _buffer.push(entry);
+  scheduleFlush();
 
   // 개발 콘솔에도 출력 (프로덕션에서는 조용히)
   if (import.meta.env.DEV) {
