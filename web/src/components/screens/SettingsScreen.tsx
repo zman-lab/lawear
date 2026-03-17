@@ -12,6 +12,18 @@ import {
   formatBytes,
   type CacheSizeInfo,
 } from '../../services/audioCache';
+import {
+  isRenderingSupported,
+  enqueue,
+  startQueue,
+  stopQueue,
+  clearQueue,
+  setRenderOptions,
+  onProgress,
+  getProgress,
+  type RenderItem,
+  type RenderProgress,
+} from '../../services/renderQueue';
 import { subjects } from '../../data/ttsData';
 import { APP_VERSION, BUILD_DATE } from '../../version';
 
@@ -37,6 +49,22 @@ const REPEAT_MODE_LABELS: Record<RepeatMode, string> = {
   'repeat-one': '1곡 반복',
   shuffle: '셔플',
 };
+
+/** 과목의 모든 문제를 RenderItem[]으로 변환 */
+function getSubjectRenderItems(subjectId: string): RenderItem[] {
+  const subject = subjects.find((s) => s.id === subjectId);
+  if (!subject) return [];
+  const items: RenderItem[] = [];
+  for (const file of subject.files) {
+    for (const q of file.questions) {
+      const { problem, toc, answer } = q.content;
+      const tocSentences = toc.map((t) => `${t.number} ${t.text}`);
+      const text = [...problem, ...tocSentences, ...answer].join('\n');
+      items.push({ subjectId, fileId: file.id, questionId: q.id, text });
+    }
+  }
+  return items;
+}
 
 export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const { state, voices } = usePlayer();
@@ -104,6 +132,37 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
     }
   }, [loadCacheInfo]);
 
+  // ── 렌더링 상태 ──────────────────────────────────────────────────────────
+  const [renderProgress, setRenderProgress] = useState<RenderProgress>(getProgress);
+  const [renderingSubjectId, setRenderingSubjectId] = useState<string | null>(null);
+
+  useEffect(() => {
+    onProgress((progress) => {
+      setRenderProgress(progress);
+      // 렌더링 완료 시 캐시 정보 새로고침
+      if (!progress.isRunning && (progress.completed > 0 || progress.errors > 0)) {
+        loadCacheInfo();
+        setRenderingSubjectId(null);
+      }
+    });
+    return () => onProgress(null);
+  }, [loadCacheInfo]);
+
+  const handleStartRender = useCallback((subjectId: string) => {
+    clearQueue();
+    const items = getSubjectRenderItems(subjectId);
+    if (items.length === 0) return;
+
+    setRenderOptions(selectedVoiceURI, speed);
+    enqueue(items);
+    setRenderingSubjectId(subjectId);
+    startQueue();
+  }, [selectedVoiceURI, speed]);
+
+  const handleStopRender = useCallback(() => {
+    stopQueue();
+  }, []);
+
   // 현재 선택된 음성 이름 찾기
   const currentVoiceName = selectedVoiceURI
     ? voices.find((v) => v.voiceURI === selectedVoiceURI)?.name ?? '알 수 없는 음성'
@@ -112,6 +171,9 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
   // 한국어 음성 수
   const koreanVoiceCount = voices.filter((v) => v.lang.startsWith('ko')).length;
   const totalVoiceCount = voices.length;
+
+  const canRender = isRenderingSupported();
+  const isRendering = renderProgress.isRunning;
 
   return (
     <div
@@ -261,26 +323,90 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
             </div>
           </div>
 
-          {/* 과목별 캐시 현황 */}
-          {totalCacheCount > 0 && (
+          {/* 렌더링 진행률 */}
+          {isRendering && (
             <>
               <div className="h-px bg-[#21262d] mx-4" />
               <div className="px-4 py-3 space-y-2">
-                {subjects.map((subject) => {
-                  const info = cacheBySubject[subject.id];
-                  if (!info) return null;
-                  return (
-                    <div key={subject.id} className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#8b949e]">{subject.name}</span>
-                      <span className="text-[#8b949e]/80">
-                        {info.count}건 - {formatBytes(info.totalBytes)}
-                      </span>
-                    </div>
-                  );
-                })}
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-amber-400">
+                    렌더링 중...{' '}
+                    {renderProgress.completed + renderProgress.skipped}/{renderProgress.total}
+                  </span>
+                  <button
+                    className="text-red-400/60 px-2 py-0.5 bg-red-500/10 rounded"
+                    onClick={handleStopRender}
+                  >
+                    중단
+                  </button>
+                </div>
+                {/* 프로그레스 바 */}
+                <div className="h-1.5 bg-[#21262d] rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-500 rounded-full transition-all duration-300"
+                    style={{
+                      width: renderProgress.total > 0
+                        ? `${((renderProgress.completed + renderProgress.skipped) / renderProgress.total) * 100}%`
+                        : '0%',
+                    }}
+                  />
+                </div>
+                {renderProgress.errors > 0 && (
+                  <p className="text-[10px] text-red-400/60">
+                    오류 {renderProgress.errors}건
+                  </p>
+                )}
               </div>
             </>
           )}
+
+          {/* 과목별 캐시 현황 + 렌더링 버튼 */}
+          <div className="h-px bg-[#21262d] mx-4" />
+          <div className="px-4 py-3 space-y-2">
+            {subjects.map((subject) => {
+              const info = cacheBySubject[subject.id];
+              const totalQ = subject.totalQuestions;
+              const cachedQ = info?.count ?? 0;
+              const isThisRendering = isRendering && renderingSubjectId === subject.id;
+
+              return (
+                <div key={subject.id} className="flex items-center justify-between">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 text-[11px]">
+                      <span className="text-[#8b949e]">{subject.name}</span>
+                      <span className="text-[#8b949e]/40">
+                        {cachedQ}/{totalQ}
+                      </span>
+                    </div>
+                    {info && (
+                      <p className="text-[10px] text-[#8b949e]/40">{formatBytes(info.totalBytes)}</p>
+                    )}
+                  </div>
+                  {canRender && (
+                    <button
+                      className={`text-[10px] px-2.5 py-1 rounded-md transition-colors ${
+                        isThisRendering
+                          ? 'bg-amber-500/15 text-amber-400'
+                          : cachedQ >= totalQ
+                            ? 'bg-emerald-500/10 text-emerald-400/60'
+                            : 'bg-amber-500/10 text-amber-400 active:bg-amber-500/20'
+                      }`}
+                      onClick={() => handleStartRender(subject.id)}
+                      disabled={isRendering || cachedQ >= totalQ}
+                    >
+                      {isThisRendering
+                        ? '저장 중...'
+                        : cachedQ >= totalQ
+                          ? '완료'
+                          : cachedQ > 0
+                            ? '이어서 저장'
+                            : '저장'}
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
 
           <div className="h-px bg-[#21262d] mx-4" />
 
@@ -322,7 +448,9 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
 
         {/* 안내 문구 */}
         <p className="text-[10px] text-[#8b949e]/40 leading-relaxed px-1">
-          렌더링된 MP3 파일은 기기 내부 저장소에 보관됩니다. 캐시된 오디오가 있으면 실시간 TTS 대신 MP3로 재생하여 배터리를 절약합니다.
+          {canRender
+            ? '과목별 "저장" 버튼으로 TTS 오디오를 기기에 저장합니다. 저장된 오디오는 실시간 TTS 대신 재생되어 배터리를 절약합니다. WAV 형식으로 저장되며, 과목당 약 200~500MB의 저장 공간이 필요합니다.'
+            : '렌더링된 MP3 파일은 기기 내부 저장소에 보관됩니다. 캐시된 오디오가 있으면 실시간 TTS 대신 MP3로 재생하여 배터리를 절약합니다.'}
         </p>
 
         {/* 앱 정보 */}

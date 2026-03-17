@@ -5,6 +5,14 @@ export interface TTSVoice {
   lang: string;
 }
 
+// ---- TTS Engine (설치된 엔진 정보) ----
+export interface TTSEngine {
+  /** 패키지명 (예: com.google.android.tts) */
+  name: string;
+  /** 표시명 (예: Google 텍스트 음성 변환 엔진) */
+  label: string;
+}
+
 export type Theme = 'dark' | 'light';
 export type Level = 1 | 2 | 3;
 export type ViewMode = 'reader' | 'lyrics';
