@@ -594,7 +594,8 @@ export function FavoriteScreen({ onBack }: FavoriteScreenProps) {
 
   const handleDetailBack = () => {
     setSelectedFav(null);
-    reload();
+    // reload()를 호출하면 클로저의 selectedFav가 아직 이전 값이라 다시 설정됨 → favorites만 갱신
+    setFavorites(loadFavorites());
   };
 
   return (
