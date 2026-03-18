@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "allow": [
+      "mcp__claude-board__*",
+      "mcp__context7__*",
+      "mcp__ssh-manager__*",
+      "mcp__android-cdp__*",
+      "Bash(*)",
+      "Read(*)",
+      "Write(*)",
+      "Edit(*)",
+      "Glob(*)",
+      "Grep(*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "context7",
+    "ssh-manager",
+    "claude-board"
+  ]
+}
