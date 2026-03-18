@@ -314,11 +314,60 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             const current = stateRef.current;
             const { playlist, playlistIndex, repeatMode: mode } = current;
 
-            // 플레이리스트가 있으면 플레이리스트 기반으로 다음 트랙
+            // 플레이리스트가 있으면 repeatMode를 먼저 체크
             if (playlist.length > 0) {
+              // repeat-one: 항상 현재 트랙 반복
+              if (mode === 'repeat-one') {
+                setState((prev) => ({ ...prev, currentSentenceIndex: 0 }));
+                sentenceIndexRef.current = 0;
+                speakCurrentSentence(0, stateRef.current.speed);
+                return;
+              }
+
+              // stop-after-one: 현재 트랙 끝나면 정지
+              if (mode === 'stop-after-one') {
+                setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
+                return;
+              }
+
+              // shuffle: 랜덤 트랙 선택
+              if (mode === 'shuffle') {
+                const candidates = playlist.filter((_, i) => i !== playlistIndex);
+                if (candidates.length === 0) {
+                  // 1곡짜리면 자기 자신 반복
+                  setState((prev) => ({ ...prev, currentSentenceIndex: 0 }));
+                  sentenceIndexRef.current = 0;
+                  speakCurrentSentence(0, stateRef.current.speed);
+                } else {
+                  const randomItem = candidates[Math.floor(Math.random() * candidates.length)];
+                  const randomIdx = playlist.indexOf(randomItem);
+                  const newSents = getSentences(randomItem.subjectId, randomItem.fileId, randomItem.questionId);
+                  sentencesRef.current = newSents;
+                  sentenceIndexRef.current = 0;
+                  stateRef.current = {
+                    ...stateRef.current,
+                    currentSubjectId: randomItem.subjectId,
+                    currentFileId: randomItem.fileId,
+                    currentQuestionId: randomItem.questionId,
+                    currentSentenceIndex: 0,
+                    playlistIndex: randomIdx,
+                  };
+                  setState((prev) => ({
+                    ...prev,
+                    currentSubjectId: randomItem.subjectId,
+                    currentFileId: randomItem.fileId,
+                    currentQuestionId: randomItem.questionId,
+                    currentSentenceIndex: 0,
+                    playlistIndex: randomIdx,
+                  }));
+                  speakCurrentSentence(0, stateRef.current.speed);
+                }
+                return;
+              }
+
+              // stop-after-all, repeat-all: 순차 진행
               const nextTrackIdx = playlistIndex + 1;
               if (nextTrackIdx < playlist.length) {
-                // 다음 트랙 재생
                 const nextItem = playlist[nextTrackIdx];
                 const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId);
                 sentencesRef.current = newSents;
@@ -341,7 +390,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 }));
                 speakCurrentSentence(0, stateRef.current.speed);
               } else if (mode === 'repeat-all') {
-                // 플레이리스트 처음으로
                 const firstItem = playlist[0];
                 const newSents = getSentences(firstItem.subjectId, firstItem.fileId, firstItem.questionId);
                 sentencesRef.current = newSents;
@@ -363,13 +411,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   playlistIndex: 0,
                 }));
                 speakCurrentSentence(0, stateRef.current.speed);
-              } else if (mode === 'repeat-one') {
-                // 현재 트랙 반복
-                setState((prev) => ({ ...prev, currentSentenceIndex: 0 }));
-                sentenceIndexRef.current = 0;
-                speakCurrentSentence(0, stateRef.current.speed);
               } else {
-                // stop-after-all or stop-after-one: 정지
+                // stop-after-all: 전곡 끝 → 정지
                 setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
               }
               return;
