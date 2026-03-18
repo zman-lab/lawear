@@ -115,7 +115,7 @@ const initialState: PlayerState = {
   currentFileId: null,
   currentQuestionId: null,
   currentSentenceIndex: 0,
-  speed: 5.0,
+  speed: 1.0,
   repeatMode: 'stop-after-one',
   sleepTimer: null,
   selectedVoiceURI: loadSavedVoiceURI(),
@@ -152,6 +152,7 @@ interface PlayerContextValue {
   playSubject: (subjectId: string) => void;
   playFile: (subjectId: string, fileId: string) => void;
   playSelected: (items: PlaylistItem[]) => void;
+  jumpToPlaylistIndex: (idx: number) => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -909,6 +910,36 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [cancel, play, speakCurrentSentence]);
 
+  // ── jumpToPlaylistIndex (playlist 내 특정 곡으로 점프) ────────────────────
+  const jumpToPlaylistIndex = useCallback((idx: number) => {
+    const current = stateRef.current;
+    const { playlist } = current;
+    if (idx < 0 || idx >= playlist.length) return;
+    cancel();
+    const item = playlist[idx];
+    const sents = getSentences(item.subjectId, item.fileId, item.questionId);
+    sentencesRef.current = sents;
+    sentenceIndexRef.current = 0;
+    stateRef.current = {
+      ...stateRef.current,
+      currentSubjectId: item.subjectId,
+      currentFileId: item.fileId,
+      currentQuestionId: item.questionId,
+      currentSentenceIndex: 0,
+      playlistIndex: idx,
+    };
+    setState((prev) => ({
+      ...prev,
+      isPlaying: true,
+      currentSubjectId: item.subjectId,
+      currentFileId: item.fileId,
+      currentQuestionId: item.questionId,
+      currentSentenceIndex: 0,
+      playlistIndex: idx,
+    }));
+    speakCurrentSentence(0, stateRef.current.speed);
+  }, [cancel, speakCurrentSentence]);
+
   // ── MediaSession: nextQuestion/prevQuestion ref 연결 ────────────────────
   useEffect(() => {
     nextQuestionRef.current = nextQuestion;
@@ -957,6 +988,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     playSubject,
     playFile,
     playSelected,
+    jumpToPlaylistIndex,
   };
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;

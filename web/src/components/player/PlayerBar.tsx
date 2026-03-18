@@ -5,6 +5,7 @@ import { SleepTimerSheet } from './SleepTimerSheet';
 import { VoiceSheet } from './VoiceSheet';
 import { SpeedSheet } from './SpeedSheet';
 import { RepeatModeSheet } from './RepeatModeSheet';
+import { PlaylistSheet } from './PlaylistSheet';
 import type { Speed, RepeatMode } from '../../types';
 
 function speedLabel(speed: Speed): string {
@@ -75,6 +76,7 @@ export function PlayerBar() {
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
   const [showSpeedSheet, setShowSpeedSheet] = useState(false);
   const [showRepeatSheet, setShowRepeatSheet] = useState(false);
+  const [showPlaylistSheet, setShowPlaylistSheet] = useState(false);
 
   const {
     isPlaying,
@@ -180,13 +182,26 @@ export function PlayerBar() {
 
       {/* 컨트롤 */}
       <div className="px-4 pb-3 pt-1 flex items-center justify-between">
-        {/* 속도 버튼 — 탭: 시트, 길게 누르기: 순환 */}
+        {/* 속도 버튼 */}
         <button
           className="text-xs font-bold text-blue-400 bg-blue-400/10 rounded-md px-2 py-1 min-w-[3rem] text-center min-h-[44px]"
           onClick={() => setShowSpeedSheet(true)}
           aria-label={`재생 속도: ${speedLabel(speed)}`}
         >
           {speedLabel(speed)}
+        </button>
+
+        {/* 플레이리스트 버튼 */}
+        <button
+          className={`min-w-[44px] min-h-[44px] flex items-center justify-center transition-colors ${
+            hasPlaylist ? 'text-blue-400' : 'text-[#8b949e]'
+          }`}
+          onClick={() => setShowPlaylistSheet(true)}
+          aria-label="플레이리스트"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10m4 0v6m-3-3h6" />
+          </svg>
         </button>
 
         {/* 반복 모드 — 탭: 시트 열기 */}
@@ -328,6 +343,9 @@ export function PlayerBar() {
 
       {/* 반복 모드 바텀시트 */}
       <RepeatModeSheet isOpen={showRepeatSheet} onClose={() => setShowRepeatSheet(false)} />
+
+      {/* 플레이리스트 바텀시트 */}
+      <PlaylistSheet isOpen={showPlaylistSheet} onClose={() => setShowPlaylistSheet(false)} />
     </div>
   );
 }

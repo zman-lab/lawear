@@ -284,6 +284,8 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion }: ListScreenPr
       }
     }
     playSelected(items);
+    // 선택재생 시 첫 곡의 PlayerScreen으로 자동 진입
+    onSelectQuestion(items[0].subjectId, items[0].fileId, items[0].questionId);
     setSelectMode(false);
     setSelectedIds(new Set());
   };
