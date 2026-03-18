@@ -108,7 +108,7 @@ ws.send(json.dumps({"id":N, "method":"Page.captureScreenshot", "params":{"format
 
 ```bash
 # 전체 테스트 실행
-python3 scripts/cdp_qa.py <기기IP:포트>
+python3 scripts/dev-cdp-qa.py <기기IP:포트>
 
 # 테스트 항목:
 # 01. 앱 실행 + 홈 화면 확인
