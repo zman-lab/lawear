@@ -13,10 +13,10 @@ interface ListScreenProps {
   onOpenFavorites?: () => void;
 }
 
-const LEVEL_LABELS: Record<Level, { short: string; long: string }> = {
-  1: { short: 'Lv.1', long: '빠른복습' },
-  2: { short: 'Lv.2', long: '인용판례' },
-  3: { short: 'Lv.3', long: '풀버전' },
+const LEVEL_LABELS: Record<Level, { short: string; long: string; ready: boolean }> = {
+  1: { short: 'Lv.1', long: '빠른복습', ready: true },
+  2: { short: 'Lv.2', long: '핵심요약', ready: false },
+  3: { short: 'Lv.3', long: '슈퍼심플', ready: false },
 };
 
 function formatTotalDuration(questions: Question[]): string {
@@ -350,10 +350,13 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
                   ? 'bg-[rgba(56,139,253,0.2)] text-[#58a6ff] border-[rgba(56,139,253,0.3)]'
                   : 'border-[#21262d] text-[#8b949e]'
               }`}
-              onClick={() => setLevel(lv)}
+              onClick={() => { if (LEVEL_LABELS[lv].ready) setLevel(lv); }}
+              disabled={!LEVEL_LABELS[lv].ready}
             >
               <span className="block text-[13px] font-bold">{LEVEL_LABELS[lv].short}</span>
-              <span className="block text-[10px] opacity-60 mt-0.5">{LEVEL_LABELS[lv].long}</span>
+              <span className="block text-[10px] opacity-60 mt-0.5">
+                {LEVEL_LABELS[lv].long}{!LEVEL_LABELS[lv].ready && ' (준비 중)'}
+              </span>
             </button>
           ))}
         </div>
