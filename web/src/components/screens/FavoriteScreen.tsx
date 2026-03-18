@@ -77,48 +77,36 @@ function PencilIcon() {
   );
 }
 
-// ── 메뉴 드롭다운 ──────────────────────────────────────────────────────────────
-interface MenuDropdownProps {
-  favId: string;
+// ── 액션 시트 (⋯ 메뉴 — 바텀시트로 표시하여 짤림 방지) ──────────────────────
+interface ActionSheetProps {
   onRename: () => void;
   onDelete: () => void;
   onClose: () => void;
 }
 
-function MenuDropdown({ onRename, onDelete, onClose }: MenuDropdownProps) {
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, [onClose]);
-
+function ActionSheet({ onRename, onDelete, onClose }: ActionSheetProps) {
   return (
-    <div
-      ref={ref}
-      className="absolute right-0 top-8 z-50 bg-[#1c2128] border border-[#21262d] rounded-xl shadow-xl overflow-hidden min-w-[130px]"
-    >
-      <button
-        className="w-full px-4 py-3 flex items-center gap-2.5 text-sm text-white active:bg-white/5 transition-colors"
-        onClick={(e) => { e.stopPropagation(); onRename(); onClose(); }}
-      >
-        <span className="text-blue-400"><PencilIcon /></span>
-        이름 변경
-      </button>
-      <div className="h-px bg-[#21262d]" />
-      <button
-        className="w-full px-4 py-3 flex items-center gap-2.5 text-sm text-red-400 active:bg-red-500/10 transition-colors"
-        onClick={(e) => { e.stopPropagation(); onDelete(); onClose(); }}
-      >
-        <TrashIcon />
-        삭제
-      </button>
-    </div>
+    <>
+      <div className="fixed inset-0 bg-black/40 z-[60]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[70] bg-[#161b22] rounded-t-2xl border-t border-[#21262d] pb-8">
+        <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3" />
+        <button
+          className="w-full px-5 py-4 flex items-center gap-3 text-sm text-white active:bg-white/5 transition-colors"
+          onClick={() => { onRename(); onClose(); }}
+        >
+          <span className="text-blue-400"><PencilIcon /></span>
+          이름 변경
+        </button>
+        <div className="h-px bg-[#21262d] mx-4" />
+        <button
+          className="w-full px-5 py-4 flex items-center gap-3 text-sm text-red-400 active:bg-red-500/10 transition-colors"
+          onClick={() => { onDelete(); onClose(); }}
+        >
+          <TrashIcon />
+          삭제
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -223,79 +211,72 @@ interface ListViewProps {
 }
 
 function ListView({ favorites, onSelect, onPlay, onRename, onDelete }: ListViewProps) {
-  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const [menuTarget, setMenuTarget] = useState<FavoritePlaylist | null>(null);
 
   return (
-    <div className="flex-1 overflow-y-auto pb-44 px-4 pt-2 space-y-3">
-      {favorites.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-48 gap-3">
-          <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
-            <span className="text-2xl text-amber-400/50">★</span>
+    <>
+      <div className="flex-1 overflow-y-auto pb-44 px-4 pt-2 space-y-3">
+        {favorites.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-48 gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
+              <span className="text-2xl text-amber-400/50">★</span>
+            </div>
+            <div className="text-center">
+              <p className="text-[#8b949e] text-sm">아직 저장된 플레이리스트가 없습니다</p>
+              <p className="text-[#8b949e]/50 text-xs mt-1">선택 재생 후 ★ 버튼으로 저장하세요</p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-[#8b949e] text-sm">아직 저장된 플레이리스트가 없습니다</p>
-            <p className="text-[#8b949e]/50 text-xs mt-1">선택 재생 후 ★ 버튼으로 저장하세요</p>
-          </div>
-        </div>
-      ) : (
-        favorites.map((fav) => (
-          <div
-            key={fav.id}
-            className="relative bg-gradient-to-br from-amber-900/8 to-[#161b22]/90 border border-[#21262d] rounded-xl overflow-hidden active:bg-white/5 transition-colors cursor-pointer"
-            onClick={() => onSelect(fav)}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && onSelect(fav)}
-          >
-            <div className="flex items-center gap-3 px-4 py-3.5">
-              {/* 아이콘 */}
-              <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
-                <span className="text-amber-400 text-lg">★</span>
-              </div>
-
-              {/* 정보 */}
-              <div className="flex-1 min-w-0">
-                <p className="text-white font-bold text-sm truncate">{fav.name}</p>
-                <p className="text-[11px] text-[#8b949e] mt-0.5">
-                  {fav.items.length}곡 · {formatDate(fav.createdAt)}
-                </p>
-              </div>
-
-              {/* 우측 버튼들 */}
-              <div className="flex items-center gap-1 shrink-0">
-                {/* 전체재생 */}
-                <button
-                  className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 active:bg-blue-500/20 transition-colors"
-                  onClick={(e) => onPlay(fav, e)}
-                  aria-label="전체 재생"
-                >
-                  <PlayIcon className="w-3.5 h-3.5" />
-                </button>
-
-                {/* ⋯ 메뉴 */}
-                <div className="relative">
+        ) : (
+          favorites.map((fav) => (
+            <div
+              key={fav.id}
+              className="relative bg-gradient-to-br from-amber-900/8 to-[#161b22]/90 border border-[#21262d] rounded-xl overflow-hidden active:bg-white/5 transition-colors cursor-pointer"
+              onClick={() => onSelect(fav)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => e.key === 'Enter' && onSelect(fav)}
+            >
+              <div className="flex items-center gap-3 px-4 py-3.5">
+                <div className="w-10 h-10 rounded-xl bg-amber-500/15 flex items-center justify-center shrink-0">
+                  <span className="text-amber-400 text-lg">★</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-bold text-sm truncate">{fav.name}</p>
+                  <p className="text-[11px] text-[#8b949e] mt-0.5">
+                    {fav.items.length}곡 · {formatDate(fav.createdAt)}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 active:bg-blue-500/20 transition-colors"
+                    onClick={(e) => onPlay(fav, e)}
+                    aria-label="전체 재생"
+                  >
+                    <PlayIcon className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-[#8b949e] active:bg-white/10 transition-colors"
-                    onClick={(e) => { e.stopPropagation(); setOpenMenuId(openMenuId === fav.id ? null : fav.id); }}
+                    onClick={(e) => { e.stopPropagation(); setMenuTarget(fav); }}
                     aria-label="메뉴"
                   >
                     <DotsIcon />
                   </button>
-                  {openMenuId === fav.id && (
-                    <MenuDropdown
-                      favId={fav.id}
-                      onRename={() => onRename(fav)}
-                      onDelete={() => onDelete(fav)}
-                      onClose={() => setOpenMenuId(null)}
-                    />
-                  )}
                 </div>
               </div>
             </div>
-          </div>
-        ))
+          ))
+        )}
+      </div>
+
+      {/* 액션 시트 (바텀시트로 표시 — 짤림 방지) */}
+      {menuTarget && (
+        <ActionSheet
+          onRename={() => onRename(menuTarget)}
+          onDelete={() => onDelete(menuTarget)}
+          onClose={() => setMenuTarget(null)}
+        />
       )}
-    </div>
+    </>
   );
 }
 
@@ -600,6 +581,15 @@ export function FavoriteScreen({ onBack }: FavoriteScreenProps) {
     if (!selectedFav) return;
     removeItemFromFavorite(selectedFav.id, questionId);
     reload();
+    // 현재 재생 중인 playlist가 이 즐겨찾기와 동일하면 갱신
+    const updated = loadFavorites().find((f) => f.id === selectedFav.id);
+    if (updated && updated.items.length > 0) {
+      const isSame = playlist.length === selectedFav.items.length &&
+        selectedFav.items.every((item, i) => item.questionId === playlist[i]?.questionId);
+      if (isSame) {
+        playSelected(updated.items);
+      }
+    }
   };
 
   const handleDetailBack = () => {
