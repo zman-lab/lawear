@@ -1,13 +1,14 @@
-# le-debug — Lawear 무선 디버깅 스킬
+# le-debug — Lawear 무선 디버깅 + CDP 자동 QA 스킬
 
-> 갤럭시 무선 adb로 앱 설치/실행/크래시 분석을 자동화한다.
-> JS 로그로 안 잡히는 네이티브(Java) 크래시 디버깅용.
+> 갤럭시 무선 adb + Chrome DevTools Protocol로 앱 설치/실행/테스트/크래시 분석을 자동화한다.
+> adb input tap은 WebView에서 안 먹히므로 **CDP Runtime.evaluate + DOM API**로 UI 제어.
 
 ## 언제 사용하나
 
-- 앱이 번개처럼 꺼지는 크래시 (JS window.onerror로 안 잡힘)
-- 특정 동작에서 반복 크래시 재현 + 원인 분석
-- 새 빌드 설치 후 즉시 테스트
+- 앱 크래시 디버깅 (네이티브 Java 크래시 포함)
+- 새 빌드 설치 후 자동 테스트
+- TTS 재생/배속/연속재생 등 기능 테스트
+- 사용자 대신 QA 수행
 
 ## 기기 정보
 
@@ -15,92 +16,131 @@
 - IP 대역: 10.77.76.x (사내망)
 - 패키지: com.zmanlab.lawear
 - 액티비티: com.zmanlab.lawear/.MainActivity
+- 해상도: 720x1544 (override)
 
-## 워크플로우
-
-### Phase 1: 연결
+## Phase 1: 무선 디버깅 연결
 
 ```
-1. adb 연결 상태 확인
-   adb devices
+1. adb devices → 이미 연결됐는지 확인
 
-2-a. 이미 연결됨 → Phase 2로
-2-b. 연결 안 됨 → 사용자에게 안내:
-   "갤럭시 설정 → 개발자 옵션 → 무선 디버깅 ON 후
-    '페어링 코드로 기기 페어링' 탭해서
-    IP:포트 + 페어링 코드 알려주세요"
+2. 연결 안 됨 → 사용자에게:
+   "갤럭시 설정 → 개발자 옵션 → 무선 디버깅 ON
+    → '페어링 코드로 기기 페어링' 탭
+    → IP:포트 + 페어링코드, 그리고 아래 연결용 IP:포트도 알려주세요"
 
-3. 페어링 (최초 1회 또는 만료 시)
+3. 페어링 + 연결 (포트 2개 다름!)
    adb pair <IP>:<페어링포트> <코드>
-
-4. 연결 (페어링 포트 ≠ 연결 포트! 반드시 사용자에게 별도 확인)
    adb connect <IP>:<연결포트>
 
-5. 연결 확인
-   adb devices
+4. 연결 안정성 (화면 잠금 시 끊김 방지)
+   - 개발자 옵션 → "충전 중 화면 켜짐 유지" ON
+   - 또는 충전기 연결
 ```
 
-### Phase 2: 빌드 + 설치
+## Phase 2: 빌드 + 설치
 
 ```
-1. 웹 빌드
-   cd /Users/nhn/zman-lab/lawear/web && npx vite build
-
-2. Android 동기화
-   npx cap sync android
-
-3. APK 빌드
-   cd /Users/nhn/zman-lab/lawear/web/android && ./gradlew assembleDebug
-
-4. 기존 앱 제거 (레거시 클린)
-   adb -s <기기> uninstall com.zmanlab.lawear
-
-5. 새 APK 설치
-   adb -s <기기> install /Users/nhn/zman-lab/lawear/web/android/app/build/outputs/apk/debug/app-debug.apk
-
-6. 앱 실행
-   adb -s <기기> shell am start -n com.zmanlab.lawear/.MainActivity
+1. cd /Users/nhn/zman-lab/lawear/web && npx vite build
+2. npx cap sync android
+3. cd android && ./gradlew assembleDebug
+4. adb -s <기기> uninstall com.zmanlab.lawear   (레거시 클린)
+5. adb -s <기기> install <APK경로>
+6. adb -s <기기> shell am start -n com.zmanlab.lawear/.MainActivity
 ```
 
-### Phase 3: 크래시 모니터링
+## Phase 3: CDP 연결 (UI 자동 제어)
+
+**핵심: adb input tap은 WebView에서 안 먹힘. CDP만 사용.**
 
 ```
-1. 로그 클리어
-   adb -s <기기> logcat -c
+1. WebView DevTools 소켓 찾기
+   adb -s <기기> shell cat /proc/net/unix | grep webview_devtools_remote_
 
-2. 사용자에게 크래시 재현 요청
-   "앱에서 [동작] 해주세요"
+2. 포트 포워딩
+   adb -s <기기> forward tcp:9222 localabstract:webview_devtools_remote_<PID>
 
-3. 크래시 발생 후 로그 수집
+3. 페이지 URL 확인
+   curl -s http://localhost:9222/json
+
+4. WebSocket 연결 (suppress_origin=True 필수!)
+   import websocket
+   ws = websocket.create_connection(ws_url, timeout=15, suppress_origin=True)
+
+5. JS 실행
+   ws.send(json.dumps({
+     "id": 1, "method": "Runtime.evaluate",
+     "params": {"expression": "...", "returnByValue": True}
+   }))
+```
+
+### CDP UI 클릭 방법 (우선순위)
+
+```javascript
+// 방법 A: el.click() — React 18에서 정상 동작 (대부분 이것만으로 충분)
+(function() {
+  const els = document.querySelectorAll('div, button');
+  for (const el of els) {
+    if (el.textContent.includes('민사소송법') && el.offsetParent !== null) {
+      el.click(); return 'clicked';
+    }
+  }
+  return 'NOT FOUND';
+})()
+
+// 방법 B: React __reactProps$ 직접 호출 (el.click() 안 먹힐 때)
+const propsKey = Object.keys(el).find(k => k.startsWith('__reactProps$'));
+el[propsKey].onClick({preventDefault:()=>{}, stopPropagation:()=>{}, ...});
+
+// 방법 C: Touch+Pointer 풀 시퀀스 (모바일 전용 이벤트에 반응하는 경우)
+el.dispatchEvent(new TouchEvent('touchstart', {bubbles:true, ...}));
+el.dispatchEvent(new TouchEvent('touchend', {bubbles:true, ...}));
+el.click();
+```
+
+### CDP 스크린샷
+
+```python
+ws.send(json.dumps({"id":N, "method":"Page.captureScreenshot", "params":{"format":"png"}}))
+# 응답의 result.data를 base64 디코딩하면 PNG
+```
+
+## Phase 4: 자동 QA 스크립트
+
+```bash
+# 전체 테스트 실행
+python3 scripts/cdp_qa.py <기기IP:포트>
+
+# 테스트 항목:
+# 01. 앱 실행 + 홈 화면 확인
+# 02. 과목 → 케이스 네비게이션
+# 03. TTS 재생 + 크래시 확인
+# 04. 배속 변경 (1.0x → 2.0x → 5.0x)
+# 05. TTS 다음 라인 연속 재생
+# 06. 정지/재개
+```
+
+## Phase 5: 크래시 분석
+
+```
+1. logcat에서 FATAL EXCEPTION 확인
    adb -s <기기> logcat -d | grep -A 25 "FATAL EXCEPTION"
 
-4. 추가 컨텍스트 필요 시
-   adb -s <기기> logcat -d | grep -iE "lawear|zmanlab|capacitor" | tail -30
-```
+2. Java 네이티브 크래시 → 해당 플러그인 Java 소스 **전체** 분석
+   ⚠️ 크래시 라인만 보지 말고 null 가능 필드 전부 확인!
 
-### Phase 4: 분석 + 수정
+3. JS 에러 → CDP Console.enable으로 수집
+   또는 window.__LOGS__ 배열로 console 후킹
 
-```
-1. 크래시 스택트레이스 분석
-   - Java 네이티브 크래시 → node_modules 또는 android/ Java 소스 확인
-   - Capacitor 플러그인 크래시 → 해당 플러그인 Java 소스 전체 분석
-     (⚠️ 크래시 라인만 보지 말고 null 가능한 필드 전부 확인!)
-
-2. JS 또는 Java 코드 수정
-
-3. Phase 2 반복 (빌드 → 설치 → 실행)
-
-4. Phase 3 반복 (크래시 재현 테스트)
-
-5. 수정 확인되면 커밋 + GitHub Release 배포
+4. 수정 → Phase 2 (빌드+설치) → Phase 4 (재테스트)
 ```
 
 ## 주의사항
 
-- **페어링 포트 ≠ 연결 포트**: 매번 다름, 반드시 사용자에게 둘 다 확인
-- **무선 디버깅은 폰 재시작 시 꺼짐**: 다시 켜야 함
-- **PC와 폰 같은 Wi-Fi 필수** (사내망 10.77.76.x)
-- **Java 크래시 분석 시**: 해당 라인만 보지 말고 **클래스 전체**의 null 가능 필드 점검
+- **페어링 포트 ≠ 연결 포트**: 매번 다름, 사용자에게 둘 다 확인
+- **무선 디버깅은 화면 잠금/Wi-Fi 전환 시 끊김**: 충전 + 화면 켜짐 유지 권장
+- **CDP suppress_origin=True 필수**: Chrome 145 WebView가 origin 거부
+- **앱 재시작 시 PID 변경됨**: CDP forward를 다시 해야 함
+- **프로덕션 빌드에서 console.log 안 나옴**: CDP console 후킹으로 대체
 - **cap sync 필수**: vite build만 하고 sync 안 하면 APK에 반영 안 됨
 
 ## 입력값
