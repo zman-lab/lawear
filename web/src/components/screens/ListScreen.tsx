@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { subjects } from '../../data/ttsData';
 import { usePlayer } from '../../context/PlayerContext';
 import { log } from '../../services/logger';
+import { loadFavorites, addItemToFavorite } from '../../services/favoritePlaylist';
+import type { FavoritePlaylist } from '../../services/favoritePlaylist';
 import type { Level, FileGroup, Question, PlaylistItem } from '../../types';
 
 interface ListScreenProps {
@@ -236,6 +238,7 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
   // 선택 모드
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showAddToSheet, setShowAddToSheet] = useState(false);
 
   if (!subject) {
     return (
@@ -423,18 +426,97 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
       {/* 선택 모드 하단 바 */}
       {selectMode && selectedIds.size > 0 && (
         <div
-          className="fixed bottom-36 left-0 right-0 max-w-md mx-auto z-[55] px-4 pb-3"
+          className="fixed bottom-36 left-0 right-0 max-w-md mx-auto z-[55] px-4 pb-3 flex gap-2"
         >
           <button
-            className="w-full py-3.5 rounded-xl bg-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 active:bg-blue-600 transition-colors shadow-lg shadow-blue-500/30"
+            className="flex-1 py-3.5 rounded-xl bg-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 active:bg-blue-600 transition-colors shadow-lg shadow-blue-500/30"
             onClick={handlePlaySelected}
           >
             <PlayIcon className="w-4 h-4" />
-            {selectedIds.size}개 선택 재생
+            {selectedIds.size}개 재생
+          </button>
+          <button
+            className="py-3.5 px-4 rounded-xl bg-amber-500/15 border border-amber-500/20 text-amber-400 font-bold text-sm flex items-center justify-center gap-1.5 active:bg-amber-500/25 transition-colors"
+            onClick={() => setShowAddToSheet(true)}
+          >
+            ★ 추가
           </button>
         </div>
       )}
 
+      {/* 플레이리스트에 추가 바텀시트 */}
+      {showAddToSheet && (
+        <AddToPlaylistSheet
+          subjectId={subjectId}
+          selectedIds={selectedIds}
+          onClose={() => setShowAddToSheet(false)}
+          onDone={() => { setShowAddToSheet(false); setSelectMode(false); setSelectedIds(new Set()); }}
+        />
+      )}
+
     </div>
+  );
+}
+
+// ── 플레이리스트에 추가 바텀시트 ────────────────────────────────────────────
+interface AddToPlaylistSheetProps {
+  subjectId: string;
+  selectedIds: Set<string>;
+  onClose: () => void;
+  onDone: () => void;
+}
+
+function AddToPlaylistSheet({ subjectId, selectedIds, onClose, onDone }: AddToPlaylistSheetProps) {
+  const favorites = loadFavorites();
+  const subject = subjects.find((s) => s.id === subjectId);
+
+  const handleAdd = (fav: FavoritePlaylist) => {
+    if (!subject) return;
+    let added = 0;
+    for (const file of subject.files) {
+      for (const q of file.questions) {
+        if (selectedIds.has(q.id)) {
+          addItemToFavorite(fav.id, { subjectId, fileId: file.id, questionId: q.id });
+          added++;
+        }
+      }
+    }
+    log.ui('list_add_to_favorite', { favId: fav.id, added });
+    onDone();
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-[60]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[70] bg-[#161b22] rounded-t-2xl border-t border-[#21262d] max-h-[50vh] flex flex-col">
+        <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 shrink-0" />
+        <div className="px-5 pt-3 pb-2 flex items-center justify-between shrink-0">
+          <h3 className="text-sm font-bold text-white">
+            플레이리스트에 추가
+            <span className="text-[#8b949e] font-normal ml-2">{selectedIds.size}곡</span>
+          </h3>
+          <button className="text-xs text-[#8b949e] px-2 py-1" onClick={onClose}>닫기</button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-3 pb-6">
+          {favorites.length === 0 ? (
+            <p className="text-center text-[#8b949e] text-sm py-8">저장된 플레이리스트가 없습니다</p>
+          ) : (
+            favorites.map((fav) => (
+              <button
+                key={fav.id}
+                className="w-full text-left px-4 py-3 rounded-lg mb-1 flex items-center gap-3 active:bg-white/5 transition-colors"
+                onClick={() => handleAdd(fav)}
+              >
+                <span className="text-amber-400 text-lg">★</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white font-medium truncate">{fav.name}</p>
+                  <p className="text-[10px] text-[#8b949e]">{fav.items.length}곡</p>
+                </div>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </>
   );
 }

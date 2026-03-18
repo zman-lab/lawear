@@ -87,9 +87,7 @@ export function addItemToFavorite(id: string, item: PlaylistItem): void {
     const idx = list.findIndex((f) => f.id === id);
     if (idx < 0) return;
     const fav = list[idx];
-    const already = fav.items.some(
-      (i) => i.subjectId === item.subjectId && i.fileId === item.fileId && i.questionId === item.questionId,
-    );
+    const already = fav.items.some((i) => i.questionId === item.questionId);
     if (already) return;
     list[idx] = { ...fav, items: [...fav.items, item] };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
