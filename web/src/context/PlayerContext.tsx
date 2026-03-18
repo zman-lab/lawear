@@ -11,14 +11,19 @@ import {
   MediaTrackInfo,
 } from '../services/mediaSession';
 import { log } from '../services/logger';
+import { recordCompletion } from '../services/learningProgress';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 헬퍼: 현재 question의 전체 문장 배열 반환
 // ──────────────────────────────────────────────────────────────────────────────
+// 슈퍼심플 키워드 (의의/취지/요건/효과 등 기본 개념)
+const SUPERSIMPLE_KEYWORDS = ['의의', '취지', '요건', '효과', '성질', '종류', '개념', '정의', '원칙', '예외', '구별', '차이', '유사', '적용범위'];
+
 function getSentences(
   subjectId: string | null,
   fileId: string | null,
   questionId: string | null,
+  level: Level = 1,
 ): string[] {
   if (!subjectId || !fileId || !questionId) return [];
   const subject = subjects.find((s) => s.id === subjectId);
@@ -29,6 +34,19 @@ function getSentences(
   if (!question) return [];
   const { problem, toc, answer } = question.content;
   const tocSentences = toc.map((t) => `${t.number} ${t.text}`);
+
+  if (level === 2) {
+    // 핵심요약: 문제 제거, 목차 + 답안만
+    return [...tocSentences, ...answer];
+  }
+  if (level === 3) {
+    // 슈퍼심플: 목차 + 답안에서 키워드 포함 문장만
+    const keyAnswer = answer.filter((s) =>
+      SUPERSIMPLE_KEYWORDS.some((kw) => s.includes(kw)) || s === answer[0]
+    );
+    return [...tocSentences, ...(keyAnswer.length > 0 ? keyAnswer : [answer[0] ?? ''])];
+  }
+  // Lv.1 빠른복습: 전체
   return [...problem, ...tocSentences, ...answer];
 }
 
@@ -250,11 +268,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state.isPlaying, state.currentSubjectId, state.currentFileId, state.currentQuestionId, state.playlistIndex, state]);
 
-  // sentences는 state 변경 시 재계산
+  // sentences는 state 변경 시 재계산 (레벨 반영)
   const sentences = getSentences(
     state.currentSubjectId,
     state.currentFileId,
     state.currentQuestionId,
+    state.level,
   );
 
   // 현재 문장 인덱스를 ref로도 유지 (콜백 클로저에서 최신값 참조)
@@ -310,8 +329,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             sentenceIndexRef.current = nextIdx;
             speakCurrentSentence(nextIdx, stateRef.current.speed);
           } else {
-            // 모든 문장 완료 → 플레이리스트 or repeatMode에 따라 분기
+            // 모든 문장 완료 → 진도 기록 + 플레이리스트 or repeatMode에 따라 분기
             log.player('track_complete');
+            // 학습 진도 기록
+            const completedQuestionId = stateRef.current.currentQuestionId;
+            if (completedQuestionId) {
+              recordCompletion(completedQuestionId);
+            }
             const current = stateRef.current;
             const { playlist, playlistIndex, repeatMode: mode } = current;
 

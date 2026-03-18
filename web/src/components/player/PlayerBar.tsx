@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback, useEffect } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
 import { subjects } from '../../data/ttsData';
 import { SleepTimerSheet } from './SleepTimerSheet';
@@ -6,6 +6,7 @@ import { VoiceSheet } from './VoiceSheet';
 import { SpeedSheet } from './SpeedSheet';
 import { RepeatModeSheet } from './RepeatModeSheet';
 import { PlaylistSheet } from './PlaylistSheet';
+import { isWeakMarked, toggleWeakMark } from '../../services/weakMark';
 import type { Speed, RepeatMode } from '../../types';
 
 function speedLabel(speed: Speed): string {
@@ -88,6 +89,18 @@ export function PlayerBar() {
     playlist,
     playlistIndex,
   } = state;
+
+  // 취약 마킹 상태 (questionId 변경 시 자동 동기화)
+  const [weakMarked, setWeakMarked] = useState<boolean>(false);
+  useEffect(() => {
+    setWeakMarked(currentQuestionId ? isWeakMarked(currentQuestionId) : false);
+  }, [currentQuestionId]);
+
+  const handleToggleWeak = useCallback(() => {
+    if (!currentQuestionId) return;
+    const next = toggleWeakMark(currentQuestionId);
+    setWeakMarked(next);
+  }, [currentQuestionId]);
 
   const hasPlaylist = playlist.length > 1;
 
@@ -176,11 +189,11 @@ export function PlayerBar() {
         </div>
       </div>
 
-      {/* 상단 줄: 보조 컨트롤 5개 */}
-      <div className="px-4 pt-1 pb-0 flex items-center justify-around">
+      {/* 상단 줄: 보조 컨트롤 (속도/반복/플리/타이머/음성/취약마킹) */}
+      <div className="px-2 pt-1 pb-0 flex items-center justify-around">
         {/* 속도 */}
         <button
-          className="text-xs font-bold text-blue-400 bg-blue-400/10 rounded-md px-2.5 py-1 min-h-[36px] min-w-[44px] text-center"
+          className="text-xs font-bold text-blue-400 bg-blue-400/10 rounded-md px-2 py-1 min-h-[36px] min-w-[38px] text-center"
           onClick={() => setShowSpeedSheet(true)}
           aria-label={`재생 속도: ${speedLabel(speed)}`}
         >
@@ -189,7 +202,7 @@ export function PlayerBar() {
 
         {/* 반복 모드 */}
         <button
-          className={`min-w-[44px] min-h-[36px] flex items-center justify-center transition-colors ${
+          className={`min-w-[38px] min-h-[36px] flex items-center justify-center transition-colors ${
             repeatMode === 'stop-after-one' ? 'text-[#8b949e]' : 'text-blue-400'
           }`}
           onClick={() => setShowRepeatSheet(true)}
@@ -201,7 +214,7 @@ export function PlayerBar() {
 
         {/* 플레이리스트 */}
         <button
-          className={`min-w-[44px] min-h-[36px] flex items-center justify-center transition-colors ${
+          className={`min-w-[38px] min-h-[36px] flex items-center justify-center transition-colors ${
             hasPlaylist ? 'text-blue-400' : 'text-[#8b949e]'
           }`}
           onClick={() => setShowPlaylistSheet(true)}
@@ -215,7 +228,7 @@ export function PlayerBar() {
         {/* 슬립 타이머 */}
         {sleepTimerRemaining !== null ? (
           <button
-            className="text-xs font-mono text-blue-400 bg-blue-400/10 rounded-md px-2 py-1 min-w-[44px] min-h-[36px] text-center"
+            className="text-xs font-mono text-blue-400 bg-blue-400/10 rounded-md px-1.5 py-1 min-w-[38px] min-h-[36px] text-center"
             onClick={() => setShowTimerSheet(true)}
             aria-label="슬립 타이머 설정"
           >
@@ -223,7 +236,7 @@ export function PlayerBar() {
           </button>
         ) : (
           <button
-            className="text-[#8b949e] min-w-[44px] min-h-[36px] flex items-center justify-center"
+            className="text-[#8b949e] min-w-[38px] min-h-[36px] flex items-center justify-center"
             onClick={() => setShowTimerSheet(true)}
             aria-label="슬립 타이머 설정"
           >
@@ -235,7 +248,7 @@ export function PlayerBar() {
 
         {/* 음성 선택 */}
         <button
-          className={`min-w-[44px] min-h-[36px] flex items-center justify-center ${
+          className={`min-w-[38px] min-h-[36px] flex items-center justify-center ${
             state.selectedVoiceURI ? 'text-blue-400' : 'text-[#8b949e]'
           }`}
           onClick={() => setShowVoiceSheet(true)}
@@ -244,6 +257,19 @@ export function PlayerBar() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
           </svg>
+        </button>
+
+        {/* 취약 마킹 */}
+        <button
+          className={`min-w-[38px] min-h-[36px] flex items-center justify-center transition-colors ${
+            weakMarked ? 'opacity-100' : 'opacity-40'
+          }`}
+          onClick={handleToggleWeak}
+          aria-label={weakMarked ? '취약 마킹 해제' : '취약 마킹'}
+          title={weakMarked ? '취약 마킹 해제' : '취약 마킹'}
+          disabled={!hasContent}
+        >
+          <span className="text-base leading-none">🚩</span>
         </button>
       </div>
 

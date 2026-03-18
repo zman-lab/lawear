@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { subjects } from '../../data/ttsData';
 import { usePlayer } from '../../context/PlayerContext';
 import { log } from '../../services/logger';
 import { loadFavorites, addItemToFavorite } from '../../services/favoritePlaylist';
+import { loadProgress, formatDate } from '../../services/learningProgress';
+import { loadWeakMarks, toggleWeakMark } from '../../services/weakMark';
 import type { FavoritePlaylist } from '../../services/favoritePlaylist';
+import type { ProgressMap } from '../../services/learningProgress';
 import type { Level, FileGroup, Question, PlaylistItem } from '../../types';
 
 interface ListScreenProps {
@@ -15,8 +18,8 @@ interface ListScreenProps {
 
 const LEVEL_LABELS: Record<Level, { short: string; long: string; ready: boolean }> = {
   1: { short: 'Lv.1', long: '빠른복습', ready: true },
-  2: { short: 'Lv.2', long: '핵심요약', ready: false },
-  3: { short: 'Lv.3', long: '슈퍼심플', ready: false },
+  2: { short: 'Lv.2', long: '핵심요약', ready: true },
+  3: { short: 'Lv.3', long: '슈퍼심플', ready: true },
 };
 
 function formatTotalDuration(questions: Question[]): string {
@@ -52,6 +55,9 @@ interface FileGroupCardProps {
   selectedIds: Set<string>;
   onToggleSelect: (questionId: string) => void;
   selectMode: boolean;
+  progressMap: ProgressMap;
+  weakMarks: Set<string>;
+  onToggleWeak: (questionId: string) => void;
 }
 
 function FileGroupCard({
@@ -66,6 +72,9 @@ function FileGroupCard({
   selectedIds,
   onToggleSelect,
   selectMode,
+  progressMap,
+  weakMarks,
+  onToggleWeak,
 }: FileGroupCardProps) {
   const isCurrentFile = currentFileId === fileGroup.id;
   const totalDuration = formatTotalDuration(fileGroup.questions);
@@ -206,8 +215,23 @@ function FileGroupCard({
                     <p className="text-[11px] text-[#8b949e] truncate">{question.subtitle}</p>
                   </div>
 
-                  {/* 재생 상태 / 시간 */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  {/* 재생 상태 / 시간 / 진도 / 취약 */}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {/* 진도 표시 */}
+                    {(() => {
+                      const prog = progressMap[question.id];
+                      if (!prog) return null;
+                      return (
+                        <span className="text-[10px] text-[#8b949e]/70 leading-none">
+                          {prog.playCount}회
+                          {prog.completedAt ? ` · ${formatDate(prog.completedAt)}` : ''}
+                        </span>
+                      );
+                    })()}
+                    {/* 취약 마킹 아이콘 */}
+                    {weakMarks.has(question.id) && (
+                      <span className="text-[11px] leading-none">🚩</span>
+                    )}
                     <span className="text-[11px] text-[#8b949e]">{question.duration}</span>
                     {isNowPlaying && (
                       <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
@@ -215,6 +239,21 @@ function FileGroupCard({
                           <path d="M8 5v14l11-7z" />
                         </svg>
                       </div>
+                    )}
+                    {/* 취약 마킹 토글 버튼 (롱탭 대신 작은 버튼) */}
+                    {!selectMode && (
+                      <button
+                        className="w-6 h-6 flex items-center justify-center opacity-30 active:opacity-100 transition-opacity"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleWeak(question.id);
+                        }}
+                        aria-label="취약 마킹 토글"
+                      >
+                        <svg className="w-3.5 h-3.5 text-[#8b949e]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21l1.9-5.7a8.5 8.5 0 113.8 3.8L3 21" />
+                        </svg>
+                      </button>
                     )}
                   </div>
                 </div>
@@ -239,6 +278,85 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
   const [selectMode, setSelectMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showAddToSheet, setShowAddToSheet] = useState(false);
+
+  // 진도 + 취약 마킹 (조회용)
+  const [progressMap, setProgressMap] = useState<ProgressMap>(() => loadProgress());
+  const [weakMarks, setWeakMarks] = useState<Set<string>>(() => loadWeakMarks());
+
+  // 탭 포커스 시 최신 데이터 리로드
+  useEffect(() => {
+    const refresh = () => {
+      setProgressMap(loadProgress());
+      setWeakMarks(loadWeakMarks());
+    };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, []);
+
+  const handleToggleWeak = (questionId: string) => {
+    toggleWeakMark(questionId);
+    setWeakMarks(loadWeakMarks());
+  };
+
+  // 검색 상태
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedQuery(searchQuery.trim());
+    }, 300);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [searchQuery]);
+
+  // 검색 결과
+  interface SearchResult {
+    subjectId: string;
+    fileId: string;
+    questionId: string;
+    label: string;
+    matchedText: string;
+    matchStart: number;
+    matchEnd: number;
+  }
+
+  const searchResults = useMemo<SearchResult[]>(() => {
+    if (!debouncedQuery || debouncedQuery.length < 2) return [];
+    const query = debouncedQuery.toLowerCase();
+    const results: SearchResult[] = [];
+    for (const subj of subjects) {
+      for (const file of subj.files) {
+        for (const q of file.questions) {
+          const { problem, toc, answer } = q.content;
+          const allTexts = [
+            ...problem,
+            ...toc.map((t) => t.text),
+            ...answer,
+          ];
+          for (const text of allTexts) {
+            const idx = text.toLowerCase().indexOf(query);
+            if (idx !== -1) {
+              results.push({
+                subjectId: subj.id,
+                fileId: file.id,
+                questionId: q.id,
+                label: q.label,
+                matchedText: text,
+                matchStart: idx,
+                matchEnd: idx + query.length,
+              });
+              break; // 케이스당 1개만
+            }
+          }
+        }
+      }
+    }
+    return results;
+  }, [debouncedQuery]);
 
   if (!subject) {
     return (
@@ -336,7 +454,55 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
             {subject.files.length} 파일 · {subject.totalQuestions} 설문
           </p>
         </div>
+        {/* 검색 버튼 */}
+        <button
+          className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+            showSearch ? 'bg-blue-500/20 text-blue-400' : 'bg-white/5 text-white/60'
+          }`}
+          onClick={() => {
+            setShowSearch((v) => !v);
+            setSearchQuery('');
+            setDebouncedQuery('');
+            if (!showSearch) {
+              setTimeout(() => searchInputRef.current?.focus(), 50);
+            }
+          }}
+          aria-label="검색"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </button>
       </header>
+
+      {/* 검색 입력 */}
+      {showSearch && (
+        <div className="px-4 pb-3 shrink-0">
+          <div className="flex items-center gap-2 bg-[#161b22] border border-[#21262d] rounded-xl px-3 py-2">
+            <svg className="w-3.5 h-3.5 text-[#8b949e] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              ref={searchInputRef}
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="가사 검색..."
+              className="flex-1 bg-transparent text-sm text-white placeholder-[#8b949e]/50 outline-none"
+              autoComplete="off"
+            />
+            {searchQuery && (
+              <button
+                className="text-[#8b949e] text-xs"
+                onClick={() => { setSearchQuery(''); setDebouncedQuery(''); }}
+                aria-label="검색어 지우기"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 레벨 토글 + 과목 전체 재생 + 선택 모드 */}
       <div className="px-4 pb-3 space-y-2.5 shrink-0">
@@ -398,33 +564,76 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
         </div>
       </div>
 
-      {/* 파일 그룹 목록 */}
-      <div className="flex-1 overflow-y-auto pb-24">
-        {subject.files.map((fileGroup) => (
-          <FileGroupCard
-            key={fileGroup.id}
-            fileGroup={fileGroup}
-            subjectId={subjectId}
-            isExpanded={expandedFileIds.has(fileGroup.id)}
-            onToggle={() => toggleFile(fileGroup.id)}
-            currentQuestionId={currentQuestionId}
-            currentFileId={currentFileId}
-            onSelectQuestion={(sid, fid, qid) => {
-              log.ui('list_select_case', { subjectId: sid, fileId: fid, questionId: qid });
-              onSelectQuestion(sid, fid, qid);
-            }}
-            onPlayFile={(sid, fid) => { log.ui('list_play_file', {subjectId: sid, fileId: fid}); playFile(sid, fid); }}
-            selectedIds={selectedIds}
-            onToggleSelect={toggleSelectQuestion}
-            selectMode={selectMode}
-          />
-        ))}
-        {subject.files.length === 0 && (
-          <div className="flex items-center justify-center h-40">
-            <p className="text-[#8b949e] text-sm">아직 콘텐츠가 없습니다.</p>
-          </div>
-        )}
-      </div>
+      {/* 검색 결과 */}
+      {showSearch && debouncedQuery.length >= 2 && (
+        <div className="flex-1 overflow-y-auto pb-24">
+          {searchResults.length === 0 ? (
+            <div className="flex items-center justify-center h-32">
+              <p className="text-[#8b949e] text-sm">"{debouncedQuery}" 검색 결과 없음</p>
+            </div>
+          ) : (
+            <div className="px-4 space-y-1.5">
+              <p className="text-[11px] text-[#8b949e] pb-1">{searchResults.length}개 결과</p>
+              {searchResults.map((result) => (
+                <button
+                  key={`${result.questionId}-${result.matchStart}`}
+                  className="w-full text-left bg-[#161b22] border border-[#21262d] rounded-xl px-4 py-3 active:bg-white/[0.06] transition-colors"
+                  onClick={() => {
+                    log.ui('list_search_select', { questionId: result.questionId });
+                    onSelectQuestion(result.subjectId, result.fileId, result.questionId);
+                  }}
+                >
+                  <p className="text-sm text-white font-medium mb-1">{result.label}</p>
+                  <p className="text-[11px] text-[#8b949e] leading-relaxed">
+                    {result.matchStart > 0 && (
+                      <span>…{result.matchedText.slice(Math.max(0, result.matchStart - 20), result.matchStart)}</span>
+                    )}
+                    <span className="bg-yellow-400/20 text-yellow-300 rounded px-0.5">
+                      {result.matchedText.slice(result.matchStart, result.matchEnd)}
+                    </span>
+                    {result.matchEnd < result.matchedText.length && (
+                      <span>{result.matchedText.slice(result.matchEnd, result.matchEnd + 40)}…</span>
+                    )}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 파일 그룹 목록 (검색 중이면 숨김) */}
+      {!(showSearch && debouncedQuery.length >= 2) && (
+        <div className="flex-1 overflow-y-auto pb-24">
+          {subject.files.map((fileGroup) => (
+            <FileGroupCard
+              key={fileGroup.id}
+              fileGroup={fileGroup}
+              subjectId={subjectId}
+              isExpanded={expandedFileIds.has(fileGroup.id)}
+              onToggle={() => toggleFile(fileGroup.id)}
+              currentQuestionId={currentQuestionId}
+              currentFileId={currentFileId}
+              onSelectQuestion={(sid, fid, qid) => {
+                log.ui('list_select_case', { subjectId: sid, fileId: fid, questionId: qid });
+                onSelectQuestion(sid, fid, qid);
+              }}
+              onPlayFile={(sid, fid) => { log.ui('list_play_file', {subjectId: sid, fileId: fid}); playFile(sid, fid); }}
+              selectedIds={selectedIds}
+              onToggleSelect={toggleSelectQuestion}
+              selectMode={selectMode}
+              progressMap={progressMap}
+              weakMarks={weakMarks}
+              onToggleWeak={handleToggleWeak}
+            />
+          ))}
+          {subject.files.length === 0 && (
+            <div className="flex items-center justify-center h-40">
+              <p className="text-[#8b949e] text-sm">아직 콘텐츠가 없습니다.</p>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* 선택 모드 하단 바 */}
       {selectMode && selectedIds.size > 0 && (
