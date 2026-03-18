@@ -85,22 +85,23 @@ export async function updateMediaTrack(
   hasPrev: boolean,
   hasNext: boolean,
 ): Promise<void> {
-  const title = `${track.subject} · ${track.file} ${track.label}`;
-  const artist = track.subtitle || track.subject;
-  log.media('update_track', { title: track.subject + ' ' + track.label });
+  const title = `${track.subject ?? ''} · ${track.file ?? ''} ${track.label ?? ''}`.trim() || 'lawear';
+  const artist = track.subtitle || track.subject || 'lawear';
+  const album = track.subject || 'lawear';
+  log.media('update_track', { title: (track.subject ?? '') + ' ' + (track.label ?? '') });
 
   if (isNative && _nativePlugin) {
     try {
       await _nativePlugin.create({
         track: title,
         artist,
-        album: track.subject,
+        album,
         hasPrev,
         hasNext,
         hasClose: true,
         isPlaying,
         dismissable: false,
-        ticker: `${track.subject} - ${track.label}`,
+        ticker: title,
         // iOS
         duration: 0,
         elapsed: 0,
