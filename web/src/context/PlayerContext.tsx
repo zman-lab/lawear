@@ -323,6 +323,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId);
                 sentencesRef.current = newSents;
                 sentenceIndexRef.current = 0;
+                stateRef.current = {
+                  ...stateRef.current,
+                  currentSubjectId: nextItem.subjectId,
+                  currentFileId: nextItem.fileId,
+                  currentQuestionId: nextItem.questionId,
+                  currentSentenceIndex: 0,
+                  playlistIndex: nextTrackIdx,
+                };
                 setState((prev) => ({
                   ...prev,
                   currentSubjectId: nextItem.subjectId,
@@ -338,6 +346,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 const newSents = getSentences(firstItem.subjectId, firstItem.fileId, firstItem.questionId);
                 sentencesRef.current = newSents;
                 sentenceIndexRef.current = 0;
+                stateRef.current = {
+                  ...stateRef.current,
+                  currentSubjectId: firstItem.subjectId,
+                  currentFileId: firstItem.fileId,
+                  currentQuestionId: firstItem.questionId,
+                  currentSentenceIndex: 0,
+                  playlistIndex: 0,
+                };
                 setState((prev) => ({
                   ...prev,
                   currentSubjectId: firstItem.subjectId,

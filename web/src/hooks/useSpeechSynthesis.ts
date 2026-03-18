@@ -35,6 +35,10 @@ export function useSpeechSynthesis() {
   // 네이티브 TTS는 pause를 지원하지 않으므로 중단 시 현재 텍스트를 저장
   const nativeSpeakingRef = useRef(false);
   const nativeOnEndRef = useRef<(() => void) | null>(null);
+  // setRate에 의한 중단인지 여부 (interrupted 에러와 구분)
+  const isRateChangingRef = useRef(false);
+  // 웹 TTS onEnd 콜백 저장 (setRate에서 재사용)
+  const onEndCallbackRef = useRef<(() => void) | undefined>(undefined);
 
   // 음성 목록 로드
   useEffect(() => {
@@ -195,6 +199,7 @@ export function useSpeechSynthesis() {
         TextToSpeech.stop().catch(() => {});
         nativeSpeakingRef.current = true;
         nativeOnEndRef.current = options.onEnd ?? null;
+        isRateChangingRef.current = false;
 
         setIsSpeaking(true);
         setIsPaused(false);
@@ -252,16 +257,25 @@ export function useSpeechSynthesis() {
           setIsPaused(false);
         };
 
+        onEndCallbackRef.current = options.onEnd;
+
         utterance.onend = () => {
           setIsSpeaking(false);
           setIsPaused(false);
           currentUtteranceRef.current = null;
-          options.onEnd?.();
+          onEndCallbackRef.current?.();
         };
 
         utterance.onerror = (e) => {
           log.error('tts', 'web_speak_error', { error: e.error });
-          if (e.error === 'interrupted' || e.error === 'canceled') return;
+          if (e.error === 'interrupted' || e.error === 'canceled') {
+            // setRate에 의한 중단이면 onEnd를 호출하지 않음 (setRate가 새로 speak)
+            // 사용자 stop에 의한 중단도 onEnd 호출 안 함
+            if (!isRateChangingRef.current) {
+              // 정상 흐름: interrupted이므로 onEnd 생략
+            }
+            return;
+          }
           setIsSpeaking(false);
           setIsPaused(false);
           currentUtteranceRef.current = null;
@@ -273,6 +287,7 @@ export function useSpeechSynthesis() {
 
         currentUtteranceRef.current = utterance;
         requestAnimationFrame(() => {
+          isRateChangingRef.current = false;
           window.speechSynthesis.speak(utterance);
         });
       }
@@ -367,8 +382,8 @@ export function useSpeechSynthesis() {
           onRateChangeRef.current?.();
         } else if (currentUtteranceRef.current) {
           const text = currentUtteranceRef.current.text;
-          const onEnd = currentUtteranceRef.current.onend as (() => void) | null;
-          speak(text, { rate: rateRef.current, onEnd: onEnd ?? undefined });
+          isRateChangingRef.current = true;
+          speak(text, { rate: rateRef.current, onEnd: onEndCallbackRef.current });
         }
       }
     },

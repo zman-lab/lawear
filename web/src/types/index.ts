@@ -16,7 +16,7 @@ export interface TTSEngine {
 export type Theme = 'dark' | 'light';
 export type Level = 1 | 2 | 3;
 export type ViewMode = 'reader' | 'lyrics';
-export type Speed = 0.5 | 0.8 | 1.0 | 1.2 | 1.5 | 2.0 | 2.5 | 3.0;
+export type Speed = number;
 
 export type RepeatMode = 'repeat-all' | 'repeat-one' | 'stop-after-one' | 'stop-after-all' | 'shuffle';
 

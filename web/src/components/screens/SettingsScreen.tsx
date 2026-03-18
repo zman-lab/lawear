@@ -3,7 +3,7 @@ import { usePlayer } from '../../context/PlayerContext';
 import { VoiceSheet } from '../player/VoiceSheet';
 import { SpeedSheet } from '../player/SpeedSheet';
 import { RepeatModeSheet } from '../player/RepeatModeSheet';
-import type { Speed, RepeatMode } from '../../types';
+import type { RepeatMode } from '../../types';
 import {
   getCacheSizeBySubject,
   getTotalCacheSize,
@@ -32,16 +32,6 @@ interface SettingsScreenProps {
   onBack: () => void;
 }
 
-const SPEED_LABELS: Record<Speed, string> = {
-  0.5: '0.5x',
-  0.8: '0.8x',
-  1.0: '1.0x (기본)',
-  1.2: '1.2x',
-  1.5: '1.5x',
-  2.0: '2.0x',
-  2.5: '2.5x',
-  3.0: '3.0x',
-};
 
 const REPEAT_MODE_LABELS: Record<RepeatMode, string> = {
   'stop-after-one': '1곡 후 정지',
@@ -271,7 +261,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
               </div>
               <div className="min-w-0">
                 <p className="text-sm text-white font-medium">재생 속도</p>
-                <p className="text-[11px] text-emerald-400">{SPEED_LABELS[speed]}</p>
+                <p className="text-[11px] text-emerald-400">{speed.toFixed(1)}x</p>
               </div>
             </div>
             <svg className="w-4 h-4 text-white/20 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
