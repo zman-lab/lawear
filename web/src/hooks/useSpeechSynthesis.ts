@@ -35,6 +35,8 @@ export function useSpeechSynthesis() {
   // 네이티브 TTS는 pause를 지원하지 않으므로 중단 시 현재 텍스트를 저장
   const nativeSpeakingRef = useRef(false);
   const nativeOnEndRef = useRef<(() => void) | null>(null);
+  // 각 speak 호출에 고유 ID 부여 — cancel/stop 후 지연된 .then/.catch가 새 speak을 방해하지 않도록
+  const speakIdRef = useRef(0);
   // setRate에 의한 중단인지 여부 (interrupted 에러와 구분)
   const isRateChangingRef = useRef(false);
   // 웹 TTS onEnd 콜백 저장 (setRate에서 재사용)
@@ -197,6 +199,8 @@ export function useSpeechSynthesis() {
       if (isNative) {
         // 기존 재생 중단
         TextToSpeech.stop().catch(() => {});
+        // 새 speak에 고유 ID 부여 — 이전 speak의 지연된 .then/.catch가 이 speak을 방해하지 않도록
+        const thisId = ++speakIdRef.current;
         nativeSpeakingRef.current = true;
         nativeOnEndRef.current = options.onEnd ?? null;
         isRateChangingRef.current = false;
@@ -219,18 +223,21 @@ export function useSpeechSynthesis() {
           ...(nativeVoiceIdx >= 0 ? { voice: nativeVoiceIdx } : {}),
         })
           .then(() => {
-            // speak이 resolve되면 재생 완료
-            if (nativeSpeakingRef.current) {
-              nativeSpeakingRef.current = false;
-              setIsSpeaking(false);
-              setIsPaused(false);
-              nativeOnEndRef.current?.();
-              nativeOnEndRef.current = null;
-            }
+            // ID가 다르면 이미 cancel/새 speak이 시작된 것 — 무시
+            if (speakIdRef.current !== thisId) return;
+            nativeSpeakingRef.current = false;
+            setIsSpeaking(false);
+            setIsPaused(false);
+            // onEnd를 로컬에 저장 후 ref를 먼저 비움
+            // (onEnd 안에서 다음 speak이 nativeOnEndRef를 덮어쓰므로, 뒤에서 null로 리셋하면 안 됨)
+            const onEnd = nativeOnEndRef.current;
+            nativeOnEndRef.current = null;
+            onEnd?.();
           })
           .catch(() => {
+            // ID가 다르면 이미 새 speak이 시작된 것 — 새 speak의 flag 건드리지 않음
+            if (speakIdRef.current !== thisId) return;
             log.warn('tts', 'native_speak_interrupted');
-            // 중단(stop)에 의한 에러는 정상 동작
             nativeSpeakingRef.current = false;
             setIsSpeaking(false);
             setIsPaused(false);
@@ -238,6 +245,7 @@ export function useSpeechSynthesis() {
       } else {
         // 기존 발화 취소
         window.speechSynthesis.cancel();
+        const thisId = ++speakIdRef.current;
 
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'ko-KR';
@@ -253,6 +261,7 @@ export function useSpeechSynthesis() {
         }
 
         utterance.onstart = () => {
+          if (speakIdRef.current !== thisId) return;
           setIsSpeaking(true);
           setIsPaused(false);
         };
@@ -260,6 +269,8 @@ export function useSpeechSynthesis() {
         onEndCallbackRef.current = options.onEnd;
 
         utterance.onend = () => {
+          // ID가 다르면 이미 cancel/새 speak이 시작된 것 — 지연 onend 무시
+          if (speakIdRef.current !== thisId) return;
           setIsSpeaking(false);
           setIsPaused(false);
           currentUtteranceRef.current = null;
@@ -267,13 +278,9 @@ export function useSpeechSynthesis() {
         };
 
         utterance.onerror = (e) => {
+          if (speakIdRef.current !== thisId) return;
           log.error('tts', 'web_speak_error', { error: e.error });
           if (e.error === 'interrupted' || e.error === 'canceled') {
-            // setRate에 의한 중단이면 onEnd를 호출하지 않음 (setRate가 새로 speak)
-            // 사용자 stop에 의한 중단도 onEnd 호출 안 함
-            if (!isRateChangingRef.current) {
-              // 정상 흐름: interrupted이므로 onEnd 생략
-            }
             return;
           }
           setIsSpeaking(false);
@@ -287,6 +294,7 @@ export function useSpeechSynthesis() {
 
         currentUtteranceRef.current = utterance;
         requestAnimationFrame(() => {
+          if (speakIdRef.current !== thisId) return;
           isRateChangingRef.current = false;
           window.speechSynthesis.speak(utterance);
         });
@@ -296,8 +304,8 @@ export function useSpeechSynthesis() {
   );
 
   const pause = useCallback(() => {
-    log.tts('pause', { isPlayingCached });
-    if (!isSupported || !isSpeaking) return;
+    log.tts('pause', { isPlayingCached, isSpeaking, nativeSpeaking: nativeSpeakingRef.current });
+    if (!isSupported) return;
 
     // 캐시된 오디오 재생 중이면 Audio 일시정지
     if (audioElementRef.current && isPlayingCached) {
@@ -309,13 +317,15 @@ export function useSpeechSynthesis() {
 
     if (isNative) {
       // 네이티브 TTS는 pause/resume 미지원 — stop으로 대체
-      // PlayerContext에서 togglePlay 시 현재 문장부터 다시 speak
+      // nativeSpeakingRef로 체크 (isSpeaking state보다 실시간 정확)
+      ++speakIdRef.current;
       TextToSpeech.stop().catch(() => {});
       nativeSpeakingRef.current = false;
       nativeOnEndRef.current = null;
       setIsPaused(true);
       setIsSpeaking(false);
     } else {
+      if (!isSpeaking) return;
       window.speechSynthesis.pause();
       setIsPaused(true);
     }
@@ -346,6 +356,9 @@ export function useSpeechSynthesis() {
     log.tts('cancel');
     if (!isSupported) return;
 
+    // speakId 증가 — 이전 speak의 지연된 .then/.catch 무효화
+    ++speakIdRef.current;
+
     // 캐시된 오디오 정리
     cleanupAudioElement();
 
@@ -365,29 +378,14 @@ export function useSpeechSynthesis() {
     (speed: number) => {
       rateRef.current = Math.min(10, Math.max(0.1, speed));
 
-      // 캐시된 오디오 재생 중이면 playbackRate만 변경
+      // 캐시된 오디오는 즉시 변경 가능
       if (audioElementRef.current && isPlayingCached) {
         audioElementRef.current.playbackRate = rateRef.current;
-        return;
       }
-
-      if (isSpeaking) {
-        if (isNative) {
-          // 네이티브: 현재 재생을 중단하고 onRateChange 콜백 호출
-          // PlayerContext에서 현재 문장을 새 rate로 다시 speak
-          TextToSpeech.stop().catch(() => {});
-          nativeSpeakingRef.current = false;
-          nativeOnEndRef.current = null;
-          setIsSpeaking(false);
-          onRateChangeRef.current?.();
-        } else if (currentUtteranceRef.current) {
-          const text = currentUtteranceRef.current.text;
-          isRateChangingRef.current = true;
-          speak(text, { rate: rateRef.current, onEnd: onEndCallbackRef.current });
-        }
-      }
+      // TTS 재생 중이면 현재 문장은 그대로 끝까지 읽고, 다음 문장부터 새 rate 적용
+      // (rateRef + PlayerContext state.speed 업데이트만으로 충분)
     },
-    [isSpeaking, isPlayingCached, speak],
+    [isPlayingCached],
   );
 
   // 네이티브에서 rate 변경 시 PlayerContext에 알림을 위한 콜백

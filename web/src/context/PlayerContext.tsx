@@ -115,7 +115,7 @@ const initialState: PlayerState = {
   currentFileId: null,
   currentQuestionId: null,
   currentSentenceIndex: 0,
-  speed: 1.0,
+  speed: 5.0,
   repeatMode: 'stop-after-one',
   sleepTimer: null,
   selectedVoiceURI: loadSavedVoiceURI(),
@@ -486,7 +486,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const play = useCallback(
     (subjectId: string, fileId: string, questionId: string) => {
       log.player('play', { subjectId, fileId, questionId });
-      const item: PlaylistItem = { subjectId, fileId, questionId };
+      // 같은 파일의 전체 케이스를 playlist에 넣어서 전곡반복/다음트랙이 자연스럽게 동작
+      const filePlaylist = getFilePlaylist(subjectId, fileId);
+      const idx = filePlaylist.findIndex((i) => i.questionId === questionId);
       setState((prev) => ({
         ...prev,
         isPlaying: true,
@@ -494,8 +496,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentFileId: fileId,
         currentQuestionId: questionId,
         currentSentenceIndex: 0,
-        playlist: [item],
-        playlistIndex: 0,
+        playlist: filePlaylist,
+        playlistIndex: idx >= 0 ? idx : 0,
       }));
       sentenceIndexRef.current = 0;
       const sents = getSentences(subjectId, fileId, questionId);
@@ -589,18 +591,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       pause();
       setState((prev) => ({ ...prev, isPlaying: false }));
     } else {
-      if (isNative) {
-        // 네이티브: pause/resume 미지원이므로 항상 현재 문장부터 새로 speak
+      // playlist가 비어있으면 현재 파일의 전체 케이스로 자동 설정
+      if (current.playlist.length === 0 && current.currentSubjectId && current.currentFileId && current.currentQuestionId) {
+        const filePlaylist = getFilePlaylist(current.currentSubjectId, current.currentFileId);
+        const idx = filePlaylist.findIndex((i) => i.questionId === current.currentQuestionId);
+        setState((prev) => ({
+          ...prev,
+          isPlaying: true,
+          playlist: filePlaylist,
+          playlistIndex: idx >= 0 ? idx : 0,
+        }));
+        stateRef.current = { ...stateRef.current, isPlaying: true, playlist: filePlaylist, playlistIndex: idx >= 0 ? idx : 0 };
+      } else {
         setState((prev) => ({ ...prev, isPlaying: true }));
+      }
+
+      if (isNative) {
         speakCurrentSentence(current.currentSentenceIndex, current.speed);
       } else {
-        // 웹: speechSynthesis가 paused 상태이면 resume, 아닌 경우 처음부터 speak
         const synth = window.speechSynthesis;
         if (synth.paused) {
           resume();
-          setState((prev) => ({ ...prev, isPlaying: true }));
         } else {
-          setState((prev) => ({ ...prev, isPlaying: true }));
           speakCurrentSentence(current.currentSentenceIndex, current.speed);
         }
       }

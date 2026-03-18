@@ -7,30 +7,9 @@ import { SpeedSheet } from './SpeedSheet';
 import { RepeatModeSheet } from './RepeatModeSheet';
 import type { Speed, RepeatMode } from '../../types';
 
-function formatTime(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s.toString().padStart(2, '0')}`;
+function speedLabel(speed: Speed): string {
+  return `${speed.toFixed(1)}x`;
 }
-
-function parseDuration(duration: string): number {
-  const parts = duration.split(':').map(Number);
-  if (parts.length === 2) {
-    return (parts[0] ?? 0) * 60 + (parts[1] ?? 0);
-  }
-  return 0;
-}
-
-const SPEED_LABELS: Record<Speed, string> = {
-  0.5: '0.5x',
-  0.8: '0.8x',
-  1.0: '1.0x',
-  1.2: '1.2x',
-  1.5: '1.5x',
-  2.0: '2.0x',
-  2.5: '2.5x',
-  3.0: '3.0x',
-};
 
 
 const REPEAT_MODE_LABELS: Record<RepeatMode, string> = {
@@ -131,13 +110,6 @@ export function PlayerBar() {
       ? Math.min(100, (currentSentenceIndex / Math.max(1, totalSentences - 1)) * 100)
       : 0;
 
-  // 시간 표시 (duration 기반 추정)
-  const totalSeconds = question ? parseDuration(question.duration) : 0;
-  const currentSeconds =
-    totalSentences > 0
-      ? Math.floor((currentSentenceIndex / Math.max(1, totalSentences - 1)) * totalSeconds)
-      : 0;
-
   // 프로그레스 바 클릭 seek
   const handleProgressClick = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!progressBarRef.current || totalSentences === 0) return;
@@ -198,10 +170,10 @@ export function PlayerBar() {
         </div>
         <div className="flex justify-between mt-1">
           <span className="text-[10px] text-[#8b949e]/50">
-            {hasContent ? formatTime(currentSeconds) : '0:00'}
+            {hasContent ? `${currentSentenceIndex + 1}문장` : '—'}
           </span>
           <span className="text-[10px] text-[#8b949e]/50">
-            {hasContent ? formatTime(totalSeconds) : '0:00'}
+            {hasContent ? `${totalSentences}문장` : '—'}
           </span>
         </div>
       </div>
@@ -212,9 +184,9 @@ export function PlayerBar() {
         <button
           className="text-xs font-bold text-blue-400 bg-blue-400/10 rounded-md px-2 py-1 min-w-[3rem] text-center min-h-[44px]"
           onClick={() => setShowSpeedSheet(true)}
-          aria-label={`재생 속도: ${SPEED_LABELS[speed]}`}
+          aria-label={`재생 속도: ${speedLabel(speed)}`}
         >
-          {SPEED_LABELS[speed]}
+          {speedLabel(speed)}
         </button>
 
         {/* 반복 모드 — 탭: 시트 열기 */}

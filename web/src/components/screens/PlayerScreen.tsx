@@ -167,7 +167,12 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
     selectQuestion,
   } = usePlayer();
 
-  const { isPlaying, currentSentenceIndex, viewMode } = state;
+  const { isPlaying, currentSentenceIndex, viewMode, currentSubjectId, currentFileId, currentQuestionId } = state;
+
+  // 트랙 전환 시 PlayerContext의 state를 우선 사용 (자동 다음 곡 전환 반영)
+  const displaySubjectId = currentSubjectId || subjectId;
+  const displayFileId = currentFileId || fileId;
+  const displayQuestionId = currentQuestionId || questionId;
 
   // 아코디언 상태
   const [accordion, setAccordion] = useState({
@@ -176,10 +181,10 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
     answer: true,
   });
 
-  // 데이터 로드
-  const subject = subjects.find((s) => s.id === subjectId);
-  const fileGroup = subject?.files.find((f) => f.id === fileId);
-  const question = fileGroup?.questions.find((q) => q.id === questionId);
+  // 데이터 로드 (PlayerContext state 기반)
+  const subject = subjects.find((s) => s.id === displaySubjectId);
+  const fileGroup = subject?.files.find((f) => f.id === displayFileId);
+  const question = fileGroup?.questions.find((q) => q.id === displayQuestionId);
 
   // 플레이어 초기화 (처음 마운트 시 또는 문제 변경 시)
   useEffect(() => {
