@@ -274,10 +274,12 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion }: ListScreenPr
     log.ui('list_play_selected', {count: selectedIds.size});
     // 선택된 항목들을 파일 순서 유지하여 플레이리스트 생성
     const items: PlaylistItem[] = [];
+    const added = new Set<string>();
     for (const file of subject.files) {
       for (const q of file.questions) {
-        if (selectedIds.has(q.id)) {
+        if (selectedIds.has(q.id) && !added.has(q.id)) {
           items.push({ subjectId, fileId: file.id, questionId: q.id });
+          added.add(q.id);
         }
       }
     }
@@ -409,10 +411,10 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion }: ListScreenPr
       {/* 선택 모드 하단 바 */}
       {selectMode && selectedIds.size > 0 && (
         <div
-          className="fixed bottom-20 left-0 right-0 max-w-md mx-auto z-40 px-4 pb-3"
+          className="fixed bottom-36 left-0 right-0 max-w-md mx-auto z-[55] px-4 pb-3"
         >
           <button
-            className="w-full py-3 rounded-xl bg-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 active:bg-blue-600 transition-colors shadow-lg shadow-blue-500/20"
+            className="w-full py-3.5 rounded-xl bg-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 active:bg-blue-600 transition-colors shadow-lg shadow-blue-500/30"
             onClick={handlePlaySelected}
           >
             <PlayIcon className="w-4 h-4" />

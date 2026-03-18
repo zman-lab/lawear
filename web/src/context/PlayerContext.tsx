@@ -615,6 +615,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentSentenceIndex: 0,
         playlist: items,
         playlistIndex: 0,
+        // 선택 재생은 선택한 곡을 다 듣는 게 자연스러우므로 stop-after-all로 전환
+        repeatMode: prev.repeatMode === 'stop-after-one' ? 'stop-after-all' : prev.repeatMode,
       }));
       sentenceIndexRef.current = 0;
       const sents = getSentences(first.subjectId, first.fileId, first.questionId);
