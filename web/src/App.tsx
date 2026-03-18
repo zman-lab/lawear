@@ -6,6 +6,7 @@ import { HomeScreen } from './components/screens/HomeScreen';
 import { ListScreen } from './components/screens/ListScreen';
 import { PlayerScreen } from './components/screens/PlayerScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
+import { FavoriteScreen } from './components/screens/FavoriteScreen';
 import { PlayerBar } from './components/player/PlayerBar';
 import { log } from './services/logger';
 import { runCleanup } from './services/cleanup';
@@ -16,7 +17,8 @@ type Screen =
   | { type: 'home' }
   | { type: 'list'; subjectId: string }
   | { type: 'player'; subjectId: string; fileId: string; questionId: string }
-  | { type: 'settings' };
+  | { type: 'settings' }
+  | { type: 'favorites' };
 
 interface UpdateInfo {
   version: string;
@@ -104,6 +106,7 @@ export default function App() {
             onSelectQuestion={(sid, fid, qid) =>
               navigate({ type: 'player', subjectId: sid, fileId: fid, questionId: qid })
             }
+            onOpenFavorites={() => navigate({ type: 'favorites' })}
           />
         )}
         {screen.type === 'player' && (
@@ -116,6 +119,9 @@ export default function App() {
         )}
         {screen.type === 'settings' && (
           <SettingsScreen onBack={goBack} />
+        )}
+        {screen.type === 'favorites' && (
+          <FavoriteScreen onBack={goBack} />
         )}
         <PlayerBar />
 

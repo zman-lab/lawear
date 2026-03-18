@@ -1,5 +1,13 @@
+import { useState, useCallback } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
 import { subjects } from '../../data/ttsData';
+import {
+  loadFavorites,
+  saveFavorite,
+  findMatchingFavorite,
+  buildFavoriteName,
+} from '../../services/favoritePlaylist';
+import type { PlaylistItem } from '../../types';
 
 interface PlaylistSheetProps {
   isOpen: boolean;
@@ -9,6 +17,40 @@ interface PlaylistSheetProps {
 export function PlaylistSheet({ isOpen, onClose }: PlaylistSheetProps) {
   const { state, jumpToPlaylistIndex } = usePlayer();
   const { playlist, playlistIndex } = state;
+
+  const getLabel = useCallback((item: PlaylistItem): string => {
+    const sub = subjects.find((s) => s.id === item.subjectId);
+    const file = sub?.files.find((f) => f.id === item.fileId);
+    const q = file?.questions.find((qq) => qq.id === item.questionId);
+    return q?.label ?? item.questionId;
+  }, []);
+
+  const [savedLabel, setSavedLabel] = useState<string | null>(null);
+
+  // 현재 playlist가 이미 즐겨찾기에 저장되어 있는지 확인
+  const alreadySaved = playlist.length > 0 && findMatchingFavorite(playlist) !== undefined;
+
+  const handleSaveFavorite = () => {
+    if (playlist.length === 0) return;
+    const existing = findMatchingFavorite(playlist);
+    if (existing) {
+      setSavedLabel('이미 저장됨');
+      setTimeout(() => setSavedLabel(null), 1500);
+      return;
+    }
+    const name = buildFavoriteName(playlist, getLabel);
+    const fav = {
+      id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name,
+      items: playlist,
+      createdAt: Date.now(),
+    };
+    saveFavorite(fav);
+    setSavedLabel('저장됨');
+    setTimeout(() => setSavedLabel(null), 1500);
+    // 저장 후 재확인을 위해 favorites 갱신 (리렌더 트리거)
+    loadFavorites();
+  };
 
   if (!isOpen) return null;
 
@@ -29,9 +71,26 @@ export function PlaylistSheet({ isOpen, onClose }: PlaylistSheetProps) {
             플레이리스트
             <span className="text-[#8b949e] font-normal ml-2">{playlist.length}곡</span>
           </h3>
-          <button className="text-xs text-[#8b949e] px-2 py-1" onClick={onClose}>
-            닫기
-          </button>
+          <div className="flex items-center gap-2">
+            {playlist.length > 0 && (
+              <button
+                className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${
+                  savedLabel
+                    ? 'bg-amber-500/20 text-amber-400'
+                    : alreadySaved
+                    ? 'text-amber-400'
+                    : 'text-[#8b949e] active:bg-white/10'
+                }`}
+                onClick={handleSaveFavorite}
+                aria-label="즐겨찾기 저장"
+              >
+                {savedLabel ? savedLabel : alreadySaved ? '★' : '☆'}
+              </button>
+            )}
+            <button className="text-xs text-[#8b949e] px-2 py-1" onClick={onClose}>
+              닫기
+            </button>
+          </div>
         </div>
 
         {/* 곡 목록 */}

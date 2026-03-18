@@ -8,6 +8,7 @@ interface ListScreenProps {
   subjectId: string;
   onBack: () => void;
   onSelectQuestion: (subjectId: string, fileId: string, questionId: string) => void;
+  onOpenFavorites?: () => void;
 }
 
 const LEVEL_LABELS: Record<Level, { short: string; long: string }> = {
@@ -224,7 +225,7 @@ function FileGroupCard({
   );
 }
 
-export function ListScreen({ subjectId, onBack, onSelectQuestion }: ListScreenProps) {
+export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorites }: ListScreenProps) {
   const subject = subjects.find((s) => s.id === subjectId);
   const { state, setLevel, playSubject, playFile, playSelected } = usePlayer();
   const { level, currentFileId, currentQuestionId } = state;
@@ -379,6 +380,15 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion }: ListScreenPr
             </svg>
             {selectMode ? '취소' : '선택 재생'}
           </button>
+
+          {/* 즐겨찾기 */}
+          <button
+            className="flex-1 py-2.5 rounded-xl border border-[#21262d] bg-white/5 text-[#8b949e] text-xs font-bold flex items-center justify-center gap-1.5 active:bg-white/10 transition-colors"
+            onClick={() => { log.ui('list_open_favorites', {subjectId}); onOpenFavorites?.(); }}
+          >
+            <span className="text-amber-400">★</span>
+            즐겨찾기
+          </button>
         </div>
       </div>
 
@@ -424,6 +434,7 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion }: ListScreenPr
           </button>
         </div>
       )}
+
     </div>
   );
 }
