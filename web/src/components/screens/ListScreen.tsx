@@ -422,29 +422,12 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
     }
   };
 
-  // 취약 마킹된 케이스만 재생
-  const [weakToast, setWeakToast] = useState<string | null>(null);
+  // 취약 마킹 바텀시트
+  const [showWeakSheet, setShowWeakSheet] = useState(false);
+
   const handlePlayWeak = useCallback(() => {
-    const currentWeakMarks = loadWeakMarks();
-    const items: PlaylistItem[] = [];
-    const added = new Set<string>();
-    for (const file of subject.files) {
-      for (const q of file.questions) {
-        if (currentWeakMarks.has(q.id) && !added.has(q.id)) {
-          items.push({ subjectId, fileId: file.id, questionId: q.id });
-          added.add(q.id);
-        }
-      }
-    }
-    if (items.length === 0) {
-      setWeakToast('취약 마킹된 케이스가 없습니다');
-      setTimeout(() => setWeakToast(null), 2000);
-      return;
-    }
-    log.ui('list_play_weak', { subjectId, count: items.length });
-    playSelected(items);
-    onSelectQuestion(items[0].subjectId, items[0].fileId, items[0].questionId);
-  }, [subject, subjectId, playSelected, onSelectQuestion]);
+    setShowWeakSheet(true);
+  }, []);
 
   return (
     <div
@@ -597,13 +580,25 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
         </div>
       </div>
 
-      {/* 취약 재생 토스트 */}
-      {weakToast && (
-        <div className="fixed top-20 left-0 right-0 max-w-md mx-auto z-[80] px-6 pointer-events-none">
-          <div className="bg-[#21262d] border border-[#30363d] rounded-xl px-4 py-2.5 text-sm text-white text-center shadow-lg">
-            {weakToast}
-          </div>
-        </div>
+      {/* 취약 리스트 바텀시트 */}
+      {showWeakSheet && (
+        <WeakListSheet
+          subject={subject}
+          subjectId={subjectId}
+          onClose={() => setShowWeakSheet(false)}
+          onPlayAll={(items) => {
+            log.ui('list_play_weak_all', { subjectId, count: items.length });
+            playSelected(items);
+            onSelectQuestion(items[0].subjectId, items[0].fileId, items[0].questionId);
+            setShowWeakSheet(false);
+          }}
+          onPlayOne={(item) => {
+            log.ui('list_play_weak_one', { subjectId, questionId: item.questionId });
+            playSelected([item]);
+            onSelectQuestion(item.subjectId, item.fileId, item.questionId);
+            setShowWeakSheet(false);
+          }}
+        />
       )}
 
       {/* 검색 결과 */}
@@ -709,6 +704,121 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
       )}
 
     </div>
+  );
+}
+
+// ── 취약 케이스 목록 바텀시트 ────────────────────────────────────────────────
+interface WeakListSheetProps {
+  subject: NonNullable<ReturnType<typeof subjects.find>>;
+  subjectId: string;
+  onClose: () => void;
+  onPlayAll: (items: PlaylistItem[]) => void;
+  onPlayOne: (item: PlaylistItem) => void;
+}
+
+function WeakListSheet({ subject, subjectId, onClose, onPlayAll, onPlayOne }: WeakListSheetProps) {
+  const [weakMarks, setWeakMarks] = useState<Set<string>>(() => loadWeakMarks());
+
+  // 취약 케이스 목록 (파일 순서 유지)
+  const weakItems = (() => {
+    const items: { item: PlaylistItem; label: string; subtitle: string }[] = [];
+    const added = new Set<string>();
+    for (const file of subject.files) {
+      for (const q of file.questions) {
+        if (weakMarks.has(q.id) && !added.has(q.id)) {
+          items.push({
+            item: { subjectId, fileId: file.id, questionId: q.id },
+            label: q.label,
+            subtitle: q.subtitle,
+          });
+          added.add(q.id);
+        }
+      }
+    }
+    return items;
+  })();
+
+  const handleRemoveWeak = (questionId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    toggleWeakMark(questionId);
+    setWeakMarks(loadWeakMarks());
+  };
+
+  return (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-[60]" onClick={onClose} />
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[70] bg-[#161b22] rounded-t-2xl border-t border-[#21262d] max-h-[70vh] flex flex-col">
+        <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 shrink-0" />
+        {/* 헤더 */}
+        <div className="px-5 pt-3 pb-2 flex items-center justify-between shrink-0">
+          <h3 className="text-sm font-bold text-white">
+            <span className="mr-1">🚩</span>
+            취약 케이스
+            <span className="text-[#8b949e] font-normal ml-2">{weakItems.length}개</span>
+          </h3>
+          <button className="text-xs text-[#8b949e] px-2 py-1" onClick={onClose}>닫기</button>
+        </div>
+
+        {/* 전체 재생 버튼 */}
+        {weakItems.length > 0 && (
+          <div className="px-4 pb-3 shrink-0">
+            <button
+              className="w-full py-2.5 rounded-xl bg-red-500/15 border border-red-500/20 text-red-400 text-xs font-bold flex items-center justify-center gap-1.5 active:bg-red-500/25 transition-colors"
+              onClick={() => onPlayAll(weakItems.map((wi) => wi.item))}
+            >
+              <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+              전체 재생
+            </button>
+          </div>
+        )}
+
+        {/* 목록 */}
+        <div className="flex-1 overflow-y-auto px-3 pb-6">
+          {weakItems.length === 0 ? (
+            <div className="text-center py-12">
+              <p className="text-[#8b949e] text-sm">아직 취약 마킹된 케이스가 없습니다</p>
+              <p className="text-[#8b949e]/50 text-[11px] mt-1.5">
+                목록에서 🚩 버튼으로 취약 마킹하세요
+              </p>
+            </div>
+          ) : (
+            weakItems.map(({ item, label, subtitle }) => (
+              <button
+                key={item.questionId}
+                className="w-full text-left px-3 py-2.5 rounded-lg mb-1 flex items-center gap-3 active:bg-white/5 transition-colors"
+                onClick={() => onPlayOne(item)}
+              >
+                {/* 재생 아이콘 */}
+                <span className="text-red-400/70 shrink-0">
+                  <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </span>
+
+                {/* 정보 */}
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm text-white truncate">{label}</p>
+                  <p className="text-[11px] text-[#8b949e] truncate">{subtitle}</p>
+                </div>
+
+                {/* 🚩 해제 버튼 */}
+                <button
+                  className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-red-400/50 active:text-red-400 active:bg-red-500/10 transition-colors"
+                  onClick={(e) => handleRemoveWeak(item.questionId, e)}
+                  aria-label="취약 마킹 해제"
+                >
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </button>
+            ))
+          )}
+        </div>
+      </div>
+    </>
   );
 }
 

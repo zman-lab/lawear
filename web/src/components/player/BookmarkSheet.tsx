@@ -14,7 +14,7 @@ interface BookmarkSheetProps {
 }
 
 export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
-  const { state, setSentenceIndex, jumpToPlaylistIndex } = usePlayer();
+  const { state, setSentenceIndex, jumpToPlaylistIndex, playSelected } = usePlayer();
   const {
     currentSubjectId,
     currentFileId,
@@ -80,6 +80,30 @@ export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
     [playlist, jumpToPlaylistIndex, setSentenceIndex, currentQuestionId, onClose],
   );
 
+  // 전체 북마크 순차 재생 (중복 문제 제거, 북마크 순서 유지)
+  const handlePlayAll = useCallback(() => {
+    if (bookmarks.length === 0) return;
+    const seen = new Set<string>();
+    const items = bookmarks
+      .filter((bm) => {
+        const key = `${bm.subjectId}|${bm.fileId}|${bm.questionId}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .map((bm) => ({
+        subjectId: bm.subjectId,
+        fileId: bm.fileId,
+        questionId: bm.questionId,
+      }));
+    if (items.length === 0) return;
+    playSelected(items);
+    // 첫 번째 북마크 문장으로 이동 (약간 딜레이)
+    const first = bookmarks[0];
+    setTimeout(() => setSentenceIndex(first.sentenceIndex), 100);
+    onClose();
+  }, [bookmarks, playSelected, setSentenceIndex, onClose]);
+
   const handleDelete = useCallback(
     (id: string, e: React.MouseEvent) => {
       e.stopPropagation();
@@ -106,6 +130,19 @@ export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
             <span className="text-[#8b949e] font-normal ml-2">{bookmarks.length}개</span>
           </h3>
           <div className="flex items-center gap-2">
+            {/* 전체 재생 버튼 */}
+            {bookmarks.length > 0 && (
+              <button
+                className="text-xs px-2.5 py-1 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-1 active:bg-amber-500/20 transition-colors"
+                onClick={handlePlayAll}
+                aria-label="전체 북마크 순차 재생"
+              >
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+                전체 재생
+              </button>
+            )}
             {/* 현재 위치 북마크 추가 버튼 */}
             <button
               className={`text-xs px-2.5 py-1 rounded-lg transition-colors ${
@@ -201,6 +238,13 @@ export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
                             </span>
                           </div>
                         </div>
+
+                        {/* ▶ 재생 힌트 아이콘 */}
+                        <span className={`shrink-0 ${isCurrentQuestion ? 'text-amber-400' : 'text-[#8b949e]/30'}`}>
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M8 5v14l11-7z" />
+                          </svg>
+                        </span>
 
                         {/* 삭제 버튼 (항상 표시) */}
                         <button
