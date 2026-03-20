@@ -342,6 +342,9 @@ public class TTSFilePlugin extends Plugin {
             JSArray textsArr = call.getArray("texts");
             int startIndex = call.getInt("startIndex", 0);
             float rate = call.getFloat("rate", 1.0f);
+            // 트랙 정보 (선택적) — 알림 제목에 표시됨
+            // 형식: "민사소송법 · Case 01"
+            String trackTitle = call.getString("trackTitle");
 
             if (textsArr == null || textsArr.length() == 0) {
                 call.reject("texts array required");
@@ -356,6 +359,11 @@ public class TTSFilePlugin extends Plugin {
             List<String> texts = new ArrayList<>();
             for (int i = 0; i < textsArr.length(); i++) {
                 texts.add(textsArr.getString(i));
+            }
+
+            // 트랙 정보가 있으면 Service에 전달 (알림 제목 업데이트)
+            if (trackTitle != null && !trackTitle.isEmpty()) {
+                playbackService.setTrackInfo(trackTitle);
             }
 
             sequenceCall = call;

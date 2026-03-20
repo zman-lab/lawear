@@ -65,6 +65,9 @@ public class TtsPlaybackService extends Service {
     private List<String> sequenceTexts = new ArrayList<>();
     private float sequenceRate = 1.0f;
 
+    // 트랙 정보 (알림 표시용)
+    private String trackTitle = "";
+
     // 콜백 인터페이스 — Plugin → JS 이벤트 전달
     public interface SequenceCallback {
         void onSentenceStart(int index);
@@ -175,6 +178,18 @@ public class TtsPlaybackService extends Service {
 
     public void setCallback(SequenceCallback cb) {
         this.callback = cb;
+    }
+
+    /**
+     * 트랙 정보 설정 (알림 제목에 표시)
+     *
+     * speakSequence 호출 전에 설정하거나, 별도로 호출해도 됨.
+     *
+     * @param title 트랙 제목 (예: "민사소송법 · Case 01")
+     */
+    public void setTrackInfo(String title) {
+        this.trackTitle = (title != null) ? title : "";
+        Log.d(TAG, "setTrackInfo: " + trackTitle);
     }
 
     /**
@@ -326,12 +341,17 @@ public class TtsPlaybackService extends Service {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
+        // 알림 제목: 트랙 정보가 있으면 "과목 · Case XX" 형식, 없으면 기본 텍스트
+        String notificationTitle = (trackTitle != null && !trackTitle.isEmpty())
+                ? trackTitle
+                : "LawEar 학습 중";
+
         String contentText = sentenceNum > 0
                 ? statusText + " (" + sentenceNum + "번 문장)"
                 : statusText;
 
         return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("LawEar 학습 중")
+                .setContentTitle(notificationTitle)
                 .setContentText(contentText)
                 .setSmallIcon(android.R.drawable.ic_media_play)
                 .setContentIntent(pendingIntent)

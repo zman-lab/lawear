@@ -6,7 +6,7 @@ import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 
 // ── 네이티브 TTS 순차 재생 플러그인 (백그라운드 안전) ───────────────────────
 interface TTSFilePlugin {
-  speakSequence(opts: { texts: string[]; startIndex: number; rate: number }): Promise<{ event: string; index: number }>;
+  speakSequence(opts: { texts: string[]; startIndex: number; rate: number; trackTitle?: string }): Promise<{ event: string; index: number }>;
   stopSequence(): Promise<void>;
   updateSequenceRate(opts: { rate: number }): Promise<void>;
   jumpSequence(opts: { index: number }): Promise<void>;
@@ -284,9 +284,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const nextQuestionRef = useRef<(() => void) | null>(null);
   const prevQuestionRef = useRef<(() => void) | null>(null);
 
+  // 현재 문장 인덱스를 ref로도 유지 (콜백 클로저에서 최신값 참조)
+  // stateRef는 MediaSession 동기화 useEffect에서도 참조하므로 먼저 선언
+  const sentenceIndexRef = useRef(state.currentSentenceIndex);
+  const stateRef = useRef(state);
+  useEffect(() => {
+    sentenceIndexRef.current = state.currentSentenceIndex;
+    stateRef.current = state;
+  }, [state]);
+
   // ── MediaSession: 트랙/상태 동기화 ─────────────────────────────────────
   useEffect(() => {
-    const { isPlaying, currentSubjectId, currentFileId, currentQuestionId, playlist, playlistIndex } = state;
+    const { isPlaying, currentSubjectId, currentFileId, currentQuestionId, playlistIndex } = state;
+    // playlist는 deps에 포함되지 않으므로 stateRef.current로 최신값 참조
+    const playlist = stateRef.current.playlist;
     const trackInfo = getTrackInfo(currentSubjectId, currentFileId, currentQuestionId);
 
     if (trackInfo && currentQuestionId) {
@@ -300,7 +311,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (!isPlaying && !currentQuestionId) {
       destroyMediaSession();
     }
-  }, [state.isPlaying, state.currentSubjectId, state.currentFileId, state.currentQuestionId, state.playlistIndex, state]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.isPlaying, state.currentSubjectId, state.currentFileId, state.currentQuestionId, state.playlistIndex]);
 
   // sentences는 state 변경 시 재계산 (레벨 반영)
   const sentences = getSentences(
@@ -309,14 +321,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     state.currentQuestionId,
     state.level,
   );
-
-  // 현재 문장 인덱스를 ref로도 유지 (콜백 클로저에서 최신값 참조)
-  const sentenceIndexRef = useRef(state.currentSentenceIndex);
-  const stateRef = useRef(state);
-  useEffect(() => {
-    sentenceIndexRef.current = state.currentSentenceIndex;
-    stateRef.current = state;
-  }, [state]);
 
   const sentencesRef = useRef(sentences);
   useEffect(() => {
@@ -358,9 +362,19 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       nativeSequenceActiveRef.current = true;
       log.tts('native_sequence_start', { idx, absoluteIdx, totalAll: allSents.length });
 
+      // 현재 트랙 정보를 안드로이드 알림 제목에 표시하기 위해 trackTitle 구성
+      const trackInfo = getTrackInfo(
+        current.currentSubjectId,
+        current.currentFileId,
+        current.currentQuestionId,
+      );
+      const nativeTrackTitle = trackInfo
+        ? `${trackInfo.subject} · ${trackInfo.label}`
+        : undefined;
+
       const listen = () => {
         if (!nativeSequenceActiveRef.current) return;
-        TTSFile.speakSequence({ texts: allSents, startIndex: absoluteIdx, rate: speed })
+        TTSFile.speakSequence({ texts: allSents, startIndex: absoluteIdx, rate: speed, trackTitle: nativeTrackTitle })
           .then((ev) => {
             if (!nativeSequenceActiveRef.current) return;
             if (ev.event === 'start') {

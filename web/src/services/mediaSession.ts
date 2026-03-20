@@ -39,6 +39,14 @@ let _callbacks: MediaSessionCallbacks | null = null;
 let _nativePlugin: typeof import('capacitor-music-controls-plugin').CapacitorMusicControls | null = null;
 let _androidListenerCleanup: (() => void) | null = null;
 
+// 트랙 캐싱 — 동일 트랙이면 create() 생략하고 updateIsPlaying()만 호출
+interface CachedTrack {
+  subject: string;
+  file: string;
+  label: string;
+}
+let _cachedTrack: CachedTrack | null = null;
+
 // ── 초기화 (앱 시작 시 1회) ─────────────────────────────────────────────────
 
 export async function initMediaSession(callbacks: MediaSessionCallbacks): Promise<void> {
@@ -88,44 +96,65 @@ export async function updateMediaTrack(
   const title = `${track.subject ?? ''} · ${track.file ?? ''} ${track.label ?? ''}`.trim() || 'lawear';
   const artist = track.subtitle || track.subject || 'lawear';
   const album = track.subject || 'lawear';
-  log.media('update_track', { title: (track.subject ?? '') + ' ' + (track.label ?? '') });
+
+  // 트랙 변경 여부 확인 (subject + file + label 조합)
+  const trackChanged =
+    !_cachedTrack ||
+    _cachedTrack.subject !== track.subject ||
+    _cachedTrack.file !== track.file ||
+    _cachedTrack.label !== track.label;
+
+  log.media('update_track', {
+    title: (track.subject ?? '') + ' ' + (track.label ?? ''),
+    trackChanged,
+  });
 
   if (isNative && _nativePlugin) {
     try {
-      await _nativePlugin.create({
-        track: title,
-        artist,
-        album,
-        cover: '',
-        ticker: title,
-        hasPrev,
-        hasNext,
-        hasClose: true,
-        isPlaying,
-        dismissable: false,
-        // Java NPE 방지: 모든 String 필드에 빈 문자열
-        playIcon: '',
-        pauseIcon: '',
-        prevIcon: '',
-        nextIcon: '',
-        closeIcon: '',
-        notificationIcon: '',
-        // iOS
-        duration: 0,
-        elapsed: 0,
-        hasSkipForward: false,
-        hasSkipBackward: false,
-        hasScrubbing: false,
-      });
+      if (trackChanged) {
+        // 트랙이 바뀐 경우에만 create() 호출
+        _cachedTrack = { subject: track.subject, file: track.file, label: track.label };
+        await _nativePlugin.create({
+          track: title,
+          artist,
+          album,
+          cover: '',
+          ticker: title,
+          hasPrev,
+          hasNext,
+          hasClose: true,
+          isPlaying,
+          dismissable: false,
+          // Java NPE 방지: 모든 String 필드에 빈 문자열
+          playIcon: '',
+          pauseIcon: '',
+          prevIcon: '',
+          nextIcon: '',
+          closeIcon: '',
+          notificationIcon: '',
+          // iOS
+          duration: 0,
+          elapsed: 0,
+          hasSkipForward: false,
+          hasSkipBackward: false,
+          hasScrubbing: false,
+        });
+      } else {
+        // 같은 트랙, 재생 상태만 변경
+        _nativePlugin.updateIsPlaying({ isPlaying });
+      }
     } catch {
       // 알림 생성 실패 시 조용히 무시
     }
   } else if ('mediaSession' in navigator) {
-    navigator.mediaSession.metadata = new MediaMetadata({
-      title,
-      artist,
-      album: track.subject,
-    });
+    if (trackChanged) {
+      navigator.mediaSession.metadata = new MediaMetadata({
+        title,
+        artist,
+        album: track.subject,
+      });
+    }
+    navigator.mediaSession.playbackState = isPlaying ? 'playing' : 'paused';
   }
 }
 
@@ -148,6 +177,7 @@ export function updateMediaPlaybackState(isPlaying: boolean): void {
 
 export async function destroyMediaSession(): Promise<void> {
   log.media('destroy');
+  _cachedTrack = null;
   if (isNative && _nativePlugin) {
     try {
       await _nativePlugin.destroy();
@@ -167,6 +197,7 @@ export function cleanupMediaSession(): void {
   _androidListenerCleanup = null;
   _callbacks = null;
   _initialized = false;
+  _cachedTrack = null;
 }
 
 // ── 내부: 네이티브 이벤트 처리 ─────────────────────────────────────────────
