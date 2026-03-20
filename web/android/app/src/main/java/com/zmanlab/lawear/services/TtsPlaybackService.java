@@ -12,6 +12,7 @@ import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.os.Binder;
 import android.os.Build;
+import android.os.Bundle;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
@@ -126,6 +127,16 @@ public class TtsPlaybackService extends Service {
         tts = new TextToSpeech(this, status -> {
             if (status == TextToSpeech.SUCCESS) {
                 tts.setLanguage(Locale.KOREAN);
+
+                // Samsung TTS 화면 꺼짐 시 합성 지연 방지:
+                // USAGE_MEDIA + CONTENT_TYPE_SPEECH로 명시하면 백그라운드에서도
+                // 오디오 우선순위를 유지하여 합성 속도 저하를 방지한다.
+                AudioAttributes ttsAttrs = new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
+                        .build();
+                tts.setAudioAttributes(ttsAttrs);
+
                 ttsReady = true;
                 Log.i(TAG, "TTS initialized (Service Context)");
             } else {
@@ -280,7 +291,11 @@ public class TtsPlaybackService extends Service {
             }
         });
 
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId);
+        // STREAM_MUSIC 명시: Samsung TTS가 화면 꺼짐 상태에서도
+        // STREAM_MUSIC 채널로 합성하여 지연 없이 재생되도록 강제
+        Bundle params = new Bundle();
+        params.putInt(TextToSpeech.Engine.KEY_PARAM_STREAM, AudioManager.STREAM_MUSIC);
+        tts.speak(text, TextToSpeech.QUEUE_FLUSH, params, utteranceId);
     }
 
     // ── 알림 ───────────────────────────────────────────────────────────────
