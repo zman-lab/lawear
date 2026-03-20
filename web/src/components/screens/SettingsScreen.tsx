@@ -58,6 +58,24 @@ function getSubjectRenderItems(subjectId: string): RenderItem[] {
   return items;
 }
 
+const SLEEP_TIMEOUT_KEY = 'lawear-sleep-timeout';
+
+const SLEEP_OPTIONS: { label: string; value: number }[] = [
+  { label: '끄기', value: 0 },
+  { label: '10초', value: 10 },
+  { label: '30초', value: 30 },
+  { label: '1분', value: 60 },
+  { label: '3분', value: 180 },
+  { label: '5분', value: 300 },
+];
+
+function loadSleepTimeout(): number {
+  const raw = localStorage.getItem(SLEEP_TIMEOUT_KEY);
+  if (raw === null) return 10;
+  const n = Number(raw);
+  return isNaN(n) ? 10 : n;
+}
+
 export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const { state, voices } = usePlayer();
   const { selectedVoiceURI, speed, repeatMode } = state;
@@ -65,6 +83,14 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
   const [showSpeedSheet, setShowSpeedSheet] = useState(false);
   const [showRepeatSheet, setShowRepeatSheet] = useState(false);
+
+  // ── 슬립 모드 ─────────────────────────────────────────────────────────────
+  const [sleepTimeout, setSleepTimeout] = useState<number>(() => loadSleepTimeout());
+
+  const handleSleepTimeoutChange = useCallback((value: number) => {
+    localStorage.setItem(SLEEP_TIMEOUT_KEY, String(value));
+    setSleepTimeout(value);
+  }, []);
 
   // ── 시험 날짜 D-day ──────────────────────────────────────────────────────
   const [examDate, setExamDate] = useState<string>(() => loadExamDate() ?? '');
@@ -402,6 +428,41 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </button>
+        </div>
+
+        {/* 슬립 모드 섹션 */}
+        <p className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-widest pt-3 pb-1">
+          슬립 모드
+        </p>
+
+        <div className="bg-[#161b22] border border-[#21262d] rounded-xl overflow-hidden">
+          <div className="px-4 py-3.5 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-indigo-500/15 flex items-center justify-center shrink-0">
+              <svg className="w-4.5 h-4.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+              </svg>
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm text-white font-medium">화면 꺼짐</p>
+              <p className="text-[11px] text-[#8b949e]">재생 중 일정 시간 후 화면을 끕니다</p>
+            </div>
+          </div>
+          <div className="h-px bg-[#21262d] mx-4" />
+          <div className="px-4 py-3 flex flex-wrap gap-2">
+            {SLEEP_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                  sleepTimeout === opt.value
+                    ? 'bg-indigo-500/30 text-indigo-300 border border-indigo-500/40'
+                    : 'bg-[#21262d] text-[#8b949e] active:bg-[#30363d]'
+                }`}
+                onClick={() => handleSleepTimeoutChange(opt.value)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* 오프라인 저장 섹션 */}
