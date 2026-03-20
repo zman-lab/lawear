@@ -1,5 +1,6 @@
 package com.zmanlab.lawear.plugins.ttsfile;
 
+import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
@@ -9,6 +10,7 @@ import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
 import android.util.Log;
+import android.view.WindowManager;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -429,6 +431,35 @@ public class TTSFilePlugin extends Plugin {
         ret.put("engines", arr);
         ret.put("defaultEngine", defaultEngine);
         call.resolve(ret);
+    }
+
+    // ── setSleepMode (밝기 조절 + FLAG_KEEP_SCREEN_ON) ───────────────────────
+
+    @PluginMethod
+    public void setSleepMode(PluginCall call) {
+        boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", false));
+        Activity activity = getActivity();
+        if (activity == null) {
+            call.resolve();
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            WindowManager.LayoutParams lp = activity.getWindow().getAttributes();
+            if (enabled) {
+                // 슬립: 밝기 최소 (0.01f), 화면은 시스템에 의해 켜짐 유지
+                lp.screenBrightness = 0.01f;
+                activity.getWindow().setAttributes(lp);
+                // FLAG_KEEP_SCREEN_ON 추가 (화면이 꺼지지 않도록)
+                activity.getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            } else {
+                // 슬립 해제: 밝기 시스템 기본값 복원
+                lp.screenBrightness = WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE;
+                activity.getWindow().setAttributes(lp);
+                // FLAG_KEEP_SCREEN_ON 제거 (재생 정지 후 시스템이 화면 끌 수 있도록)
+                activity.getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+            }
+            call.resolve();
+        });
     }
 
     // ── openTTSSettings ───────────────────────────────────────────────────

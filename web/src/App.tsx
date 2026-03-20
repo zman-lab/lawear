@@ -8,6 +8,7 @@ import { PlayerScreen } from './components/screens/PlayerScreen';
 import { SettingsScreen } from './components/screens/SettingsScreen';
 import { FavoriteScreen } from './components/screens/FavoriteScreen';
 import { PlayerBar } from './components/player/PlayerBar';
+import { SleepOverlay } from './components/SleepOverlay';
 import { log } from './services/logger';
 import { runCleanup } from './services/cleanup';
 import { APP_VERSION } from './version';
@@ -124,6 +125,7 @@ export default function App() {
           <FavoriteScreen onBack={goBack} />
         )}
         <PlayerBar />
+        <SleepOverlay />
 
         {/* 업데이트 다이얼로그 */}
         {updateInfo && (
