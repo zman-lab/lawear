@@ -133,7 +133,7 @@ function SubjectCard({
   );
 }
 
-const ESSAY_SUBJECT_IDS = ['minso', 'minbeob', 'hyungbeob', 'hyungso', 'budeung'];
+const ESSAY_SUBJECT_IDS = ['2nd_minso_2026', '2nd_minbeop_2026', '2nd_hyung_2026', '2nd_hyungso_2026', '2nd_budeung_2026'];
 
 export function HomeScreen({ onSelectSubject, onOpenSettings }: HomeScreenProps) {
   const essaySubjects = subjects.filter((s) => ESSAY_SUBJECT_IDS.includes(s.id));
