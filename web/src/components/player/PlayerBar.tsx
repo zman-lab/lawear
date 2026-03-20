@@ -6,7 +6,9 @@ import { VoiceSheet } from './VoiceSheet';
 import { SpeedSheet } from './SpeedSheet';
 import { RepeatModeSheet } from './RepeatModeSheet';
 import { PlaylistSheet } from './PlaylistSheet';
+import { BookmarkSheet } from './BookmarkSheet';
 import { isWeakMarked, toggleWeakMark } from '../../services/weakMark';
+import { isBookmarked } from '../../services/bookmark';
 import type { Speed, RepeatMode } from '../../types';
 
 function speedLabel(speed: Speed): string {
@@ -77,6 +79,7 @@ export function PlayerBar() {
   const [showSpeedSheet, setShowSpeedSheet] = useState(false);
   const [showRepeatSheet, setShowRepeatSheet] = useState(false);
   const [showPlaylistSheet, setShowPlaylistSheet] = useState(false);
+  const [showBookmarkSheet, setShowBookmarkSheet] = useState(false);
 
   const {
     isPlaying,
@@ -94,6 +97,12 @@ export function PlayerBar() {
   const [weakMarked, setWeakMarked] = useState<boolean>(false);
   useEffect(() => {
     setWeakMarked(currentQuestionId ? isWeakMarked(currentQuestionId) : false);
+  }, [currentQuestionId]);
+
+  // 북마크 상태 (questionId 변경 시 자동 동기화)
+  const [bookmarkedForCurrent, setBookmarkedForCurrent] = useState<boolean>(false);
+  useEffect(() => {
+    setBookmarkedForCurrent(currentQuestionId ? isBookmarked(currentQuestionId) : false);
   }, [currentQuestionId]);
 
   const handleToggleWeak = useCallback(() => {
@@ -259,6 +268,19 @@ export function PlayerBar() {
           </svg>
         </button>
 
+        {/* 북마크 */}
+        <button
+          className={`min-w-[38px] min-h-[36px] flex items-center justify-center transition-colors ${
+            bookmarkedForCurrent ? 'opacity-100' : 'opacity-40'
+          }`}
+          onClick={() => setShowBookmarkSheet(true)}
+          aria-label="북마크"
+          title="북마크"
+          disabled={!hasContent}
+        >
+          <span className="text-base leading-none">🔖</span>
+        </button>
+
         {/* 취약 마킹 */}
         <button
           className={`min-w-[38px] min-h-[36px] flex items-center justify-center transition-colors ${
@@ -355,6 +377,14 @@ export function PlayerBar() {
       <SpeedSheet isOpen={showSpeedSheet} onClose={() => setShowSpeedSheet(false)} />
       <RepeatModeSheet isOpen={showRepeatSheet} onClose={() => setShowRepeatSheet(false)} />
       <PlaylistSheet isOpen={showPlaylistSheet} onClose={() => setShowPlaylistSheet(false)} />
+      <BookmarkSheet
+        isOpen={showBookmarkSheet}
+        onClose={() => {
+          setShowBookmarkSheet(false);
+          // 북마크 시트 닫을 때 현재 문제 북마크 상태 갱신
+          setBookmarkedForCurrent(currentQuestionId ? isBookmarked(currentQuestionId) : false);
+        }}
+      />
     </div>
   );
 }

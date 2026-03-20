@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react';
 import { subjects } from '../../data/ttsData';
 import type { Subject } from '../../types';
+import { loadExamDate, calcDday, formatDday } from '../../services/examDate';
 
 interface HomeScreenProps {
   onSelectSubject: (subjectId: string) => void;
@@ -142,6 +144,16 @@ export function HomeScreen({ onSelectSubject, onOpenSettings }: HomeScreenProps)
   const overallProgress =
     totalQuestions > 0 ? Math.round((completedQuestions / totalQuestions) * 100) : 0;
 
+  // D-day 계산
+  const [ddayStr, setDdayStr] = useState<string>('');
+  const [examDateStr, setExamDateStr] = useState<string | null>(null);
+  useEffect(() => {
+    const dateStr = loadExamDate();
+    setExamDateStr(dateStr);
+    const days = calcDday(dateStr);
+    setDdayStr(formatDday(days));
+  }, []);
+
   return (
     <div
       className="absolute inset-0 flex flex-col"
@@ -153,7 +165,22 @@ export function HomeScreen({ onSelectSubject, onOpenSettings }: HomeScreenProps)
           <h1 className="text-xl font-bold text-white">
             Law<span className="text-blue-400">Ear</span>
           </h1>
-          <p className="text-[11px] text-[#8b949e] mt-0.5">법무사 2차 · TTS 학습</p>
+          <div className="flex items-center gap-2 mt-0.5">
+            <p className="text-[11px] text-[#8b949e]">법무사 2차 · TTS 학습</p>
+            {ddayStr && (
+              <span
+                className={`text-[11px] font-bold px-1.5 py-0.5 rounded-md ${
+                  ddayStr === 'D-Day'
+                    ? 'bg-red-500/20 text-red-400'
+                    : ddayStr.startsWith('D+')
+                    ? 'bg-gray-500/20 text-gray-400'
+                    : 'bg-blue-500/20 text-blue-400'
+                }`}
+              >
+                {ddayStr}
+              </span>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           {/* 웨이브 (항상 꺼짐 상태 — 홈에서는 재생 없음) */}
@@ -208,12 +235,40 @@ export function HomeScreen({ onSelectSubject, onOpenSettings }: HomeScreenProps)
           <p className="text-[10px] text-[#8b949e] mt-0.5">완료 설문</p>
           <p className="text-[10px] text-[#8b949e] opacity-50">/ {totalQuestions}</p>
         </div>
-        {/* 오늘 학습 */}
-        <div className="bg-[#161b22]/60 border border-[#21262d] rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold text-emerald-400">
-            45<span className="text-xs font-normal">분</span>
-          </p>
-          <p className="text-[10px] text-[#8b949e] mt-0.5">오늘 학습</p>
+        {/* D-day */}
+        <div
+          className="bg-[#161b22]/60 border border-[#21262d] rounded-xl p-3 text-center cursor-pointer active:scale-[0.97] transition-transform"
+          onClick={onOpenSettings}
+          role="button"
+          tabIndex={0}
+          onKeyDown={(e) => e.key === 'Enter' && onOpenSettings()}
+          aria-label="시험 날짜 설정"
+        >
+          {ddayStr ? (
+            <>
+              <p
+                className={`text-2xl font-bold ${
+                  ddayStr === 'D-Day'
+                    ? 'text-red-400'
+                    : ddayStr.startsWith('D+')
+                    ? 'text-gray-400'
+                    : 'text-blue-400'
+                }`}
+              >
+                {ddayStr}
+              </p>
+              {examDateStr && (
+                <p className="text-[10px] text-[#8b949e]/60 mt-0.5 truncate">
+                  {examDateStr.slice(5).replace('-', '/')}
+                </p>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-xl font-bold text-[#8b949e]/40">D-?</p>
+              <p className="text-[10px] text-[#8b949e]/40 mt-0.5">날짜 설정</p>
+            </>
+          )}
         </div>
       </div>
 

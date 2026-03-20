@@ -27,6 +27,7 @@ import {
 import { subjects } from '../../data/ttsData';
 import { APP_VERSION, BUILD_DATE } from '../../version';
 import { GITHUB_OWNER, GITHUB_REPO, GITHUB_API } from '../../config';
+import { loadExamDate, saveExamDate, clearExamDate, calcDday, formatDday } from '../../services/examDate';
 
 interface SettingsScreenProps {
   onBack: () => void;
@@ -64,6 +65,37 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
   const [showSpeedSheet, setShowSpeedSheet] = useState(false);
   const [showRepeatSheet, setShowRepeatSheet] = useState(false);
+
+  // ── 시험 날짜 D-day ──────────────────────────────────────────────────────
+  const [examDate, setExamDate] = useState<string>(() => loadExamDate() ?? '');
+  const [examDateEditing, setExamDateEditing] = useState(false);
+  const [examDateInput, setExamDateInput] = useState<string>('');
+
+  const ddayValue = calcDday(examDate || null);
+  const ddayLabel = formatDday(ddayValue);
+
+  const handleExamDateEdit = useCallback(() => {
+    setExamDateInput(examDate);
+    setExamDateEditing(true);
+  }, [examDate]);
+
+  const handleExamDateSave = useCallback(() => {
+    const trimmed = examDateInput.trim();
+    if (trimmed) {
+      saveExamDate(trimmed);
+      setExamDate(trimmed);
+    } else {
+      clearExamDate();
+      setExamDate('');
+    }
+    setExamDateEditing(false);
+  }, [examDateInput]);
+
+  const handleExamDateClear = useCallback(() => {
+    clearExamDate();
+    setExamDate('');
+    setExamDateEditing(false);
+  }, []);
 
   // ── 버전 확인 상태 ──────────────────────────────────────────────────────
   const [versionStatus, setVersionStatus] = useState<'idle' | 'checking' | 'latest' | 'update' | 'error'>('idle');
@@ -203,8 +235,87 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
 
       {/* 설정 목록 */}
       <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3">
-        {/* TTS 음성 섹션 */}
+        {/* 시험 날짜 섹션 */}
         <p className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-widest pt-1 pb-1">
+          시험 날짜
+        </p>
+
+        <div className="bg-[#161b22] border border-[#21262d] rounded-xl overflow-hidden">
+          {!examDateEditing ? (
+            <button
+              className="w-full px-4 py-3.5 flex items-center justify-between active:bg-white/[0.04] transition-colors"
+              onClick={handleExamDateEdit}
+            >
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-9 h-9 rounded-lg bg-rose-500/15 flex items-center justify-center shrink-0">
+                  <svg className="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm text-white font-medium">시험일</p>
+                  {examDate ? (
+                    <div className="flex items-center gap-2">
+                      <p className="text-[11px] text-rose-400">{examDate}</p>
+                      {ddayLabel && (
+                        <span className={`text-[10px] font-bold px-1 rounded ${
+                          ddayLabel === 'D-Day'
+                            ? 'bg-red-500/20 text-red-400'
+                            : ddayLabel.startsWith('D+')
+                            ? 'bg-gray-500/20 text-gray-400'
+                            : 'bg-blue-500/20 text-blue-400'
+                        }`}>
+                          {ddayLabel}
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-[#8b949e]/50">미설정 (탭하여 입력)</p>
+                  )}
+                </div>
+              </div>
+              <svg className="w-4 h-4 text-white/20 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          ) : (
+            <div className="px-4 py-3.5 space-y-3">
+              <p className="text-[11px] text-[#8b949e]">시험 날짜를 입력하세요 (YYYY-MM-DD)</p>
+              <input
+                type="date"
+                className="w-full bg-[#21262d] border border-[#30363d] rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-blue-500/50"
+                value={examDateInput}
+                onChange={(e) => setExamDateInput(e.target.value)}
+                autoFocus
+              />
+              <div className="flex gap-2">
+                <button
+                  className="flex-1 py-2 rounded-lg bg-[#21262d] text-sm text-[#8b949e] active:bg-[#30363d] transition-colors"
+                  onClick={() => setExamDateEditing(false)}
+                >
+                  취소
+                </button>
+                {examDate && (
+                  <button
+                    className="px-3 py-2 rounded-lg bg-red-500/10 text-sm text-red-400/70 active:bg-red-500/20 transition-colors"
+                    onClick={handleExamDateClear}
+                  >
+                    삭제
+                  </button>
+                )}
+                <button
+                  className="flex-1 py-2 rounded-lg bg-blue-500/20 text-sm text-blue-400 active:bg-blue-500/30 transition-colors"
+                  onClick={handleExamDateSave}
+                >
+                  저장
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* TTS 음성 섹션 */}
+        <p className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-widest pt-3 pb-1">
           TTS 음성
         </p>
 
