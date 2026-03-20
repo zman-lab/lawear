@@ -824,6 +824,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (!current.currentQuestionId) return;
 
     if (current.isPlaying) {
+      // 일시정지: 네이티브 Service도 중단
+      stopNativeSequence();
       pause();
       setState((prev) => ({ ...prev, isPlaying: false }));
     } else {
@@ -842,22 +844,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setState((prev) => ({ ...prev, isPlaying: true }));
       }
 
-      if (isNative) {
-        speakCurrentSentence(current.currentSentenceIndex, current.speed);
-      } else {
-        const synth = window.speechSynthesis;
-        if (synth.paused) {
-          resume();
-        } else {
-          speakCurrentSentence(current.currentSentenceIndex, current.speed);
-        }
-      }
+      // 재개: 현재 문장부터 다시 시작
+      speakCurrentSentence(current.currentSentenceIndex, current.speed);
     }
-  }, [pause, resume, speakCurrentSentence, isNative]);
+  }, [pause, speakCurrentSentence, stopNativeSequence]);
 
   // ── stop ──────────────────────────────────────────────────────────────────
   const stop = useCallback(() => {
     log.player('stop');
+    stopNativeSequence();
     cancel();
     setState((prev) => ({
       ...prev,
@@ -865,7 +860,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       currentSentenceIndex: 0,
     }));
     sentenceIndexRef.current = 0;
-  }, [cancel]);
+  }, [cancel, stopNativeSequence]);
 
   // ── setSpeed ──────────────────────────────────────────────────────────────
   const setSpeed = useCallback(

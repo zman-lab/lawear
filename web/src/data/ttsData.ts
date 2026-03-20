@@ -5,17 +5,17 @@ import { Subject } from '../types';
 
 export const subjects: Subject[] = [
   {
-    "id": "minso",
+    "id": "2nd_minso_2026",
     "name": "민사소송법",
     "shortName": "민소",
     "colorClass": "blue",
     "files": [
       {
-        "id": "immun_mike01",
-        "name": "immun_mike01",
+        "id": "2nd_minso_2026_immun_mike01",
+        "name": "예비순환 미케 01",
         "questions": [
           {
-            "id": "case01",
+            "id": "2nd_minso_mike01_case01",
             "label": "Case 01",
             "subtitle": "대결 2002.5.10, 2002마1156",
             "duration": "4:00",
@@ -61,7 +61,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case02",
+            "id": "2nd_minso_mike01_case02",
             "label": "Case 02",
             "subtitle": "대결 1994.5.26, 94마536",
             "duration": "3:00",
@@ -107,7 +107,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case03",
+            "id": "2nd_minso_mike01_case03",
             "label": "Case 03",
             "subtitle": "대판 2009.10.15, 2009다49964, 대판 2015.1.29, 2014다34041",
             "duration": "4:20",
@@ -145,7 +145,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case04",
+            "id": "2nd_minso_mike01_case04",
             "label": "Case 04",
             "subtitle": "대판 1991.6.25, 88다카6358, 대판 1984.2.14, 83다카1815",
             "duration": "2:50",
@@ -183,7 +183,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case05",
+            "id": "2nd_minso_mike01_case05",
             "label": "Case 05",
             "subtitle": "대판 1994.2.25, 93다39225",
             "duration": "2:10",
@@ -220,7 +220,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case06",
+            "id": "2nd_minso_mike01_case06",
             "label": "Case 06",
             "subtitle": "대판 2009.4.23, 2009다3234, 대판 1997.7.25, 96다39301 등",
             "duration": "4:00",
@@ -265,7 +265,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case07",
+            "id": "2nd_minso_mike01_case07",
             "label": "Case 07",
             "subtitle": "대판 2015.9.10, 2013다55300",
             "duration": "4:20",
@@ -310,7 +310,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case08",
+            "id": "2nd_minso_mike01_case08",
             "label": "Case 08",
             "subtitle": "대판 2009.11.12, 2009다48879",
             "duration": "3:20",
@@ -349,11 +349,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "immun_mike02",
-        "name": "immun_mike02",
+        "id": "2nd_minso_2026_immun_mike02",
+        "name": "예비순환 미케 02",
         "questions": [
           {
-            "id": "case09",
+            "id": "2nd_minso_mike02_case09",
             "label": "Case 09",
             "subtitle": "대판 1995.4.14, 94다29256",
             "duration": "3:20",
@@ -400,7 +400,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case10",
+            "id": "2nd_minso_mike02_case10",
             "label": "Case 10",
             "subtitle": "대판 2001.7.24, 2001다22246",
             "duration": "2:40",
@@ -431,7 +431,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case11",
+            "id": "2nd_minso_mike02_case11",
             "label": "Case 11",
             "subtitle": "대판 2001.4.27, 2000다4050",
             "duration": "3:20",
@@ -465,7 +465,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case12",
+            "id": "2nd_minso_mike02_case12",
             "label": "Case 12",
             "subtitle": "대판 1998.9.22, 98다23393",
             "duration": "2:20",
@@ -497,7 +497,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case13",
+            "id": "2nd_minso_mike02_case13",
             "label": "Case 13",
             "subtitle": "대판 2002.6.14, 2000다37517, 대판 2019.2.14, 2015다244432 등",
             "duration": "3:50",
@@ -524,7 +524,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case14",
+            "id": "2nd_minso_mike02_case14",
             "label": "Case 14",
             "subtitle": "대판 2016.3.10, 2013다99409",
             "duration": "4:50",
@@ -563,7 +563,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case15",
+            "id": "2nd_minso_mike02_case15",
             "label": "Case 15",
             "subtitle": "대판 2001.2.23, 2000다63752",
             "duration": "2:40",
@@ -595,7 +595,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case16",
+            "id": "2nd_minso_mike02_case16",
             "label": "Case 16",
             "subtitle": "대판(전) 1995.7.11, 94다34265",
             "duration": "3:00",
@@ -634,7 +634,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case17",
+            "id": "2nd_minso_mike02_case17",
             "label": "Case 17",
             "subtitle": "대판(전) 1983.12.13, 83다카1489",
             "duration": "4:40",
@@ -661,7 +661,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case18",
+            "id": "2nd_minso_mike02_case18",
             "label": "Case 18",
             "subtitle": "대판 2013.11.28, 2011다80449, 대판 1993.5.14, 92다21760 등",
             "duration": "6:00",
@@ -699,11 +699,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "immun_mike03",
-        "name": "immun_mike03",
+        "id": "2nd_minso_2026_immun_mike03",
+        "name": "예비순환 미케 03",
         "questions": [
           {
-            "id": "case19",
+            "id": "2nd_minso_mike03_case19",
             "label": "Case 19",
             "subtitle": "대판 2014.6.12. 2013다95964, 대판 1995.8.25, 94다35886",
             "duration": "4:20",
@@ -737,7 +737,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case20",
+            "id": "2nd_minso_mike03_case20",
             "label": "Case 20",
             "subtitle": "대판 1982.5.11, 80다916",
             "duration": "3:30",
@@ -774,7 +774,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case21",
+            "id": "2nd_minso_mike03_case21",
             "label": "Case 21",
             "subtitle": "대판 2013.4.25, 2012다98423, 대결 1983.12.30, 83모53",
             "duration": "6:00",
@@ -820,7 +820,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case22",
+            "id": "2nd_minso_mike03_case22",
             "label": "Case 22",
             "subtitle": "증명책임의 분배",
             "duration": "4:20",
@@ -866,7 +866,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case23",
+            "id": "2nd_minso_mike03_case23",
             "label": "Case 23",
             "subtitle": "대판(전) 1995.5.23, 94다28444",
             "duration": "3:50",
@@ -912,7 +912,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case24",
+            "id": "2nd_minso_mike03_case24",
             "label": "Case 24",
             "subtitle": "대결 1992.11.5, 91마342, 대판 1996.2.9, 94다61649",
             "duration": "3:30",
@@ -953,11 +953,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "immun_mike04",
-        "name": "immun_mike04",
+        "id": "2nd_minso_2026_immun_mike04",
+        "name": "예비순환 미케 04",
         "questions": [
           {
-            "id": "case25",
+            "id": "2nd_minso_mike04_case25",
             "label": "Case 25",
             "subtitle": "대판(전) 2001.9.20, 99다37894",
             "duration": "4:10",
@@ -998,7 +998,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case26",
+            "id": "2nd_minso_mike04_case26",
             "label": "Case 26",
             "subtitle": "대판 2000.6.9, 98다18155",
             "duration": "2:20",
@@ -1037,7 +1037,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case27",
+            "id": "2nd_minso_mike04_case27",
             "label": "Case 27",
             "subtitle": "대판 2016.9.28, 2016다13482",
             "duration": "5:10",
@@ -1083,7 +1083,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case28",
+            "id": "2nd_minso_mike04_case28",
             "label": "Case 28",
             "subtitle": "대판 1992.10.27, 92다10883",
             "duration": "3:40",
@@ -1121,7 +1121,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case29",
+            "id": "2nd_minso_mike04_case29",
             "label": "Case 29",
             "subtitle": "대판 2014.1.23, 2011다108095",
             "duration": "4:20",
@@ -1166,7 +1166,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case30",
+            "id": "2nd_minso_mike04_case30",
             "label": "Case 30",
             "subtitle": "대판 2018.8.30. 2016다46338, 대판 2005.7.22, 2004다17207",
             "duration": "6:00",
@@ -1205,7 +1205,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case31",
+            "id": "2nd_minso_mike04_case31",
             "label": "Case 31",
             "subtitle": "대판 2016.8.30, 2016다222149",
             "duration": "5:40",
@@ -1253,7 +1253,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case32",
+            "id": "2nd_minso_mike04_case32",
             "label": "Case 32",
             "subtitle": "대판 1998.11.24, 98다25344",
             "duration": "4:00",
@@ -1294,11 +1294,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mike01",
-        "name": "예비 미케01",
+        "id": "2nd_minso_2026_yebi_mike01",
+        "name": "예비순환 미케 01",
         "questions": [
           {
-            "id": "case01",
+            "id": "2nd_minso_ymike01_case01",
             "label": "Case 01",
             "subtitle": "대판(전) 2018.7.19. 2018다22008; 대판(전) 2018.10.18. 2015다232316",
             "duration": "6:20",
@@ -1338,7 +1338,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case02",
+            "id": "2nd_minso_ymike01_case02",
             "label": "Case 02",
             "subtitle": "대결 2002.5.10, 2002마1156",
             "duration": "4:00",
@@ -1382,7 +1382,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case03",
+            "id": "2nd_minso_ymike01_case03",
             "label": "Case 03",
             "subtitle": "대결 1994.5.26, 94마536",
             "duration": "3:00",
@@ -1426,7 +1426,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case04",
+            "id": "2nd_minso_ymike01_case04",
             "label": "Case 04",
             "subtitle": "대판 2009.10.15, 2009다49964, 대판 2015.1.29, 2014다34041",
             "duration": "4:30",
@@ -1463,7 +1463,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case05",
+            "id": "2nd_minso_ymike01_case05",
             "label": "Case 05",
             "subtitle": "대판 1991.6.25, 88다카6358, 대판 1984.2.14, 83다카1815",
             "duration": "3:00",
@@ -1505,11 +1505,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mike02",
-        "name": "예비 미케02",
+        "id": "2nd_minso_2026_yebi_mike02",
+        "name": "예비순환 미케 02",
         "questions": [
           {
-            "id": "case06",
+            "id": "2nd_minso_ymike02_case06",
             "label": "Case 06",
             "subtitle": "대판 1994.2.25, 93다39225",
             "duration": "2:20",
@@ -1545,7 +1545,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case07",
+            "id": "2nd_minso_ymike02_case07",
             "label": "Case 07",
             "subtitle": "대판 2009.4.23, 2009다3234, 대판 1997.7.25, 96다39301 등",
             "duration": "4:00",
@@ -1589,7 +1589,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case08",
+            "id": "2nd_minso_ymike02_case08",
             "label": "Case 08",
             "subtitle": "대판 2015.9.10, 2013다55300",
             "duration": "4:20",
@@ -1633,7 +1633,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case09",
+            "id": "2nd_minso_ymike02_case09",
             "label": "Case 09",
             "subtitle": "대판 1995.4.14, 94다29256",
             "duration": "3:30",
@@ -1688,7 +1688,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case10",
+            "id": "2nd_minso_ymike02_case10",
             "label": "Case 10",
             "subtitle": "대판 2005.11.25, 2005다51457",
             "duration": "2:50",
@@ -1735,7 +1735,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case11",
+            "id": "2nd_minso_ymike02_case11",
             "label": "Case 11",
             "subtitle": "대판 2001.7.24, 2001다22246",
             "duration": "2:50",
@@ -1774,7 +1774,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case12",
+            "id": "2nd_minso_ymike02_case12",
             "label": "Case 12",
             "subtitle": "대판 2001.4.27, 2000다4050",
             "duration": "2:40",
@@ -1813,7 +1813,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case13",
+            "id": "2nd_minso_ymike02_case13",
             "label": "Case 13",
             "subtitle": "대판 1996.9.20, 93다20177",
             "duration": "3:20",
@@ -1854,7 +1854,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case14",
+            "id": "2nd_minso_ymike02_case14",
             "label": "Case 14",
             "subtitle": "대판 1993.5.14, 92다21760, 대판 1982.3.9, 81다1312",
             "duration": "3:30",
@@ -1904,11 +1904,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mike03",
-        "name": "예비 미케03",
+        "id": "2nd_minso_2026_yebi_mike03",
+        "name": "예비순환 미케 03",
         "questions": [
           {
-            "id": "case15",
+            "id": "2nd_minso_ymike03_case15",
             "label": "Case 15",
             "subtitle": "대판 1998.9.22, 98다23393",
             "duration": "2:30",
@@ -1936,7 +1936,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case16",
+            "id": "2nd_minso_ymike03_case16",
             "label": "Case 16",
             "subtitle": "대판 2002.4.26, 2001다59033, 대판 2000.2.11, 98다35327 등",
             "duration": "2:50",
@@ -1964,7 +1964,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case17",
+            "id": "2nd_minso_ymike03_case17",
             "label": "Case 17",
             "subtitle": "대판 2002.6.14, 2000다37517, 대판 2019.2.14, 2015다244432 등",
             "duration": "3:50",
@@ -1998,7 +1998,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case18",
+            "id": "2nd_minso_ymike03_case18",
             "label": "Case 18",
             "subtitle": "대판 2016.3.10, 2013다99409",
             "duration": "4:30",
@@ -2032,7 +2032,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case19",
+            "id": "2nd_minso_ymike03_case19",
             "label": "Case 19",
             "subtitle": "대판 2001.2.23, 2000다63752",
             "duration": "2:40",
@@ -2060,7 +2060,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case20",
+            "id": "2nd_minso_ymike03_case20",
             "label": "Case 20",
             "subtitle": "대판 2014.7.10, 2012다89832",
             "duration": "2:20",
@@ -2094,7 +2094,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case21",
+            "id": "2nd_minso_ymike03_case21",
             "label": "Case 21",
             "subtitle": "대판 1996.10.25, 96다30113, 대판 1976.6.22, 75다819 등",
             "duration": "3:10",
@@ -2122,7 +2122,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case22",
+            "id": "2nd_minso_ymike03_case22",
             "label": "Case 22",
             "subtitle": "대판(전) 1995.7.11, 94다34265",
             "duration": "2:40",
@@ -2156,7 +2156,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case23",
+            "id": "2nd_minso_ymike03_case23",
             "label": "Case 23",
             "subtitle": "대판 1994.4.15, 93다60120 등",
             "duration": "3:50",
@@ -2190,7 +2190,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case24",
+            "id": "2nd_minso_ymike03_case24",
             "label": "Case 24",
             "subtitle": "대판(전) 1983.12.13, 83다카1489",
             "duration": "4:10",
@@ -2218,7 +2218,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case25",
+            "id": "2nd_minso_ymike03_case25",
             "label": "Case 25",
             "subtitle": "대판 2013.11.28, 2011다80449, 대판 1993.5.14, 92다21760 등",
             "duration": "5:40",
@@ -2248,11 +2248,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mike04",
-        "name": "예비 미케04",
+        "id": "2nd_minso_2026_yebi_mike04",
+        "name": "예비순환 미케 04",
         "questions": [
           {
-            "id": "case26",
+            "id": "2nd_minso_ymike04_case26",
             "label": "Case 26",
             "subtitle": "대판 1979.6.26, 79다741",
             "duration": "6:30",
@@ -2295,7 +2295,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case27",
+            "id": "2nd_minso_ymike04_case27",
             "label": "Case 27",
             "subtitle": "대판 2014.6.12. 2013다95964, 대판 1995.8.25, 94다35886",
             "duration": "4:40",
@@ -2328,7 +2328,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case28",
+            "id": "2nd_minso_ymike04_case28",
             "label": "Case 28",
             "subtitle": "대판 1982.5.11, 80다916",
             "duration": "3:10",
@@ -2361,7 +2361,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case29",
+            "id": "2nd_minso_ymike04_case29",
             "label": "Case 29",
             "subtitle": "대판 1980.8.26, 80다76, 대판 2001.1.30, 2000다42939",
             "duration": "3:50",
@@ -2400,7 +2400,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case30",
+            "id": "2nd_minso_ymike04_case30",
             "label": "Case 30",
             "subtitle": "대판 2013.4.25, 2012다98423, 대결 1983.12.30, 83모53",
             "duration": "6:00",
@@ -2442,7 +2442,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case31",
+            "id": "2nd_minso_ymike04_case31",
             "label": "Case 31",
             "subtitle": "대판 2015.2.12, 2014다229870, 대판 1992.8.14, 92다14724, 대판 2010.2.11, 2009다84288",
             "duration": "9:40",
@@ -2482,7 +2482,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case32",
+            "id": "2nd_minso_ymike04_case32",
             "label": "Case 32",
             "subtitle": "대판 2009.5.14, 2009다7762, 대판 1997.6.13, 96재다462",
             "duration": "7:00",
@@ -2528,7 +2528,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case33",
+            "id": "2nd_minso_ymike04_case33",
             "label": "Case 33",
             "subtitle": "대판 1993.6.25, 93다15991",
             "duration": "6:30",
@@ -2567,7 +2567,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case34",
+            "id": "2nd_minso_ymike04_case34",
             "label": "Case 34",
             "subtitle": "증명책임의 분배",
             "duration": "4:30",
@@ -2610,11 +2610,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mike05",
-        "name": "예비 미케05",
+        "id": "2nd_minso_2026_yebi_mike05",
+        "name": "예비순환 미케 05",
         "questions": [
           {
-            "id": "case35",
+            "id": "2nd_minso_ymike05_case35",
             "label": "Case 35",
             "subtitle": "대판(전) 1995.5.23, 94다28444",
             "duration": "2:30",
@@ -2652,7 +2652,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case36",
+            "id": "2nd_minso_ymike05_case36",
             "label": "Case 36",
             "subtitle": "대결 1992.11.5, 91마342, 대판 1996.2.9, 94다61649",
             "duration": "2:20",
@@ -2684,7 +2684,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case37",
+            "id": "2nd_minso_ymike05_case37",
             "label": "Case 37",
             "subtitle": "대판(전) 1962.2.15, 4294민상914, 대판 1984.5.29, 82다카963 등",
             "duration": "2:50",
@@ -2714,7 +2714,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case38",
+            "id": "2nd_minso_ymike05_case38",
             "label": "Case 38",
             "subtitle": "대판(전) 2001.9.20, 99다37894",
             "duration": "3:40",
@@ -2750,7 +2750,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case39",
+            "id": "2nd_minso_ymike05_case39",
             "label": "Case 39",
             "subtitle": "대판 2000.6.9, 98다18155",
             "duration": "2:20",
@@ -2785,7 +2785,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case40",
+            "id": "2nd_minso_ymike05_case40",
             "label": "Case 40",
             "subtitle": "대판 1979.9.11, 79다1275",
             "duration": "2:10",
@@ -2819,7 +2819,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case41",
+            "id": "2nd_minso_ymike05_case41",
             "label": "Case 41",
             "subtitle": "대판 2016.9.28, 2016다13482",
             "duration": "3:40",
@@ -2857,7 +2857,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case42",
+            "id": "2nd_minso_ymike05_case42",
             "label": "Case 42",
             "subtitle": "대판 1992.10.27, 92다10883",
             "duration": "2:50",
@@ -2887,7 +2887,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case43",
+            "id": "2nd_minso_ymike05_case43",
             "label": "Case 43",
             "subtitle": "대판 2014.1.23, 2011다108095",
             "duration": "3:40",
@@ -2926,7 +2926,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case44",
+            "id": "2nd_minso_ymike05_case44",
             "label": "Case 44",
             "subtitle": "대판 2000.2.25, 99다55472",
             "duration": "4:00",
@@ -2960,7 +2960,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case45",
+            "id": "2nd_minso_ymike05_case45",
             "label": "Case 45",
             "subtitle": "대판 2018.8.30. 2016다46338, 대판 2005.7.22, 2004다17207",
             "duration": "5:00",
@@ -2992,7 +2992,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case46",
+            "id": "2nd_minso_ymike05_case46",
             "label": "Case 46",
             "subtitle": "대판 1976.12.14, 76다1488",
             "duration": "5:00",
@@ -3031,7 +3031,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case47",
+            "id": "2nd_minso_ymike05_case47",
             "label": "Case 47",
             "subtitle": "대판 2016.8.30, 2016다222149",
             "duration": "3:50",
@@ -3070,7 +3070,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case48",
+            "id": "2nd_minso_ymike05_case48",
             "label": "Case 48",
             "subtitle": "대판 1998.11.24, 98다25344",
             "duration": "3:20",
@@ -3104,11 +3104,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mogo01",
-        "name": "예비 모고01",
+        "id": "2nd_minso_2026_yebi_mogo01",
+        "name": "예비순환 모고 01",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_minso_ymogo01_mun01",
             "label": "제 01",
             "subtitle": "",
             "duration": "8:00",
@@ -3167,11 +3167,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mogo02",
-        "name": "예비 모고02",
+        "id": "2nd_minso_2026_yebi_mogo02",
+        "name": "예비순환 모고 02",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_minso_ymogo02_mun01",
             "label": "제 01",
             "subtitle": "",
             "duration": "6:50",
@@ -3231,17 +3231,17 @@ export const subjects: Subject[] = [
     "completedQuestions": 82
   },
   {
-    "id": "minbeop",
+    "id": "2nd_minbeop_2026",
     "name": "민법",
     "shortName": "민법",
     "colorClass": "emerald",
     "files": [
       {
-        "id": "immun_mike01",
-        "name": "immun_mike01",
+        "id": "2nd_minbeop_2026_immun_mike01",
+        "name": "예비순환 미케 01",
         "questions": [
           {
-            "id": "case01",
+            "id": "2nd_minbeop_mike01_case01",
             "label": "Case 01",
             "subtitle": "대판 2002.2.8, 2001다57679, 대판 2003.7.22, 2002다64780",
             "duration": "8:10",
@@ -3290,7 +3290,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case02",
+            "id": "2nd_minbeop_mike01_case02",
             "label": "Case 02",
             "subtitle": "대판 2009.9.10, 2009다34481, 대판 2013.10.11, 2013다52622",
             "duration": "1:40",
@@ -3319,7 +3319,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case03",
+            "id": "2nd_minbeop_mike01_case03",
             "label": "Case 03",
             "subtitle": "대판 1994.3.22, 92다52726, 대판 1999.4.27, 98다56690, 대판 1983.4.26, 83다카57",
             "duration": "4:20",
@@ -3364,7 +3364,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case04",
+            "id": "2nd_minbeop_mike01_case04",
             "label": "Case 04",
             "subtitle": "대판 1999.3.12, 98다48989, 대판 2006.11.10, 2004다10299, 대판 2010.4.29, 2009다96083",
             "duration": "6:10",
@@ -3407,7 +3407,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case05",
+            "id": "2nd_minbeop_mike01_case05",
             "label": "Case 05",
             "subtitle": "대판 1968.3.26, 67다2160, 대판 1990.7.10, 90다카7460, 대판 1998.2.10, 97다44737",
             "duration": "6:00",
@@ -3454,7 +3454,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case06",
+            "id": "2nd_minbeop_mike01_case06",
             "label": "Case 06",
             "subtitle": "대판 2005.5.27, 2004다43824",
             "duration": "3:30",
@@ -3489,7 +3489,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case07",
+            "id": "2nd_minbeop_mike01_case07",
             "label": "Case 07",
             "subtitle": "대판 2008.1.31, 2007다74713, 대판 2009.9.24, 2009다37831",
             "duration": "4:40",
@@ -3528,7 +3528,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case08",
+            "id": "2nd_minbeop_mike01_case08",
             "label": "Case 08",
             "subtitle": "대판 2014.2.27, 2013다213038",
             "duration": "5:10",
@@ -3567,7 +3567,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case09",
+            "id": "2nd_minbeop_mike01_case09",
             "label": "Case 09",
             "subtitle": "대판 1986.11.25, 86다카1569",
             "duration": "5:00",
@@ -3605,7 +3605,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case10",
+            "id": "2nd_minbeop_mike01_case10",
             "label": "Case 10",
             "subtitle": "대판 2016.10.27, 2014다211978",
             "duration": "6:00",
@@ -3651,7 +3651,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case11",
+            "id": "2nd_minbeop_mike01_case11",
             "label": "Case 11",
             "subtitle": "대판 2015.6.11, 2015다200227",
             "duration": "4:20",
@@ -3698,7 +3698,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case12",
+            "id": "2nd_minbeop_mike01_case12",
             "label": "Case 12",
             "subtitle": "대판 2011.10.13, 2011다10266",
             "duration": "5:30",
@@ -3742,7 +3742,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case13",
+            "id": "2nd_minbeop_mike01_case13",
             "label": "Case 13",
             "subtitle": "대판 2002.5.14, 2000다62476, 대판 1991.1.29, 89다카1114",
             "duration": "6:10",
@@ -3790,11 +3790,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "immun_mike02",
-        "name": "immun_mike02",
+        "id": "2nd_minbeop_2026_immun_mike02",
+        "name": "예비순환 미케 02",
         "questions": [
           {
-            "id": "case14",
+            "id": "2nd_minbeop_mike02_case14",
             "label": "Case 14",
             "subtitle": "지연손해금 산정",
             "duration": "4:10",
@@ -3843,7 +3843,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case15",
+            "id": "2nd_minbeop_mike02_case15",
             "label": "Case 15",
             "subtitle": "대판(전) 2017.5.18, 2012다86895",
             "duration": "6:30",
@@ -3888,7 +3888,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case16",
+            "id": "2nd_minbeop_mike02_case16",
             "label": "Case 16",
             "subtitle": "대판 2004.2.13, 2003다43490",
             "duration": "5:00",
@@ -3930,7 +3930,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case17",
+            "id": "2nd_minbeop_mike02_case17",
             "label": "Case 17",
             "subtitle": "대판 2003.10.24, 2003다37426",
             "duration": "3:30",
@@ -3974,7 +3974,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case18",
+            "id": "2nd_minbeop_mike02_case18",
             "label": "Case 18",
             "subtitle": "대판 2016.7.14, 2015다46119",
             "duration": "6:00",
@@ -4022,7 +4022,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case19",
+            "id": "2nd_minbeop_mike02_case19",
             "label": "Case 19",
             "subtitle": "대판 1999.8.20, 99다18039, 대판 2002.3.29, 2000다13887",
             "duration": "4:40",
@@ -4064,7 +4064,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case20",
+            "id": "2nd_minbeop_mike02_case20",
             "label": "Case 20",
             "subtitle": "대판(전) 2014.12.18, 2011다50233",
             "duration": "6:00",
@@ -4108,7 +4108,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case21",
+            "id": "2nd_minbeop_mike02_case21",
             "label": "Case 21",
             "subtitle": "대판 1993.9.28, 92다55794, 대판 2001.3.27, 2000다43819",
             "duration": "6:10",
@@ -4156,7 +4156,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case22",
+            "id": "2nd_minbeop_mike02_case22",
             "label": "Case 22",
             "subtitle": "대판 2019.8.14. 2019다216435",
             "duration": "4:00",
@@ -4197,7 +4197,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case23",
+            "id": "2nd_minbeop_mike02_case23",
             "label": "Case 23",
             "subtitle": "대판 1997.12.12, 96다50896, 대판 2006.1.27, 2005다19378, 대판 2006.2.9, 2005다28426",
             "duration": "4:50",
@@ -4240,7 +4240,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case24",
+            "id": "2nd_minbeop_mike02_case24",
             "label": "Case 24",
             "subtitle": "대판(전) 2018.3.22, 2012다74236, 대판(전) 2010.9.16, 2008다97218",
             "duration": "6:50",
@@ -4290,11 +4290,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "immun_mike03",
-        "name": "immun_mike03",
+        "id": "2nd_minbeop_2026_immun_mike03",
+        "name": "예비순환 미케 03",
         "questions": [
           {
-            "id": "case25",
+            "id": "2nd_minbeop_mike03_case25",
             "label": "Case 25",
             "subtitle": "대판 1997.6.27, 97다9369",
             "duration": "5:10",
@@ -4333,7 +4333,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case26",
+            "id": "2nd_minbeop_mike03_case26",
             "label": "Case 26",
             "subtitle": "대판 2006.2.10, 2004다11599",
             "duration": "6:10",
@@ -4372,7 +4372,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case27",
+            "id": "2nd_minbeop_mike03_case27",
             "label": "Case 27",
             "subtitle": "대판 1996.11.26, 96다35590, 대판 2012.11.29, 2012다65867",
             "duration": "8:00",
@@ -4412,7 +4412,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case28",
+            "id": "2nd_minbeop_mike03_case28",
             "label": "Case 28",
             "subtitle": "대판 1977.5.24, 75다1394, 대판 2005.6.9, 2005다6341, 대판 2014.2.13, 2011다64782",
             "duration": "9:20",
@@ -4440,7 +4440,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case29",
+            "id": "2nd_minbeop_mike03_case29",
             "label": "Case 29",
             "subtitle": "대판 2000.6.9, 2000다9123, 대판 2007.12.27, 2006다9408",
             "duration": "4:10",
@@ -4468,7 +4468,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case30",
+            "id": "2nd_minbeop_mike03_case30",
             "label": "Case 30",
             "subtitle": "대판 1992.4.14, 91다45202, 대판 2005.9.28, 2005다8323",
             "duration": "7:20",
@@ -4501,7 +4501,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case31",
+            "id": "2nd_minbeop_mike03_case31",
             "label": "Case 31",
             "subtitle": "임차목적물 반환청구에 대한 임차인의 방어방법",
             "duration": "9:30",
@@ -4535,7 +4535,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case32",
+            "id": "2nd_minbeop_mike03_case32",
             "label": "Case 32",
             "subtitle": "대판 1977.4.26, 75다348, 대판 1993.11.12, 93다34589, 대판 1997.4.8, 96다45443",
             "duration": "5:50",
@@ -4575,7 +4575,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case33",
+            "id": "2nd_minbeop_mike03_case33",
             "label": "Case 33",
             "subtitle": "대판 2013.9.26, 2012다43539, 대판 2002.8.23, 99다66564, 대판 2013.6.27, 2011다17106",
             "duration": "6:00",
@@ -4614,7 +4614,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case34",
+            "id": "2nd_minbeop_mike03_case34",
             "label": "Case 34",
             "subtitle": "대판 2003.6.13, 2003다8862, 대판 2012.1.12, 2011다74246 등",
             "duration": "3:20",
@@ -4643,11 +4643,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "immun_mike04",
-        "name": "immun_mike04",
+        "id": "2nd_minbeop_2026_immun_mike04",
+        "name": "예비순환 미케 04",
         "questions": [
           {
-            "id": "case35",
+            "id": "2nd_minbeop_mike04_case35",
             "label": "Case 35",
             "subtitle": "대판 2016.10.27, 2015다52978",
             "duration": "5:40",
@@ -4681,7 +4681,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case36",
+            "id": "2nd_minbeop_mike04_case36",
             "label": "Case 36",
             "subtitle": "대판 1997.11.11, 97다33218",
             "duration": "3:50",
@@ -4715,7 +4715,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case37",
+            "id": "2nd_minbeop_mike04_case37",
             "label": "Case 37",
             "subtitle": "대판(전) 1997.8.21, 95다28625, 대판 1998.4.10, 97다56822, 대판 1986.8.19, 85다카2306",
             "duration": "7:50",
@@ -4743,7 +4743,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case38",
+            "id": "2nd_minbeop_mike04_case38",
             "label": "Case 38",
             "subtitle": "대판 1995.7.11, 94다4509, 대판 1996.12.10, 94다43825, 대판 1999.9.3, 99다20926",
             "duration": "5:00",
@@ -4788,7 +4788,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case39",
+            "id": "2nd_minbeop_mike04_case39",
             "label": "Case 39",
             "subtitle": "대판 2006.5.12, 2005다75910",
             "duration": "5:00",
@@ -4822,7 +4822,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case40",
+            "id": "2nd_minbeop_mike04_case40",
             "label": "Case 40",
             "subtitle": "대판 2002.5.14, 2002다9738",
             "duration": "3:30",
@@ -4850,7 +4850,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case41",
+            "id": "2nd_minbeop_mike04_case41",
             "label": "Case 41",
             "subtitle": "대판(전) 2020.5.21. 2018다287522",
             "duration": "5:00",
@@ -4878,7 +4878,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case42",
+            "id": "2nd_minbeop_mike04_case42",
             "label": "Case 42",
             "subtitle": "대판(전) 1979.9.25, 77다1079, 대판(전) 1980.12.9, 79다63, 대판 1992.3.31, 92다1148",
             "duration": "7:20",
@@ -4918,7 +4918,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case43",
+            "id": "2nd_minbeop_mike04_case43",
             "label": "Case 43",
             "subtitle": "대판(전) 2019.6.20. 2013다218156, 대판 2014.2.13. 2012다97864",
             "duration": "4:10",
@@ -4946,7 +4946,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case44",
+            "id": "2nd_minbeop_mike04_case44",
             "label": "Case 44",
             "subtitle": "대판 2003.9.5, 2003다26051",
             "duration": "3:20",
@@ -4980,7 +4980,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case45",
+            "id": "2nd_minbeop_mike04_case45",
             "label": "Case 45",
             "subtitle": "대판 2004.6.11, 2004다13533",
             "duration": "2:10",
@@ -5008,7 +5008,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case46",
+            "id": "2nd_minbeop_mike04_case46",
             "label": "Case 46",
             "subtitle": "대판 2011.1.13, 2010다67159",
             "duration": "2:50",
@@ -5042,7 +5042,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case47",
+            "id": "2nd_minbeop_mike04_case47",
             "label": "Case 47",
             "subtitle": "대판 2009.1.15, 2008다70763",
             "duration": "5:10",
@@ -5082,7 +5082,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case48",
+            "id": "2nd_minbeop_mike04_case48",
             "label": "Case 48",
             "subtitle": "대판(전) 2001.3.15, 99다48948, 대판 2008.5.15, 2007다23807",
             "duration": "4:20",
@@ -5110,7 +5110,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case49",
+            "id": "2nd_minbeop_mike04_case49",
             "label": "Case 49",
             "subtitle": "대판 1996.3.22, 95다55184, 대판 2009.5.28, 2006다42818",
             "duration": "5:40",
@@ -5138,7 +5138,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case50",
+            "id": "2nd_minbeop_mike04_case50",
             "label": "Case 50",
             "subtitle": "대판 2002.5.24, 2002다7176",
             "duration": "5:20",
@@ -5178,7 +5178,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case51",
+            "id": "2nd_minbeop_mike04_case51",
             "label": "Case 51",
             "subtitle": "대판 1994.5.10, 93다25417",
             "duration": "2:50",
@@ -5211,7 +5211,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case52",
+            "id": "2nd_minbeop_mike04_case52",
             "label": "Case 52",
             "subtitle": "대판 1993.3.26. 92다32876, 대판 2016.4.12, 2015다69372 등",
             "duration": "2:40",
@@ -5245,7 +5245,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case53",
+            "id": "2nd_minbeop_mike04_case53",
             "label": "Case 53",
             "subtitle": "대판 2009.5.28, 2009다4787 참조",
             "duration": "2:30",
@@ -5267,7 +5267,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case54",
+            "id": "2nd_minbeop_mike04_case54",
             "label": "Case 54",
             "subtitle": "대판(전) 2020.5.21. 2018다879",
             "duration": "3:30",
@@ -5295,7 +5295,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case55",
+            "id": "2nd_minbeop_mike04_case55",
             "label": "Case 55",
             "subtitle": "대판 1993.4.27, 92다44350, 대판 1996.4.12, 95다54167",
             "duration": "3:20",
@@ -5329,7 +5329,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case56",
+            "id": "2nd_minbeop_mike04_case56",
             "label": "Case 56",
             "subtitle": "대판 2016.8.29, 2015다236547",
             "duration": "3:30",
@@ -5356,7 +5356,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case57",
+            "id": "2nd_minbeop_mike04_case57",
             "label": "Case 57",
             "subtitle": "대판 1984.11.24, 84마610, 대판 1999.9.7, 98다41490, 대판 2001.9.4, 2000다66416",
             "duration": "2:40",
@@ -5388,7 +5388,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case58",
+            "id": "2nd_minbeop_mike04_case58",
             "label": "Case 58",
             "subtitle": "대판 2012.8.30, 2011다32785, 대판 2015.11.17, 2012다2743",
             "duration": "2:40",
@@ -5415,7 +5415,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case59",
+            "id": "2nd_minbeop_mike04_case59",
             "label": "Case 59",
             "subtitle": "대판 2003.11.13, 2003다39989",
             "duration": "4:10",
@@ -5449,7 +5449,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case60",
+            "id": "2nd_minbeop_mike04_case60",
             "label": "Case 60",
             "subtitle": "대판 2017.3.9, 2015다217980",
             "duration": "3:30",
@@ -5485,11 +5485,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mike01",
-        "name": "예비 미케01",
+        "id": "2nd_minbeop_2026_yebi_mike01",
+        "name": "예비순환 미케 01",
         "questions": [
           {
-            "id": "case01",
+            "id": "2nd_minbeop_ymike01_case01",
             "label": "Case 01",
             "subtitle": "지연손해금 산정",
             "duration": "4:40",
@@ -5536,7 +5536,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case02",
+            "id": "2nd_minbeop_ymike01_case02",
             "label": "Case 02",
             "subtitle": "대판(전) 2014.12.18, 2011다50233",
             "duration": "7:20",
@@ -5576,7 +5576,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case03",
+            "id": "2nd_minbeop_ymike01_case03",
             "label": "Case 03",
             "subtitle": "대판 1986.11.25, 86다카1569",
             "duration": "5:40",
@@ -5612,7 +5612,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case04",
+            "id": "2nd_minbeop_ymike01_case04",
             "label": "Case 04",
             "subtitle": "대판 2016.10.27, 2014다211978",
             "duration": "6:20",
@@ -5659,7 +5659,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case05",
+            "id": "2nd_minbeop_ymike01_case05",
             "label": "Case 05",
             "subtitle": "대판 2015.6.11, 2015다200227",
             "duration": "4:30",
@@ -5706,7 +5706,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case06",
+            "id": "2nd_minbeop_ymike01_case06",
             "label": "Case 06",
             "subtitle": "대판 2011.10.13, 2011다10266",
             "duration": "6:20",
@@ -5748,7 +5748,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case07",
+            "id": "2nd_minbeop_ymike01_case07",
             "label": "Case 07",
             "subtitle": "대판 1993.9.28, 92다55794, 대판 2001.3.27, 2000다43819",
             "duration": "7:20",
@@ -5797,7 +5797,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case08",
+            "id": "2nd_minbeop_ymike01_case08",
             "label": "Case 08",
             "subtitle": "대판 2002.5.14, 2000다62476, 대판 1991.1.29, 89다카1114",
             "duration": "7:40",
@@ -5842,11 +5842,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mike02",
-        "name": "예비 미케02",
+        "id": "2nd_minbeop_2026_yebi_mike02",
+        "name": "예비순환 미케 02",
         "questions": [
           {
-            "id": "case09",
+            "id": "2nd_minbeop_ymike02_case09",
             "label": "Case 09",
             "subtitle": "대판 2009.9.10, 2009다34481, 대판 2013.10.11, 2013다52622",
             "duration": "1:30",
@@ -5875,7 +5875,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case10",
+            "id": "2nd_minbeop_ymike02_case10",
             "label": "Case 10",
             "subtitle": "대판 1994.3.22, 92다52726, 대판 1999.4.27, 98다56690, 대판 1983.4.26, 83다카57",
             "duration": "3:50",
@@ -5919,7 +5919,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case11",
+            "id": "2nd_minbeop_ymike02_case11",
             "label": "Case 11",
             "subtitle": "대판 1999.3.12, 98다48989, 대판 2006.11.10, 2004다10299, 대판 2010.4.29, 2009다96083",
             "duration": "5:10",
@@ -5961,7 +5961,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case12",
+            "id": "2nd_minbeop_ymike02_case12",
             "label": "Case 12",
             "subtitle": "대판 1968.3.26, 67다2160, 대판 1990.7.10, 90다카7460, 대판 1998.2.10, 97다44737",
             "duration": "5:30",
@@ -6008,7 +6008,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case13",
+            "id": "2nd_minbeop_ymike02_case13",
             "label": "Case 13",
             "subtitle": "대판 2005.5.27, 2004다43824",
             "duration": "3:10",
@@ -6043,7 +6043,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case14",
+            "id": "2nd_minbeop_ymike02_case14",
             "label": "Case 14",
             "subtitle": "대판 1997.6.27, 97다9369",
             "duration": "4:20",
@@ -6087,7 +6087,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case15",
+            "id": "2nd_minbeop_ymike02_case15",
             "label": "Case 15",
             "subtitle": "대판 2006.2.10, 2004다11599",
             "duration": "5:50",
@@ -6125,7 +6125,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case16",
+            "id": "2nd_minbeop_ymike02_case16",
             "label": "Case 16",
             "subtitle": "대판 1996.11.26, 96다35590, 대판 2012.11.29, 2012다65867",
             "duration": "6:30",
@@ -6173,7 +6173,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case17",
+            "id": "2nd_minbeop_ymike02_case17",
             "label": "Case 17",
             "subtitle": "대판 1977.5.24, 75다1394, 대판 2005.6.9, 2005다6341, 대판 2014.2.13, 2011다64782",
             "duration": "7:00",
@@ -6222,7 +6222,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case18",
+            "id": "2nd_minbeop_ymike02_case18",
             "label": "Case 18",
             "subtitle": "대판 2000.6.9, 2000다9123, 대판 2007.12.27, 2006다9408",
             "duration": "7:10",
@@ -6269,11 +6269,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mike03",
-        "name": "예비 미케03",
+        "id": "2nd_minbeop_2026_yebi_mike03",
+        "name": "예비순환 미케 03",
         "questions": [
           {
-            "id": "case19",
+            "id": "2nd_minbeop_ymike03_case19",
             "label": "Case 19",
             "subtitle": "대판 2008.1.31, 2007다74713, 대판 2009.9.24, 2009다37831",
             "duration": "4:10",
@@ -6306,7 +6306,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case20",
+            "id": "2nd_minbeop_ymike03_case20",
             "label": "Case 20",
             "subtitle": "대판 2014.2.27, 2013다213038",
             "duration": "5:10",
@@ -6345,7 +6345,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case21",
+            "id": "2nd_minbeop_ymike03_case21",
             "label": "Case 21",
             "subtitle": "대판 2002.2.8, 2001다57679, 대판 2003.7.22, 2002다64780",
             "duration": "7:20",
@@ -6383,7 +6383,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case22",
+            "id": "2nd_minbeop_ymike03_case22",
             "label": "Case 22",
             "subtitle": "대판 1992.4.14, 91다45202, 대판 2005.9.28, 2005다8323",
             "duration": "4:00",
@@ -6415,7 +6415,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case23",
+            "id": "2nd_minbeop_ymike03_case23",
             "label": "Case 23",
             "subtitle": "임차목적물 반환청구에 대한 임차인의 방어방법",
             "duration": "9:10",
@@ -6464,7 +6464,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case24",
+            "id": "2nd_minbeop_ymike03_case24",
             "label": "Case 24",
             "subtitle": "대판 1977.4.26, 75다348, 대판 1993.11.12, 93다34589, 대판 1997.4.8, 96다45443",
             "duration": "5:20",
@@ -6505,7 +6505,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case25",
+            "id": "2nd_minbeop_ymike03_case25",
             "label": "Case 25",
             "subtitle": "대판 2004.2.13, 2003다43490",
             "duration": "4:40",
@@ -6538,7 +6538,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case26",
+            "id": "2nd_minbeop_ymike03_case26",
             "label": "Case 26",
             "subtitle": "대판 2003.10.24, 2003다37426",
             "duration": "3:40",
@@ -6576,7 +6576,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case27",
+            "id": "2nd_minbeop_ymike03_case27",
             "label": "Case 27",
             "subtitle": "대판 2016.7.14, 2015다46119",
             "duration": "6:20",
@@ -6619,7 +6619,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case28",
+            "id": "2nd_minbeop_ymike03_case28",
             "label": "Case 28",
             "subtitle": "대판 1999.8.20, 99다18039, 대판 2002.3.29, 2000다13887",
             "duration": "4:30",
@@ -6654,7 +6654,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case29",
+            "id": "2nd_minbeop_ymike03_case29",
             "label": "Case 29",
             "subtitle": "대판(전) 2017.5.18, 2012다86895",
             "duration": "5:30",
@@ -6687,7 +6687,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case30",
+            "id": "2nd_minbeop_ymike03_case30",
             "label": "Case 30",
             "subtitle": "대판 1997.12.12, 96다50896, 대판 2006.1.27, 2005다19378, 대판 2006.2.9, 2005다28426",
             "duration": "4:40",
@@ -6728,7 +6728,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case31",
+            "id": "2nd_minbeop_ymike03_case31",
             "label": "Case 31",
             "subtitle": "대판(전) 2018.3.22, 2012다74236, 대판(전) 2010.9.16, 2008다97218",
             "duration": "6:10",
@@ -6767,7 +6767,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case32",
+            "id": "2nd_minbeop_ymike03_case32",
             "label": "Case 32",
             "subtitle": "대판 2019.8.14. 2019다216435",
             "duration": "4:10",
@@ -6801,11 +6801,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mike04",
-        "name": "예비 미케04",
+        "id": "2nd_minbeop_2026_yebi_mike04",
+        "name": "예비순환 미케 04",
         "questions": [
           {
-            "id": "case51",
+            "id": "2nd_minbeop_ymike04_case51",
             "label": "Case 51",
             "subtitle": "대판(전) 2019.6.20. 2013다218156, 대판 2014.2.13. 2012다97864",
             "duration": "4:20",
@@ -6836,7 +6836,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case33",
+            "id": "2nd_minbeop_ymike04_case33",
             "label": "Case 33",
             "subtitle": "대판 2016.10.27, 2015다52978",
             "duration": "5:20",
@@ -6874,7 +6874,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case34",
+            "id": "2nd_minbeop_ymike04_case34",
             "label": "Case 34",
             "subtitle": "대판 2002.5.14, 2002다9738",
             "duration": "3:40",
@@ -6905,7 +6905,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case35",
+            "id": "2nd_minbeop_ymike04_case35",
             "label": "Case 35",
             "subtitle": "대판(전) 2020.5.21. 2018다287522",
             "duration": "4:50",
@@ -6934,7 +6934,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case36",
+            "id": "2nd_minbeop_ymike04_case36",
             "label": "Case 36",
             "subtitle": "대판 2003.9.5, 2003다26051",
             "duration": "3:10",
@@ -6970,7 +6970,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case37",
+            "id": "2nd_minbeop_ymike04_case37",
             "label": "Case 37",
             "subtitle": "대판 2004.6.11, 2004다13533",
             "duration": "2:10",
@@ -6999,7 +6999,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case38",
+            "id": "2nd_minbeop_ymike04_case38",
             "label": "Case 38",
             "subtitle": "대판 2011.1.13, 2010다67159",
             "duration": "2:40",
@@ -7035,7 +7035,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case39",
+            "id": "2nd_minbeop_ymike04_case39",
             "label": "Case 39",
             "subtitle": "대판 2009.1.15, 2008다70763",
             "duration": "5:20",
@@ -7078,7 +7078,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case40",
+            "id": "2nd_minbeop_ymike04_case40",
             "label": "Case 40",
             "subtitle": "대판 1997.11.11, 97다33218",
             "duration": "3:30",
@@ -7114,7 +7114,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case41",
+            "id": "2nd_minbeop_ymike04_case41",
             "label": "Case 41",
             "subtitle": "대판(전) 2001.3.15, 99다48948, 대판 2008.5.15, 2007다23807",
             "duration": "4:50",
@@ -7144,7 +7144,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case42",
+            "id": "2nd_minbeop_ymike04_case42",
             "label": "Case 42",
             "subtitle": "대판 2002.5.24, 2002다7176",
             "duration": "5:50",
@@ -7190,7 +7190,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case43",
+            "id": "2nd_minbeop_ymike04_case43",
             "label": "Case 43",
             "subtitle": "대판 1994.5.10, 93다25417",
             "duration": "5:00",
@@ -7233,7 +7233,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case44",
+            "id": "2nd_minbeop_ymike04_case44",
             "label": "Case 44",
             "subtitle": "대판 1996.3.22, 95다55184, 대판 2009.5.28, 2006다42818",
             "duration": "6:40",
@@ -7267,7 +7267,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case45",
+            "id": "2nd_minbeop_ymike04_case45",
             "label": "Case 45",
             "subtitle": "대판(전) 1997.8.21, 95다28625, 대판 1998.4.10, 97다56822, 대판 1986.8.19, 85다카2306",
             "duration": "8:50",
@@ -7299,7 +7299,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case46",
+            "id": "2nd_minbeop_ymike04_case46",
             "label": "Case 46",
             "subtitle": "대판 1995.7.11, 94다4509, 대판 1996.12.10, 94다43825, 대판 1999.9.3, 99다20926",
             "duration": "5:00",
@@ -7349,7 +7349,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case47",
+            "id": "2nd_minbeop_ymike04_case47",
             "label": "Case 47",
             "subtitle": "대판 2006.5.12, 2005다75910",
             "duration": "5:00",
@@ -7385,7 +7385,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case48",
+            "id": "2nd_minbeop_ymike04_case48",
             "label": "Case 48",
             "subtitle": "대판 2013.9.26, 2012다43539, 대판 2002.8.23, 99다66564, 대판 2013.6.27, 2011다17106",
             "duration": "6:30",
@@ -7428,7 +7428,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case49",
+            "id": "2nd_minbeop_ymike04_case49",
             "label": "Case 49",
             "subtitle": "대판 2003.6.13, 2003다8862, 대판 2012.1.12, 2011다74246 등",
             "duration": "3:40",
@@ -7464,7 +7464,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "case50",
+            "id": "2nd_minbeop_ymike04_case50",
             "label": "Case 50",
             "subtitle": "대판(전) 1979.9.25, 77다1079, 대판(전) 1980.12.9, 79다63, 대판 1992.3.31, 92다1148",
             "duration": "7:10",
@@ -7510,11 +7510,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mogo01",
-        "name": "예비 모고01",
+        "id": "2nd_minbeop_2026_yebi_mogo01",
+        "name": "예비순환 모고 01",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_minbeop_ymogo01_mun01",
             "label": "제 01",
             "subtitle": "",
             "duration": "7:00",
@@ -7560,11 +7560,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mogo02",
-        "name": "예비 모고02",
+        "id": "2nd_minbeop_2026_yebi_mogo02",
+        "name": "예비순환 모고 02",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_minbeop_ymogo02_mun01",
             "label": "제 01",
             "subtitle": "",
             "duration": "7:20",
@@ -7627,17 +7627,17 @@ export const subjects: Subject[] = [
     "completedQuestions": 113
   },
   {
-    "id": "hyung",
+    "id": "2nd_hyung_2026",
     "name": "형법",
     "shortName": "형법",
     "colorClass": "rose",
     "files": [
       {
-        "id": "immun02",
-        "name": "immun02",
+        "id": "2nd_hyung_2026_immun02",
+        "name": "예비순환 02",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_immun02_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "7:50",
@@ -7703,7 +7703,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun02",
+            "id": "2nd_hyung_immun02_mun02",
             "label": "문 2",
             "subtitle": "",
             "duration": "10:30",
@@ -7786,7 +7786,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun03",
+            "id": "2nd_hyung_immun02_mun03",
             "label": "문 3",
             "subtitle": "",
             "duration": "16:30",
@@ -7886,11 +7886,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi01",
-        "name": "yebi01",
+        "id": "2nd_hyung_2026_yebi01",
+        "name": "예비순환 01",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi01_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "0:30",
@@ -7913,11 +7913,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi02",
-        "name": "yebi02",
+        "id": "2nd_hyung_2026_yebi02",
+        "name": "예비순환 02",
         "questions": [
           {
-            "id": "case02",
+            "id": "2nd_hyung_yebi02_case02",
             "label": "Case 02",
             "subtitle": "",
             "duration": "0:00",
@@ -7930,11 +7930,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi03",
-        "name": "yebi03",
+        "id": "2nd_hyung_2026_yebi03",
+        "name": "예비순환 03",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi03_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "7:10",
@@ -7982,11 +7982,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi04",
-        "name": "yebi04",
+        "id": "2nd_hyung_2026_yebi04",
+        "name": "예비순환 04",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi04_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "9:10",
@@ -8046,11 +8046,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi05",
-        "name": "yebi05",
+        "id": "2nd_hyung_2026_yebi05",
+        "name": "예비순환 05",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi05_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "5:50",
@@ -8102,11 +8102,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi07",
-        "name": "yebi07",
+        "id": "2nd_hyung_2026_yebi07",
+        "name": "예비순환 07",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi07_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "6:30",
@@ -8164,11 +8164,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi08",
-        "name": "yebi08",
+        "id": "2nd_hyung_2026_yebi08",
+        "name": "예비순환 08",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi08_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "10:30",
@@ -8229,11 +8229,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi09",
-        "name": "yebi09",
+        "id": "2nd_hyung_2026_yebi09",
+        "name": "예비순환 09",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi09_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "5:10",
@@ -8273,11 +8273,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi10",
-        "name": "yebi10",
+        "id": "2nd_hyung_2026_yebi10",
+        "name": "예비순환 10",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi10_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "7:50",
@@ -8332,11 +8332,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi11",
-        "name": "yebi11",
+        "id": "2nd_hyung_2026_yebi11",
+        "name": "예비순환 11",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi11_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "10:30",
@@ -8392,11 +8392,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi12",
-        "name": "yebi12",
+        "id": "2nd_hyung_2026_yebi12",
+        "name": "예비순환 12",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi12_mun01",
             "label": "문 1",
             "subtitle": "",
             "duration": "7:50",
@@ -8444,11 +8444,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi13",
-        "name": "yebi13",
+        "id": "2nd_hyung_2026_yebi13",
+        "name": "예비순환 13",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyung_yebi13_mun01",
             "label": "문 1",
             "subtitle": "폭처법 공동폭행, 업무방해죄, 상상적 경합",
             "duration": "7:20",
@@ -8514,17 +8514,17 @@ export const subjects: Subject[] = [
     "completedQuestions": 15
   },
   {
-    "id": "hyungso",
+    "id": "2nd_hyungso_2026",
     "name": "형사소송법",
     "shortName": "형소",
     "colorClass": "violet",
     "files": [
       {
-        "id": "yebi_mogo01",
-        "name": "예비 모고01",
+        "id": "2nd_hyungso_2026_yebi_mogo01",
+        "name": "예비순환 모고 01",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyungso_ymogo01_mun01",
             "label": "제1문",
             "subtitle": "",
             "duration": "5:50",
@@ -8582,7 +8582,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun02",
+            "id": "2nd_hyungso_ymogo01_mun02",
             "label": "제2문",
             "subtitle": "",
             "duration": "3:20",
@@ -8622,7 +8622,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun03",
+            "id": "2nd_hyungso_ymogo01_mun03",
             "label": "제3문",
             "subtitle": "",
             "duration": "3:40",
@@ -8665,7 +8665,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun04",
+            "id": "2nd_hyungso_ymogo01_mun04",
             "label": "제4문",
             "subtitle": "",
             "duration": "5:40",
@@ -8709,7 +8709,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun05",
+            "id": "2nd_hyungso_ymogo01_mun05",
             "label": "제5문",
             "subtitle": "",
             "duration": "5:50",
@@ -8755,11 +8755,11 @@ export const subjects: Subject[] = [
         ]
       },
       {
-        "id": "yebi_mogo02",
-        "name": "예비 모고02",
+        "id": "2nd_hyungso_2026_yebi_mogo02",
+        "name": "예비순환 모고 02",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_hyungso_ymogo02_mun01",
             "label": "제1문",
             "subtitle": "",
             "duration": "5:00",
@@ -8809,7 +8809,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun02",
+            "id": "2nd_hyungso_ymogo02_mun02",
             "label": "제2문",
             "subtitle": "",
             "duration": "4:30",
@@ -8853,7 +8853,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun03",
+            "id": "2nd_hyungso_ymogo02_mun03",
             "label": "제3문",
             "subtitle": "",
             "duration": "1:30",
@@ -8877,7 +8877,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun04",
+            "id": "2nd_hyungso_ymogo02_mun04",
             "label": "제4문",
             "subtitle": "",
             "duration": "9:20",
@@ -8940,7 +8940,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun05",
+            "id": "2nd_hyungso_ymogo02_mun05",
             "label": "제5문",
             "subtitle": "",
             "duration": "2:30",
@@ -8983,17 +8983,17 @@ export const subjects: Subject[] = [
     "completedQuestions": 10
   },
   {
-    "id": "budeung",
+    "id": "2nd_budeung_2026",
     "name": "부동산등기법",
     "shortName": "부등",
     "colorClass": "amber",
     "files": [
       {
-        "id": "immun01",
-        "name": "immun01",
+        "id": "2nd_budeung_2026_immun01",
+        "name": "이순환 모의고사 01",
         "questions": [
           {
-            "id": "mun01",
+            "id": "2nd_budeung_immun01_mun01",
             "label": "문 1",
             "subtitle": "등기의 효력 중 추정력에 대하여 설명하시오.1) (20점)",
             "duration": "6:50",
@@ -9057,7 +9057,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun02",
+            "id": "2nd_budeung_immun01_mun02",
             "label": "문 2",
             "subtitle": "甲은 A등기소의 관할에 속한 X 부동산과 B등기소의 관할에 속한 Y 부동",
             "duration": "10:00",
@@ -9129,7 +9129,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun03",
+            "id": "2nd_budeung_immun01_mun03",
             "label": "문 3",
             "subtitle": "아래〔사례〕와 관련하여 다음 물음에 답하시오(각 설문은 상호 관련성",
             "duration": "8:30",
@@ -9216,7 +9216,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun04",
+            "id": "2nd_budeung_immun01_mun04",
             "label": "문 4",
             "subtitle": "판결에 의한 등기신청과 관련하여 다음의 물음에 답하시오. (20점)",
             "duration": "1:10",
@@ -9239,7 +9239,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun05",
+            "id": "2nd_budeung_immun01_mun05",
             "label": "문 5",
             "subtitle": "등기원인에 대하여 제3자의 허가, 동의 또는 승낙이 필요한 경우에는 이",
             "duration": "0:30",
@@ -9260,7 +9260,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun06",
+            "id": "2nd_budeung_immun01_mun06",
             "label": "문 6",
             "subtitle": "등기기록상 甲과 乙은 ○번지의 토지 100㎡를 지분 1/2씩 공유하고 있다.",
             "duration": "2:00",
@@ -9285,7 +9285,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun07",
+            "id": "2nd_budeung_immun01_mun07",
             "label": "문 7",
             "subtitle": "乙과 丙은 X 토지를 공동으로 매수하여 소유권이전등기를 마쳤다. 위와",
             "duration": "0:50",
@@ -9308,7 +9308,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun08",
+            "id": "2nd_budeung_immun01_mun08",
             "label": "문 8",
             "subtitle": "토지대장·임야대장·건축물대장 정보나 그 밖에 부동산의 표시를 증명",
             "duration": "7:20",
@@ -9390,7 +9390,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun09",
+            "id": "2nd_budeung_immun01_mun09",
             "label": "문 9",
             "subtitle": "법무사가 등기를 위임받아 신청하는 경우에 작성하여야 할 자필서명정보",
             "duration": "6:30",
@@ -9449,7 +9449,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun10",
+            "id": "2nd_budeung_immun01_mun10",
             "label": "문 10",
             "subtitle": "첨부서면의 원본 환부와 등기원인증서의 반환의 같은 점과 다른 점은 무",
             "duration": "8:50",
@@ -9541,7 +9541,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun11",
+            "id": "2nd_budeung_immun01_mun11",
             "label": "문 11",
             "subtitle": "법 제29조 제7호에 의한 등기신청의 각하와 관련하여 규칙 제52조의2와",
             "duration": "3:40",
@@ -9595,7 +9595,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun12",
+            "id": "2nd_budeung_immun01_mun12",
             "label": "문 12",
             "subtitle": "등기관의 처분에 대한 이의에 관하여 이의신청의 대상과 절차에 관하여",
             "duration": "7:30",
@@ -9682,7 +9682,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun13",
+            "id": "2nd_budeung_immun01_mun13",
             "label": "문 13",
             "subtitle": "경정등기와 관련하여 아래의 설문에 답하시오.19) (40점)",
             "duration": "0:10",
@@ -9703,7 +9703,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun14",
+            "id": "2nd_budeung_immun01_mun14",
             "label": "문 14",
             "subtitle": "종중 소유의 미등기건물에 대하여 법원의 가압류등기 촉탁이 등기소에 접",
             "duration": "16:00",
@@ -9827,7 +9827,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun15",
+            "id": "2nd_budeung_immun01_mun15",
             "label": "문 15",
             "subtitle": "아래〔사례〕와 관련하여 다음 물음에 답하시오. (35점)",
             "duration": "12:10",
@@ -9945,7 +9945,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun16",
+            "id": "2nd_budeung_immun01_mun16",
             "label": "문 16",
             "subtitle": "사업시행자 A는 공익사업을 위한 토지 등의 취득 및 보상에 관한 법률에",
             "duration": "0:50",
@@ -9966,7 +9966,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun17",
+            "id": "2nd_budeung_immun01_mun17",
             "label": "문 17",
             "subtitle": "아래〔사례〕와 관련하여 乙의 이익을 최대한으로 하기 위한 등기를 신청",
             "duration": "1:30",
@@ -9988,7 +9988,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun18",
+            "id": "2nd_budeung_immun01_mun18",
             "label": "문 18",
             "subtitle": "근저당권 등기에 관한 다음 물음에 답하시오. (30점)",
             "duration": "0:40",
@@ -10012,7 +10012,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun19",
+            "id": "2nd_budeung_immun01_mun19",
             "label": "문 19",
             "subtitle": "아래 예시의 부동산이 경매절차에 의해 매각된 경우의 등기와 관련하여",
             "duration": "0:30",
@@ -10033,7 +10033,7 @@ export const subjects: Subject[] = [
             }
           },
           {
-            "id": "mun20",
+            "id": "2nd_budeung_immun01_mun20",
             "label": "문 20",
             "subtitle": "유언대용신탁과 관련하여 아래의 각 물음에 답하시오35) (20점)",
             "duration": "1:10",
