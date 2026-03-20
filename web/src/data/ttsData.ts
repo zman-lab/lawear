@@ -12,7 +12,7 @@ export const subjects: Subject[] = [
     "files": [
       {
         "id": "2nd_minso_2026_immun_mike01",
-        "name": "예비순환 미케 01",
+        "name": "예비순환 미케01",
         "questions": [
           {
             "id": "2nd_minso_mike01_case01",
@@ -350,7 +350,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minso_2026_immun_mike02",
-        "name": "예비순환 미케 02",
+        "name": "예비순환 미케02",
         "questions": [
           {
             "id": "2nd_minso_mike02_case09",
@@ -700,7 +700,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minso_2026_immun_mike03",
-        "name": "예비순환 미케 03",
+        "name": "예비순환 미케03",
         "questions": [
           {
             "id": "2nd_minso_mike03_case19",
@@ -954,7 +954,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minso_2026_immun_mike04",
-        "name": "예비순환 미케 04",
+        "name": "예비순환 미케04",
         "questions": [
           {
             "id": "2nd_minso_mike04_case25",
@@ -1295,7 +1295,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minso_2026_yebi_mike01",
-        "name": "예비순환 미케 01",
+        "name": "예비순환 미케01",
         "questions": [
           {
             "id": "2nd_minso_ymike01_case01",
@@ -1506,7 +1506,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minso_2026_yebi_mike02",
-        "name": "예비순환 미케 02",
+        "name": "예비순환 미케02",
         "questions": [
           {
             "id": "2nd_minso_ymike02_case06",
@@ -1905,7 +1905,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minso_2026_yebi_mike03",
-        "name": "예비순환 미케 03",
+        "name": "예비순환 미케03",
         "questions": [
           {
             "id": "2nd_minso_ymike03_case15",
@@ -2249,7 +2249,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minso_2026_yebi_mike04",
-        "name": "예비순환 미케 04",
+        "name": "예비순환 미케04",
         "questions": [
           {
             "id": "2nd_minso_ymike04_case26",
@@ -2611,7 +2611,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minso_2026_yebi_mike05",
-        "name": "예비순환 미케 05",
+        "name": "예비순환 미케05",
         "questions": [
           {
             "id": "2nd_minso_ymike05_case35",
@@ -3105,7 +3105,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minso_2026_yebi_mogo01",
-        "name": "예비순환 모고 01",
+        "name": "예비순환 모고01",
         "questions": [
           {
             "id": "2nd_minso_ymogo01_mun01",
@@ -3168,7 +3168,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minso_2026_yebi_mogo02",
-        "name": "예비순환 모고 02",
+        "name": "예비순환 모고02",
         "questions": [
           {
             "id": "2nd_minso_ymogo02_mun01",
@@ -3238,7 +3238,7 @@ export const subjects: Subject[] = [
     "files": [
       {
         "id": "2nd_minbeop_2026_immun_mike01",
-        "name": "예비순환 미케 01",
+        "name": "예비순환 미케01",
         "questions": [
           {
             "id": "2nd_minbeop_mike01_case01",
@@ -3791,7 +3791,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minbeop_2026_immun_mike02",
-        "name": "예비순환 미케 02",
+        "name": "예비순환 미케02",
         "questions": [
           {
             "id": "2nd_minbeop_mike02_case14",
@@ -4291,7 +4291,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minbeop_2026_immun_mike03",
-        "name": "예비순환 미케 03",
+        "name": "예비순환 미케03",
         "questions": [
           {
             "id": "2nd_minbeop_mike03_case25",
@@ -4644,7 +4644,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minbeop_2026_immun_mike04",
-        "name": "예비순환 미케 04",
+        "name": "예비순환 미케04",
         "questions": [
           {
             "id": "2nd_minbeop_mike04_case35",
@@ -5486,7 +5486,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minbeop_2026_yebi_mike01",
-        "name": "예비순환 미케 01",
+        "name": "예비순환 미케01",
         "questions": [
           {
             "id": "2nd_minbeop_ymike01_case01",
@@ -5843,7 +5843,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minbeop_2026_yebi_mike02",
-        "name": "예비순환 미케 02",
+        "name": "예비순환 미케02",
         "questions": [
           {
             "id": "2nd_minbeop_ymike02_case09",
@@ -6270,7 +6270,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minbeop_2026_yebi_mike03",
-        "name": "예비순환 미케 03",
+        "name": "예비순환 미케03",
         "questions": [
           {
             "id": "2nd_minbeop_ymike03_case19",
@@ -6802,7 +6802,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minbeop_2026_yebi_mike04",
-        "name": "예비순환 미케 04",
+        "name": "예비순환 미케04",
         "questions": [
           {
             "id": "2nd_minbeop_ymike04_case51",
@@ -7511,7 +7511,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minbeop_2026_yebi_mogo01",
-        "name": "예비순환 모고 01",
+        "name": "예비순환 모고01",
         "questions": [
           {
             "id": "2nd_minbeop_ymogo01_mun01",
@@ -7561,7 +7561,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_minbeop_2026_yebi_mogo02",
-        "name": "예비순환 모고 02",
+        "name": "예비순환 모고02",
         "questions": [
           {
             "id": "2nd_minbeop_ymogo02_mun01",
@@ -7634,7 +7634,7 @@ export const subjects: Subject[] = [
     "files": [
       {
         "id": "2nd_hyung_2026_immun02",
-        "name": "예비순환 02",
+        "name": "예비순환02",
         "questions": [
           {
             "id": "2nd_hyung_immun02_mun01",
@@ -7887,7 +7887,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi01",
-        "name": "예비순환 01",
+        "name": "예비순환01",
         "questions": [
           {
             "id": "2nd_hyung_yebi01_mun01",
@@ -7914,7 +7914,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi02",
-        "name": "예비순환 02",
+        "name": "예비순환02",
         "questions": [
           {
             "id": "2nd_hyung_yebi02_case02",
@@ -7931,7 +7931,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi03",
-        "name": "예비순환 03",
+        "name": "예비순환03",
         "questions": [
           {
             "id": "2nd_hyung_yebi03_mun01",
@@ -7983,7 +7983,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi04",
-        "name": "예비순환 04",
+        "name": "예비순환04",
         "questions": [
           {
             "id": "2nd_hyung_yebi04_mun01",
@@ -8047,7 +8047,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi05",
-        "name": "예비순환 05",
+        "name": "예비순환05",
         "questions": [
           {
             "id": "2nd_hyung_yebi05_mun01",
@@ -8103,7 +8103,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi07",
-        "name": "예비순환 07",
+        "name": "예비순환07",
         "questions": [
           {
             "id": "2nd_hyung_yebi07_mun01",
@@ -8165,7 +8165,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi08",
-        "name": "예비순환 08",
+        "name": "예비순환08",
         "questions": [
           {
             "id": "2nd_hyung_yebi08_mun01",
@@ -8230,7 +8230,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi09",
-        "name": "예비순환 09",
+        "name": "예비순환09",
         "questions": [
           {
             "id": "2nd_hyung_yebi09_mun01",
@@ -8274,7 +8274,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi10",
-        "name": "예비순환 10",
+        "name": "예비순환10",
         "questions": [
           {
             "id": "2nd_hyung_yebi10_mun01",
@@ -8333,7 +8333,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi11",
-        "name": "예비순환 11",
+        "name": "예비순환11",
         "questions": [
           {
             "id": "2nd_hyung_yebi11_mun01",
@@ -8393,7 +8393,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi12",
-        "name": "예비순환 12",
+        "name": "예비순환12",
         "questions": [
           {
             "id": "2nd_hyung_yebi12_mun01",
@@ -8445,7 +8445,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyung_2026_yebi13",
-        "name": "예비순환 13",
+        "name": "예비순환13",
         "questions": [
           {
             "id": "2nd_hyung_yebi13_mun01",
@@ -8521,7 +8521,7 @@ export const subjects: Subject[] = [
     "files": [
       {
         "id": "2nd_hyungso_2026_yebi_mogo01",
-        "name": "예비순환 모고 01",
+        "name": "예비순환 모고01",
         "questions": [
           {
             "id": "2nd_hyungso_ymogo01_mun01",
@@ -8578,6 +8578,61 @@ export const subjects: Subject[] = [
                 "3. 국어에 의한 일상적 의사소통에 상당한 지장이 있는 경우이다.",
                 "6. 제일심의 무죄 선고로, 형사소송법 제331조 무죄등 선고와 구속영장의 효력 참조, 항소심은 불구속 상태이므로 피고인이 구속된 때는 아니다.",
                 "중요."
+              ]
+            }
+          },
+          {
+            "id": "2nd_hyungso_ymogo01_mun01_lv2",
+            "label": "제1문 핵심요약",
+            "subtitle": "핵심요약",
+            "duration": "1:30",
+            "content": {
+              "problem": [
+                "피고인, 메스암페타민 두 차례 투약, 동종 전과 열두 회.",
+                "양극성 정동장애 주장, 정신감정 신청.",
+                "제일심에서 사선변호인 선임하여 국선 취소.",
+                "수사협조로 다섯 명 기소.",
+                "제일심, 무죄 선고. 검사 항소.",
+                "항소심, 국선변호인 미선정 채 두 차례 공판 진행, 제일심 파기 징역 일 년 이 개월 유죄 선고.",
+                "적법 여부 및 근거."
+              ],
+              "toc": [
+                {
+                  "number": "1",
+                  "text": "재량적 국선변호인 선정 적용 여부",
+                  "indent": 0
+                },
+                {
+                  "number": "2",
+                  "text": "미선정이 판결에 미친 영향",
+                  "indent": 0
+                }
+              ],
+              "answer": [
+                "A. 쟁점. 제33조 국선변호인 제3항, 재량적 국선변호인 선정.",
+                "B. 결론. 위법하다.",
+                "C. 이유. 국선변호인이 있었다면, 증인 진술 신빙성과 보강증거 유무를 다투거나, 심신미약, 수사협조 등 유리한 양형사유를 주장하여 방어권을 행사할 여지가 있었다. 그럼에도 국선변호인 없이 진행하여 유죄 선고한 것은 방어권 침해로 판결에 영향을 미쳤다.",
+                "D. 조문. 제33조 국선변호인 제3항. 제331조 무죄등 선고와 구속영장의 효력, 무죄 선고 시 구속 실효.",
+                "E. 제33조 제3항을 준용한 판례 세 가지가 있다. 첫째, 시각 청각 장애인. 둘째, 유리한 양형요소 주장 필요 시. 셋째, 일상적 의사소통 지장.",
+                "F. 사안의 포섭. 제일심 무죄로 구속 실효. 항소심은 불구속 상태이므로 구속된 때 아님."
+              ]
+            }
+          },
+          {
+            "id": "2nd_hyungso_ymogo01_mun01_lv3",
+            "label": "제1문 슈퍼심플",
+            "subtitle": "슈퍼심플",
+            "duration": "0:30",
+            "content": {
+              "problem": [],
+              "toc": [],
+              "answer": [
+                "A. 쟁점. 제33조 제3항, 재량적 국선변호인.",
+                "B. 결론. 위법.",
+                "C. 이유. 증인 신빙성, 양형사유 주장 가능했으나 국선변호인 없이 진행하여 방어권 침해.",
+                "D. 조문. 제33조 제3항, 제331조 구속 실효.",
+                "E. 판례 세 가지. 장애인, 양형요소 주장, 의사소통 지장.",
+                "F. 포섭. 무죄 선고로 불구속, 구속된 때 아님. 그러나 방어권 침해로 위법."
               ]
             }
           },
@@ -8756,7 +8811,7 @@ export const subjects: Subject[] = [
       },
       {
         "id": "2nd_hyungso_2026_yebi_mogo02",
-        "name": "예비순환 모고 02",
+        "name": "예비순환 모고02",
         "questions": [
           {
             "id": "2nd_hyungso_ymogo02_mun01",
@@ -8990,7 +9045,7 @@ export const subjects: Subject[] = [
     "files": [
       {
         "id": "2nd_budeung_2026_immun01",
-        "name": "이순환 모의고사 01",
+        "name": "예비순환01",
         "questions": [
           {
             "id": "2nd_budeung_immun01_mun01",
