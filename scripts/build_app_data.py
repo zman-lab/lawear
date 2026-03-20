@@ -59,12 +59,49 @@ DIR_TO_SUBJECT = {
     "budeung": "budeung",
 }
 
-# 파일명 -> 표시명 매핑
-FILE_DISPLAY_NAMES = {
-    "yebi_mike": "예비 미케",
-    "yebi_mogo": "예비 모고",
-    "sun2_mogo": "2순환 모고",
+# 과목 단축명 -> 과목 키 매핑 (JSON meta.subject 필드 파싱용)
+SUBJECT_MAP = {
+    "민소": "minso",
+    "민사소송법": "minso",
+    "민법": "minbeop",
+    "형법": "hyung",
+    "형소": "hyungso",
+    "형사소송법": "hyungso",
+    "부등": "budeung",
+    "부동산등기법": "budeung",
+    "민사서류": "minseo",
+    "부등서류": "budseo",
 }
+
+# 파일명 prefix -> 표시명 매핑
+FILE_NAME_MAP = {
+    "immun_mike": "예비순환 미케",
+    "yebi_mike": "예비순환 미케",
+    "yebi_mogo": "예비순환 모고",
+    "immun": "예비순환",
+    "yebi": "예비순환",
+}
+
+
+def short_file_from_raw(raw_file_id: str) -> str:
+    """
+    파일명에서 약자(short_file) 추출.
+
+    immun_mike01 -> mike01
+    yebi_mike01  -> ymike01
+    yebi_mogo01  -> ymogo01
+    immun01      -> immun01
+    immun02      -> immun02
+    """
+    if raw_file_id.startswith("immun_"):
+        # immun_mike01 -> mike01
+        return raw_file_id[len("immun_"):]
+    if raw_file_id.startswith("yebi_"):
+        # yebi_mike01 -> ymike01, yebi_mogo01 -> ymogo01
+        suffix = raw_file_id[len("yebi_"):]
+        return f"y{suffix}"
+    # immun01, immun02, ... -> 그대로
+    return raw_file_id
 
 
 def text_to_sentences(text: str) -> list[str]:
@@ -91,13 +128,22 @@ def estimate_duration(problem: list[str], answer: list[str]) -> str:
     return f"{minutes}:{seconds:02d}"
 
 
-def file_display_name(file_id: str) -> str:
-    """파일 ID에서 표시명 생성. yebi_mike01 -> 예비 미케01"""
-    for prefix, display in FILE_DISPLAY_NAMES.items():
-        if file_id.startswith(prefix):
-            num = file_id[len(prefix):]
-            return f"{display}{num}"
-    return file_id
+def file_display_name(raw_file_id: str) -> str:
+    """
+    파일 ID(raw)에서 표시명 생성.
+    FILE_NAME_MAP을 길이 내림차순으로 매칭해서 첫 번째 prefix가 이긴다.
+
+    immun_mike01 -> 예비순환 미케01
+    yebi_mike01  -> 예비순환 미케01
+    yebi_mogo01  -> 예비순환 모고01
+    immun01      -> 예비순환01
+    """
+    # 길이가 긴 prefix 우선 매칭
+    for prefix in sorted(FILE_NAME_MAP.keys(), key=len, reverse=True):
+        if raw_file_id.startswith(prefix):
+            num = raw_file_id[len(prefix):]
+            return f"{FILE_NAME_MAP[prefix]}{num}"
+    return raw_file_id
 
 
 def build_subjects(tts_texts_dir: str) -> list[dict]:
@@ -109,19 +155,8 @@ def build_subjects(tts_texts_dir: str) -> list[dict]:
         if not os.path.isdir(dir_path) or dir_name not in DIR_TO_SUBJECT:
             continue
 
-        subject_id = DIR_TO_SUBJECT[dir_name]
-        meta = SUBJECT_META[subject_id]
-
-        if subject_id not in subjects:
-            subjects[subject_id] = {
-                "id": subject_id,
-                "name": meta["name"],
-                "shortName": meta["shortName"],
-                "colorClass": meta["colorClass"],
-                "files": [],
-                "totalQuestions": 0,
-                "completedQuestions": 0,
-            }
+        subject_key = DIR_TO_SUBJECT[dir_name]
+        meta = SUBJECT_META[subject_key]
 
         json_files = sorted(
             f for f in os.listdir(dir_path) if f.endswith(".json")
@@ -132,21 +167,52 @@ def build_subjects(tts_texts_dir: str) -> list[dict]:
             with open(file_path, encoding="utf-8") as f:
                 data = json.load(f)
 
-            file_id = data.get("fileId", json_file.replace(".json", ""))
+            # ── 메타데이터 (JSON에 있으면 사용, 없으면 기본값) ──────────────
+            json_meta = data.get("meta", {})
+            round_val = json_meta.get("round", "2nd")   # 기본 2차
+            year_val = json_meta.get("year", "2026")    # 기본 2026
+
+            # ── Subject ID ────────────────────────────────────────────────────
+            subject_id = f"{round_val}_{subject_key}_{year_val}"
+            # 예: 2nd_minso_2026
+
+            if subject_id not in subjects:
+                subjects[subject_id] = {
+                    "id": subject_id,
+                    "name": meta["name"],
+                    "shortName": meta["shortName"],
+                    "colorClass": meta["colorClass"],
+                    "files": [],
+                    "totalQuestions": 0,
+                    "completedQuestions": 0,
+                }
+
+            # ── File ID ───────────────────────────────────────────────────────
+            raw_file_id = data.get("fileId", json_file.replace(".json", ""))
+            file_id = f"{round_val}_{subject_key}_{year_val}_{raw_file_id}"
+            # 예: 2nd_minso_2026_immun_mike01
+
             file_group = {
                 "id": file_id,
-                "name": file_display_name(file_id),
+                "name": file_display_name(raw_file_id),
                 "questions": [],
             }
+
+            # ── Questions ─────────────────────────────────────────────────────
+            short_file = short_file_from_raw(raw_file_id)
 
             for case_data in data.get("cases", []):
                 problem = text_to_sentences(case_data.get("problem_tts", ""))
                 answer = text_to_sentences(case_data.get("answer_tts", ""))
                 toc = case_data.get("toc", [])
 
+                raw_case_id = case_data["id"]
+                question_id = f"{round_val}_{subject_key}_{short_file}_{raw_case_id}"
+                # 예: 2nd_minso_mike01_case01
+
                 question = {
-                    "id": case_data["id"],
-                    "label": case_data.get("label", case_data["id"]),
+                    "id": question_id,
+                    "label": case_data.get("label", raw_case_id),
                     "subtitle": case_data.get("subtitle", ""),
                     "duration": estimate_duration(problem, answer),
                     "content": {
@@ -166,24 +232,22 @@ def build_subjects(tts_texts_dir: str) -> list[dict]:
             )
 
     # 과목 순서 고정 (민소, 민법, 형법, 형소, 부등)
+    # subject_id가 round_key_year 형식이므로 subject_key 기준으로 정렬
     order = ["minso", "minbeop", "hyung", "hyungso", "budeung"]
     result = []
-    for sid in order:
-        if sid in subjects:
-            result.append(subjects[sid])
-        else:
-            meta = SUBJECT_META[sid]
-            result.append(
-                {
-                    "id": sid,
-                    "name": meta["name"],
-                    "shortName": meta["shortName"],
-                    "colorClass": meta["colorClass"],
-                    "files": [],
-                    "totalQuestions": 0,
-                    "completedQuestions": 0,
-                }
-            )
+    seen_keys = set()
+    for sid, sdata in subjects.items():
+        seen_keys.add(sid)
+
+    # order 기준으로 subject_key 포함된 항목 순서 정렬
+    def subject_order_key(sid: str) -> int:
+        for i, key in enumerate(order):
+            if f"_{key}_" in sid or sid.endswith(f"_{key}"):
+                return i
+        return len(order)
+
+    result = sorted(subjects.values(), key=lambda s: subject_order_key(s["id"]))
+
     return result
 
 
