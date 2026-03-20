@@ -1,7 +1,19 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { PlayerState, PlaylistItem, Speed, Level, ViewMode, RepeatMode, SleepTimer, TTSVoice } from '../types';
 import { subjects } from '../data/ttsData';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
+
+// ── 네이티브 TTS 순차 재생 플러그인 (백그라운드 안전) ───────────────────────
+interface TTSFilePlugin {
+  speakSequence(opts: { texts: string[]; startIndex: number; rate: number }): Promise<{ event: string; index: number }>;
+  stopSequence(): Promise<void>;
+  updateSequenceRate(opts: { rate: number }): Promise<void>;
+  jumpSequence(opts: { index: number }): Promise<void>;
+}
+const TTSFile = Capacitor.isNativePlatform()
+  ? registerPlugin<TTSFilePlugin>('TTSFile')
+  : null;
 import {
   initMediaSession,
   updateMediaTrack,
@@ -133,7 +145,7 @@ const initialState: PlayerState = {
   currentFileId: null,
   currentQuestionId: null,
   currentSentenceIndex: 0,
-  speed: 1.0,
+  speed: 5.0,
   repeatMode: 'stop-after-one',
   sleepTimer: null,
   selectedVoiceURI: loadSavedVoiceURI(),
@@ -183,7 +195,29 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
   const { isSupported, isNative, speak, pause, resume, cancel, setRate, setOnRateChange, voices } = useSpeechSynthesis();
 
-  // 백그라운드 재생 허용 — visibilitychange 핸들러 제거됨
+  // ── 백그라운드 WebView 활성 유지 ────────────────────────────────────────
+  // 무음 Audio를 loop 재생하여 시스템이 "미디어 재생 중"으로 인식 → WebView JS suspend 방지
+  const silenceRef = useRef<HTMLAudioElement | null>(null);
+  useEffect(() => {
+    if (state.isPlaying && !silenceRef.current) {
+      // 0.1초 무음 WAV (base64)
+      const wav = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=';
+      const audio = new Audio(wav);
+      audio.loop = true;
+      audio.volume = 0.01; // 거의 무음
+      audio.play().catch(() => {});
+      silenceRef.current = audio;
+    } else if (!state.isPlaying && silenceRef.current) {
+      silenceRef.current.pause();
+      silenceRef.current = null;
+    }
+    return () => {
+      if (silenceRef.current) {
+        silenceRef.current.pause();
+        silenceRef.current = null;
+      }
+    };
+  }, [state.isPlaying]);
 
   // ── E-05: Wake Lock (화면 꺼짐 방지) ────────────────────────────────────
   useEffect(() => {
@@ -289,6 +323,131 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     sentencesRef.current = sentences;
   }, [sentences]);
 
+  // ── 네이티브 순차 재생 (백그라운드 안전) ─────────────────────────────────
+  const nativeSequenceActiveRef = useRef(false);
+
+  // playlist 전체 문장을 합쳐서 네이티브에 넘김 — 트랙 전환도 JS 없이 네이티브가 처리
+  const buildAllSentences = useCallback(() => {
+    const current = stateRef.current;
+    const { playlist } = current;
+    if (playlist.length === 0) {
+      return { allSents: sentencesRef.current, trackOffsets: [0] };
+    }
+    const allSents: string[] = [];
+    const trackOffsets: number[] = []; // 각 트랙의 시작 인덱스
+    for (const item of playlist) {
+      trackOffsets.push(allSents.length);
+      const s = getSentences(item.subjectId, item.fileId, item.questionId, current.level);
+      allSents.push(...s);
+    }
+    return { allSents, trackOffsets };
+  }, []);
+
+  const startNativeSequence = useCallback(
+    (idx: number, speed: Speed) => {
+      if (!TTSFile) return;
+
+      const { allSents, trackOffsets } = buildAllSentences();
+      if (allSents.length === 0) return;
+
+      // 현재 트랙 내 idx를 전체 배열에서의 절대 인덱스로 변환
+      const current = stateRef.current;
+      const playlistIdx = current.playlistIndex >= 0 ? current.playlistIndex : 0;
+      const absoluteIdx = (trackOffsets[playlistIdx] ?? 0) + idx;
+
+      nativeSequenceActiveRef.current = true;
+      log.tts('native_sequence_start', { idx, absoluteIdx, totalAll: allSents.length });
+
+      const listen = () => {
+        if (!nativeSequenceActiveRef.current) return;
+        TTSFile.speakSequence({ texts: allSents, startIndex: absoluteIdx, rate: speed })
+          .then((ev) => {
+            if (!nativeSequenceActiveRef.current) return;
+            if (ev.event === 'start') {
+              // 절대 인덱스 → 어떤 트랙의 몇 번째 문장인지 계산
+              let trackIdx = 0;
+              let localIdx = ev.index;
+              for (let i = trackOffsets.length - 1; i >= 0; i--) {
+                if (ev.index >= trackOffsets[i]) {
+                  trackIdx = i;
+                  localIdx = ev.index - trackOffsets[i];
+                  break;
+                }
+              }
+              // 트랙 전환 감지
+              const prevTrackIdx = stateRef.current.playlistIndex;
+              if (trackIdx !== prevTrackIdx && current.playlist.length > 0) {
+                const item = current.playlist[trackIdx];
+                if (item) {
+                  const newSents = getSentences(item.subjectId, item.fileId, item.questionId, current.level);
+                  sentencesRef.current = newSents;
+                  stateRef.current = {
+                    ...stateRef.current,
+                    currentSubjectId: item.subjectId,
+                    currentFileId: item.fileId,
+                    currentQuestionId: item.questionId,
+                    playlistIndex: trackIdx,
+                  };
+                  setState((prev) => ({
+                    ...prev,
+                    currentSubjectId: item.subjectId,
+                    currentFileId: item.fileId,
+                    currentQuestionId: item.questionId,
+                    currentSentenceIndex: localIdx,
+                    playlistIndex: trackIdx,
+                  }));
+                }
+              } else {
+                setState((prev) => ({ ...prev, currentSentenceIndex: localIdx }));
+              }
+              sentenceIndexRef.current = localIdx;
+              listen();
+            } else if (ev.event === 'complete') {
+              // 전체 playlist 완료
+              nativeSequenceActiveRef.current = false;
+              const mode = stateRef.current.repeatMode;
+              if (mode === 'repeat-all' && current.playlist.length > 0) {
+                // 전곡반복: 처음부터 다시
+                const first = current.playlist[0];
+                const newSents = getSentences(first.subjectId, first.fileId, first.questionId, current.level);
+                sentencesRef.current = newSents;
+                sentenceIndexRef.current = 0;
+                stateRef.current = {
+                  ...stateRef.current,
+                  currentSubjectId: first.subjectId,
+                  currentFileId: first.fileId,
+                  currentQuestionId: first.questionId,
+                  currentSentenceIndex: 0,
+                  playlistIndex: 0,
+                };
+                setState((prev) => ({
+                  ...prev,
+                  currentSubjectId: first.subjectId,
+                  currentFileId: first.fileId,
+                  currentQuestionId: first.questionId,
+                  currentSentenceIndex: 0,
+                  playlistIndex: 0,
+                }));
+                startNativeSequence(0, stateRef.current.speed);
+              } else {
+                setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
+              }
+            }
+          })
+          .catch(() => {
+            nativeSequenceActiveRef.current = false;
+          });
+      };
+      listen();
+    },
+    [buildAllSentences],
+  );
+
+  const stopNativeSequence = useCallback(() => {
+    nativeSequenceActiveRef.current = false;
+    TTSFile?.stopSequence().catch(() => {});
+  }, []);
+
   // ── 문장 재생 ──────────────────────────────────────────────────────────────
   const speakCurrentSentence = useCallback(
     (idx: number, speed: Speed) => {
@@ -302,6 +461,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           currentSentenceIndex: 0,
         }));
         cancel();
+        return;
+      }
+
+      // 네이티브 모드: speakSequence 사용 (백그라운드 안전)
+      if (TTSFile && Capacitor.isNativePlatform()) {
+        stopNativeSequence();
+        startNativeSequence(idx, speed);
         return;
       }
 

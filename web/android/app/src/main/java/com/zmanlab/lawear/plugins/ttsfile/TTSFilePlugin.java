@@ -1,9 +1,14 @@
 package com.zmanlab.lawear.plugins.ttsfile;
 
+import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
+import android.content.ServiceConnection;
+import android.os.IBinder;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
+import android.util.Log;
 
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -11,6 +16,7 @@ import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
 import com.getcapacitor.annotation.CapacitorPlugin;
+import com.zmanlab.lawear.services.TtsPlaybackService;
 
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
@@ -31,17 +37,78 @@ import java.util.concurrent.TimeUnit;
  *
  * Android TextToSpeech.synthesizeToFile() 래핑.
  * TTS 텍스트를 WAV 파일로 저장하고, 설치된 TTS 엔진 목록을 반환한다.
+ *
+ * speakSequence / stopSequence / updateSequenceRate / jumpSequence 는
+ * TtsPlaybackService (Foreground Service)에 위임 — 백그라운드 5초 컷 방지.
  */
 @CapacitorPlugin(name = "TTSFile")
 public class TTSFilePlugin extends Plugin {
 
+    private static final String TAG = "TTSFilePlugin";
+
+    // synthesizeToFile 전용 TTS (Plugin Context — 파일 저장 용도)
     private TextToSpeech tts;
     private final CountDownLatch ttsReady = new CountDownLatch(1);
     private boolean ttsInitialized = false;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
+    // ── TtsPlaybackService 바인딩 ─────────────────────────────────────────
+
+    private TtsPlaybackService playbackService;
+    private boolean serviceBound = false;
+    private PluginCall sequenceCall = null;
+
+    private final ServiceConnection serviceConnection = new ServiceConnection() {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder binder) {
+            TtsPlaybackService.LocalBinder lb = (TtsPlaybackService.LocalBinder) binder;
+            playbackService = lb.getService();
+            serviceBound = true;
+            Log.i(TAG, "TtsPlaybackService connected");
+
+            // 콜백 등록 — Service → Plugin → JS
+            playbackService.setCallback(new TtsPlaybackService.SequenceCallback() {
+                @Override
+                public void onSentenceStart(int index) {
+                    if (sequenceCall != null) {
+                        JSObject ev = new JSObject();
+                        ev.put("event", "start");
+                        ev.put("index", index);
+                        sequenceCall.resolve(ev);
+                    }
+                }
+
+                @Override
+                public void onSentenceDone(int index) {
+                    // JS에는 start/complete 이벤트만 전달 (done은 내부 처리)
+                }
+
+                @Override
+                public void onSequenceComplete(int completedIndex) {
+                    if (sequenceCall != null) {
+                        JSObject ev = new JSObject();
+                        ev.put("event", "complete");
+                        ev.put("index", completedIndex);
+                        sequenceCall.resolve(ev);
+                        sequenceCall = null;
+                    }
+                }
+            });
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            playbackService = null;
+            serviceBound = false;
+            Log.w(TAG, "TtsPlaybackService disconnected");
+        }
+    };
+
+    // ──────────────────────────────────────────────────────────────────────
+
     @Override
     public void load() {
+        // synthesizeToFile 용 TTS (Plugin Context)
         tts = new TextToSpeech(getContext(), status -> {
             if (status == TextToSpeech.SUCCESS) {
                 tts.setLanguage(Locale.KOREAN);
@@ -49,6 +116,11 @@ public class TTSFilePlugin extends Plugin {
             }
             ttsReady.countDown();
         });
+
+        // TtsPlaybackService 시작 + 바인딩
+        Intent serviceIntent = new Intent(getContext(), TtsPlaybackService.class);
+        getContext().startForegroundService(serviceIntent);
+        getContext().bindService(serviceIntent, serviceConnection, Context.BIND_AUTO_CREATE);
     }
 
     // ── synthesizeToFile ──────────────────────────────────────────────────────
@@ -260,6 +332,68 @@ public class TTSFilePlugin extends Plugin {
         out.write((value >> 8) & 0xFF);
     }
 
+    // ── speakSequence (TtsPlaybackService에 위임) ─────────────────────────
+
+    @PluginMethod(returnType = PluginMethod.RETURN_CALLBACK)
+    public void speakSequence(PluginCall call) {
+        call.setKeepAlive(true);
+
+        try {
+            JSArray textsArr = call.getArray("texts");
+            int startIndex = call.getInt("startIndex", 0);
+            float rate = call.getFloat("rate", 1.0f);
+
+            if (textsArr == null || textsArr.length() == 0) {
+                call.reject("texts array required");
+                return;
+            }
+
+            if (!serviceBound || playbackService == null) {
+                call.reject("TtsPlaybackService not ready");
+                return;
+            }
+
+            List<String> texts = new ArrayList<>();
+            for (int i = 0; i < textsArr.length(); i++) {
+                texts.add(textsArr.getString(i));
+            }
+
+            sequenceCall = call;
+            playbackService.speakSequence(texts, startIndex, rate);
+
+        } catch (Exception e) {
+            call.reject("speakSequence failed: " + e.getMessage());
+        }
+    }
+
+    @PluginMethod
+    public void stopSequence(PluginCall call) {
+        if (serviceBound && playbackService != null) {
+            playbackService.stop();
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void updateSequenceRate(PluginCall call) {
+        float rate = call.getFloat("rate", 1.0f);
+        if (serviceBound && playbackService != null) {
+            playbackService.updateRate(rate);
+        }
+        call.resolve();
+    }
+
+    @PluginMethod
+    public void jumpSequence(PluginCall call) {
+        int index = call.getInt("index", 0);
+        if (!serviceBound || playbackService == null) {
+            call.reject("TtsPlaybackService not ready");
+            return;
+        }
+        playbackService.jumpToIndex(index);
+        call.resolve();
+    }
+
     // ── getEngines ──────────────────────────────────────────────────────────
 
     @PluginMethod
@@ -311,6 +445,10 @@ public class TTSFilePlugin extends Plugin {
         if (tts != null) {
             tts.stop();
             tts.shutdown();
+        }
+        if (serviceBound) {
+            getContext().unbindService(serviceConnection);
+            serviceBound = false;
         }
     }
 }
