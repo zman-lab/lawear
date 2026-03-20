@@ -133,66 +133,91 @@ export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
             <div className="text-center py-10">
               <p className="text-[#8b949e] text-sm">저장된 북마크가 없습니다</p>
               <p className="text-[#8b949e]/50 text-[11px] mt-1.5">
-                재생 중 "+ 현재 위치"로 북마크를 추가하세요
+                재생 중 🔖 버튼으로 현재 문장을 저장하세요
               </p>
             </div>
           ) : (
-            bookmarks.map((bm) => {
-              const sub = subjects.find((s) => s.id === bm.subjectId);
-              const isCurrentQuestion = bm.questionId === currentQuestionId;
+            (() => {
+              // 과목별 그룹화
+              const grouped: { subjectId: string; subjectName: string; items: typeof bookmarks }[] = [];
+              const subjectOrder: string[] = [];
+              const subjectMap = new Map<string, typeof bookmarks>();
+              for (const bm of bookmarks) {
+                if (!subjectMap.has(bm.subjectId)) {
+                  subjectMap.set(bm.subjectId, []);
+                  subjectOrder.push(bm.subjectId);
+                }
+                subjectMap.get(bm.subjectId)!.push(bm);
+              }
+              for (const sid of subjectOrder) {
+                const sub = subjects.find((s) => s.id === sid);
+                grouped.push({
+                  subjectId: sid,
+                  subjectName: sub ? sub.name : sid,
+                  items: subjectMap.get(sid)!,
+                });
+              }
 
-              return (
-                <button
-                  key={bm.id}
-                  className="w-full text-left px-3 py-2.5 rounded-lg mb-1 flex items-center gap-3 active:bg-white/5 transition-colors group"
-                  onClick={() => handleJump(bm)}
-                >
-                  {/* 북마크 아이콘 */}
-                  <span
-                    className={`text-sm shrink-0 ${
-                      isCurrentQuestion ? 'text-amber-400' : 'text-[#8b949e]/50'
-                    }`}
-                  >
-                    🔖
-                  </span>
-
-                  {/* 정보 */}
-                  <div className="flex-1 min-w-0">
-                    <p
-                      className={`text-sm truncate ${
-                        isCurrentQuestion ? 'text-amber-400 font-semibold' : 'text-white'
-                      }`}
-                    >
-                      {bm.label}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      {sub && (
-                        <span className="text-[10px] text-[#8b949e]/60 truncate">
-                          {sub.shortName}
-                        </span>
-                      )}
-                      <span className="text-[10px] text-[#8b949e]/40">
-                        {bm.sentenceIndex + 1}번째 문장
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-[#8b949e]/30 mt-0.5">
-                      {formatBookmarkDate(bm.createdAt)}
-                    </p>
+              return grouped.map((group) => (
+                <div key={group.subjectId} className="mb-3">
+                  {/* 과목 헤더 */}
+                  <div className="px-3 py-1.5 mb-1">
+                    <span className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-wider">
+                      {group.subjectName}
+                    </span>
                   </div>
+                  {group.items.map((bm) => {
+                    const isCurrentQuestion = bm.questionId === currentQuestionId;
+                    return (
+                      <button
+                        key={bm.id}
+                        className="w-full text-left px-3 py-2.5 rounded-lg mb-1 flex items-center gap-3 active:bg-white/5 transition-colors"
+                        onClick={() => handleJump(bm)}
+                      >
+                        {/* 북마크 아이콘 */}
+                        <span
+                          className={`text-sm shrink-0 ${
+                            isCurrentQuestion ? 'text-amber-400' : 'text-[#8b949e]/50'
+                          }`}
+                        >
+                          🔖
+                        </span>
 
-                  {/* 삭제 버튼 */}
-                  <button
-                    className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-[#8b949e]/30 active:text-red-400 active:bg-red-500/10 transition-colors opacity-0 group-hover:opacity-100 group-active:opacity-100"
-                    onClick={(e) => handleDelete(bm.id, e)}
-                    aria-label="북마크 삭제"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                    </svg>
-                  </button>
-                </button>
-              );
-            })
+                        {/* 정보 */}
+                        <div className="flex-1 min-w-0">
+                          <p
+                            className={`text-sm truncate ${
+                              isCurrentQuestion ? 'text-amber-400 font-semibold' : 'text-white'
+                            }`}
+                          >
+                            {bm.label}
+                          </p>
+                          <div className="flex items-center gap-2 mt-0.5">
+                            <span className="text-[10px] text-[#8b949e]/40">
+                              {bm.sentenceIndex + 1}번째 문장
+                            </span>
+                            <span className="text-[10px] text-[#8b949e]/30">
+                              {formatBookmarkDate(bm.createdAt)}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* 삭제 버튼 (항상 표시) */}
+                        <button
+                          className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-[#8b949e]/40 active:text-red-400 active:bg-red-500/10 transition-colors"
+                          onClick={(e) => handleDelete(bm.id, e)}
+                          aria-label="북마크 삭제"
+                        >
+                          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </button>
+                    );
+                  })}
+                </div>
+              ));
+            })()
           )}
         </div>
       </div>

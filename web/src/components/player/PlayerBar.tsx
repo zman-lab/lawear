@@ -198,20 +198,22 @@ export function PlayerBar() {
         </div>
       </div>
 
-      {/* 상단 줄: 보조 컨트롤 (속도/반복/플리/타이머/음성/취약마킹) */}
+      {/* 상단 줄: 보조 컨트롤 (속도/반복/플리/타이머/음성/북마크/취약마킹) */}
       <div className="px-2 pt-1 pb-0 flex items-center justify-around">
         {/* 속도 */}
         <button
-          className="text-xs font-bold text-blue-400 bg-blue-400/10 rounded-md px-2 py-1 min-h-[36px] min-w-[38px] text-center"
+          className="flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center"
           onClick={() => setShowSpeedSheet(true)}
           aria-label={`재생 속도: ${speedLabel(speed)}`}
         >
-          {speedLabel(speed)}
+          <span className="text-xs font-bold text-blue-400 bg-blue-400/10 rounded-md px-1.5 py-0.5 leading-none">
+            {speedLabel(speed)}
+          </span>
         </button>
 
         {/* 반복 모드 */}
         <button
-          className={`min-w-[38px] min-h-[36px] flex items-center justify-center transition-colors ${
+          className={`flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center transition-colors ${
             repeatMode === 'stop-after-one' ? 'text-[#8b949e]' : 'text-blue-400'
           }`}
           onClick={() => setShowRepeatSheet(true)}
@@ -219,11 +221,12 @@ export function PlayerBar() {
           title={REPEAT_MODE_LABELS[repeatMode]}
         >
           <RepeatModeIcon mode={repeatMode} />
+          <span className="text-[8px] leading-none">반복</span>
         </button>
 
         {/* 플레이리스트 */}
         <button
-          className={`min-w-[38px] min-h-[36px] flex items-center justify-center transition-colors ${
+          className={`flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center transition-colors ${
             hasPlaylist ? 'text-blue-400' : 'text-[#8b949e]'
           }`}
           onClick={() => setShowPlaylistSheet(true)}
@@ -232,32 +235,37 @@ export function PlayerBar() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h10m4 0v6m-3-3h6" />
           </svg>
+          <span className="text-[8px] leading-none">목록</span>
         </button>
 
         {/* 슬립 타이머 */}
         {sleepTimerRemaining !== null ? (
           <button
-            className="text-xs font-mono text-blue-400 bg-blue-400/10 rounded-md px-1.5 py-1 min-w-[38px] min-h-[36px] text-center"
+            className="flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center text-blue-400"
             onClick={() => setShowTimerSheet(true)}
             aria-label="슬립 타이머 설정"
           >
-            {formatTimerDisplay(sleepTimerRemaining)}
+            <span className="text-[10px] font-mono bg-blue-400/10 rounded px-1 leading-none py-0.5">
+              {formatTimerDisplay(sleepTimerRemaining)}
+            </span>
+            <span className="text-[8px] leading-none">타이머</span>
           </button>
         ) : (
           <button
-            className="text-[#8b949e] min-w-[38px] min-h-[36px] flex items-center justify-center"
+            className="flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center text-[#8b949e]"
             onClick={() => setShowTimerSheet(true)}
             aria-label="슬립 타이머 설정"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
+            <span className="text-[8px] leading-none">타이머</span>
           </button>
         )}
 
         {/* 음성 선택 */}
         <button
-          className={`min-w-[38px] min-h-[36px] flex items-center justify-center ${
+          className={`flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center ${
             state.selectedVoiceURI ? 'text-blue-400' : 'text-[#8b949e]'
           }`}
           onClick={() => setShowVoiceSheet(true)}
@@ -266,11 +274,12 @@ export function PlayerBar() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
           </svg>
+          <span className="text-[8px] leading-none">음성</span>
         </button>
 
         {/* 북마크 */}
         <button
-          className={`min-w-[38px] min-h-[36px] flex items-center justify-center transition-colors ${
+          className={`flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center transition-colors ${
             bookmarkedForCurrent ? 'opacity-100' : 'opacity-40'
           }`}
           onClick={() => setShowBookmarkSheet(true)}
@@ -279,11 +288,12 @@ export function PlayerBar() {
           disabled={!hasContent}
         >
           <span className="text-base leading-none">🔖</span>
+          <span className="text-[8px] leading-none text-[#8b949e]">저장</span>
         </button>
 
         {/* 취약 마킹 */}
         <button
-          className={`min-w-[38px] min-h-[36px] flex items-center justify-center transition-colors ${
+          className={`flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center transition-colors ${
             weakMarked ? 'opacity-100' : 'opacity-40'
           }`}
           onClick={handleToggleWeak}
@@ -292,6 +302,7 @@ export function PlayerBar() {
           disabled={!hasContent}
         >
           <span className="text-base leading-none">🚩</span>
+          <span className="text-[8px] leading-none text-[#8b949e]">취약</span>
         </button>
       </div>
 

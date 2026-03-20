@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { subjects } from '../../data/ttsData';
 import { usePlayer } from '../../context/PlayerContext';
 import { log } from '../../services/logger';
@@ -422,6 +422,30 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
     }
   };
 
+  // 취약 마킹된 케이스만 재생
+  const [weakToast, setWeakToast] = useState<string | null>(null);
+  const handlePlayWeak = useCallback(() => {
+    const currentWeakMarks = loadWeakMarks();
+    const items: PlaylistItem[] = [];
+    const added = new Set<string>();
+    for (const file of subject.files) {
+      for (const q of file.questions) {
+        if (currentWeakMarks.has(q.id) && !added.has(q.id)) {
+          items.push({ subjectId, fileId: file.id, questionId: q.id });
+          added.add(q.id);
+        }
+      }
+    }
+    if (items.length === 0) {
+      setWeakToast('취약 마킹된 케이스가 없습니다');
+      setTimeout(() => setWeakToast(null), 2000);
+      return;
+    }
+    log.ui('list_play_weak', { subjectId, count: items.length });
+    playSelected(items);
+    onSelectQuestion(items[0].subjectId, items[0].fileId, items[0].questionId);
+  }, [subject, subjectId, playSelected, onSelectQuestion]);
+
   return (
     <div
       className="absolute inset-0 flex flex-col"
@@ -561,8 +585,26 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
             <span className="text-amber-400">★</span>
             즐겨찾기
           </button>
+
+          {/* 취약 재생 */}
+          <button
+            className="flex-1 py-2.5 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 text-xs font-bold flex items-center justify-center gap-1.5 active:bg-red-500/20 transition-colors"
+            onClick={handlePlayWeak}
+          >
+            <span className="text-sm leading-none">🚩</span>
+            취약 재생
+          </button>
         </div>
       </div>
+
+      {/* 취약 재생 토스트 */}
+      {weakToast && (
+        <div className="fixed top-20 left-0 right-0 max-w-md mx-auto z-[80] px-6 pointer-events-none">
+          <div className="bg-[#21262d] border border-[#30363d] rounded-xl px-4 py-2.5 text-sm text-white text-center shadow-lg">
+            {weakToast}
+          </div>
+        </div>
+      )}
 
       {/* 검색 결과 */}
       {showSearch && debouncedQuery.length >= 2 && (
