@@ -15,7 +15,7 @@ function getNativePlugin(): TTSFilePluginSleep | null {
 }
 
 const UNLOCK_TIMEOUT_MS = 5_000;      // UNLOCK_PROMPT → SLEEP (5초)
-const TAP_WINDOW_MS = 800;            // 노크 템포: 0.8초 이내 3탭
+const TAP_WINDOW_MS = 2000;           // 노크 템포: 2초 이내 3탭
 const TAP_MIN_INTERVAL_MS = 50;       // 최소 탭 간격 (바운스 방지)
 const TAP_MOVE_THRESHOLD = 10;        // 드래그 필터: 10px 이상 이동 시 무시
 const REQUIRED_TAPS = 3;              // 해제에 필요한 탭 수
