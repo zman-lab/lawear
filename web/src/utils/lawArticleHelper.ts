@@ -16,7 +16,7 @@ import type { Level } from '../types';
 // --- 디버그 플래그 ---
 
 const LAW_ARTICLE_DEBUG =
-  typeof localStorage !== 'undefined' && localStorage.getItem('lawear-debug-law') === 'true';
+  typeof localStorage !== 'undefined' && localStorage.getItem('lawear-debug-law') !== 'false';
 
 function debugLog(...args: unknown[]) {
   if (LAW_ARTICLE_DEBUG) console.log(...args);

@@ -33,7 +33,7 @@ import { recordCompletion, recordReview, loadProgress } from '../services/learni
 const SUPERSIMPLE_KEYWORDS = ['의의', '취지', '요건', '효과', '성질', '종류', '개념', '정의', '원칙', '예외', '구별', '차이', '유사', '적용범위'];
 
 const TTS_PIPELINE_DEBUG =
-  typeof localStorage !== 'undefined' && localStorage.getItem('lawear-debug-law') === 'true';
+  typeof localStorage !== 'undefined' && localStorage.getItem('lawear-debug-law') !== 'false';
 
 function getSentences(
   subjectId: string | null,
