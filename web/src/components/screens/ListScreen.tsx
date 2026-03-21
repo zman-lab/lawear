@@ -592,10 +592,10 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
             onSelectQuestion(items[0].subjectId, items[0].fileId, items[0].questionId);
             setShowWeakSheet(false);
           }}
-          onPlayOne={(item) => {
-            log.ui('list_play_weak_one', { subjectId, questionId: item.questionId });
-            playSelected([item]);
-            onSelectQuestion(item.subjectId, item.fileId, item.questionId);
+          onPlayOne={(allItems, startIndex) => {
+            log.ui('list_play_weak_one', { subjectId, questionId: allItems[startIndex].questionId, startIndex });
+            playSelected(allItems, startIndex);
+            onSelectQuestion(allItems[startIndex].subjectId, allItems[startIndex].fileId, allItems[startIndex].questionId);
             setShowWeakSheet(false);
           }}
         />
@@ -713,7 +713,7 @@ interface WeakListSheetProps {
   subjectId: string;
   onClose: () => void;
   onPlayAll: (items: PlaylistItem[]) => void;
-  onPlayOne: (item: PlaylistItem) => void;
+  onPlayOne: (allItems: PlaylistItem[], startIndex: number) => void;
 }
 
 function WeakListSheet({ subject, subjectId, onClose, onPlayAll, onPlayOne }: WeakListSheetProps) {
@@ -784,11 +784,11 @@ function WeakListSheet({ subject, subjectId, onClose, onPlayAll, onPlayOne }: We
               </p>
             </div>
           ) : (
-            weakItems.map(({ item, label, subtitle }) => (
+            weakItems.map(({ item, label, subtitle }, idx) => (
               <button
                 key={item.questionId}
                 className="w-full text-left px-3 py-2.5 rounded-lg mb-1 flex items-center gap-3 active:bg-white/5 transition-colors"
-                onClick={() => onPlayOne(item)}
+                onClick={() => onPlayOne(weakItems.map((wi) => wi.item), idx)}
               >
                 {/* 재생 아이콘 */}
                 <span className="text-red-400/70 shrink-0">

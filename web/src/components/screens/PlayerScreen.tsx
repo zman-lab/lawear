@@ -224,25 +224,15 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
   // - props(subjectId, fileId, questionId)는 "사용자가 클릭한 케이스"를 의미.
   // - 자동 다음곡 전환 시 context의 currentXxxId가 props보다 앞서 변경됨.
   //   이때는 context를 우선 사용해야 PlayerScreen 내용이 자동으로 업데이트됨.
-  // - 단, 다른 케이스 클릭 직후(useEffect selectQuestion 미실행 상태)에는
-  //   context가 이전 케이스 값이므로 context 우선하면 잘못된 내용 표시됨.
+  // - 취약재생 등 크로스 과목 playlist의 경우 과목이 달라도 context를 우선해야 함.
   //
-  // 해결: props가 변경될 때 context와 비교하여, context가 playlist 재생 중
-  // 자동 전환된 케이스인지 vs 아직 이전 케이스인지를 구분한다.
-  // → playlist에 현재 props의 questionId가 없거나, playlist가 비어 있다면
-  //   context는 아직 sync 전 → props 우선.
-  // → playlist에 context의 currentQuestionId가 있고 props의 questionId와 다르다면
-  //   자동 전환된 상태 → context 우선.
+  // 해결: playlist 재생 중이고 context의 currentQuestionId가 playlist에 존재하면
+  // context를 우선 사용. 단, props와 context가 동일하면 그대로 props 사용.
   const { playlist } = state;
   const displaySubjectId = useMemo(() => {
-    // playlist 재생 중 자동 다음곡 전환: context의 currentSubjectId가 이 PlayerScreen의
-    // 과목 범위 내에 있으면 context 우선. 아니면 props 우선.
-    if (currentSubjectId && currentSubjectId === subjectId) {
-      // 같은 과목: 자동 다음곡 전환인지 or 사용자 클릭 직후인지 구분
-      // playlist에서 currentQuestionId가 존재하고, props questionId와 다르면 자동전환
+    if (currentSubjectId && currentQuestionId && currentQuestionId !== questionId) {
       const inPlaylist = playlist.some((item) => item.questionId === currentQuestionId);
-      if (inPlaylist && currentQuestionId !== questionId) {
-        // 자동 다음곡 전환 → context 우선
+      if (inPlaylist) {
         return currentSubjectId;
       }
     }
@@ -250,24 +240,24 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
   }, [currentSubjectId, subjectId, currentQuestionId, questionId, playlist]);
 
   const displayFileId = useMemo(() => {
-    if (currentSubjectId === subjectId && currentFileId) {
+    if (currentFileId && currentQuestionId && currentQuestionId !== questionId) {
       const inPlaylist = playlist.some((item) => item.questionId === currentQuestionId);
-      if (inPlaylist && currentQuestionId !== questionId) {
+      if (inPlaylist) {
         return currentFileId;
       }
     }
     return fileId;
-  }, [currentSubjectId, subjectId, currentFileId, fileId, currentQuestionId, questionId, playlist]);
+  }, [currentFileId, fileId, currentQuestionId, questionId, playlist]);
 
   const displayQuestionId = useMemo(() => {
-    if (currentSubjectId === subjectId && currentQuestionId) {
+    if (currentQuestionId && currentQuestionId !== questionId) {
       const inPlaylist = playlist.some((item) => item.questionId === currentQuestionId);
-      if (inPlaylist && currentQuestionId !== questionId) {
+      if (inPlaylist) {
         return currentQuestionId;
       }
     }
     return questionId;
-  }, [currentSubjectId, subjectId, currentQuestionId, questionId, playlist]);
+  }, [currentQuestionId, questionId, playlist]);
 
   // 아코디언 상태
   const [accordion, setAccordion] = useState({

@@ -208,7 +208,7 @@ interface PlayerContextValue {
   prevQuestion: () => void;
   playSubject: (subjectId: string) => void;
   playFile: (subjectId: string, fileId: string) => void;
-  playSelected: (items: PlaylistItem[]) => void;
+  playSelected: (items: PlaylistItem[], startIndex?: number) => void;
   jumpToPlaylistIndex: (idx: number) => void;
   toggleRepeatSection: () => void;
   clearRepeatSection: () => void;
@@ -912,19 +912,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── playSelected (선택된 항목들 재생) ─────────────────────────────────────
   const playSelected = useCallback(
-    (items: PlaylistItem[]) => {
-      log.player('play_selected', { count: items.length });
+    (items: PlaylistItem[], startIndex: number = 0) => {
+      log.player('play_selected', { count: items.length, startIndex });
       if (items.length === 0) return;
-      const first = items[0];
+      const idx = Math.max(0, Math.min(startIndex, items.length - 1));
+      const target = items[idx];
       setState((prev) => ({
         ...prev,
         isPlaying: true,
-        currentSubjectId: first.subjectId,
-        currentFileId: first.fileId,
-        currentQuestionId: first.questionId,
+        currentSubjectId: target.subjectId,
+        currentFileId: target.fileId,
+        currentQuestionId: target.questionId,
         currentSentenceIndex: 0,
         playlist: items,
-        playlistIndex: 0,
+        playlistIndex: idx,
         // 선택 재생은 선택한 곡을 다 듣는 게 자연스러우므로 stop-after-all로 전환
         repeatMode: prev.repeatMode === 'stop-after-one' ? 'stop-after-all' : prev.repeatMode,
         repeatSectionStart: null,
@@ -932,7 +933,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         isRepeatingSectionActive: false,
       }));
       sentenceIndexRef.current = 0;
-      const sents = getSentences(first.subjectId, first.fileId, first.questionId);
+      stateRef.current = {
+        ...stateRef.current,
+        currentSubjectId: target.subjectId,
+        currentFileId: target.fileId,
+        currentQuestionId: target.questionId,
+        currentSentenceIndex: 0,
+        playlist: items,
+        playlistIndex: idx,
+      };
+      const sents = getSentences(target.subjectId, target.fileId, target.questionId);
       sentencesRef.current = sents;
       speakCurrentSentence(0, stateRef.current.speed);
     },
