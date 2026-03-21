@@ -36,7 +36,7 @@ describe('getArticleTitle', () => {
 });
 
 describe('insertArticleTitles', () => {
-  it('제397조 뒤에 조문제목 삽입', () => {
+  it('기본 법령의 조문제목 삽입', () => {
     const result = insertArticleTitles('제397조에 의하면', '민법');
     expect(result).toBe('제397조 금전채무불이행에 대한 특칙에 의하면');
   });
@@ -71,6 +71,36 @@ describe('insertArticleTitles', () => {
     // "금전채무불이행에 대한 특칙"이 2번 나오면 안 됨
     const count = (result.match(/금전채무불이행에 대한 특칙/g) || []).length;
     expect(count).toBe(1);
+  });
+
+  it('타법 참조: "민법 제467조"를 민사소송법 과목에서 처리', () => {
+    const result = insertArticleTitles('민법 제467조에 따라', '민사소송법');
+    expect(result).toContain('민법 제467조 변제의 장소');
+  });
+
+  it('타법 참조 + 기본 법령 혼합', () => {
+    // 민사소송법 과목에서 "제2조"(기본법령)와 "민법 제185조"(타법 참조) 혼합
+    const result = insertArticleTitles(
+      '제2조에 의하면 소는 피고의 보통재판적이 있는 곳이고, 민법 제185조에 해당한다.',
+      '민사소송법',
+    );
+    expect(result).toContain('제2조 보통재판적');
+    expect(result).toContain('민법 제185조 물권의 종류');
+  });
+
+  it('Lv.3 슈퍼심플: 제목 삽입 안 함', () => {
+    const result = insertArticleTitles('제397조에 의하면', '민법', 3);
+    expect(result).toBe('제397조에 의하면');
+  });
+
+  it('Lv.1 기본: 제목 삽입', () => {
+    const result = insertArticleTitles('제397조에 의하면', '민법', 1);
+    expect(result).toBe('제397조 금전채무불이행에 대한 특칙에 의하면');
+  });
+
+  it('Lv.2 핵심요약: 제목 삽입', () => {
+    const result = insertArticleTitles('제397조에 의하면', '민법', 2);
+    expect(result).toBe('제397조 금전채무불이행에 대한 특칙에 의하면');
   });
 });
 
