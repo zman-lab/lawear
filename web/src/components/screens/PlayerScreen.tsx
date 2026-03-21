@@ -71,22 +71,38 @@ interface SentenceProps {
   currentIndex: number;
   sentenceRef: (el: HTMLParagraphElement | null) => void;
   onClick: (index: number) => void;
+  repeatStart: number | null;
+  repeatEnd: number | null;
+  repeatActive: boolean;
 }
 
-function Sentence({ text, index, currentIndex, sentenceRef, onClick }: SentenceProps) {
+function Sentence({ text, index, currentIndex, sentenceRef, onClick, repeatStart, repeatEnd, repeatActive }: SentenceProps) {
   const isActive = index === currentIndex;
   const isPast = index < currentIndex;
+  const isSectionStart = repeatStart !== null && index === repeatStart;
+  const isSectionEnd = repeatEnd !== null && index === repeatEnd;
+  const isInSection = repeatActive && repeatStart !== null && repeatEnd !== null && index >= repeatStart && index <= repeatEnd;
+
+  // 구간 반복 보더 우선 적용
+  let borderClass = 'border-transparent';
+  if (isActive) {
+    borderClass = 'border-[#388bfd]';
+  } else if (isSectionStart) {
+    borderClass = 'border-green-500';
+  } else if (isSectionEnd) {
+    borderClass = 'border-red-500';
+  }
 
   return (
     <p
       ref={sentenceRef}
       className={`text-sm leading-relaxed px-2 py-[5px] rounded-md border-l-[3px] mb-0.5 cursor-pointer transition-all duration-300 ${
         isActive
-          ? 'bg-[rgba(56,139,253,0.12)] border-[#388bfd] text-[#e6edf3]'
+          ? `bg-[rgba(56,139,253,0.12)] ${borderClass} text-[#e6edf3]`
           : isPast
-          ? 'border-transparent text-[#e6edf3] opacity-30'
-          : 'border-transparent text-[#e6edf3]'
-      }`}
+          ? `${borderClass} text-[#e6edf3] opacity-30`
+          : `${borderClass} text-[#e6edf3]`
+      } ${isInSection && !isActive ? 'bg-green-500/5' : ''}`}
       style={isActive ? { textShadow: '0 0 12px rgba(56,139,253,0.25)' } : undefined}
       onClick={() => onClick(index)}
     >
@@ -103,23 +119,38 @@ interface TocItemRowProps {
   currentIndex: number;
   sentenceRef: (el: HTMLElement | null) => void;
   onClick: (index: number) => void;
+  repeatStart: number | null;
+  repeatEnd: number | null;
+  repeatActive: boolean;
 }
 
-function TocItemRow({ item, index, offset, currentIndex, sentenceRef, onClick }: TocItemRowProps) {
+function TocItemRow({ item, index, offset, currentIndex, sentenceRef, onClick, repeatStart, repeatEnd, repeatActive }: TocItemRowProps) {
   const globalIndex = offset + index;
   const isActive = globalIndex === currentIndex;
   const isPast = globalIndex < currentIndex;
+  const isSectionStart = repeatStart !== null && globalIndex === repeatStart;
+  const isSectionEnd = repeatEnd !== null && globalIndex === repeatEnd;
+  const isInSection = repeatActive && repeatStart !== null && repeatEnd !== null && globalIndex >= repeatStart && globalIndex <= repeatEnd;
+
+  let borderClass = 'border-transparent';
+  if (isActive) {
+    borderClass = 'border-[#388bfd]';
+  } else if (isSectionStart) {
+    borderClass = 'border-green-500';
+  } else if (isSectionEnd) {
+    borderClass = 'border-red-500';
+  }
 
   return (
     <div
       ref={sentenceRef as (el: HTMLDivElement | null) => void}
       className={`flex gap-2 text-sm ${item.indent > 0 ? 'ml-4' : ''} px-2 py-[5px] rounded-md border-l-[3px] mb-1.5 cursor-pointer transition-all duration-300 ${
         isActive
-          ? 'bg-[rgba(56,139,253,0.12)] border-[#388bfd]'
+          ? `bg-[rgba(56,139,253,0.12)] ${borderClass}`
           : isPast
-          ? 'border-transparent opacity-30'
-          : 'border-transparent'
-      }`}
+          ? `${borderClass} opacity-30`
+          : borderClass
+      } ${isInSection && !isActive ? 'bg-green-500/5' : ''}`}
       onClick={() => onClick(globalIndex)}
       role="button"
       tabIndex={0}
@@ -167,7 +198,7 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
     selectQuestion,
   } = usePlayer();
 
-  const { isPlaying, currentSentenceIndex, viewMode, currentSubjectId, currentFileId, currentQuestionId } = state;
+  const { isPlaying, currentSentenceIndex, viewMode, currentSubjectId, currentFileId, currentQuestionId, repeatSectionStart, repeatSectionEnd, isRepeatingSectionActive } = state;
 
   // 표시할 데이터 결정:
   // - props(subjectId, fileId, questionId)는 "사용자가 클릭한 케이스"를 의미.
@@ -381,6 +412,9 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
                   currentIndex={currentSentenceIndex}
                   sentenceRef={setRef(i) as (el: HTMLParagraphElement | null) => void}
                   onClick={setSentenceIndex}
+                  repeatStart={repeatSectionStart}
+                  repeatEnd={repeatSectionEnd}
+                  repeatActive={isRepeatingSectionActive}
                 />
               ))}
             </div>
@@ -405,6 +439,9 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
                   currentIndex={currentSentenceIndex}
                   sentenceRef={setRef(tocOffset + i)}
                   onClick={setSentenceIndex}
+                  repeatStart={repeatSectionStart}
+                  repeatEnd={repeatSectionEnd}
+                  repeatActive={isRepeatingSectionActive}
                 />
               ))}
             </div>
@@ -424,6 +461,18 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
                 const globalIndex = answerOffset + i;
                 const isActive = globalIndex === currentSentenceIndex;
                 const isPast = globalIndex < currentSentenceIndex;
+                const isSectionStart = repeatSectionStart !== null && globalIndex === repeatSectionStart;
+                const isSectionEnd = repeatSectionEnd !== null && globalIndex === repeatSectionEnd;
+                const isInSection = isRepeatingSectionActive && repeatSectionStart !== null && repeatSectionEnd !== null && globalIndex >= repeatSectionStart && globalIndex <= repeatSectionEnd;
+
+                let borderClass = 'border-transparent';
+                if (isActive) {
+                  borderClass = 'border-[#388bfd]';
+                } else if (isSectionStart) {
+                  borderClass = 'border-green-500';
+                } else if (isSectionEnd) {
+                  borderClass = 'border-red-500';
+                }
 
                 return (
                   <p
@@ -433,11 +482,11 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
                       i === 0 ? 'font-medium text-white/90' : ''
                     } ${
                       isActive
-                        ? 'bg-[rgba(56,139,253,0.12)] border-[#388bfd] text-[#e6edf3]'
+                        ? `bg-[rgba(56,139,253,0.12)] ${borderClass} text-[#e6edf3]`
                         : isPast
-                        ? 'border-transparent text-[#e6edf3] opacity-30'
-                        : 'border-transparent text-[#e6edf3]'
-                    }`}
+                        ? `${borderClass} text-[#e6edf3] opacity-30`
+                        : `${borderClass} text-[#e6edf3]`
+                    } ${isInSection && !isActive ? 'bg-green-500/5' : ''}`}
                     style={isActive ? { textShadow: '0 0 12px rgba(56,139,253,0.25)' } : undefined}
                     onClick={() => setSentenceIndex(globalIndex)}
                   >
@@ -457,6 +506,8 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
             {allSentences.map((text, i) => {
               const isActive = i === currentSentenceIndex;
               const isPast = i < currentSentenceIndex;
+              const isInSection = isRepeatingSectionActive && repeatSectionStart !== null && repeatSectionEnd !== null && i >= repeatSectionStart && i <= repeatSectionEnd;
+              const isSectionBoundary = (repeatSectionStart !== null && i === repeatSectionStart) || (repeatSectionEnd !== null && i === repeatSectionEnd);
 
               return (
                 <p
@@ -468,7 +519,7 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
                       : isPast
                       ? 'opacity-20'
                       : 'opacity-40'
-                  }`}
+                  } ${isInSection && !isActive ? 'bg-green-500/5 rounded-md' : ''} ${isSectionBoundary && !isActive ? 'ring-1 ring-green-500/30 rounded-md' : ''}`}
                   style={
                     isActive
                       ? {

@@ -72,6 +72,7 @@ export function PlayerBar() {
     nextQuestion,
     prevQuestion,
     setSentenceIndex,
+    toggleRepeatSection,
   } = usePlayer();
 
   const [showTimerSheet, setShowTimerSheet] = useState(false);
@@ -222,6 +223,35 @@ export function PlayerBar() {
         >
           <RepeatModeIcon mode={repeatMode} />
           <span className="text-[8px] leading-none">반복</span>
+        </button>
+
+        {/* 구간 반복 (A-B) */}
+        <button
+          className={`flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center transition-colors ${
+            state.isRepeatingSectionActive
+              ? 'text-green-400'
+              : state.repeatSectionStart !== null && state.repeatSectionEnd === null
+              ? 'text-yellow-400'
+              : 'text-[#8b949e]'
+          }`}
+          onClick={toggleRepeatSection}
+          aria-label={
+            state.isRepeatingSectionActive
+              ? '구간 반복 해제'
+              : state.repeatSectionStart !== null
+              ? '구간 종료점 설정'
+              : '구간 시작점 설정'
+          }
+          disabled={!hasContent}
+        >
+          <span className="text-[11px] font-bold leading-none">
+            {state.isRepeatingSectionActive
+              ? 'A-B'
+              : state.repeatSectionStart !== null && state.repeatSectionEnd === null
+              ? 'A설정'
+              : 'A↔B'}
+          </span>
+          <span className="text-[8px] leading-none">구간</span>
         </button>
 
         {/* 플레이리스트 */}

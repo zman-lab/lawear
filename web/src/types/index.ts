@@ -81,6 +81,9 @@ export interface PlayerState {
   viewMode: ViewMode;
   playlist: PlaylistItem[];
   playlistIndex: number;
+  repeatSectionStart: number | null;
+  repeatSectionEnd: number | null;
+  isRepeatingSectionActive: boolean;
 }
 
 // ---- 레거시 보일러플레이트 타입 (기존 컴포넌트 호환) ----

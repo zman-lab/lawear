@@ -21,6 +21,9 @@ const defaultPlayerState: PlayerState = {
   viewMode: 'reader',
   playlist: [],
   playlistIndex: -1,
+  repeatSectionStart: null,
+  repeatSectionEnd: null,
+  isRepeatingSectionActive: false,
 };
 
 interface MockPlayerValue {
