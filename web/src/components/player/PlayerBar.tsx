@@ -332,29 +332,33 @@ export function PlayerBar() {
         {/* 북마크 */}
         <button
           className={`flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center transition-colors ${
-            bookmarkedForCurrent ? 'opacity-100' : 'opacity-40'
+            bookmarkedForCurrent ? 'text-yellow-400' : 'text-zinc-400'
           }`}
           onClick={() => setShowBookmarkSheet(true)}
           aria-label="북마크"
           title="북마크"
           disabled={!hasContent}
         >
-          <span className="text-base leading-none">🔖</span>
-          <span className="text-[8px] leading-none text-[#8b949e]">저장</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+            <path d="M5 2h14a1 1 0 011 1v19.143a.5.5 0 01-.766.424L12 18.03l-7.234 4.536A.5.5 0 014 22.143V3a1 1 0 011-1z"/>
+          </svg>
+          <span className="text-[8px] leading-none">저장</span>
         </button>
 
         {/* 취약 마킹 */}
         <button
           className={`flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center transition-colors ${
-            weakMarked ? 'opacity-100' : 'opacity-40'
+            weakMarked ? 'text-red-400' : 'text-zinc-400'
           }`}
           onClick={handleToggleWeak}
           aria-label={weakMarked ? '취약 마킹 해제' : '취약 마킹'}
           title={weakMarked ? '취약 마킹 해제' : '취약 마킹'}
           disabled={!hasContent}
         >
-          <span className="text-base leading-none">🚩</span>
-          <span className="text-[8px] leading-none text-[#8b949e]">취약</span>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+            <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+          </svg>
+          <span className="text-[8px] leading-none">취약</span>
         </button>
       </div>
 

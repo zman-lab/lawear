@@ -80,27 +80,16 @@ export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
     [playlist, jumpToPlaylistIndex, setSentenceIndex, currentQuestionId, onClose],
   );
 
-  // 전체 북마크 순차 재생 (중복 문제 제거, 북마크 순서 유지)
-  // 첫 번째 북마크의 sentenceIndex부터 재생 시작
+  // 전체 북마크 순차 재생 (각 북마크를 sentenceIndex 포함 개별 항목으로 구성)
   const handlePlayAll = useCallback(() => {
     if (bookmarks.length === 0) return;
-    const seen = new Set<string>();
-    const items = bookmarks
-      .filter((bm) => {
-        const key = `${bm.subjectId}|${bm.fileId}|${bm.questionId}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      })
-      .map((bm) => ({
-        subjectId: bm.subjectId,
-        fileId: bm.fileId,
-        questionId: bm.questionId,
-      }));
-    if (items.length === 0) return;
-    // 첫 번째 북마크의 sentenceIndex를 playSelected에 직접 전달
-    const firstSentenceIndex = bookmarks[0].sentenceIndex;
-    playSelected(items, 0, firstSentenceIndex);
+    const items = bookmarks.map((bm) => ({
+      subjectId: bm.subjectId,
+      fileId: bm.fileId,
+      questionId: bm.questionId,
+      sentenceIndex: bm.sentenceIndex,
+    }));
+    playSelected(items, 0, items[0].sentenceIndex);
     onClose();
   }, [bookmarks, playSelected, onClose]);
 
@@ -170,7 +159,7 @@ export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
             <div className="text-center py-10">
               <p className="text-[#8b949e] text-sm">저장된 북마크가 없습니다</p>
               <p className="text-[#8b949e]/50 text-[11px] mt-1.5">
-                재생 중 🔖 버튼으로 현재 문장을 저장하세요
+                재생 중 저장 버튼으로 현재 문장을 저장하세요
               </p>
             </div>
           ) : (
@@ -213,11 +202,13 @@ export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
                       >
                         {/* 북마크 아이콘 */}
                         <span
-                          className={`text-sm shrink-0 ${
+                          className={`shrink-0 ${
                             isCurrentQuestion ? 'text-amber-400' : 'text-[#8b949e]/50'
                           }`}
                         >
-                          🔖
+                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                            <path d="M5 2h14a1 1 0 011 1v19.143a.5.5 0 01-.766.424L12 18.03l-7.234 4.536A.5.5 0 014 22.143V3a1 1 0 011-1z"/>
+                          </svg>
                         </span>
 
                         {/* 정보 */}

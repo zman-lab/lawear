@@ -230,7 +230,11 @@ function FileGroupCard({
                     })()}
                     {/* 취약 마킹 아이콘 */}
                     {weakMarks.has(question.id) && (
-                      <span className="text-[11px] leading-none">🚩</span>
+                      <span className="text-red-400 leading-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3 inline-block">
+                          <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+                        </svg>
+                      </span>
                     )}
                     <span className="text-[11px] text-[#8b949e]">{question.duration}</span>
                     {isNowPlaying && (
@@ -574,7 +578,9 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
             className="flex-1 py-2.5 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 text-xs font-bold flex items-center justify-center gap-1.5 active:bg-red-500/20 transition-colors"
             onClick={handlePlayWeak}
           >
-            <span className="text-sm leading-none">🚩</span>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+              <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+            </svg>
             취약 재생
           </button>
         </div>
@@ -752,7 +758,11 @@ function WeakListSheet({ subject, subjectId, onClose, onPlayAll, onPlayOne }: We
         {/* 헤더 */}
         <div className="px-5 pt-3 pb-2 flex items-center justify-between shrink-0">
           <h3 className="text-sm font-bold text-white">
-            <span className="mr-1">🚩</span>
+            <span className="mr-1 inline-flex text-red-400">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+                <path d="M12 2L4.5 20.29l.71.71L12 18l6.79 3 .71-.71z"/>
+              </svg>
+            </span>
             취약 케이스
             <span className="text-[#8b949e] font-normal ml-2">{weakItems.length}개</span>
           </h3>
@@ -780,7 +790,7 @@ function WeakListSheet({ subject, subjectId, onClose, onPlayAll, onPlayOne }: We
             <div className="text-center py-12">
               <p className="text-[#8b949e] text-sm">아직 취약 마킹된 케이스가 없습니다</p>
               <p className="text-[#8b949e]/50 text-[11px] mt-1.5">
-                목록에서 🚩 버튼으로 취약 마킹하세요
+                목록에서 취약 버튼으로 마킹하세요
               </p>
             </div>
           ) : (
@@ -803,7 +813,7 @@ function WeakListSheet({ subject, subjectId, onClose, onPlayAll, onPlayOne }: We
                   <p className="text-[11px] text-[#8b949e] truncate">{subtitle}</p>
                 </div>
 
-                {/* 🚩 해제 버튼 */}
+                {/* 취약 해제 버튼 */}
                 <button
                   className="shrink-0 w-7 h-7 flex items-center justify-center rounded-full text-red-400/50 active:text-red-400 active:bg-red-500/10 transition-colors"
                   onClick={(e) => handleRemoveWeak(item.questionId, e)}

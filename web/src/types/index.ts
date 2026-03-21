@@ -65,6 +65,8 @@ export interface PlaylistItem {
   subjectId: string;
   fileId: string;
   questionId: string;
+  /** 북마크 재생 시 해당 문장부터 시작 (미지정 시 0) */
+  sentenceIndex?: number;
 }
 
 export interface PlayerState {

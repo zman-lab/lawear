@@ -512,19 +512,34 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           // 전체 playlist 완료
           nativeSequenceActiveRef.current = false;
           const mode = stateRef.current.repeatMode;
-          if (mode === 'repeat-all' && current.playlist.length > 0) {
+          const latestState = stateRef.current;
+
+          if (mode === 'repeat-one') {
+            // 1곡 반복: 현재 트랙을 sentenceIndex부터 다시 재생
+            const currentItem = latestState.playlist.length > 0
+              ? latestState.playlist[latestState.playlistIndex]
+              : null;
+            const repeatStart = currentItem?.sentenceIndex ?? 0;
+            sentenceIndexRef.current = repeatStart;
+            stateRef.current = { ...stateRef.current, isPlaying: true, currentSentenceIndex: repeatStart };
+            setState((prev) => ({ ...prev, isPlaying: true, currentSentenceIndex: repeatStart }));
+            console.log('[Player] isPlaying changed to', true, 'reason: repeat-one restart (native)');
+            startNativeSequence(repeatStart, stateRef.current.speed);
+          } else if (mode === 'repeat-all' && latestState.playlist.length > 0) {
             // 전곡반복: 처음부터 다시 — isPlaying 유지
-            const first = current.playlist[0];
-            const newSents = getSentences(first.subjectId, first.fileId, first.questionId, current.level);
+            const first = latestState.playlist[0];
+            const firstStart = first.sentenceIndex ?? 0;
+            const newSents = getSentences(first.subjectId, first.fileId, first.questionId, latestState.level);
+            const clampedStart = Math.max(0, Math.min(firstStart, newSents.length - 1));
             sentencesRef.current = newSents;
-            sentenceIndexRef.current = 0;
+            sentenceIndexRef.current = clampedStart;
             stateRef.current = {
               ...stateRef.current,
               isPlaying: true,
               currentSubjectId: first.subjectId,
               currentFileId: first.fileId,
               currentQuestionId: first.questionId,
-              currentSentenceIndex: 0,
+              currentSentenceIndex: clampedStart,
               playlistIndex: 0,
             };
             setState((prev) => ({
@@ -533,11 +548,43 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               currentSubjectId: first.subjectId,
               currentFileId: first.fileId,
               currentQuestionId: first.questionId,
-              currentSentenceIndex: 0,
+              currentSentenceIndex: clampedStart,
               playlistIndex: 0,
             }));
             console.log('[Player] isPlaying changed to', true, 'reason: repeat-all restart');
-            startNativeSequence(0, stateRef.current.speed);
+            startNativeSequence(clampedStart, stateRef.current.speed);
+          } else if (mode === 'shuffle' && latestState.playlist.length > 0) {
+            // 셔플: 랜덤 트랙 선택
+            const candidates = latestState.playlist.filter((_, i) => i !== latestState.playlistIndex);
+            const nextItem = candidates.length > 0
+              ? candidates[Math.floor(Math.random() * candidates.length)]
+              : latestState.playlist[latestState.playlistIndex];
+            const nextIdx = latestState.playlist.indexOf(nextItem);
+            const nextStart = nextItem.sentenceIndex ?? 0;
+            const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId, latestState.level);
+            const clampedNext = Math.max(0, Math.min(nextStart, newSents.length - 1));
+            sentencesRef.current = newSents;
+            sentenceIndexRef.current = clampedNext;
+            stateRef.current = {
+              ...stateRef.current,
+              isPlaying: true,
+              currentSubjectId: nextItem.subjectId,
+              currentFileId: nextItem.fileId,
+              currentQuestionId: nextItem.questionId,
+              currentSentenceIndex: clampedNext,
+              playlistIndex: nextIdx,
+            };
+            setState((prev) => ({
+              ...prev,
+              isPlaying: true,
+              currentSubjectId: nextItem.subjectId,
+              currentFileId: nextItem.fileId,
+              currentQuestionId: nextItem.questionId,
+              currentSentenceIndex: clampedNext,
+              playlistIndex: nextIdx,
+            }));
+            console.log('[Player] isPlaying changed to', true, 'reason: shuffle restart (native)');
+            startNativeSequence(clampedNext, stateRef.current.speed);
           } else {
             console.log('[Player] isPlaying changed to', false, 'reason: native sequence complete');
             stateRef.current = { ...stateRef.current, isPlaying: false };
@@ -650,11 +697,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
             // 플레이리스트가 있으면 repeatMode를 먼저 체크
             if (playlist.length > 0) {
-              // repeat-one: 항상 현재 트랙 반복
+              // repeat-one: 항상 현재 트랙 반복 (sentenceIndex가 있으면 그 위치부터)
               if (mode === 'repeat-one') {
-                setState((prev) => ({ ...prev, currentSentenceIndex: 0 }));
-                sentenceIndexRef.current = 0;
-                speakCurrentSentence(0, stateRef.current.speed);
+                const currentItem = playlist[playlistIndex];
+                const repeatStart = currentItem?.sentenceIndex ?? 0;
+                setState((prev) => ({ ...prev, currentSentenceIndex: repeatStart }));
+                sentenceIndexRef.current = repeatStart;
+                speakCurrentSentence(repeatStart, stateRef.current.speed);
                 return;
               }
 
@@ -671,21 +720,24 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 const candidates = playlist.filter((_, i) => i !== playlistIndex);
                 if (candidates.length === 0) {
                   // 1곡짜리면 자기 자신 반복
-                  setState((prev) => ({ ...prev, currentSentenceIndex: 0 }));
-                  sentenceIndexRef.current = 0;
-                  speakCurrentSentence(0, stateRef.current.speed);
+                  const selfStart = playlist[playlistIndex]?.sentenceIndex ?? 0;
+                  setState((prev) => ({ ...prev, currentSentenceIndex: selfStart }));
+                  sentenceIndexRef.current = selfStart;
+                  speakCurrentSentence(selfStart, stateRef.current.speed);
                 } else {
                   const randomItem = candidates[Math.floor(Math.random() * candidates.length)];
                   const randomIdx = playlist.indexOf(randomItem);
+                  const randomStart = randomItem.sentenceIndex ?? 0;
                   const newSents = getSentences(randomItem.subjectId, randomItem.fileId, randomItem.questionId);
+                  const clampedRand = Math.max(0, Math.min(randomStart, newSents.length - 1));
                   sentencesRef.current = newSents;
-                  sentenceIndexRef.current = 0;
+                  sentenceIndexRef.current = clampedRand;
                   stateRef.current = {
                     ...stateRef.current,
                     currentSubjectId: randomItem.subjectId,
                     currentFileId: randomItem.fileId,
                     currentQuestionId: randomItem.questionId,
-                    currentSentenceIndex: 0,
+                    currentSentenceIndex: clampedRand,
                     playlistIndex: randomIdx,
                   };
                   setState((prev) => ({
@@ -693,10 +745,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                     currentSubjectId: randomItem.subjectId,
                     currentFileId: randomItem.fileId,
                     currentQuestionId: randomItem.questionId,
-                    currentSentenceIndex: 0,
+                    currentSentenceIndex: clampedRand,
                     playlistIndex: randomIdx,
                   }));
-                  speakCurrentSentence(0, stateRef.current.speed);
+                  speakCurrentSentence(clampedRand, stateRef.current.speed);
                 }
                 return;
               }
@@ -705,15 +757,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               const nextTrackIdx = playlistIndex + 1;
               if (nextTrackIdx < playlist.length) {
                 const nextItem = playlist[nextTrackIdx];
+                const nextStartSent = nextItem.sentenceIndex ?? 0;
                 const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId);
+                const clampedStart = Math.max(0, Math.min(nextStartSent, newSents.length - 1));
                 sentencesRef.current = newSents;
-                sentenceIndexRef.current = 0;
+                sentenceIndexRef.current = clampedStart;
                 stateRef.current = {
                   ...stateRef.current,
                   currentSubjectId: nextItem.subjectId,
                   currentFileId: nextItem.fileId,
                   currentQuestionId: nextItem.questionId,
-                  currentSentenceIndex: 0,
+                  currentSentenceIndex: clampedStart,
                   playlistIndex: nextTrackIdx,
                 };
                 setState((prev) => ({
@@ -721,21 +775,23 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   currentSubjectId: nextItem.subjectId,
                   currentFileId: nextItem.fileId,
                   currentQuestionId: nextItem.questionId,
-                  currentSentenceIndex: 0,
+                  currentSentenceIndex: clampedStart,
                   playlistIndex: nextTrackIdx,
                 }));
-                speakCurrentSentence(0, stateRef.current.speed);
+                speakCurrentSentence(clampedStart, stateRef.current.speed);
               } else if (mode === 'repeat-all') {
                 const firstItem = playlist[0];
+                const firstStartSent = firstItem.sentenceIndex ?? 0;
                 const newSents = getSentences(firstItem.subjectId, firstItem.fileId, firstItem.questionId);
+                const clampedFirst = Math.max(0, Math.min(firstStartSent, newSents.length - 1));
                 sentencesRef.current = newSents;
-                sentenceIndexRef.current = 0;
+                sentenceIndexRef.current = clampedFirst;
                 stateRef.current = {
                   ...stateRef.current,
                   currentSubjectId: firstItem.subjectId,
                   currentFileId: firstItem.fileId,
                   currentQuestionId: firstItem.questionId,
-                  currentSentenceIndex: 0,
+                  currentSentenceIndex: clampedFirst,
                   playlistIndex: 0,
                 };
                 setState((prev) => ({
@@ -743,10 +799,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   currentSubjectId: firstItem.subjectId,
                   currentFileId: firstItem.fileId,
                   currentQuestionId: firstItem.questionId,
-                  currentSentenceIndex: 0,
+                  currentSentenceIndex: clampedFirst,
                   playlistIndex: 0,
                 }));
-                speakCurrentSentence(0, stateRef.current.speed);
+                speakCurrentSentence(clampedFirst, stateRef.current.speed);
               } else {
                 // stop-after-all: 전곡 끝 → 정지
                 console.log('[Player] isPlaying changed to', false, 'reason: stop-after-all playlist end (web)');
