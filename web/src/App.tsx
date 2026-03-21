@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Browser } from '@capacitor/browser';
 import { Capacitor } from '@capacitor/core';
+import { App as CapacitorApp } from '@capacitor/app';
 import { PlayerProvider } from './context/PlayerContext';
 import { HomeScreen } from './components/screens/HomeScreen';
 import { ListScreen } from './components/screens/ListScreen';
@@ -87,6 +88,29 @@ export default function App() {
       setScreen(prev);
     }
   };
+
+  // Android 뒤로가기 제스처 → 앱 내 네비게이션으로 처리 (백그라운드 방지)
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const listener = CapacitorApp.addListener('backButton', () => {
+      setHistory((h) => {
+        if (h.length > 0) {
+          const prev = h[h.length - 1];
+          log.nav('back_button', { to: prev.type });
+          setScreen(prev);
+          return h.slice(0, -1);
+        } else {
+          log.nav('back_button', { to: 'minimize' });
+          CapacitorApp.minimizeApp();
+          return h;
+        }
+      });
+    });
+    return () => {
+      listener.then((l: { remove: () => void }) => l.remove());
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <PlayerProvider>

@@ -716,18 +716,31 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const selectQuestion = useCallback(
     (subjectId: string, fileId: string, questionId: string) => {
       log.player('select_question', { subjectId, fileId, questionId });
+      // 케이스 전환 시 진행 중인 TTS를 먼저 완전히 중단
+      stopNativeSequence();
+      cancel();
+      const sents = getSentences(subjectId, fileId, questionId, stateRef.current.level);
+      sentencesRef.current = sents;
+      sentenceIndexRef.current = 0;
+      // stateRef도 즉시 갱신하여 togglePlay 재개 시 올바른 케이스를 참조하도록 함
+      stateRef.current = {
+        ...stateRef.current,
+        currentSubjectId: subjectId,
+        currentFileId: fileId,
+        currentQuestionId: questionId,
+        currentSentenceIndex: 0,
+        isPlaying: false,
+      };
       setState((prev) => ({
         ...prev,
         currentSubjectId: subjectId,
         currentFileId: fileId,
         currentQuestionId: questionId,
         currentSentenceIndex: 0,
+        isPlaying: false,
       }));
-      sentenceIndexRef.current = 0;
-      const sents = getSentences(subjectId, fileId, questionId);
-      sentencesRef.current = sents;
     },
-    [],
+    [cancel, stopNativeSequence],
   );
 
   // ── play (단일 문제 재생 — 플레이리스트 1개짜리로 설정) ─────────────────
@@ -843,17 +856,26 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       pause();
       setState((prev) => ({ ...prev, isPlaying: false }));
     } else {
-      // playlist가 비어있으면 현재 파일의 전체 케이스로 자동 설정
-      if (current.playlist.length === 0 && current.currentSubjectId && current.currentFileId && current.currentQuestionId) {
-        const filePlaylist = getFilePlaylist(current.currentSubjectId, current.currentFileId);
-        const idx = filePlaylist.findIndex((i) => i.questionId === current.currentQuestionId);
-        setState((prev) => ({
-          ...prev,
-          isPlaying: true,
-          playlist: filePlaylist,
-          playlistIndex: idx >= 0 ? idx : 0,
-        }));
-        stateRef.current = { ...stateRef.current, isPlaying: true, playlist: filePlaylist, playlistIndex: idx >= 0 ? idx : 0 };
+      // 케이스가 변경된 경우(selectQuestion 후 재생): playlist를 새 케이스 기준으로 재설정
+      // 또는 playlist가 비어있으면 현재 파일의 전체 케이스로 자동 설정
+      const playlistMismatch =
+        current.playlist.length > 0 &&
+        current.playlist[current.playlistIndex >= 0 ? current.playlistIndex : 0]?.questionId !== current.currentQuestionId;
+      if (current.playlist.length === 0 || playlistMismatch) {
+        if (current.currentSubjectId && current.currentFileId && current.currentQuestionId) {
+          const filePlaylist = getFilePlaylist(current.currentSubjectId, current.currentFileId);
+          const idx = filePlaylist.findIndex((i) => i.questionId === current.currentQuestionId);
+          const newPlaylistIndex = idx >= 0 ? idx : 0;
+          stateRef.current = { ...stateRef.current, isPlaying: true, playlist: filePlaylist, playlistIndex: newPlaylistIndex };
+          setState((prev) => ({
+            ...prev,
+            isPlaying: true,
+            playlist: filePlaylist,
+            playlistIndex: newPlaylistIndex,
+          }));
+        } else {
+          setState((prev) => ({ ...prev, isPlaying: true }));
+        }
       } else {
         setState((prev) => ({ ...prev, isPlaying: true }));
       }
