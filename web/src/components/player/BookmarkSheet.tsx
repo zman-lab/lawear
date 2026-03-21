@@ -81,6 +81,7 @@ export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
   );
 
   // 전체 북마크 순차 재생 (중복 문제 제거, 북마크 순서 유지)
+  // 첫 번째 북마크의 sentenceIndex부터 재생 시작
   const handlePlayAll = useCallback(() => {
     if (bookmarks.length === 0) return;
     const seen = new Set<string>();
@@ -97,14 +98,11 @@ export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
         questionId: bm.questionId,
       }));
     if (items.length === 0) return;
-    playSelected(items, 0);
-    // 첫 번째 북마크 문장으로 이동 (playSelected가 speakCurrentSentence(0)을 호출하므로 딜레이 후 덮어쓰기)
-    const first = bookmarks[0];
-    if (first.sentenceIndex > 0) {
-      setTimeout(() => setSentenceIndex(first.sentenceIndex), 150);
-    }
+    // 첫 번째 북마크의 sentenceIndex를 playSelected에 직접 전달
+    const firstSentenceIndex = bookmarks[0].sentenceIndex;
+    playSelected(items, 0, firstSentenceIndex);
     onClose();
-  }, [bookmarks, playSelected, setSentenceIndex, onClose]);
+  }, [bookmarks, playSelected, onClose]);
 
   const handleDelete = useCallback(
     (id: string, e: React.MouseEvent) => {

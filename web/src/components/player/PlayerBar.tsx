@@ -7,6 +7,7 @@ import { SpeedSheet } from './SpeedSheet';
 import { RepeatModeSheet } from './RepeatModeSheet';
 import { PlaylistSheet } from './PlaylistSheet';
 import { BookmarkSheet } from './BookmarkSheet';
+import { ABSegmentSheet } from './ABSegmentSheet';
 import { isWeakMarked, toggleWeakMark } from '../../services/weakMark';
 import { isBookmarked } from '../../services/bookmark';
 import type { Speed, RepeatMode } from '../../types';
@@ -81,6 +82,7 @@ export function PlayerBar() {
   const [showRepeatSheet, setShowRepeatSheet] = useState(false);
   const [showPlaylistSheet, setShowPlaylistSheet] = useState(false);
   const [showBookmarkSheet, setShowBookmarkSheet] = useState(false);
+  const [showABSegmentSheet, setShowABSegmentSheet] = useState(false);
 
   const {
     isPlaying,
@@ -260,6 +262,20 @@ export function PlayerBar() {
           )}
         </button>
 
+        {/* A-B 구간 저장 목록 */}
+        <button
+          className={`flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center transition-colors ${
+            state.isRepeatingSectionActive ? 'text-green-400' : 'text-[#8b949e]'
+          }`}
+          onClick={() => setShowABSegmentSheet(true)}
+          aria-label="A-B 구간 저장 목록"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z" />
+          </svg>
+          <span className="text-[8px] leading-none">구간저장</span>
+        </button>
+
         {/* 플레이리스트 */}
         <button
           className={`flex flex-col items-center gap-0.5 min-w-[38px] min-h-[36px] justify-center transition-colors ${
@@ -431,6 +447,10 @@ export function PlayerBar() {
           // 북마크 시트 닫을 때 현재 문제 북마크 상태 갱신
           setBookmarkedForCurrent(currentQuestionId ? isBookmarked(currentQuestionId) : false);
         }}
+      />
+      <ABSegmentSheet
+        isOpen={showABSegmentSheet}
+        onClose={() => setShowABSegmentSheet(false)}
       />
     </div>
   );

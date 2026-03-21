@@ -211,7 +211,7 @@ interface PlayerContextValue {
   prevQuestion: () => void;
   playSubject: (subjectId: string) => void;
   playFile: (subjectId: string, fileId: string) => void;
-  playSelected: (items: PlaylistItem[], startIndex?: number) => void;
+  playSelected: (items: PlaylistItem[], startIndex?: number, startSentenceIndex?: number) => void;
   jumpToPlaylistIndex: (idx: number) => void;
   toggleRepeatSection: () => void;
   clearRepeatSection: () => void;
@@ -980,11 +980,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── playSelected (선택된 항목들 재생) ─────────────────────────────────────
   const playSelected = useCallback(
-    (items: PlaylistItem[], startIndex: number = 0) => {
-      log.player('play_selected', { count: items.length, startIndex });
+    (items: PlaylistItem[], startIndex: number = 0, startSentenceIndex: number = 0) => {
+      log.player('play_selected', { count: items.length, startIndex, startSentenceIndex });
       if (items.length === 0) return;
       const idx = Math.max(0, Math.min(startIndex, items.length - 1));
       const target = items[idx];
+      const sents = getSentences(target.subjectId, target.fileId, target.questionId);
+      const clampedSentIdx = Math.max(0, Math.min(startSentenceIndex, sents.length - 1));
       console.log('[Player] isPlaying changed to', true, 'reason: playSelected');
       stateRef.current = { ...stateRef.current, isPlaying: true };
       setState((prev) => ({
@@ -993,7 +995,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentSubjectId: target.subjectId,
         currentFileId: target.fileId,
         currentQuestionId: target.questionId,
-        currentSentenceIndex: 0,
+        currentSentenceIndex: clampedSentIdx,
         playlist: items,
         playlistIndex: idx,
         // 선택 재생은 선택한 곡을 다 듣는 게 자연스러우므로 stop-after-all로 전환
@@ -1002,19 +1004,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         repeatSectionEnd: null,
         isRepeatingSectionActive: false,
       }));
-      sentenceIndexRef.current = 0;
+      sentenceIndexRef.current = clampedSentIdx;
       stateRef.current = {
         ...stateRef.current,
         currentSubjectId: target.subjectId,
         currentFileId: target.fileId,
         currentQuestionId: target.questionId,
-        currentSentenceIndex: 0,
+        currentSentenceIndex: clampedSentIdx,
         playlist: items,
         playlistIndex: idx,
       };
-      const sents = getSentences(target.subjectId, target.fileId, target.questionId);
       sentencesRef.current = sents;
-      speakCurrentSentence(0, stateRef.current.speed);
+      speakCurrentSentence(clampedSentIdx, stateRef.current.speed);
     },
     [speakCurrentSentence],
   );

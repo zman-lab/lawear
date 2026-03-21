@@ -272,10 +272,25 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
   const question = fileGroup?.questions.find((q) => q.id === displayQuestionId);
 
   // 플레이어 초기화 (처음 마운트 시 또는 문제 변경 시)
+  // 단, playSelected/playSubject 등으로 이미 재생 중이고 playlist에 해당 문제가 있으면
+  // selectQuestion을 호출하지 않는다 (selectQuestion은 isPlaying=false로 만들어 재생을 중단시킴)
   useEffect(() => {
     log.nav('player_open', { subjectId, fileId, questionId });
-    selectQuestion(subjectId, fileId, questionId);
-  }, [subjectId, fileId, questionId, selectQuestion]);
+    const isAlreadyPlayingThis =
+      state.isPlaying &&
+      state.playlist.length > 0 &&
+      state.playlist.some(
+        (item) =>
+          item.subjectId === subjectId &&
+          item.fileId === fileId &&
+          item.questionId === questionId,
+      ) &&
+      state.currentQuestionId === questionId;
+    if (!isAlreadyPlayingThis) {
+      selectQuestion(subjectId, fileId, questionId);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subjectId, fileId, questionId]);
 
   // 문장 ref 맵
   const sentenceRefs = useRef<Map<number, HTMLElement | null>>(new Map());
