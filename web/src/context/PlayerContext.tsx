@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor, registerPlugin, PluginListenerHandle } from '@capacitor/core';
 import { PlayerState, PlaylistItem, Speed, Level, ViewMode, RepeatMode, SleepTimer, TTSVoice } from '../types';
 import { subjects } from '../data/ttsData';
 import { insertArticleTitles } from '../utils/lawArticleHelper';
@@ -7,10 +7,11 @@ import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 
 // ── 네이티브 TTS 순차 재생 플러그인 (백그라운드 안전) ───────────────────────
 interface TTSFilePlugin {
-  speakSequence(opts: { texts: string[]; startIndex: number; rate: number; trackTitle?: string }): Promise<{ event: string; index: number }>;
+  speakSequence(opts: { texts: string[]; startIndex: number; rate: number; trackTitle?: string }): Promise<void>;
   stopSequence(): Promise<void>;
   updateSequenceRate(opts: { rate: number }): Promise<void>;
   jumpSequence(opts: { index: number }): Promise<void>;
+  addListener(eventName: 'sequenceEvent', handler: (ev: { event: string; index: number }) => void): Promise<PluginListenerHandle>;
 }
 const TTSFile = Capacitor.isNativePlatform()
   ? registerPlugin<TTSFilePlugin>('TTSFile')
@@ -359,6 +360,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── 네이티브 순차 재생 (백그라운드 안전) ─────────────────────────────────
   const nativeSequenceActiveRef = useRef(false);
   const isJumpingRef = useRef(false); // 구간 반복 jumpSequence 중복 방지
+  const sequenceListenerRef = useRef<PluginListenerHandle | null>(null);
 
   // playlist 전체 문장을 합쳐서 네이티브에 넘김 — 트랙 전환도 JS 없이 네이티브가 처리
   const buildAllSentences = useCallback(() => {
@@ -378,7 +380,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const startNativeSequence = useCallback(
-    (idx: number, speed: Speed) => {
+    async (idx: number, speed: Speed) => {
       if (!TTSFile) return;
 
       const { allSents, trackOffsets } = buildAllSentences();
@@ -402,127 +404,133 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         ? `${trackInfo.subject} · ${trackInfo.label}`
         : undefined;
 
-      const listen = () => {
-        if (!nativeSequenceActiveRef.current) return;
-        TTSFile.speakSequence({ texts: allSents, startIndex: absoluteIdx, rate: speed, trackTitle: nativeTrackTitle })
-          .then((ev) => {
-            if (!nativeSequenceActiveRef.current) return;
-            if (ev.event === 'start') {
-              // 절대 인덱스 → 어떤 트랙의 몇 번째 문장인지 계산
-              let trackIdx = 0;
-              let localIdx = ev.index;
-              for (let i = trackOffsets.length - 1; i >= 0; i--) {
-                if (ev.index >= trackOffsets[i]) {
-                  trackIdx = i;
-                  localIdx = ev.index - trackOffsets[i];
-                  break;
-                }
-              }
-              console.log('[AB Debug] start event', {
-                evIndex: ev.index,
-                trackIdx,
-                localIdx,
-                isActive: stateRef.current.isRepeatingSectionActive,
-                start: stateRef.current.repeatSectionStart,
-                end: stateRef.current.repeatSectionEnd,
-              });
-              // 구간 반복 체크 (네이티브 모드)
-              const rsNative = stateRef.current;
-              if (
-                rsNative.isRepeatingSectionActive &&
-                rsNative.repeatSectionStart !== null &&
-                rsNative.repeatSectionEnd !== null &&
-                localIdx > rsNative.repeatSectionEnd &&
-                !isJumpingRef.current
-              ) {
-                isJumpingRef.current = true;
-                const currentTrackIdx = stateRef.current.playlistIndex >= 0 ? stateRef.current.playlistIndex : 0;
-                const absoluteStartIdx = (trackOffsets[currentTrackIdx] ?? 0) + rsNative.repeatSectionStart;
-                console.log('[AB Debug] jumping to A', { jumpTarget: absoluteStartIdx });
-                TTSFile.jumpSequence({ index: absoluteStartIdx }).then(() => {
-                  isJumpingRef.current = false;
-                  setState((prev) => ({ ...prev, currentSentenceIndex: rsNative.repeatSectionStart! }));
-                  sentenceIndexRef.current = rsNative.repeatSectionStart!;
-                  listen();
-                }).catch(() => {
-                  isJumpingRef.current = false;
-                });
-                return;
-              } else if (rsNative.isRepeatingSectionActive) {
-                console.log('[AB Debug] no jump (condition not met)', { localIdx, end: stateRef.current.repeatSectionEnd });
-              }
+      // 기존 리스너 제거
+      if (sequenceListenerRef.current) {
+        sequenceListenerRef.current.remove();
+        sequenceListenerRef.current = null;
+      }
 
-              // 트랙 전환 감지
-              const prevTrackIdx = stateRef.current.playlistIndex;
-              if (trackIdx !== prevTrackIdx && current.playlist.length > 0) {
-                const item = current.playlist[trackIdx];
-                if (item) {
-                  const newSents = getSentences(item.subjectId, item.fileId, item.questionId, current.level);
-                  sentencesRef.current = newSents;
-                  stateRef.current = {
-                    ...stateRef.current,
-                    currentSubjectId: item.subjectId,
-                    currentFileId: item.fileId,
-                    currentQuestionId: item.questionId,
-                    playlistIndex: trackIdx,
-                  };
-                  setState((prev) => ({
-                    ...prev,
-                    currentSubjectId: item.subjectId,
-                    currentFileId: item.fileId,
-                    currentQuestionId: item.questionId,
-                    currentSentenceIndex: localIdx,
-                    playlistIndex: trackIdx,
-                  }));
-                }
-              } else {
-                setState((prev) => ({ ...prev, currentSentenceIndex: localIdx }));
-              }
-              sentenceIndexRef.current = localIdx;
-              listen();
-            } else if (ev.event === 'complete') {
-              // 전체 playlist 완료
-              nativeSequenceActiveRef.current = false;
-              const mode = stateRef.current.repeatMode;
-              if (mode === 'repeat-all' && current.playlist.length > 0) {
-                // 전곡반복: 처음부터 다시
-                const first = current.playlist[0];
-                const newSents = getSentences(first.subjectId, first.fileId, first.questionId, current.level);
-                sentencesRef.current = newSents;
-                sentenceIndexRef.current = 0;
-                stateRef.current = {
-                  ...stateRef.current,
-                  currentSubjectId: first.subjectId,
-                  currentFileId: first.fileId,
-                  currentQuestionId: first.questionId,
-                  currentSentenceIndex: 0,
-                  playlistIndex: 0,
-                };
-                setState((prev) => ({
-                  ...prev,
-                  currentSubjectId: first.subjectId,
-                  currentFileId: first.fileId,
-                  currentQuestionId: first.questionId,
-                  currentSentenceIndex: 0,
-                  playlistIndex: 0,
-                }));
-                startNativeSequence(0, stateRef.current.speed);
-              } else {
-                setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
-              }
+      // 이벤트 리스너 등록 (notifyListeners 방식)
+      sequenceListenerRef.current = await TTSFile.addListener('sequenceEvent', (ev) => {
+        if (!nativeSequenceActiveRef.current) return;
+
+        console.log('[AB Debug] sequenceEvent', {
+          event: ev.event,
+          index: ev.index,
+          isActive: stateRef.current.isRepeatingSectionActive,
+          start: stateRef.current.repeatSectionStart,
+          end: stateRef.current.repeatSectionEnd,
+        });
+
+        if (ev.event === 'start') {
+          // 절대 인덱스 → 어떤 트랙의 몇 번째 문장인지 계산
+          let trackIdx = 0;
+          let localIdx = ev.index;
+          for (let i = trackOffsets.length - 1; i >= 0; i--) {
+            if (ev.index >= trackOffsets[i]) {
+              trackIdx = i;
+              localIdx = ev.index - trackOffsets[i];
+              break;
             }
-          })
-          .catch(() => {
-            nativeSequenceActiveRef.current = false;
-          });
-      };
-      listen();
+          }
+
+          // 구간 반복 체크 (네이티브 모드)
+          const rsNative = stateRef.current;
+          if (
+            rsNative.isRepeatingSectionActive &&
+            rsNative.repeatSectionStart !== null &&
+            rsNative.repeatSectionEnd !== null &&
+            localIdx > rsNative.repeatSectionEnd &&
+            !isJumpingRef.current
+          ) {
+            isJumpingRef.current = true;
+            const currentTrackIdx = stateRef.current.playlistIndex >= 0 ? stateRef.current.playlistIndex : 0;
+            const absoluteStartIdx = (trackOffsets[currentTrackIdx] ?? 0) + rsNative.repeatSectionStart;
+            console.log('[AB Debug] jumping to A', { jumpTarget: absoluteStartIdx });
+            TTSFile.jumpSequence({ index: absoluteStartIdx }).then(() => {
+              isJumpingRef.current = false;
+              setState((prev) => ({ ...prev, currentSentenceIndex: rsNative.repeatSectionStart! }));
+              sentenceIndexRef.current = rsNative.repeatSectionStart!;
+            }).catch(() => {
+              isJumpingRef.current = false;
+            });
+            return;
+          } else if (rsNative.isRepeatingSectionActive) {
+            console.log('[AB Debug] no jump (condition not met)', { localIdx, end: stateRef.current.repeatSectionEnd });
+          }
+
+          // 트랙 전환 감지
+          const prevTrackIdx = stateRef.current.playlistIndex;
+          if (trackIdx !== prevTrackIdx && current.playlist.length > 0) {
+            const item = current.playlist[trackIdx];
+            if (item) {
+              const newSents = getSentences(item.subjectId, item.fileId, item.questionId, current.level);
+              sentencesRef.current = newSents;
+              stateRef.current = {
+                ...stateRef.current,
+                currentSubjectId: item.subjectId,
+                currentFileId: item.fileId,
+                currentQuestionId: item.questionId,
+                playlistIndex: trackIdx,
+              };
+              setState((prev) => ({
+                ...prev,
+                currentSubjectId: item.subjectId,
+                currentFileId: item.fileId,
+                currentQuestionId: item.questionId,
+                currentSentenceIndex: localIdx,
+                playlistIndex: trackIdx,
+              }));
+            }
+          } else {
+            setState((prev) => ({ ...prev, currentSentenceIndex: localIdx }));
+          }
+          sentenceIndexRef.current = localIdx;
+        } else if (ev.event === 'complete') {
+          // 전체 playlist 완료
+          nativeSequenceActiveRef.current = false;
+          const mode = stateRef.current.repeatMode;
+          if (mode === 'repeat-all' && current.playlist.length > 0) {
+            // 전곡반복: 처음부터 다시
+            const first = current.playlist[0];
+            const newSents = getSentences(first.subjectId, first.fileId, first.questionId, current.level);
+            sentencesRef.current = newSents;
+            sentenceIndexRef.current = 0;
+            stateRef.current = {
+              ...stateRef.current,
+              currentSubjectId: first.subjectId,
+              currentFileId: first.fileId,
+              currentQuestionId: first.questionId,
+              currentSentenceIndex: 0,
+              playlistIndex: 0,
+            };
+            setState((prev) => ({
+              ...prev,
+              currentSubjectId: first.subjectId,
+              currentFileId: first.fileId,
+              currentQuestionId: first.questionId,
+              currentSentenceIndex: 0,
+              playlistIndex: 0,
+            }));
+            startNativeSequence(0, stateRef.current.speed);
+          } else {
+            setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
+          }
+        }
+      });
+
+      // 시퀀스 시작 (Promise는 즉시 resolve)
+      await TTSFile.speakSequence({ texts: allSents, startIndex: absoluteIdx, rate: speed, trackTitle: nativeTrackTitle });
     },
     [buildAllSentences],
   );
 
   const stopNativeSequence = useCallback(() => {
     nativeSequenceActiveRef.current = false;
+    if (sequenceListenerRef.current) {
+      sequenceListenerRef.current.remove();
+      sequenceListenerRef.current = null;
+    }
     TTSFile?.stopSequence().catch(() => {});
   }, []);
 

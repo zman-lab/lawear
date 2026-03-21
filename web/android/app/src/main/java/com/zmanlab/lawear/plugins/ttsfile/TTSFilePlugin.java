@@ -58,7 +58,6 @@ public class TTSFilePlugin extends Plugin {
 
     private TtsPlaybackService playbackService;
     private boolean serviceBound = false;
-    private PluginCall sequenceCall = null;
 
     private final ServiceConnection serviceConnection = new ServiceConnection() {
         @Override
@@ -68,16 +67,14 @@ public class TTSFilePlugin extends Plugin {
             serviceBound = true;
             Log.i(TAG, "TtsPlaybackService connected");
 
-            // 콜백 등록 — Service → Plugin → JS
+            // 콜백 등록 — Service → Plugin → JS (notifyListeners 방식)
             playbackService.setCallback(new TtsPlaybackService.SequenceCallback() {
                 @Override
                 public void onSentenceStart(int index) {
-                    if (sequenceCall != null) {
-                        JSObject ev = new JSObject();
-                        ev.put("event", "start");
-                        ev.put("index", index);
-                        sequenceCall.resolve(ev);
-                    }
+                    JSObject ev = new JSObject();
+                    ev.put("event", "start");
+                    ev.put("index", index);
+                    notifyListeners("sequenceEvent", ev);
                 }
 
                 @Override
@@ -87,13 +84,10 @@ public class TTSFilePlugin extends Plugin {
 
                 @Override
                 public void onSequenceComplete(int completedIndex) {
-                    if (sequenceCall != null) {
-                        JSObject ev = new JSObject();
-                        ev.put("event", "complete");
-                        ev.put("index", completedIndex);
-                        sequenceCall.resolve(ev);
-                        sequenceCall = null;
-                    }
+                    JSObject ev = new JSObject();
+                    ev.put("event", "complete");
+                    ev.put("index", completedIndex);
+                    notifyListeners("sequenceEvent", ev);
                 }
             });
         }
@@ -336,10 +330,8 @@ public class TTSFilePlugin extends Plugin {
 
     // ── speakSequence (TtsPlaybackService에 위임) ─────────────────────────
 
-    @PluginMethod(returnType = PluginMethod.RETURN_CALLBACK)
+    @PluginMethod()
     public void speakSequence(PluginCall call) {
-        call.setKeepAlive(true);
-
         try {
             JSArray textsArr = call.getArray("texts");
             int startIndex = call.getInt("startIndex", 0);
@@ -368,8 +360,10 @@ public class TTSFilePlugin extends Plugin {
                 playbackService.setTrackInfo(trackTitle);
             }
 
-            sequenceCall = call;
             playbackService.speakSequence(texts, startIndex, rate);
+
+            // 즉시 성공 응답 — 이벤트는 notifyListeners("sequenceEvent")로 전달
+            call.resolve();
 
         } catch (Exception e) {
             call.reject("speakSequence failed: " + e.getMessage());
