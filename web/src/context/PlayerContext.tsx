@@ -481,12 +481,81 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             console.log('[AB Debug] no jump (condition not met)', { localIdx, end: stateRef.current.repeatSectionEnd });
           }
 
-          // 트랙 전환 감지
+          // 트랙 전환 감지 + 반복 모드 처리
           const prevTrackIdx = stateRef.current.playlistIndex;
-          if (trackIdx !== prevTrackIdx && current.playlist.length > 0) {
-            const item = current.playlist[trackIdx];
+          if (trackIdx !== prevTrackIdx && stateRef.current.playlist.length > 0) {
+            const mode = stateRef.current.repeatMode;
+
+            // repeat-one: 현재 트랙 시작점으로 되돌아가기
+            if (mode === 'repeat-one') {
+              if (isJumpingRef.current) return;
+              isJumpingRef.current = true;
+              const currentItem = stateRef.current.playlist[prevTrackIdx];
+              const jumpStart = currentItem?.sentenceIndex ?? 0;
+              const jumpAbsolute = (trackOffsets[prevTrackIdx] ?? 0) + jumpStart;
+              console.log('[Player] repeat-one: jumping back to track start', { prevTrackIdx, jumpStart, jumpAbsolute });
+              stateRef.current = { ...stateRef.current, currentSentenceIndex: jumpStart };
+              TTSFile!.jumpSequence({ index: jumpAbsolute }).then(() => {
+                isJumpingRef.current = false;
+              }).catch(() => {
+                isJumpingRef.current = false;
+              });
+              setState((prev) => ({ ...prev, currentSentenceIndex: jumpStart }));
+              sentenceIndexRef.current = jumpStart;
+              return;
+            }
+
+            // stop-after-one: 트랙 전환 시 정지
+            if (mode === 'stop-after-one') {
+              console.log('[Player] stop-after-one: stopping at track boundary');
+              nativeSequenceActiveRef.current = false;
+              TTSFile!.stopSequence().catch(() => {});
+              console.log('[Player] isPlaying changed to', false, 'reason: stop-after-one at track boundary');
+              stateRef.current = { ...stateRef.current, isPlaying: false };
+              setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
+              sentenceIndexRef.current = 0;
+              return;
+            }
+
+            // shuffle: 랜덤 트랙으로 점프
+            if (mode === 'shuffle') {
+              const pl = stateRef.current.playlist;
+              const indexed = pl.map((item, i) => ({ item, i })).filter(({ i }) => i !== prevTrackIdx);
+              const chosen = indexed.length > 0
+                ? indexed[Math.floor(Math.random() * indexed.length)]
+                : { item: pl[prevTrackIdx], i: prevTrackIdx };
+              const nextItem = chosen.item;
+              const nextPIdx = chosen.i;
+              const nextStart = nextItem.sentenceIndex ?? 0;
+              const jumpAbsolute = (trackOffsets[nextPIdx] ?? 0) + nextStart;
+              console.log('[Player] shuffle: jumping to random track', { nextPIdx, nextStart, jumpAbsolute });
+              const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId, stateRef.current.level);
+              sentencesRef.current = newSents;
+              sentenceIndexRef.current = nextStart;
+              stateRef.current = {
+                ...stateRef.current,
+                currentSubjectId: nextItem.subjectId,
+                currentFileId: nextItem.fileId,
+                currentQuestionId: nextItem.questionId,
+                currentSentenceIndex: nextStart,
+                playlistIndex: nextPIdx,
+              };
+              setState((prev) => ({
+                ...prev,
+                currentSubjectId: nextItem.subjectId,
+                currentFileId: nextItem.fileId,
+                currentQuestionId: nextItem.questionId,
+                currentSentenceIndex: nextStart,
+                playlistIndex: nextPIdx,
+              }));
+              TTSFile!.jumpSequence({ index: jumpAbsolute }).catch(() => {});
+              return;
+            }
+
+            // repeat-all, stop-after-all: 순차 진행 (기존 로직)
+            const item = stateRef.current.playlist[trackIdx];
             if (item) {
-              const newSents = getSentences(item.subjectId, item.fileId, item.questionId, current.level);
+              const newSents = getSentences(item.subjectId, item.fileId, item.questionId, stateRef.current.level);
               sentencesRef.current = newSents;
               stateRef.current = {
                 ...stateRef.current,
@@ -728,7 +797,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   const randomItem = candidates[Math.floor(Math.random() * candidates.length)];
                   const randomIdx = playlist.indexOf(randomItem);
                   const randomStart = randomItem.sentenceIndex ?? 0;
-                  const newSents = getSentences(randomItem.subjectId, randomItem.fileId, randomItem.questionId);
+                  const newSents = getSentences(randomItem.subjectId, randomItem.fileId, randomItem.questionId, current.level);
                   const clampedRand = Math.max(0, Math.min(randomStart, newSents.length - 1));
                   sentencesRef.current = newSents;
                   sentenceIndexRef.current = clampedRand;
@@ -758,7 +827,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               if (nextTrackIdx < playlist.length) {
                 const nextItem = playlist[nextTrackIdx];
                 const nextStartSent = nextItem.sentenceIndex ?? 0;
-                const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId);
+                const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId, current.level);
                 const clampedStart = Math.max(0, Math.min(nextStartSent, newSents.length - 1));
                 sentencesRef.current = newSents;
                 sentenceIndexRef.current = clampedStart;
@@ -782,7 +851,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               } else if (mode === 'repeat-all') {
                 const firstItem = playlist[0];
                 const firstStartSent = firstItem.sentenceIndex ?? 0;
-                const newSents = getSentences(firstItem.subjectId, firstItem.fileId, firstItem.questionId);
+                const newSents = getSentences(firstItem.subjectId, firstItem.fileId, firstItem.questionId, current.level);
                 const clampedFirst = Math.max(0, Math.min(firstStartSent, newSents.length - 1));
                 sentencesRef.current = newSents;
                 sentenceIndexRef.current = clampedFirst;
@@ -824,7 +893,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             } else if (mode === 'stop-after-all') {
               const nextQ = getAdjacentQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId, 1);
               if (nextQ) {
-                const newSents = getSentences(nextQ.subjectId, nextQ.fileId, nextQ.questionId);
+                const newSents = getSentences(nextQ.subjectId, nextQ.fileId, nextQ.questionId, current.level);
                 sentencesRef.current = newSents;
                 sentenceIndexRef.current = 0;
                 setState((prev) => ({
@@ -843,7 +912,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             } else if (mode === 'repeat-all') {
               const nextQ = getAdjacentQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId, 1);
               if (nextQ) {
-                const newSents = getSentences(nextQ.subjectId, nextQ.fileId, nextQ.questionId);
+                const newSents = getSentences(nextQ.subjectId, nextQ.fileId, nextQ.questionId, current.level);
                 sentencesRef.current = newSents;
                 sentenceIndexRef.current = 0;
                 setState((prev) => ({
@@ -857,7 +926,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               } else {
                 const firstQ = getFirstQuestionInFile(current.currentSubjectId, current.currentFileId);
                 if (firstQ) {
-                  const newSents = getSentences(firstQ.subjectId, firstQ.fileId, firstQ.questionId);
+                  const newSents = getSentences(firstQ.subjectId, firstQ.fileId, firstQ.questionId, current.level);
                   sentencesRef.current = newSents;
                   sentenceIndexRef.current = 0;
                   setState((prev) => ({
@@ -873,7 +942,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             } else if (mode === 'shuffle') {
               const randomQ = getRandomQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId);
               if (randomQ) {
-                const newSents = getSentences(randomQ.subjectId, randomQ.fileId, randomQ.questionId);
+                const newSents = getSentences(randomQ.subjectId, randomQ.fileId, randomQ.questionId, current.level);
                 sentencesRef.current = newSents;
                 sentenceIndexRef.current = 0;
                 setState((prev) => ({
