@@ -97,10 +97,12 @@ export function BookmarkSheet({ isOpen, onClose }: BookmarkSheetProps) {
         questionId: bm.questionId,
       }));
     if (items.length === 0) return;
-    playSelected(items);
-    // 첫 번째 북마크 문장으로 이동 (약간 딜레이)
+    playSelected(items, 0);
+    // 첫 번째 북마크 문장으로 이동 (playSelected가 speakCurrentSentence(0)을 호출하므로 딜레이 후 덮어쓰기)
     const first = bookmarks[0];
-    setTimeout(() => setSentenceIndex(first.sentenceIndex), 100);
+    if (first.sentenceIndex > 0) {
+      setTimeout(() => setSentenceIndex(first.sentenceIndex), 150);
+    }
     onClose();
   }, [bookmarks, playSelected, setSentenceIndex, onClose]);
 

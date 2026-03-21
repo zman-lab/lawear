@@ -418,6 +418,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   break;
                 }
               }
+              console.log('[AB Debug] start event', {
+                evIndex: ev.index,
+                trackIdx,
+                localIdx,
+                isActive: stateRef.current.isRepeatingSectionActive,
+                start: stateRef.current.repeatSectionStart,
+                end: stateRef.current.repeatSectionEnd,
+              });
               // 구간 반복 체크 (네이티브 모드)
               const rsNative = stateRef.current;
               if (
@@ -430,6 +438,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 isJumpingRef.current = true;
                 const currentTrackIdx = stateRef.current.playlistIndex >= 0 ? stateRef.current.playlistIndex : 0;
                 const absoluteStartIdx = (trackOffsets[currentTrackIdx] ?? 0) + rsNative.repeatSectionStart;
+                console.log('[AB Debug] jumping to A', { jumpTarget: absoluteStartIdx });
                 TTSFile.jumpSequence({ index: absoluteStartIdx }).then(() => {
                   isJumpingRef.current = false;
                   setState((prev) => ({ ...prev, currentSentenceIndex: rsNative.repeatSectionStart! }));
@@ -439,6 +448,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   isJumpingRef.current = false;
                 });
                 return;
+              } else if (rsNative.isRepeatingSectionActive) {
+                console.log('[AB Debug] no jump (condition not met)', { localIdx, end: stateRef.current.repeatSectionEnd });
               }
 
               // 트랙 전환 감지
@@ -556,6 +567,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         ...cacheOpts,
         onEnd: () => {
           const nextIdx = sentenceIndexRef.current + 1;
+          console.log('[AB Debug] onEnd', {
+            nextIdx,
+            isActive: stateRef.current.isRepeatingSectionActive,
+            start: stateRef.current.repeatSectionStart,
+            end: stateRef.current.repeatSectionEnd,
+          });
 
           // 구간 반복 체크: 다음 인덱스가 구간 종료를 넘으면 시작점으로 점프
           const rs = stateRef.current;
