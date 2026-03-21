@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { subjects } from '../../data/ttsData';
 import { usePlayer } from '../../context/PlayerContext';
 import { log } from '../../services/logger';
-import { loadFavorites, addItemToFavorite } from '../../services/favoritePlaylist';
+import { loadFavorites, addItemToFavorite, saveFavorite } from '../../services/favoritePlaylist';
 import { loadProgress, formatDate } from '../../services/learningProgress';
 import { loadWeakMarks, toggleWeakMark } from '../../services/weakMark';
 import type { FavoritePlaylist } from '../../services/favoritePlaylist';
@@ -831,10 +831,30 @@ interface AddToPlaylistSheetProps {
 }
 
 function AddToPlaylistSheet({ subjectId, selectedIds, onClose, onDone }: AddToPlaylistSheetProps) {
-  const favorites = loadFavorites();
+  const [favorites] = useState(() => loadFavorites());
   const subject = subjects.find((s) => s.id === subjectId);
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newName, setNewName] = useState('');
+  const newNameInputRef = useRef<HTMLInputElement>(null);
 
-  const handleAdd = (fav: FavoritePlaylist) => {
+  const trimmedName = newName.trim();
+
+  const buildSelectedItems = (): { subjectId: string; fileId: string; questionId: string }[] => {
+    if (!subject) return [];
+    const items: { subjectId: string; fileId: string; questionId: string }[] = [];
+    const added = new Set<string>();
+    for (const file of subject.files) {
+      for (const q of file.questions) {
+        if (selectedIds.has(q.id) && !added.has(q.id)) {
+          items.push({ subjectId, fileId: file.id, questionId: q.id });
+          added.add(q.id);
+        }
+      }
+    }
+    return items;
+  };
+
+  const handleAddToExisting = (fav: FavoritePlaylist) => {
     if (!subject) return;
     let added = 0;
     for (const file of subject.files) {
@@ -849,10 +869,24 @@ function AddToPlaylistSheet({ subjectId, selectedIds, onClose, onDone }: AddToPl
     onDone();
   };
 
+  const handleCreateNew = () => {
+    if (!trimmedName) return;
+    const items = buildSelectedItems();
+    const newFav: FavoritePlaylist = {
+      id: `fav-${Date.now()}`,
+      name: trimmedName,
+      items,
+      createdAt: Date.now(),
+    };
+    saveFavorite(newFav);
+    log.ui('list_create_favorite', { favId: newFav.id, name: trimmedName, count: items.length });
+    onDone();
+  };
+
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-[60]" onClick={onClose} />
-      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[70] bg-[#161b22] rounded-t-2xl border-t border-[#21262d] max-h-[50vh] flex flex-col">
+      <div className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-[70] bg-[#161b22] rounded-t-2xl border-t border-[#21262d] max-h-[60vh] flex flex-col">
         <div className="w-10 h-1 bg-white/10 rounded-full mx-auto mt-3 shrink-0" />
         <div className="px-5 pt-3 pb-2 flex items-center justify-between shrink-0">
           <h3 className="text-sm font-bold text-white">
@@ -861,23 +895,83 @@ function AddToPlaylistSheet({ subjectId, selectedIds, onClose, onDone }: AddToPl
           </h3>
           <button className="text-xs text-[#8b949e] px-2 py-1" onClick={onClose}>닫기</button>
         </div>
+
         <div className="flex-1 overflow-y-auto px-3 pb-6">
-          {favorites.length === 0 ? (
-            <p className="text-center text-[#8b949e] text-sm py-8">저장된 플레이리스트가 없습니다</p>
+          {/* 새 플레이리스트 만들기 */}
+          {!showNewForm ? (
+            <button
+              className="w-full text-left px-4 py-3 rounded-lg mb-2 flex items-center gap-3 active:bg-white/5 transition-colors border border-dashed border-[#30363d]"
+              onClick={() => {
+                setShowNewForm(true);
+                setTimeout(() => newNameInputRef.current?.focus(), 50);
+              }}
+            >
+              <span className="w-7 h-7 rounded-lg bg-blue-500/15 flex items-center justify-center text-blue-400 text-lg leading-none shrink-0">+</span>
+              <p className="text-sm text-blue-400 font-medium">새 플레이리스트 만들기</p>
+            </button>
           ) : (
-            favorites.map((fav) => (
-              <button
-                key={fav.id}
-                className="w-full text-left px-4 py-3 rounded-lg mb-1 flex items-center gap-3 active:bg-white/5 transition-colors"
-                onClick={() => handleAdd(fav)}
-              >
-                <span className="text-amber-400 text-lg">★</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-white font-medium truncate">{fav.name}</p>
-                  <p className="text-[10px] text-[#8b949e]">{fav.items.length}곡</p>
+            <div className="px-3 py-3 mb-2 rounded-lg border border-blue-500/30 bg-blue-500/5">
+              <input
+                ref={newNameInputRef}
+                type="text"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter' && trimmedName) handleCreateNew(); }}
+                placeholder="플레이리스트 이름"
+                className="w-full bg-[#0d1117] border border-[#30363d] rounded-lg px-3 py-2.5 text-sm text-white placeholder-[#8b949e]/50 outline-none focus:border-blue-500/50 transition-colors"
+                autoComplete="off"
+                maxLength={50}
+              />
+              <div className="flex gap-2 mt-2.5">
+                <button
+                  className="flex-1 py-2 rounded-lg text-xs font-bold text-[#8b949e] bg-white/5 active:bg-white/10 transition-colors"
+                  onClick={() => { setShowNewForm(false); setNewName(''); }}
+                >
+                  취소
+                </button>
+                <button
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${
+                    trimmedName
+                      ? 'bg-blue-500 text-white active:bg-blue-600'
+                      : 'bg-blue-500/20 text-blue-400/40 cursor-not-allowed'
+                  }`}
+                  onClick={handleCreateNew}
+                  disabled={!trimmedName}
+                >
+                  만들기 ({selectedIds.size}곡 추가)
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 기존 플레이리스트 목록 */}
+          {favorites.length > 0 && (
+            <>
+              {showNewForm && (
+                <div className="px-1 pt-1 pb-2">
+                  <p className="text-[10px] text-[#8b949e]/60 uppercase tracking-wider">기존 플레이리스트</p>
                 </div>
-              </button>
-            ))
+              )}
+              {favorites.map((fav) => (
+                <button
+                  key={fav.id}
+                  className="w-full text-left px-4 py-3 rounded-lg mb-1 flex items-center gap-3 active:bg-white/5 transition-colors"
+                  onClick={() => handleAddToExisting(fav)}
+                >
+                  <span className="text-amber-400 text-lg">★</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-white font-medium truncate">{fav.name}</p>
+                    <p className="text-[10px] text-[#8b949e]">{fav.items.length}곡</p>
+                  </div>
+                </button>
+              ))}
+            </>
+          )}
+
+          {favorites.length === 0 && !showNewForm && (
+            <p className="text-center text-[#8b949e]/50 text-[11px] py-4">
+              아직 플레이리스트가 없습니다. 위 버튼으로 만들어보세요!
+            </p>
           )}
         </div>
       </div>
