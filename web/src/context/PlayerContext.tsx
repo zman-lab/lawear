@@ -290,6 +290,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         const current = stateRef.current;
         if (!current.currentQuestionId) return;
         if (!current.isPlaying) {
+          console.log('[Player] isPlaying changed to', true, 'reason: MediaSession onPlay');
+          stateRef.current = { ...stateRef.current, isPlaying: true };
           setState((prev) => ({ ...prev, isPlaying: true }));
           // speakCurrentSentence는 아래 effect에서 호출됨
           mediaSessionResumeRef.current = true;
@@ -299,6 +301,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         const current = stateRef.current;
         if (current.isPlaying) {
           pause();
+          console.log('[Player] isPlaying changed to', false, 'reason: MediaSession onPause');
+          stateRef.current = { ...stateRef.current, isPlaying: false };
           setState((prev) => ({ ...prev, isPlaying: false }));
           updateMediaPlaybackState(false);
         }
@@ -434,6 +438,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         });
 
         if (ev.event === 'start') {
+          // 네이티브가 실제로 재생 시작 → isPlaying 보장
+          if (!stateRef.current.isPlaying) {
+            console.log('[Player] isPlaying changed to', true, 'reason: native sequenceEvent start');
+            stateRef.current = { ...stateRef.current, isPlaying: true };
+            setState((prev) => ({ ...prev, isPlaying: true }));
+          }
+
           // 절대 인덱스 → 어떤 트랙의 몇 번째 문장인지 계산
           let trackIdx = 0;
           let localIdx = ev.index;
@@ -502,13 +513,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           nativeSequenceActiveRef.current = false;
           const mode = stateRef.current.repeatMode;
           if (mode === 'repeat-all' && current.playlist.length > 0) {
-            // 전곡반복: 처음부터 다시
+            // 전곡반복: 처음부터 다시 — isPlaying 유지
             const first = current.playlist[0];
             const newSents = getSentences(first.subjectId, first.fileId, first.questionId, current.level);
             sentencesRef.current = newSents;
             sentenceIndexRef.current = 0;
             stateRef.current = {
               ...stateRef.current,
+              isPlaying: true,
               currentSubjectId: first.subjectId,
               currentFileId: first.fileId,
               currentQuestionId: first.questionId,
@@ -517,14 +529,18 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             };
             setState((prev) => ({
               ...prev,
+              isPlaying: true,
               currentSubjectId: first.subjectId,
               currentFileId: first.fileId,
               currentQuestionId: first.questionId,
               currentSentenceIndex: 0,
               playlistIndex: 0,
             }));
+            console.log('[Player] isPlaying changed to', true, 'reason: repeat-all restart');
             startNativeSequence(0, stateRef.current.speed);
           } else {
+            console.log('[Player] isPlaying changed to', false, 'reason: native sequence complete');
+            stateRef.current = { ...stateRef.current, isPlaying: false };
             setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
           }
         }
@@ -552,6 +568,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const sents = sentencesRef.current;
       if (idx >= sents.length) {
         // 모든 문장 완료 → 정지
+        console.log('[Player] isPlaying changed to', false, 'reason: all sentences complete (web)');
+        stateRef.current = { ...stateRef.current, isPlaying: false };
         setState((prev) => ({
           ...prev,
           isPlaying: false,
@@ -642,6 +660,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
               // stop-after-one: 현재 트랙 끝나면 정지
               if (mode === 'stop-after-one') {
+                console.log('[Player] isPlaying changed to', false, 'reason: stop-after-one (web)');
+                stateRef.current = { ...stateRef.current, isPlaying: false };
                 setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
                 return;
               }
@@ -729,6 +749,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 speakCurrentSentence(0, stateRef.current.speed);
               } else {
                 // stop-after-all: 전곡 끝 → 정지
+                console.log('[Player] isPlaying changed to', false, 'reason: stop-after-all playlist end (web)');
+                stateRef.current = { ...stateRef.current, isPlaying: false };
                 setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
               }
               return;
@@ -736,6 +758,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
             // 플레이리스트 없으면 기존 repeatMode 로직
             if (mode === 'stop-after-one') {
+              console.log('[Player] isPlaying changed to', false, 'reason: stop-after-one no-playlist (web)');
+              stateRef.current = { ...stateRef.current, isPlaying: false };
               setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
             } else if (mode === 'repeat-one') {
               setState((prev) => ({ ...prev, currentSentenceIndex: 0 }));
@@ -756,6 +780,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 }));
                 speakCurrentSentence(0, stateRef.current.speed);
               } else {
+                console.log('[Player] isPlaying changed to', false, 'reason: stop-after-all no-playlist end (web)');
+                stateRef.current = { ...stateRef.current, isPlaying: false };
                 setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
               }
             } else if (mode === 'repeat-all') {
@@ -869,6 +895,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       // 같은 파일의 전체 케이스를 playlist에 넣어서 전곡반복/다음트랙이 자연스럽게 동작
       const filePlaylist = getFilePlaylist(subjectId, fileId);
       const idx = filePlaylist.findIndex((i) => i.questionId === questionId);
+      console.log('[Player] isPlaying changed to', true, 'reason: play');
+      stateRef.current = { ...stateRef.current, isPlaying: true };
       setState((prev) => ({
         ...prev,
         isPlaying: true,
@@ -897,6 +925,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const playlist = getSubjectPlaylist(subjectId);
       if (playlist.length === 0) return;
       const first = playlist[0];
+      console.log('[Player] isPlaying changed to', true, 'reason: playSubject');
+      stateRef.current = { ...stateRef.current, isPlaying: true };
       setState((prev) => ({
         ...prev,
         isPlaying: true,
@@ -925,6 +955,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const playlist = getFilePlaylist(subjectId, fileId);
       if (playlist.length === 0) return;
       const first = playlist[0];
+      console.log('[Player] isPlaying changed to', true, 'reason: playFile');
+      stateRef.current = { ...stateRef.current, isPlaying: true };
       setState((prev) => ({
         ...prev,
         isPlaying: true,
@@ -953,6 +985,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (items.length === 0) return;
       const idx = Math.max(0, Math.min(startIndex, items.length - 1));
       const target = items[idx];
+      console.log('[Player] isPlaying changed to', true, 'reason: playSelected');
+      stateRef.current = { ...stateRef.current, isPlaying: true };
       setState((prev) => ({
         ...prev,
         isPlaying: true,
@@ -995,6 +1029,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       // 일시정지: 네이티브 Service도 중단
       stopNativeSequence();
       pause();
+      console.log('[Player] isPlaying changed to', false, 'reason: togglePlay pause');
+      stateRef.current = { ...stateRef.current, isPlaying: false };
       setState((prev) => ({ ...prev, isPlaying: false }));
     } else {
       // 케이스가 변경된 경우(selectQuestion 후 재생): playlist를 새 케이스 기준으로 재설정
@@ -1015,12 +1051,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             playlistIndex: newPlaylistIndex,
           }));
         } else {
+          stateRef.current = { ...stateRef.current, isPlaying: true };
           setState((prev) => ({ ...prev, isPlaying: true }));
         }
       } else {
+        stateRef.current = { ...stateRef.current, isPlaying: true };
         setState((prev) => ({ ...prev, isPlaying: true }));
       }
 
+      console.log('[Player] isPlaying changed to', true, 'reason: togglePlay resume');
       // 재개: 현재 문장부터 다시 시작
       speakCurrentSentence(current.currentSentenceIndex, current.speed);
     }
@@ -1031,6 +1070,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     log.player('stop');
     stopNativeSequence();
     cancel();
+    console.log('[Player] isPlaying changed to', false, 'reason: stop');
+    stateRef.current = { ...stateRef.current, isPlaying: false };
     setState((prev) => ({
       ...prev,
       isPlaying: false,
@@ -1105,6 +1146,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       setSleepTimerRemaining(remaining);
       if (remaining <= 0) {
         cancel();
+        console.log('[Player] isPlaying changed to', false, 'reason: sleepTimer expired');
+        stateRef.current = { ...stateRef.current, isPlaying: false };
         setState((prev) => ({
           ...prev,
           isPlaying: false,
@@ -1289,8 +1332,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     const sents = getSentences(item.subjectId, item.fileId, item.questionId);
     sentencesRef.current = sents;
     sentenceIndexRef.current = 0;
+    console.log('[Player] isPlaying changed to', true, 'reason: jumpToPlaylistIndex');
     stateRef.current = {
       ...stateRef.current,
+      isPlaying: true,
       currentSubjectId: item.subjectId,
       currentFileId: item.fileId,
       currentQuestionId: item.questionId,
