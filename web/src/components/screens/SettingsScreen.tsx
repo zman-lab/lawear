@@ -74,7 +74,7 @@ const BATTERY_OPTIMIZATION_KEY = 'lawear-battery-optimization';
 
 function loadBatteryOptimization(): boolean {
   const raw = localStorage.getItem(BATTERY_OPTIMIZATION_KEY);
-  return raw === null ? true : raw === 'true';
+  return raw === null ? false : raw === 'true';
 }
 
 const SLEEP_OPTIONS: { label: string; value: number }[] = [

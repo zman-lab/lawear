@@ -15,7 +15,9 @@ function getNativePlugin(): TTSFilePluginSleep | null {
 }
 
 const UNLOCK_TIMEOUT_MS = 5_000;      // UNLOCK_PROMPT → SLEEP (5초)
-const TAP_WINDOW_MS = 3_000;          // 연속 탭 허용 시간 (3초)
+const TAP_WINDOW_MS = 800;            // 노크 템포: 0.8초 이내 3탭
+const TAP_MIN_INTERVAL_MS = 50;       // 최소 탭 간격 (바운스 방지)
+const TAP_MOVE_THRESHOLD = 10;        // 드래그 필터: 10px 이상 이동 시 무시
 const REQUIRED_TAPS = 3;              // 해제에 필요한 탭 수
 const SLEEP_TIMEOUT_KEY = 'lawear-sleep-timeout';
 const SLEEP_TIMEOUT_DEFAULT = 10;     // 기본값 10초
@@ -50,6 +52,11 @@ export function SleepOverlay() {
   const tapTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tapCountRef = useRef(0);
   const pluginRef = useRef<TTSFilePluginSleep | null>(null);
+
+  // 노크 방식: 터치 위치 + 타이밍 추적
+  const touchStartPos = useRef<{ x: number; y: number } | null>(null);
+  const firstTapTime = useRef<number>(0);   // 첫 탭 시각
+  const lastTapTime = useRef<number>(0);    // 마지막 탭 시각
 
   // 플러그인 초기화 (1회)
   useEffect(() => {
@@ -119,10 +126,43 @@ export function SleepOverlay() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // SLEEP → 첫 탭: UNLOCK_PROMPT로 전환
-  const handleSleepTap = (e: React.TouchEvent | React.MouseEvent) => {
+  // ── 터치 이벤트 핸들러 (드래그 필터링 + 노크 템포) ──────────────────
+
+  // touchstart: 위치 기록
+  const handleTouchStart = (e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    touchStartPos.current = {
+      x: e.touches[0].clientX,
+      y: e.touches[0].clientY,
+    };
+  };
+
+  // 드래그 판정 유틸
+  const isDrag = (e: React.TouchEvent): boolean => {
+    if (!touchStartPos.current) return true;
+    const dx = e.changedTouches[0].clientX - touchStartPos.current.x;
+    const dy = e.changedTouches[0].clientY - touchStartPos.current.y;
+    return Math.sqrt(dx * dx + dy * dy) > TAP_MOVE_THRESHOLD;
+  };
+
+  // 바운스 체크
+  const isBounce = (): boolean => {
+    const now = Date.now();
+    return now - lastTapTime.current < TAP_MIN_INTERVAL_MS;
+  };
+
+  // SLEEP → 첫 탭: UNLOCK_PROMPT로 전환 (touchend만)
+  const handleSleepTouchEnd = (e: React.TouchEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (isDrag(e)) return;
+    if (isBounce()) return;
+
+    const now = Date.now();
+    lastTapTime.current = now;
+    firstTapTime.current = now;
+
     // 밝기 복원 (오버레이는 유지)
     applyNativeSleepMode(false);
     setSleepState('UNLOCK_PROMPT');
@@ -130,9 +170,9 @@ export function SleepOverlay() {
     resetTapCount();
     tapCountRef.current = 1;
     setTapCount(1);
-    // 3초 내 추가 탭 대기
+    // 0.8초 내 추가 탭 대기
+    clearTapTimer();
     tapTimerRef.current = setTimeout(() => {
-      // 3초 내 3탭 미달성 → 탭 카운트 초기화
       tapCountRef.current = 0;
       setTapCount(0);
     }, TAP_WINDOW_MS);
@@ -141,11 +181,31 @@ export function SleepOverlay() {
     unlockTimerRef.current = setTimeout(() => enterSleepRef.current(), UNLOCK_TIMEOUT_MS);
   };
 
-  // UNLOCK_PROMPT 탭: 카운트 증가, 3탭 시 해제
-  const handleUnlockPromptTap = (e: React.TouchEvent | React.MouseEvent) => {
+  // UNLOCK_PROMPT 탭: 카운트 증가, 3탭 시 해제 (touchend만)
+  const handleUnlockPromptTouchEnd = (e: React.TouchEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    if (isDrag(e)) return;
+    if (isBounce()) return;
 
+    const now = Date.now();
+    // 첫 탭으로부터 0.8초 초과 → 리셋 후 1부터 재시작
+    if (now - firstTapTime.current > TAP_WINDOW_MS) {
+      firstTapTime.current = now;
+      lastTapTime.current = now;
+      tapCountRef.current = 1;
+      setTapCount(1);
+      clearTapTimer();
+      tapTimerRef.current = setTimeout(() => {
+        tapCountRef.current = 0;
+        setTapCount(0);
+      }, TAP_WINDOW_MS);
+      clearUnlockTimer();
+      unlockTimerRef.current = setTimeout(() => enterSleepRef.current(), UNLOCK_TIMEOUT_MS);
+      return;
+    }
+
+    lastTapTime.current = now;
     const newCount = tapCountRef.current + 1;
     tapCountRef.current = newCount;
     setTapCount(newCount);
@@ -156,13 +216,13 @@ export function SleepOverlay() {
       return;
     }
 
-    // 아직 부족 → 3초 타이머 리셋 (카운트 유지)
+    // 아직 부족 → 0.8초 타이머 리셋 (카운트 유지, 첫 탭 기준)
     clearTapTimer();
+    const remaining = TAP_WINDOW_MS - (now - firstTapTime.current);
     tapTimerRef.current = setTimeout(() => {
-      // 3초 내 추가 탭 없으면 카운트 초기화
       tapCountRef.current = 0;
       setTapCount(0);
-    }, TAP_WINDOW_MS);
+    }, Math.max(remaining, 0));
 
     // 5초 무조작 타이머도 리셋
     clearUnlockTimer();
@@ -256,13 +316,13 @@ export function SleepOverlay() {
   // AWAKE: 오버레이 없음
   if (sleepState === 'AWAKE') return null;
 
-  // SLEEP: 검정 화면 + "탭해서 깨우기"
+  // SLEEP: 검정 화면 + "탭해서 깨우기" (터치 전용)
   if (sleepState === 'SLEEP') {
     return (
       <div
         className="fixed inset-0 z-[200] bg-black flex items-center justify-center"
-        onClick={handleSleepTap}
-        onTouchEnd={handleSleepTap}
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleSleepTouchEnd}
       >
         <p
           className="text-white text-xs select-none pointer-events-none"
@@ -274,14 +334,14 @@ export function SleepOverlay() {
     );
   }
 
-  // UNLOCK_PROMPT: bg-black/80 + 탭 인디케이터
+  // UNLOCK_PROMPT: bg-black/80 + 탭 인디케이터 (터치 전용)
   const indicators = Array.from({ length: REQUIRED_TAPS }, (_, i) => i < tapCount);
 
   return (
     <div
       className="fixed inset-0 z-[200] bg-black/80 flex items-center justify-center"
-      onClick={handleUnlockPromptTap}
-      onTouchEnd={handleUnlockPromptTap}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleUnlockPromptTouchEnd}
     >
       <div className="flex flex-col items-center gap-4 select-none pointer-events-none">
         <p className="text-white text-lg font-medium">잠금 해제</p>
