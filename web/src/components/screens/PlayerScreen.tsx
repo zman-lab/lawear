@@ -94,20 +94,30 @@ function Sentence({ text, index, currentIndex, sentenceRef, onClick, repeatStart
   }
 
   return (
-    <p
-      ref={sentenceRef}
-      className={`text-sm leading-relaxed px-2 py-[5px] rounded-md border-l-[3px] mb-0.5 cursor-pointer transition-all duration-300 ${
-        isActive
-          ? `bg-[rgba(56,139,253,0.12)] ${borderClass} text-[#e6edf3]`
-          : isPast
-          ? `${borderClass} text-[#e6edf3] opacity-30`
-          : `${borderClass} text-[#e6edf3]`
-      } ${isInSection && !isActive ? 'bg-green-500/5' : ''}`}
-      style={isActive ? { textShadow: '0 0 12px rgba(56,139,253,0.25)' } : undefined}
-      onClick={() => onClick(index)}
-    >
-      {text}
-    </p>
+    <div className="relative">
+      {isSectionStart && repeatActive && (
+        <span className="absolute left-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-green-500 text-white text-[10px] flex items-center justify-center font-bold z-10">A</span>
+      )}
+      {isSectionEnd && repeatActive && (
+        <span className="absolute left-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold z-10">B</span>
+      )}
+      <p
+        ref={sentenceRef}
+        className={`text-sm leading-relaxed py-[5px] rounded-md border-l-[3px] mb-0.5 cursor-pointer transition-all duration-300 ${
+          (isSectionStart || isSectionEnd) && repeatActive ? 'pl-6 pr-2' : 'px-2'
+        } ${
+          isActive
+            ? `bg-[rgba(56,139,253,0.12)] ${borderClass} text-[#e6edf3]`
+            : isPast
+            ? `${borderClass} text-[#e6edf3] opacity-30`
+            : `${borderClass} text-[#e6edf3]`
+        } ${isSectionStart && !isActive && repeatActive ? 'bg-green-500/10' : ''} ${isSectionEnd && !isActive && repeatActive ? 'bg-red-500/10' : ''} ${isInSection && !isActive && !isSectionStart && !isSectionEnd ? 'bg-green-500/[0.06]' : ''}`}
+        style={isActive ? { textShadow: '0 0 12px rgba(56,139,253,0.25)' } : undefined}
+        onClick={() => onClick(index)}
+      >
+        {text}
+      </p>
+    </div>
   );
 }
 
@@ -142,28 +152,38 @@ function TocItemRow({ item, index, offset, currentIndex, sentenceRef, onClick, r
   }
 
   return (
-    <div
-      ref={sentenceRef as (el: HTMLDivElement | null) => void}
-      className={`flex gap-2 text-sm ${item.indent > 0 ? 'ml-4' : ''} px-2 py-[5px] rounded-md border-l-[3px] mb-1.5 cursor-pointer transition-all duration-300 ${
-        isActive
-          ? `bg-[rgba(56,139,253,0.12)] ${borderClass}`
-          : isPast
-          ? `${borderClass} opacity-30`
-          : borderClass
-      } ${isInSection && !isActive ? 'bg-green-500/5' : ''}`}
-      onClick={() => onClick(globalIndex)}
-      role="button"
-      tabIndex={0}
-      onKeyDown={(e) => e.key === 'Enter' && onClick(globalIndex)}
-    >
-      <span
-        className={`${
-          item.indent > 0 ? 'text-emerald-500/20 w-6' : 'text-emerald-500/40 w-5'
-        } text-[10px] font-mono mt-1 shrink-0 text-right`}
+    <div className="relative">
+      {isSectionStart && repeatActive && (
+        <span className="absolute left-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-green-500 text-white text-[10px] flex items-center justify-center font-bold z-10">A</span>
+      )}
+      {isSectionEnd && repeatActive && (
+        <span className="absolute left-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold z-10">B</span>
+      )}
+      <div
+        ref={sentenceRef as (el: HTMLDivElement | null) => void}
+        className={`flex gap-2 text-sm ${item.indent > 0 ? 'ml-4' : ''} py-[5px] rounded-md border-l-[3px] mb-1.5 cursor-pointer transition-all duration-300 ${
+          (isSectionStart || isSectionEnd) && repeatActive ? 'pl-6 pr-2' : 'px-2'
+        } ${
+          isActive
+            ? `bg-[rgba(56,139,253,0.12)] ${borderClass}`
+            : isPast
+            ? `${borderClass} opacity-30`
+            : borderClass
+        } ${isSectionStart && !isActive && repeatActive ? 'bg-green-500/10' : ''} ${isSectionEnd && !isActive && repeatActive ? 'bg-red-500/10' : ''} ${isInSection && !isActive && !isSectionStart && !isSectionEnd ? 'bg-green-500/[0.06]' : ''}`}
+        onClick={() => onClick(globalIndex)}
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => e.key === 'Enter' && onClick(globalIndex)}
       >
-        {item.number}
-      </span>
-      <span className="text-[#e6edf3]">{item.text}</span>
+        <span
+          className={`${
+            item.indent > 0 ? 'text-emerald-500/20 w-6' : 'text-emerald-500/40 w-5'
+          } text-[10px] font-mono mt-1 shrink-0 text-right`}
+        >
+          {item.number}
+        </span>
+        <span className="text-[#e6edf3]">{item.text}</span>
+      </div>
     </div>
   );
 }
@@ -475,23 +495,32 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
                 }
 
                 return (
-                  <p
-                    key={i}
-                    ref={setRef(globalIndex) as (el: HTMLParagraphElement | null) => void}
-                    className={`text-sm leading-relaxed px-2 py-[5px] rounded-md border-l-[3px] mb-0.5 cursor-pointer transition-all duration-300 ${
-                      i === 0 ? 'font-medium text-white/90' : ''
-                    } ${
-                      isActive
-                        ? `bg-[rgba(56,139,253,0.12)] ${borderClass} text-[#e6edf3]`
-                        : isPast
-                        ? `${borderClass} text-[#e6edf3] opacity-30`
-                        : `${borderClass} text-[#e6edf3]`
-                    } ${isInSection && !isActive ? 'bg-green-500/5' : ''}`}
-                    style={isActive ? { textShadow: '0 0 12px rgba(56,139,253,0.25)' } : undefined}
-                    onClick={() => setSentenceIndex(globalIndex)}
-                  >
-                    {text}
-                  </p>
+                  <div key={i} className="relative">
+                    {isSectionStart && isRepeatingSectionActive && (
+                      <span className="absolute left-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-green-500 text-white text-[10px] flex items-center justify-center font-bold z-10">A</span>
+                    )}
+                    {isSectionEnd && isRepeatingSectionActive && (
+                      <span className="absolute left-0.5 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold z-10">B</span>
+                    )}
+                    <p
+                      ref={setRef(globalIndex) as (el: HTMLParagraphElement | null) => void}
+                      className={`text-sm leading-relaxed py-[5px] rounded-md border-l-[3px] mb-0.5 cursor-pointer transition-all duration-300 ${
+                        (isSectionStart || isSectionEnd) && isRepeatingSectionActive ? 'pl-6 pr-2' : 'px-2'
+                      } ${
+                        i === 0 ? 'font-medium text-white/90' : ''
+                      } ${
+                        isActive
+                          ? `bg-[rgba(56,139,253,0.12)] ${borderClass} text-[#e6edf3]`
+                          : isPast
+                          ? `${borderClass} text-[#e6edf3] opacity-30`
+                          : `${borderClass} text-[#e6edf3]`
+                      } ${isSectionStart && !isActive && isRepeatingSectionActive ? 'bg-green-500/10' : ''} ${isSectionEnd && !isActive && isRepeatingSectionActive ? 'bg-red-500/10' : ''} ${isInSection && !isActive && !isSectionStart && !isSectionEnd ? 'bg-green-500/[0.06]' : ''}`}
+                      style={isActive ? { textShadow: '0 0 12px rgba(56,139,253,0.25)' } : undefined}
+                      onClick={() => setSentenceIndex(globalIndex)}
+                    >
+                      {text}
+                    </p>
+                  </div>
                 );
               })}
             </div>
@@ -509,30 +538,40 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
               const isInSection = isRepeatingSectionActive && repeatSectionStart !== null && repeatSectionEnd !== null && i >= repeatSectionStart && i <= repeatSectionEnd;
               const isSectionBoundary = (repeatSectionStart !== null && i === repeatSectionStart) || (repeatSectionEnd !== null && i === repeatSectionEnd);
 
+              const isSectionStart = repeatSectionStart !== null && i === repeatSectionStart;
+              const isSectionEnd = repeatSectionEnd !== null && i === repeatSectionEnd;
+
               return (
-                <p
-                  key={i}
-                  ref={setRef(i) as (el: HTMLParagraphElement | null) => void}
-                  className={`text-sm leading-relaxed transition-all duration-300 cursor-pointer py-2 ${
-                    isActive
-                      ? 'text-white font-semibold'
-                      : isPast
-                      ? 'opacity-20'
-                      : 'opacity-40'
-                  } ${isInSection && !isActive ? 'bg-green-500/5 rounded-md' : ''} ${isSectionBoundary && !isActive ? 'ring-1 ring-green-500/30 rounded-md' : ''}`}
-                  style={
-                    isActive
-                      ? {
-                          fontSize: '1.1rem',
-                          transform: 'scale(1.03)',
-                          textShadow: '0 0 16px rgba(56,139,253,0.4)',
-                        }
-                      : undefined
-                  }
-                  onClick={() => setSentenceIndex(i)}
-                >
-                  {text}
-                </p>
+                <div key={i} className="relative">
+                  {isSectionStart && isRepeatingSectionActive && (
+                    <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-green-500 text-white text-[10px] flex items-center justify-center font-bold z-10">A</span>
+                  )}
+                  {isSectionEnd && isRepeatingSectionActive && (
+                    <span className="absolute -left-1 top-1/2 -translate-y-1/2 w-4 h-4 rounded-full bg-red-500 text-white text-[10px] flex items-center justify-center font-bold z-10">B</span>
+                  )}
+                  <p
+                    ref={setRef(i) as (el: HTMLParagraphElement | null) => void}
+                    className={`text-sm leading-relaxed transition-all duration-300 cursor-pointer py-2 ${
+                      isActive
+                        ? 'text-white font-semibold'
+                        : isPast
+                        ? 'opacity-20'
+                        : 'opacity-40'
+                    } ${isSectionStart && !isActive && isRepeatingSectionActive ? 'bg-green-500/10 rounded-md' : ''} ${isSectionEnd && !isActive && isRepeatingSectionActive ? 'bg-red-500/10 rounded-md' : ''} ${isInSection && !isActive && !isSectionStart && !isSectionEnd ? 'bg-green-500/[0.06] rounded-md' : ''} ${isSectionBoundary && !isActive ? 'ring-1 ring-green-500/30 rounded-md' : ''}`}
+                    style={
+                      isActive
+                        ? {
+                            fontSize: '1.1rem',
+                            transform: 'scale(1.03)',
+                            textShadow: '0 0 16px rgba(56,139,253,0.4)',
+                          }
+                        : undefined
+                    }
+                    onClick={() => setSentenceIndex(i)}
+                  >
+                    {text}
+                  </p>
+                </div>
               );
             })}
           </div>

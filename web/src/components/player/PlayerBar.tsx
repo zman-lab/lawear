@@ -251,7 +251,13 @@ export function PlayerBar() {
               ? 'A설정'
               : 'A↔B'}
           </span>
-          <span className="text-[8px] leading-none">구간</span>
+          {state.isRepeatingSectionActive && state.repeatSectionStart !== null && state.repeatSectionEnd !== null ? (
+            <span className="text-[8px] leading-none font-mono">{state.repeatSectionStart + 1}~{state.repeatSectionEnd + 1}</span>
+          ) : state.repeatSectionStart !== null && state.repeatSectionEnd === null ? (
+            <span className="text-[8px] leading-none font-mono">A:{state.repeatSectionStart + 1}</span>
+          ) : (
+            <span className="text-[8px] leading-none">구간</span>
+          )}
         </button>
 
         {/* 플레이리스트 */}
