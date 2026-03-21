@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useRef, useEff
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { PlayerState, PlaylistItem, Speed, Level, ViewMode, RepeatMode, SleepTimer, TTSVoice } from '../types';
 import { subjects } from '../data/ttsData';
+import { insertArticleTitles } from '../utils/lawArticleHelper';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 
 // ── 네이티브 TTS 순차 재생 플러그인 (백그라운드 안전) ───────────────────────
@@ -23,7 +24,7 @@ import {
   MediaTrackInfo,
 } from '../services/mediaSession';
 import { log } from '../services/logger';
-import { recordCompletion } from '../services/learningProgress';
+import { recordCompletion, recordReview, loadProgress } from '../services/learningProgress';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // 헬퍼: 현재 question의 전체 문장 배열 반환
@@ -47,19 +48,23 @@ function getSentences(
   const { problem, toc, answer } = question.content;
   const tocSentences = toc.map((t) => `${t.number} ${t.text}`);
 
+  // R-16 조문 제목 삽입. subject.name을 기본 법령명으로 사용.
+  // Lv.3이면 내부에서 삽입을 건너뛴다.
+  const ins = (s: string) => insertArticleTitles(s, subject.name, level);
+
   if (level === 2) {
     // 핵심요약: 문제 제거, 목차 + 답안만
-    return [...tocSentences, ...answer];
+    return [...tocSentences, ...answer].map(ins);
   }
   if (level === 3) {
     // 슈퍼심플: 목차 + 답안에서 키워드 포함 문장만
     const keyAnswer = answer.filter((s) =>
       SUPERSIMPLE_KEYWORDS.some((kw) => s.includes(kw)) || s === answer[0]
     );
-    return [...tocSentences, ...(keyAnswer.length > 0 ? keyAnswer : [answer[0] ?? ''])];
+    return [...tocSentences, ...(keyAnswer.length > 0 ? keyAnswer : [answer[0] ?? ''])].map(ins);
   }
   // Lv.1 빠른복습: 전체
-  return [...problem, ...tocSentences, ...answer];
+  return [...problem, ...tocSentences, ...answer].map(ins);
 }
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -153,6 +158,9 @@ const initialState: PlayerState = {
   viewMode: 'reader',
   playlist: [],
   playlistIndex: -1,
+  repeatSectionStart: null,
+  repeatSectionEnd: null,
+  isRepeatingSectionActive: false,
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -183,6 +191,8 @@ interface PlayerContextValue {
   playFile: (subjectId: string, fileId: string) => void;
   playSelected: (items: PlaylistItem[]) => void;
   jumpToPlaylistIndex: (idx: number) => void;
+  toggleRepeatSection: () => void;
+  clearRepeatSection: () => void;
 }
 
 const PlayerContext = createContext<PlayerContextValue | null>(null);
@@ -329,6 +339,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── 네이티브 순차 재생 (백그라운드 안전) ─────────────────────────────────
   const nativeSequenceActiveRef = useRef(false);
+  const isJumpingRef = useRef(false); // 구간 반복 jumpSequence 중복 방지
 
   // playlist 전체 문장을 합쳐서 네이티브에 넘김 — 트랙 전환도 JS 없이 네이티브가 처리
   const buildAllSentences = useCallback(() => {
@@ -388,6 +399,29 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                   break;
                 }
               }
+              // 구간 반복 체크 (네이티브 모드)
+              const rsNative = stateRef.current;
+              if (
+                rsNative.isRepeatingSectionActive &&
+                rsNative.repeatSectionStart !== null &&
+                rsNative.repeatSectionEnd !== null &&
+                localIdx > rsNative.repeatSectionEnd &&
+                !isJumpingRef.current
+              ) {
+                isJumpingRef.current = true;
+                const currentTrackIdx = stateRef.current.playlistIndex >= 0 ? stateRef.current.playlistIndex : 0;
+                const absoluteStartIdx = (trackOffsets[currentTrackIdx] ?? 0) + rsNative.repeatSectionStart;
+                TTSFile.jumpSequence({ index: absoluteStartIdx }).then(() => {
+                  isJumpingRef.current = false;
+                  setState((prev) => ({ ...prev, currentSentenceIndex: rsNative.repeatSectionStart! }));
+                  sentenceIndexRef.current = rsNative.repeatSectionStart!;
+                  listen();
+                }).catch(() => {
+                  isJumpingRef.current = false;
+                });
+                return;
+              }
+
               // 트랙 전환 감지
               const prevTrackIdx = stateRef.current.playlistIndex;
               if (trackIdx !== prevTrackIdx && current.playlist.length > 0) {
@@ -503,6 +537,21 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         ...cacheOpts,
         onEnd: () => {
           const nextIdx = sentenceIndexRef.current + 1;
+
+          // 구간 반복 체크: 다음 인덱스가 구간 종료를 넘으면 시작점으로 점프
+          const rs = stateRef.current;
+          if (
+            rs.isRepeatingSectionActive &&
+            rs.repeatSectionStart !== null &&
+            rs.repeatSectionEnd !== null &&
+            nextIdx > rs.repeatSectionEnd
+          ) {
+            setState((prev) => ({ ...prev, currentSentenceIndex: rs.repeatSectionStart! }));
+            sentenceIndexRef.current = rs.repeatSectionStart!;
+            speakCurrentSentence(rs.repeatSectionStart!, stateRef.current.speed);
+            return;
+          }
+
           if (nextIdx < sentencesRef.current.length) {
             // 아직 문장 남음 → 다음 문장 재생
             setState((prev) => ({ ...prev, currentSentenceIndex: nextIdx }));
@@ -511,10 +560,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           } else {
             // 모든 문장 완료 → 진도 기록 + 플레이리스트 or repeatMode에 따라 분기
             log.player('track_complete');
-            // 학습 진도 기록
+            // 학습 진도 기록 + 복습 스케줄 처리
             const completedQuestionId = stateRef.current.currentQuestionId;
             if (completedQuestionId) {
-              recordCompletion(completedQuestionId);
+              // 복습 스케줄이 있고 기한이 도래했으면 복습 완료 처리
+              const prog = loadProgress();
+              const entry = prog[completedQuestionId];
+              if (entry?.reviewSchedule && Date.now() >= entry.reviewSchedule.nextReviewAt) {
+                recordReview(completedQuestionId);
+              } else {
+                recordCompletion(completedQuestionId);
+              }
             }
             const current = stateRef.current;
             const { playlist, playlistIndex, repeatMode: mode } = current;
@@ -730,6 +786,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentQuestionId: questionId,
         currentSentenceIndex: 0,
         isPlaying: false,
+        // 구간 반복 자동 해제
+        repeatSectionStart: null,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
       };
       setState((prev) => ({
         ...prev,
@@ -738,6 +798,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentQuestionId: questionId,
         currentSentenceIndex: 0,
         isPlaying: false,
+        // 구간 반복 자동 해제
+        repeatSectionStart: null,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
       }));
     },
     [cancel, stopNativeSequence],
@@ -759,6 +823,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentSentenceIndex: 0,
         playlist: filePlaylist,
         playlistIndex: idx >= 0 ? idx : 0,
+        repeatSectionStart: null,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
       }));
       sentenceIndexRef.current = 0;
       const sents = getSentences(subjectId, fileId, questionId);
@@ -784,6 +851,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentSentenceIndex: 0,
         playlist,
         playlistIndex: 0,
+        repeatSectionStart: null,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
       }));
       sentenceIndexRef.current = 0;
       const sents = getSentences(first.subjectId, first.fileId, first.questionId);
@@ -809,6 +879,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentSentenceIndex: 0,
         playlist,
         playlistIndex: 0,
+        repeatSectionStart: null,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
       }));
       sentenceIndexRef.current = 0;
       const sents = getSentences(first.subjectId, first.fileId, first.questionId);
@@ -835,6 +908,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         playlistIndex: 0,
         // 선택 재생은 선택한 곡을 다 듣는 게 자연스러우므로 stop-after-all로 전환
         repeatMode: prev.repeatMode === 'stop-after-one' ? 'stop-after-all' : prev.repeatMode,
+        repeatSectionStart: null,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
       }));
       sentenceIndexRef.current = 0;
       const sents = getSentences(first.subjectId, first.fileId, first.questionId);
@@ -910,7 +986,14 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── setLevel ──────────────────────────────────────────────────────────────
   const setLevel = useCallback((level: Level) => {
-    setState((prev) => ({ ...prev, level }));
+    setState((prev) => ({
+      ...prev,
+      level,
+      // 레벨 변경 시 문장 배열이 바뀌므로 구간 반복 해제
+      repeatSectionStart: null,
+      repeatSectionEnd: null,
+      isRepeatingSectionActive: false,
+    }));
   }, []);
 
   // ── setViewMode ───────────────────────────────────────────────────────────
@@ -1161,6 +1244,57 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     speakCurrentSentence(0, stateRef.current.speed);
   }, [cancel, speakCurrentSentence]);
 
+  // ── toggleRepeatSection (A-B 구간 반복 토글) ─────────────────────────────
+  const toggleRepeatSection = useCallback(() => {
+    const current = stateRef.current;
+    if (current.isRepeatingSectionActive) {
+      // 3번째 탭: 구간 반복 해제
+      setState((prev) => ({
+        ...prev,
+        repeatSectionStart: null,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
+      }));
+    } else if (current.repeatSectionStart !== null && current.repeatSectionEnd === null) {
+      // 2번째 탭: 종료점(B) 설정 → 구간 반복 시작
+      const endIdx = current.currentSentenceIndex;
+      const startIdx = current.repeatSectionStart;
+      // 종료점이 시작점보다 앞이면 스왑
+      const actualStart = Math.min(startIdx, endIdx);
+      const actualEnd = Math.max(startIdx, endIdx);
+      setState((prev) => ({
+        ...prev,
+        repeatSectionStart: actualStart,
+        repeatSectionEnd: actualEnd,
+        isRepeatingSectionActive: true,
+      }));
+      stateRef.current = {
+        ...stateRef.current,
+        repeatSectionStart: actualStart,
+        repeatSectionEnd: actualEnd,
+        isRepeatingSectionActive: true,
+      };
+    } else {
+      // 1번째 탭: 시작점(A) 설정
+      setState((prev) => ({
+        ...prev,
+        repeatSectionStart: current.currentSentenceIndex,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
+      }));
+    }
+  }, []);
+
+  // ── clearRepeatSection ──────────────────────────────────────────────────
+  const clearRepeatSection = useCallback(() => {
+    setState((prev) => ({
+      ...prev,
+      repeatSectionStart: null,
+      repeatSectionEnd: null,
+      isRepeatingSectionActive: false,
+    }));
+  }, []);
+
   // ── MediaSession: nextQuestion/prevQuestion ref 연결 ────────────────────
   useEffect(() => {
     nextQuestionRef.current = nextQuestion;
@@ -1210,6 +1344,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     playFile,
     playSelected,
     jumpToPlaylistIndex,
+    toggleRepeatSection,
+    clearRepeatSection,
   };
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;

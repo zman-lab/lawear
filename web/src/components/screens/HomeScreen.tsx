@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { subjects } from '../../data/ttsData';
 import type { Subject } from '../../types';
 import { loadExamDate, calcDday, formatDday } from '../../services/examDate';
+import { getReviewSummary, type ReviewItem } from '../../services/ebbinghaus';
+import { usePlayer } from '../../context/PlayerContext';
 
 interface HomeScreenProps {
   onSelectSubject: (subjectId: string) => void;
@@ -133,10 +135,60 @@ function SubjectCard({
   );
 }
 
+// 복습 카드 (가로 스크롤용)
+const REVIEW_LEVEL_LABELS = ['1일', '3일', '7일', '14일', '30일'];
+
+function ReviewCard({
+  item,
+  onClick,
+}: {
+  item: ReviewItem;
+  onClick: () => void;
+}) {
+  const style = SUBJECT_STYLES[item.colorClass] ?? SUBJECT_STYLES['blue'];
+  const levelLabel = REVIEW_LEVEL_LABELS[item.reviewLevel] ?? `Lv.${item.reviewLevel + 1}`;
+
+  return (
+    <div
+      className={`shrink-0 w-40 bg-gradient-to-br ${style.gradient} rounded-xl p-3 border ${style.border} cursor-pointer active:scale-[0.97] transition-transform`}
+      onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onClick()}
+    >
+      <div className="flex items-center justify-between mb-1.5">
+        <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${style.iconBg} text-white`}>
+          {item.subjectName}
+        </span>
+        {item.isWeakMarked && <span className="text-[10px]" title="취약 마킹">&#x1F6A9;</span>}
+      </div>
+      <p className="text-xs font-semibold text-white truncate">{item.questionTitle}</p>
+      <div className="flex items-center justify-between mt-2">
+        <span className="text-[10px] text-[#8b949e]">{levelLabel} 복습</span>
+        {item.daysOverdue > 0 && (
+          <span className="text-[10px] text-red-400 font-bold">+{item.daysOverdue}일</span>
+        )}
+      </div>
+    </div>
+  );
+}
+
 const ESSAY_SUBJECT_IDS = ['2nd_minso_2026', '2nd_minbeop_2026', '2nd_hyung_2026', '2nd_hyungso_2026', '2nd_budeung_2026'];
 
 export function HomeScreen({ onSelectSubject, onOpenSettings }: HomeScreenProps) {
+  const { playSelected } = usePlayer();
   const essaySubjects = subjects.filter((s) => ESSAY_SUBJECT_IDS.includes(s.id));
+
+  // 복습 추천 데이터
+  const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
+  const [reviewDueCount, setReviewDueCount] = useState(0);
+  const [showAllReview, setShowAllReview] = useState(false);
+
+  useEffect(() => {
+    const summary = getReviewSummary();
+    setReviewItems(summary.items);
+    setReviewDueCount(summary.overdueCount);
+  }, []);
 
   // 통계 계산
   const totalQuestions = subjects.reduce((sum, s) => sum + s.totalQuestions, 0);
@@ -274,6 +326,51 @@ export function HomeScreen({ onSelectSubject, onOpenSettings }: HomeScreenProps)
 
       {/* 스크롤 영역 */}
       <div className="flex-1 overflow-y-auto px-5 pb-24 space-y-2.5">
+        {/* 복습 추천 섹션 */}
+        {reviewItems.length > 0 && (
+          <div className="pt-1">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-widest">
+                오늘의 복습 ({reviewDueCount}개)
+              </p>
+              {reviewItems.length > 10 && (
+                <button
+                  className="text-[10px] text-blue-400 font-medium"
+                  onClick={() => setShowAllReview(!showAllReview)}
+                >
+                  {showAllReview ? '접기' : `더보기 (${reviewItems.length})`}
+                </button>
+              )}
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+              {(showAllReview ? reviewItems : reviewItems.slice(0, 10)).map((item) => (
+                <ReviewCard
+                  key={item.questionId}
+                  item={item}
+                  onClick={() => {
+                    playSelected([{ subjectId: item.subjectId, fileId: item.fileId, questionId: item.questionId }]);
+                  }}
+                />
+              ))}
+            </div>
+            {reviewItems.length > 1 && (
+              <button
+                className="w-full mt-1 py-2 rounded-xl bg-blue-600/20 border border-blue-500/20 text-blue-400 text-xs font-bold active:scale-[0.98] transition-transform"
+                onClick={() => {
+                  const playlist = reviewItems.map((item) => ({
+                    subjectId: item.subjectId,
+                    fileId: item.fileId,
+                    questionId: item.questionId,
+                  }));
+                  playSelected(playlist);
+                }}
+              >
+                모두 복습하기
+              </button>
+            )}
+          </div>
+        )}
+
         {/* 논술 5과목 */}
         <p className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-widest pt-1 pb-1">
           논술 5과목
