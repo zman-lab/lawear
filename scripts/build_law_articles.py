@@ -45,6 +45,7 @@ def api_get(endpoint: str, params: dict) -> dict:
     params["OC"] = API_KEY
     params["type"] = "JSON"
     url = f"{API_BASE}/{endpoint}?{urllib.parse.urlencode(params)}"
+    print(f"  [BuildLawArticles] 법제처 API 호출: {url}")
     req = urllib.request.Request(url)
     with urllib.request.urlopen(req, timeout=30) as resp:
         raw = resp.read()
@@ -149,7 +150,7 @@ def main():
             "articles": articles,
         }
 
-        print(f"  조문 {len(articles)}개 추출 완료")
+        print(f"  [BuildLawArticles] 응답: {statute_name} — {len(articles)}개 조문 조회")
         print()
 
     # JSON 저장
@@ -157,8 +158,9 @@ def main():
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)
 
+    total_articles = sum(len(info["articles"]) for info in result["statutes"].values())
+    print(f"[BuildLawArticles] 저장: lawArticles.json — 총 {len(result['statutes'])}개 법령, {total_articles}개 조문")
     print(f"=== 완료: {OUTPUT_PATH} ===")
-    print(f"총 {len(result['statutes'])}개 법령")
     for name, info in result["statutes"].items():
         print(f"  {name}: {len(info['articles'])}개 조문 (MST: {info['mst']})")
 

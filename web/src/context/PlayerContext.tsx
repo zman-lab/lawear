@@ -32,6 +32,9 @@ import { recordCompletion, recordReview, loadProgress } from '../services/learni
 // 슈퍼심플 키워드 (의의/취지/요건/효과 등 기본 개념)
 const SUPERSIMPLE_KEYWORDS = ['의의', '취지', '요건', '효과', '성질', '종류', '개념', '정의', '원칙', '예외', '구별', '차이', '유사', '적용범위'];
 
+const TTS_PIPELINE_DEBUG =
+  typeof localStorage !== 'undefined' && localStorage.getItem('lawear-debug-law') === 'true';
+
 function getSentences(
   subjectId: string | null,
   fileId: string | null,
@@ -48,23 +51,39 @@ function getSentences(
   const { problem, toc, answer } = question.content;
   const tocSentences = toc.map((t) => `${t.number} ${t.text}`);
 
+  if (TTS_PIPELINE_DEBUG) {
+    console.log(`[TTS Pipeline] getSentences — subject: ${subjectId}, level: ${level}`);
+  }
+
   // R-16 조문 제목 삽입. subject.name을 기본 법령명으로 사용.
   // Lv.3이면 내부에서 삽입을 건너뛴다.
   const ins = (s: string) => insertArticleTitles(s, subject.name, level);
 
+  let raw: string[];
   if (level === 2) {
     // 핵심요약: 문제 제거, 목차 + 답안만
-    return [...tocSentences, ...answer].map(ins);
-  }
-  if (level === 3) {
+    raw = [...tocSentences, ...answer];
+  } else if (level === 3) {
     // 슈퍼심플: 목차 + 답안에서 키워드 포함 문장만
     const keyAnswer = answer.filter((s) =>
       SUPERSIMPLE_KEYWORDS.some((kw) => s.includes(kw)) || s === answer[0]
     );
-    return [...tocSentences, ...(keyAnswer.length > 0 ? keyAnswer : [answer[0] ?? ''])].map(ins);
+    raw = [...tocSentences, ...(keyAnswer.length > 0 ? keyAnswer : [answer[0] ?? ''])];
+  } else {
+    // Lv.1 빠른복습: 전체
+    raw = [...problem, ...tocSentences, ...answer];
   }
-  // Lv.1 빠른복습: 전체
-  return [...problem, ...tocSentences, ...answer].map(ins);
+
+  const processed = raw.map(ins);
+
+  if (TTS_PIPELINE_DEBUG) {
+    const changedCount = raw.filter((s, i) => s !== processed[i]).length;
+    console.log(
+      `[TTS Pipeline] 총 ${processed.length}문장 처리, 조문 삽입 ${changedCount}문장 변경됨`,
+    );
+  }
+
+  return processed;
 }
 
 // ──────────────────────────────────────────────────────────────────────────────

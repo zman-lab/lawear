@@ -13,6 +13,15 @@
 import lawArticles from '../data/lawArticles.json';
 import type { Level } from '../types';
 
+// --- 디버그 플래그 ---
+
+const LAW_ARTICLE_DEBUG =
+  typeof localStorage !== 'undefined' && localStorage.getItem('lawear-debug-law') === 'true';
+
+function debugLog(...args: unknown[]) {
+  if (LAW_ARTICLE_DEBUG) console.log(...args);
+}
+
 // --- 타입 ---
 
 interface StatuteData {
@@ -26,6 +35,22 @@ interface LawArticlesJson {
 }
 
 const data = lawArticles as LawArticlesJson;
+
+// --- 초기 로드 로그 ---
+
+{
+  const statuteNames = Object.keys(data.statutes);
+  const totalArticles = statuteNames.reduce(
+    (sum, name) => sum + Object.keys(data.statutes[name].articles).length,
+    0,
+  );
+  debugLog(
+    `[LawArticle] lawArticles.json 로드됨 — 버전: ${data.version}, 법령 ${statuteNames.length}개, 총 조문 ${totalArticles}개`,
+  );
+  debugLog(
+    `[LawArticle] 법령 목록: ${statuteNames.map((n) => `${n}(${Object.keys(data.statutes[n].articles).length}조)`).join(', ')}`,
+  );
+}
 
 // --- 내부 헬퍼 ---
 
@@ -98,31 +123,62 @@ export function insertArticleTitles(
   level: Level = 1,
 ): string {
   // Lv.3 슈퍼심플: 제목 삽입 안 함
-  if (level === 3) return text;
+  if (level === 3) {
+    debugLog(`[LawArticle] Lv.3 — 조문 제목 삽입 생략`);
+    return text;
+  }
+
+  debugLog(`[LawArticle] insertArticleTitles 호출 — 기본법령: ${defaultStatute}, 레벨: ${level}`);
 
   // 매 호출마다 lastIndex 리셋
   ARTICLE_PATTERN.lastIndex = 0;
 
-  return text.replace(
+  let foundCount = 0;
+  let matchedCount = 0;
+  let insertedCount = 0;
+
+  const result = text.replace(
     ARTICLE_PATTERN,
     (match, statuteName: string | undefined, num: string, suffix: string | undefined, offset: number) => {
+      foundCount++;
       // 법령명이 명시되었으면 해당 법령, 아니면 기본 법령
       const statute = statuteName ?? defaultStatute;
       const statuteData = data.statutes[statute];
-      if (!statuteData) return match;
+      if (!statuteData) {
+        debugLog(`[LawArticle] 패턴 발견: "${match}" → 법령 "${statute}" 데이터 없음`);
+        return match;
+      }
 
       const articleKey = num + (suffix ?? '');
       const title = statuteData.articles[articleKey];
 
-      if (!title) return match;
+      if (!title) {
+        debugLog(`[LawArticle] 조문 제목 없음: ${statute} 제${articleKey}조 → 원본 유지`);
+        return match;
+      }
+
+      matchedCount++;
 
       // 이미 제목이 바로 뒤에 있는지 확인 (중복 삽입 방지)
       const afterMatch = text.slice(offset + match.length);
-      if (afterMatch.startsWith(` ${title}`)) return match;
+      if (afterMatch.startsWith(` ${title}`)) {
+        debugLog(`[LawArticle] 중복 스킵: ${statute} 제${articleKey}조 "${title}"`);
+        return match;
+      }
+
+      insertedCount++;
+      debugLog(`[LawArticle] 조문 제목 매칭: ${statute} 제${articleKey}조 → "${title}"`);
+      debugLog(`[LawArticle] 삽입 결과: "${match} ${title}"`);
 
       return `${match} ${title}`;
     },
   );
+
+  debugLog(
+    `[LawArticle] 삽입 완료 — 총 ${foundCount}개 패턴 중 ${matchedCount}개 매칭, ${insertedCount}개 삽입`,
+  );
+
+  return result;
 }
 
 /**
