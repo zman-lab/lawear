@@ -4,6 +4,7 @@ import { usePlayer } from '../../context/PlayerContext';
 import { VoiceSheet } from '../player/VoiceSheet';
 import { SpeedSheet } from '../player/SpeedSheet';
 import { RepeatModeSheet } from '../player/RepeatModeSheet';
+import { notifySleepSettingsChanged } from '../SleepOverlay';
 import type { RepeatMode } from '../../types';
 
 // ── 배터리 최적화 플러그인 인터페이스 ───────────────────────────────────────
@@ -118,6 +119,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const handleSleepTimeoutChange = useCallback((value: number) => {
     localStorage.setItem(SLEEP_TIMEOUT_KEY, String(value));
     setSleepTimeout(value);
+    notifySleepSettingsChanged();
   }, []);
 
   // ── 시험 날짜 D-day ──────────────────────────────────────────────────────

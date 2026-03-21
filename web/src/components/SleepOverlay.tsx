@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { Capacitor, registerPlugin } from '@capacitor/core';
 import { usePlayer } from '../context/PlayerContext';
 
@@ -19,12 +19,18 @@ const TAP_WINDOW_MS = 3_000;          // 연속 탭 허용 시간 (3초)
 const REQUIRED_TAPS = 3;              // 해제에 필요한 탭 수
 const SLEEP_TIMEOUT_KEY = 'lawear-sleep-timeout';
 const SLEEP_TIMEOUT_DEFAULT = 10;     // 기본값 10초
+const SLEEP_SETTINGS_EVENT = 'lawear-sleep-settings-changed';
 
 function getSleepTimeoutMs(): number {
   const raw = localStorage.getItem(SLEEP_TIMEOUT_KEY);
   const secs = raw !== null ? Number(raw) : SLEEP_TIMEOUT_DEFAULT;
   if (isNaN(secs) || secs < 0) return SLEEP_TIMEOUT_DEFAULT * 1000;
   return secs * 1000;
+}
+
+/** 설정 변경 시 SleepOverlay에 알림 (SettingsScreen에서 호출) */
+export function notifySleepSettingsChanged(): void {
+  window.dispatchEvent(new CustomEvent(SLEEP_SETTINGS_EVENT));
 }
 
 // 슬립 상태 머신
@@ -80,16 +86,22 @@ export function SleepOverlay() {
     setTapCount(0);
   };
 
-  // SLEEP 진입
-  const enterSleep = () => {
+  // SLEEP 진입 (ref 기반 — setTimeout 콜백에서 stale closure 방지)
+  const enterSleep = useCallback(() => {
+    console.log('[Sleep] enterSleep called', { isPlaying, sleepState });
     clearUnlockTimer();
     resetTapCount();
     setSleepState('SLEEP');
     applyNativeSleepMode(true);
-  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const enterSleepRef = useRef(enterSleep);
+  enterSleepRef.current = enterSleep;
 
   // AWAKE 복귀
   const exitToAwake = () => {
+    console.log('[Sleep] exitToAwake');
     clearUnlockTimer();
     resetTapCount();
     setSleepState('AWAKE');
@@ -98,12 +110,14 @@ export function SleepOverlay() {
   };
 
   // 아이들 타이머 리셋 (AWAKE 상태에서 무조작 → SLEEP, localStorage 값 참조)
-  const resetIdleTimer = () => {
+  const resetIdleTimer = useCallback(() => {
     if (idleTimerRef.current) clearTimeout(idleTimerRef.current);
     const timeoutMs = getSleepTimeoutMs();
+    console.log('[Sleep] resetIdleTimer', { timeoutMs, isPlaying });
     if (timeoutMs === 0) return; // 슬립 비활성화
-    idleTimerRef.current = setTimeout(enterSleep, timeoutMs);
-  };
+    idleTimerRef.current = setTimeout(() => enterSleepRef.current(), timeoutMs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // SLEEP → 첫 탭: UNLOCK_PROMPT로 전환
   const handleSleepTap = (e: React.TouchEvent | React.MouseEvent) => {
@@ -124,7 +138,7 @@ export function SleepOverlay() {
     }, TAP_WINDOW_MS);
     // 5초 무조작 시 다시 SLEEP
     clearUnlockTimer();
-    unlockTimerRef.current = setTimeout(enterSleep, UNLOCK_TIMEOUT_MS);
+    unlockTimerRef.current = setTimeout(() => enterSleepRef.current(), UNLOCK_TIMEOUT_MS);
   };
 
   // UNLOCK_PROMPT 탭: 카운트 증가, 3탭 시 해제
@@ -152,11 +166,19 @@ export function SleepOverlay() {
 
     // 5초 무조작 타이머도 리셋
     clearUnlockTimer();
-    unlockTimerRef.current = setTimeout(enterSleep, UNLOCK_TIMEOUT_MS);
+    unlockTimerRef.current = setTimeout(() => enterSleepRef.current(), UNLOCK_TIMEOUT_MS);
   };
+
+  // isPlaying을 ref로도 추적 (이벤트 핸들러에서 최신값 참조)
+  const isPlayingRef = useRef(isPlaying);
+  isPlayingRef.current = isPlaying;
+
+  const sleepStateRef = useRef(sleepState);
+  sleepStateRef.current = sleepState;
 
   // 재생 상태 변화에 따른 타이머 관리
   useEffect(() => {
+    console.log('[Sleep] isPlaying changed', { isPlaying, sleepState });
     if (isPlaying) {
       resetIdleTimer();
     } else {
@@ -176,24 +198,51 @@ export function SleepOverlay() {
   }, [isPlaying]);
 
   // 사용자 인터랙션 이벤트 → 아이들 타이머 리셋 (AWAKE 상태에서만)
+  // 디바운스 적용: 연속 터치 이벤트에 의한 과도한 리셋 방지
   useEffect(() => {
     if (!isPlaying) return;
 
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     const handleActivity = () => {
-      if (sleepState === 'AWAKE') {
-        resetIdleTimer();
-      }
+      // ref로 최신 sleepState 참조 (stale closure 방지)
+      if (sleepStateRef.current !== 'AWAKE') return;
+      // 디바운스: 1초 이내 연속 이벤트는 무시
+      if (debounceTimer) return;
+      console.log('[Sleep] user activity → resetIdleTimer');
+      resetIdleTimer();
+      debounceTimer = setTimeout(() => { debounceTimer = null; }, 1000);
     };
 
+    // Android에서 mousemove는 터치 시 phantom 이벤트 발생 가능 → touchstart만 사용
+    // 데스크톱 환경에서는 mousemove도 추가
     window.addEventListener('touchstart', handleActivity, { passive: true });
-    window.addEventListener('mousemove', handleActivity, { passive: true });
+    if (!Capacitor.isNativePlatform()) {
+      window.addEventListener('mousemove', handleActivity, { passive: true });
+    }
 
     return () => {
       window.removeEventListener('touchstart', handleActivity);
-      window.removeEventListener('mousemove', handleActivity);
+      if (!Capacitor.isNativePlatform()) {
+        window.removeEventListener('mousemove', handleActivity);
+      }
+      if (debounceTimer) clearTimeout(debounceTimer);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isPlaying, sleepState]);
+  }, [isPlaying]);
+
+  // 설정 변경 감지 → 타이머 재설정
+  useEffect(() => {
+    const handleSettingsChanged = () => {
+      console.log('[Sleep] settings changed, resetting timer');
+      if (isPlayingRef.current && sleepStateRef.current === 'AWAKE') {
+        resetIdleTimer();
+      }
+    };
+    window.addEventListener(SLEEP_SETTINGS_EVENT, handleSettingsChanged);
+    return () => window.removeEventListener(SLEEP_SETTINGS_EVENT, handleSettingsChanged);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 언마운트 시 정리
   useEffect(() => {
