@@ -5,7 +5,11 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.net.Uri;
+import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
+import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
@@ -468,6 +472,54 @@ public class TTSFilePlugin extends Plugin {
         } catch (Exception e) {
             call.reject("Failed to open TTS settings: " + e.getMessage());
         }
+    }
+
+    // ── setBatteryOptimization ─────────────────────────────────────────────
+
+    @PluginMethod()
+    public void setBatteryOptimization(PluginCall call) {
+        boolean enabled = Boolean.TRUE.equals(call.getBoolean("enabled", true));
+        Activity activity = getActivity();
+
+        if (enabled) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                PowerManager pm = (PowerManager) activity.getSystemService(Context.POWER_SERVICE);
+                if (!pm.isIgnoringBatteryOptimizations(activity.getPackageName())) {
+                    Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+                    intent.setData(Uri.parse("package:" + activity.getPackageName()));
+                    activity.startActivity(intent);
+                    Log.d(TAG, "[Battery] 최적화 제외 요청");
+                } else {
+                    Log.d(TAG, "[Battery] 이미 최적화 제외 상태");
+                }
+            }
+        } else {
+            Log.d(TAG, "[Battery] 최적화 제외 비활성 — 시스템 설정에서 직접 해제 필요");
+        }
+
+        // 현재 상태 로그
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) activity.getSystemService(Context.POWER_SERVICE);
+            boolean isExcluded = pm.isIgnoringBatteryOptimizations(activity.getPackageName());
+            Log.d(TAG, "[Battery] 현재 상태: " + (isExcluded ? "최적화 제외" : "최적화 적용"));
+        }
+
+        call.resolve();
+    }
+
+    // ── getBatteryStatus ────────────────────────────────────────────────────
+
+    @PluginMethod()
+    public void getBatteryStatus(PluginCall call) {
+        JSObject ret = new JSObject();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PowerManager pm = (PowerManager) getActivity().getSystemService(Context.POWER_SERVICE);
+            ret.put("isExcluded", pm.isIgnoringBatteryOptimizations(getActivity().getPackageName()));
+        } else {
+            ret.put("isExcluded", true);
+        }
+        Log.d(TAG, "[Battery] 상태 조회: " + ret.toString());
+        call.resolve(ret);
     }
 
     // ── cleanup ─────────────────────────────────────────────────────────────

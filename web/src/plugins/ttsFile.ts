@@ -48,6 +48,17 @@ export interface TTSFilePlugin {
    * Android TTS 설정 화면을 연다.
    */
   openTTSSettings(): Promise<void>;
+
+  /**
+   * 배터리 최적화 제외를 요청하거나, 비활성 시 안내 로그를 남긴다.
+   * enabled=false 시 시스템 설정에서 직접 해제해야 함.
+   */
+  setBatteryOptimization(opts: { enabled: boolean }): Promise<void>;
+
+  /**
+   * 현재 배터리 최적화 제외 상태를 반환한다.
+   */
+  getBatteryStatus(): Promise<{ isExcluded: boolean }>;
 }
 
 export const TTSFile = registerPlugin<TTSFilePlugin>('TTSFile');

@@ -6,6 +6,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
+import android.util.Log;
 import android.webkit.WebView;
 import com.getcapacitor.BridgeActivity;
 import com.zmanlab.lawear.plugins.ttsfile.TTSFilePlugin;
@@ -32,9 +33,12 @@ public class MainActivity extends BridgeActivity {
             wakeLock.acquire();
 
             if (!pm.isIgnoringBatteryOptimizations(getPackageName())) {
+                Log.d("TTSFile", "[Battery] onCreate — 배터리 최적화 제외 자동 요청");
                 Intent intent = new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
                 intent.setData(Uri.parse("package:" + getPackageName()));
                 startActivity(intent);
+            } else {
+                Log.d("TTSFile", "[Battery] onCreate — 이미 최적화 제외 상태");
             }
         }
 

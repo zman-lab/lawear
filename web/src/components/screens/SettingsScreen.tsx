@@ -1,9 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Capacitor, registerPlugin } from '@capacitor/core';
 import { usePlayer } from '../../context/PlayerContext';
 import { VoiceSheet } from '../player/VoiceSheet';
 import { SpeedSheet } from '../player/SpeedSheet';
 import { RepeatModeSheet } from '../player/RepeatModeSheet';
 import type { RepeatMode } from '../../types';
+
+// ── 배터리 최적화 플러그인 인터페이스 ───────────────────────────────────────
+interface BatteryPlugin {
+  setBatteryOptimization(opts: { enabled: boolean }): Promise<void>;
+  getBatteryStatus(): Promise<{ isExcluded: boolean }>;
+}
+const BatteryTTSFile = Capacitor.isNativePlatform()
+  ? registerPlugin<BatteryPlugin>('TTSFile')
+  : null;
 import {
   getCacheSizeBySubject,
   getTotalCacheSize,
@@ -59,6 +69,12 @@ function getSubjectRenderItems(subjectId: string): RenderItem[] {
 }
 
 const SLEEP_TIMEOUT_KEY = 'lawear-sleep-timeout';
+const BATTERY_OPTIMIZATION_KEY = 'lawear-battery-optimization';
+
+function loadBatteryOptimization(): boolean {
+  const raw = localStorage.getItem(BATTERY_OPTIMIZATION_KEY);
+  return raw === null ? true : raw === 'true';
+}
 
 const SLEEP_OPTIONS: { label: string; value: number }[] = [
   { label: '끄기', value: 0 },
@@ -83,6 +99,18 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
   const [showVoiceSheet, setShowVoiceSheet] = useState(false);
   const [showSpeedSheet, setShowSpeedSheet] = useState(false);
   const [showRepeatSheet, setShowRepeatSheet] = useState(false);
+
+  // ── 배터리 최적화 제외 ──────────────────────────────────────────────────
+  const [batteryOptEnabled, setBatteryOptEnabled] = useState<boolean>(() => loadBatteryOptimization());
+
+  const handleBatteryOptToggle = useCallback(() => {
+    const next = !batteryOptEnabled;
+    localStorage.setItem(BATTERY_OPTIMIZATION_KEY, String(next));
+    setBatteryOptEnabled(next);
+    if (BatteryTTSFile) {
+      BatteryTTSFile.setBatteryOptimization({ enabled: next }).catch(() => {});
+    }
+  }, [batteryOptEnabled]);
 
   // ── 슬립 모드 ─────────────────────────────────────────────────────────────
   const [sleepTimeout, setSleepTimeout] = useState<number>(() => loadSleepTimeout());
@@ -464,6 +492,46 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
             ))}
           </div>
         </div>
+
+        {/* 배터리 최적화 섹션 (Android only) */}
+        {Capacitor.isNativePlatform() && (
+          <>
+            <p className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-widest pt-3 pb-1">
+              배터리
+            </p>
+
+            <div className="bg-[#161b22] border border-[#21262d] rounded-xl overflow-hidden">
+              <button
+                className="w-full px-4 py-3.5 flex items-center justify-between active:bg-white/[0.04] transition-colors"
+                onClick={handleBatteryOptToggle}
+              >
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  <div className="w-9 h-9 rounded-lg bg-orange-500/15 flex items-center justify-center shrink-0">
+                    <svg className="w-4.5 h-4.5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm text-white font-medium">배터리 최적화 제외</p>
+                    <p className="text-[11px] text-[#8b949e]">백그라운드 TTS 재생 안정성 향상 (삼성 기기 권장)</p>
+                  </div>
+                </div>
+                {/* 토글 스위치 */}
+                <div
+                  className={`w-11 h-6 rounded-full relative transition-colors shrink-0 ${
+                    batteryOptEnabled ? 'bg-orange-500' : 'bg-[#30363d]'
+                  }`}
+                >
+                  <div
+                    className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+                      batteryOptEnabled ? 'translate-x-[22px]' : 'translate-x-0.5'
+                    }`}
+                  />
+                </div>
+              </button>
+            </div>
+          </>
+        )}
 
         {/* 오프라인 저장 섹션 */}
         <p className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-widest pt-3 pb-1">

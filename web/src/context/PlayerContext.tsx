@@ -12,6 +12,8 @@ interface TTSFilePlugin {
   updateSequenceRate(opts: { rate: number }): Promise<void>;
   jumpSequence(opts: { index: number }): Promise<void>;
   addListener(eventName: 'sequenceEvent', handler: (ev: { event: string; index: number }) => void): Promise<PluginListenerHandle>;
+  setBatteryOptimization(opts: { enabled: boolean }): Promise<void>;
+  getBatteryStatus(): Promise<{ isExcluded: boolean }>;
 }
 const TTSFile = Capacitor.isNativePlatform()
   ? registerPlugin<TTSFilePlugin>('TTSFile')
@@ -266,6 +268,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     }
     return () => { wakeLock?.release(); };
   }, [state.isPlaying]);
+
+  // ── 배터리 최적화 상태 로그 (앱 시작 시 1회) ──────────────────────────
+  useEffect(() => {
+    if (TTSFile) {
+      TTSFile.getBatteryStatus().then((status) => {
+        console.log('[Battery] 현재 상태:', status.isExcluded ? '최적화 제외' : '최적화 적용');
+      }).catch(() => {});
+    }
+  }, []);
 
   // ── MediaSession 초기화 (알림바/잠금화면 미니플레이어) ──────────────────
   const mediaSessionInitRef = useRef(false);
