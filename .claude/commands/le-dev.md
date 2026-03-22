@@ -94,6 +94,18 @@ Skill(skill="dev-response")
    git -C /Users/nhn/zman-lab/lawear branch --show-current
 ```
 
+### 세션 시작 후 안내 (필수 출력!)
+
+세션 시작 완료 후 아래 안내를 사용자에게 반드시 보여줄 것:
+
+```
+TTS 작업 시 아래 순서로 진행하세요:
+  /le-tts-load         → 공통 규칙 로드
+  /le-tts-todo         → 현황 확인 (어디까지 했는지)
+  /le-tts-find 형소    → 과목 세부 규칙 로드 (과목명 변경 가능)
+  → 작업 시작
+```
+
 ## TTS 변환 워크플로우
 
 ```
