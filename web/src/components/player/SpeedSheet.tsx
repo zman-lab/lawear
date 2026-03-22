@@ -27,6 +27,7 @@ export function SpeedSheet({ isOpen, onClose }: SpeedSheetProps) {
 
   const handlePreset = (speed: Speed) => {
     setSpeed(speed);
+    onClose();
   };
 
   // 슬라이더 클릭 / 드래그 처리
@@ -60,8 +61,11 @@ export function SpeedSheet({ isOpen, onClose }: SpeedSheetProps) {
   );
 
   const onPointerUp = useCallback(() => {
+    if (dragStartXRef.current !== null) {
+      onClose();
+    }
     dragStartXRef.current = null;
-  }, []);
+  }, [onClose]);
 
   if (!isOpen) return null;
 
