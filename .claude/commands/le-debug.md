@@ -126,32 +126,48 @@ python3 scripts/dev-cdp-qa.py <기기IP:포트>
 > 없으면 → 사용자에게 "테스트과목이 없습니다. le-dev에서 먼저 생성해주세요" 보고 후 스킵.
 
 **공통 전제:**
-- 5배속 강제 설정 (테스트 시작 시 배속 버튼 → 5.0x 선택)
+- 5배속 강제 설정: `window.__debug__.setSpeed(5.0)`
 - 각 스텝마다 로그 캡처 + 사용자에게 스텝별 로그 붙여넣기 보고
+- **TC별 60초 타임아웃**: 각 TC를 독립 실행, 60초 초과 시 FAIL 처리 후 다음 TC
+- **`window.__debug__` 함수 직접 호출 우선** (바텀시트 DOM 클릭보다 안정적):
+  - `window.__debug__.setRepeatMode('repeat-one')` — 반복모드 변경
+  - `window.__debug__.setSpeed(5.0)` — 배속 변경
+  - `window.__debug__.playSelected([...])` — 플레이리스트 재생
+  - `window.__debug__.play(subjectId, fileId, questionId)` — 단일 재생
+  - `window.__debug__.stop()` — 정지
+- **`window.__cdp.click(text)` 사용** (scrollIntoView 자동, DOM 클릭 시)
+- **상태 확인**: `window.__debug__.state` (isPlaying, repeatMode, currentSentenceIndex, playlistIndex 등)
 
-**test_07: 반복모드 전환**
-1. "테스트과목" → T-1 선택
-2. 재생 시작 (5배속)
-3. 반복 버튼 클릭 → "1곡 반복" 선택
-4. `window.__debug__.state.repeatMode` == 'repeat-one' 확인
-5. aria-label에 "1곡 반복" 포함 확인
-6. 반복 버튼 → "전곡 반복" 선택 → 동일 검증
-7. 반복 버튼 → "셔플" 선택 → 동일 검증
+**테스트과목 진입 패턴:**
+```javascript
+// 1. 홈으로 이동 (뒤로가기 반복)
+// 2. 테스트과목 카드 정확 클릭 (textContent에 '테스트과목' + '6 설문' 포함)
+(function(){ const els=document.querySelectorAll('div');
+  for(const el of els){ if(el.textContent&&el.textContent.includes('테스트과목')&&el.textContent.includes('6 설문')&&el.clientHeight>30&&el.clientHeight<200){ el.scrollIntoView({block:'center'}); el.click(); return 'ok';}} return 'no';})()
+// 3. T-1 케이스 선택 후 재생 버튼 (aria-label='재생')
+```
 
-**test_08: 1곡 반복 실제 루프**
-1. "테스트과목" → T-1 선택, 5배속, repeat-one 모드
-2. `window.__debug__.state.currentSentenceIndex` 폴링 (0.5초 간격)
-3. 인덱스가 마지막(3)까지 간 후 → 다시 0으로 돌아오는지 확인 (30초 타임아웃)
-4. PASS: 0→1→2→3→0 순서 확인
+**test_07: 반복모드 전환** (60초)
+1. 테스트과목 → T-1 선택 + 재생
+2. `window.__debug__.setRepeatMode('repeat-one')` → state 확인
+3. `window.__debug__.setRepeatMode('repeat-all')` → state 확인
+4. `window.__debug__.setRepeatMode('shuffle')` → state 확인
+5. PASS: 3개 모드 전부 정확히 반영
 
-**test_09: 전곡 반복 트랙 전환**
-1. "테스트과목" → T-1 선택, 5배속, repeat-all 모드
-2. T-1 재생 완료 후 → T-2로 자동 전환되는지 `playlistIndex` 폴링
-3. PASS: playlistIndex가 0→1로 변경
+**test_08: 1곡 반복 실제 루프** (60초)
+1. 테스트과목 → T-1 선택, 5배속, repeat-one 모드
+2. `window.__debug__.state.currentSentenceIndex` 폴링 (1초 간격, 15초)
+3. PASS: 인덱스 3→0 전환 1회 이상 + playlistIndex 불변
 
-**test_10: 1곡 후 정지**
-1. "테스트과목" → T-1 선택, 5배속, stop-after-one 모드
-2. T-1 재생 완료 후 → `isPlaying`이 false로 변경되는지 폴링 (30초)
+**test_09: 전곡 반복 트랙 전환** (60초)
+1. 테스트과목 "전체 재생" (UI) 또는 `window.__debug__.playSelected` (6곡 playlist)
+2. `window.__debug__.setRepeatMode('repeat-all')`, 5배속
+3. `playlistIndex` + `currentQuestionId` 폴링 (1초 간격, 20초)
+4. PASS: playlistIndex 0→1 전환 또는 questionId 변경
+
+**test_10: 1곡 후 정지** (60초)
+1. 테스트과목 재생 중 `window.__debug__.setRepeatMode('stop-after-one')`
+2. `isPlaying` 폴링 (1초 간격, 15초)
 3. PASS: isPlaying == false
 
 ### 테스트 결과 보고 형식
