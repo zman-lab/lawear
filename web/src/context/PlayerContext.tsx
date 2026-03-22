@@ -245,10 +245,40 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     });
   }, []);
 
-  // ── CDP 자동 QA용: window.__debug__에 state 노출 (dev 빌드 전용) ──
+  // ── CDP 자동 QA용: window.__debug__에 state 노출 + __cdp 헬퍼 ──
   useEffect(() => {
-    if (typeof window !== 'undefined' && import.meta.env.DEV) {
-      (window as any).__debug__ = { state, setState };
+    if (typeof window !== 'undefined') {
+      const d = (window as any).__debug__ || {};
+      d.state = state;
+      d.setState = setState;
+      (window as any).__debug__ = d;
+
+      // CDP 헬퍼: scrollIntoView + click 원샷
+      if (!(window as any).__cdp) {
+        (window as any).__cdp = {
+          click: (text: string) => {
+            const els = document.querySelectorAll('div, button, a, span');
+            for (const el of els) {
+              if (el.textContent?.includes(text) && (el as HTMLElement).offsetParent !== null && (el as HTMLElement).clientHeight > 5) {
+                (el as HTMLElement).scrollIntoView({ block: 'center', behavior: 'instant' });
+                (el as HTMLElement).click();
+                return 'clicked: ' + text;
+              }
+            }
+            return 'NOT FOUND: ' + text;
+          },
+          scroll: (text: string) => {
+            const els = document.querySelectorAll('div, button, a, span');
+            for (const el of els) {
+              if (el.textContent?.includes(text) && (el as HTMLElement).offsetParent !== null) {
+                (el as HTMLElement).scrollIntoView({ block: 'center', behavior: 'instant' });
+                return 'scrolled to: ' + text;
+              }
+            }
+            return 'NOT FOUND: ' + text;
+          },
+        };
+      }
     }
   }, [state]);
   const { isSupported, isNative, speak, pause, resume, cancel, setRate, setOnRateChange, voices } = useSpeechSynthesis();
@@ -1183,8 +1213,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── setRepeatMode ───────────────────────────────────────────────────────
   const setRepeatMode = useCallback((repeatMode: RepeatMode) => {
-    setState((prev) => ({ ...prev, repeatMode }));
-  }, []);
+    updateState({ repeatMode });
+  }, [updateState]);
 
   // ── setSleepTimer ───────────────────────────────────────────────────────
   const setSleepTimer = useCallback((seconds: number | null) => {
@@ -1507,6 +1537,21 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     toggleRepeatSection,
     clearRepeatSection,
   };
+
+  // ── CDP QA: play/stop 등 함수도 노출 ──
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const d = (window as any).__debug__ || {};
+      d.play = play;
+      d.stop = stop;
+      d.togglePlay = togglePlay;
+      d.setRepeatMode = setRepeatMode;
+      d.playSelected = playSelected;
+      d.playFile = playFile;
+      d.setSpeed = setSpeed;
+      (window as any).__debug__ = d;
+    }
+  }, [play, stop, togglePlay, setRepeatMode, playSelected, playFile, setSpeed]);
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }
