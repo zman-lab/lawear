@@ -7,11 +7,9 @@
 ## 필수 선행 로드
 
 이 스킬 호출 시 아래 서브 스킬을 즉시 체인 로드:
-- `/context-guard` — 대형 작업 자동 실행 모드
 - `/dev-response` — 응답 품질 규칙 (팔로업 표시, 게시판 링크, 작업 순서 형식)
 
 ```
-Skill(skill="context-guard")
 Skill(skill="dev-response")
 ```
 
@@ -191,7 +189,6 @@ Skill(skill="dev-response")
 | `le-deploy-lock` | 배포 락 프로토콜 |
 | `le-restart` | 서버 재시작 |
 | `commit` | 범용 커밋 |
-| `context-guard` | 대형 작업 자동화 |
 | `dev-commit` | 개발 커밋 |
 
 ## 입력값
