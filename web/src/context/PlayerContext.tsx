@@ -64,14 +64,26 @@ function getSentences(
 
   let raw: string[];
   if (level === 2) {
-    // 핵심요약: 문제 제거, 목차 + 답안만
-    raw = [...tocSentences, ...answer];
+    // 핵심요약: 전용 answer_lv2 있으면 사용 (A/B/C/F 구조)
+    const lv2Answer = question.content.answer_lv2;
+    if (lv2Answer && lv2Answer.length > 0) {
+      raw = [...problem, ...tocSentences, ...lv2Answer];
+    } else {
+      // fallback: 기존 로직 (목차 + 답안)
+      raw = [...tocSentences, ...answer];
+    }
   } else if (level === 3) {
-    // 슈퍼심플: 목차 + 답안에서 키워드 포함 문장만
-    const keyAnswer = answer.filter((s) =>
-      SUPERSIMPLE_KEYWORDS.some((kw) => s.includes(kw)) || s === answer[0]
-    );
-    raw = [...tocSentences, ...(keyAnswer.length > 0 ? keyAnswer : [answer[0] ?? ''])];
+    // 슈퍼심플: 전용 answer_lv3 있으면 사용
+    const lv3Answer = question.content.answer_lv3;
+    if (lv3Answer && lv3Answer.length > 0) {
+      raw = [...lv3Answer];  // Lv.3는 문제/목차 없음
+    } else {
+      // fallback: 기존 키워드 필터
+      const keyAnswer = answer.filter((s) =>
+        SUPERSIMPLE_KEYWORDS.some((kw) => s.includes(kw)) || s === answer[0]
+      );
+      raw = [...tocSentences, ...(keyAnswer.length > 0 ? keyAnswer : [answer[0] ?? ''])];
+    }
   } else {
     // Lv.1 빠른복습: 전체
     raw = [...problem, ...tocSentences, ...answer];

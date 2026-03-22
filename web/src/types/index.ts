@@ -53,6 +53,8 @@ export interface TTSContent {
   problem: string[];
   toc: TocItem[];
   answer: string[];
+  answer_lv2?: string[];  // Lv.2 핵심요약 답안
+  answer_lv3?: string[];  // Lv.3 슈퍼심플 답안
 }
 
 export interface TocItem {

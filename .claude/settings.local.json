@@ -1,6 +1,5 @@
 {
   "permissions": {
-    "defaultMode": "bypassPermissions",
     "allow": [
       "mcp__claude-board__*",
       "mcp__context7__*",
@@ -12,11 +11,19 @@
       "Edit(*)",
       "Glob(*)",
       "Grep(*)"
-    ]
+    ],
+    "defaultMode": "bypassPermissions"
   },
   "enabledMcpjsonServers": [
     "context7",
     "ssh-manager",
-    "claude-board"
+    "claude-board",
+    "dooray-mcp",
+    "elasticsearch-real",
+    "elasticsearch-alpha",
+    "mysql-dev-game",
+    "mysql-alpha-game",
+    "mysql-alpha-log",
+    "mysql-real-game"
   ]
 }
