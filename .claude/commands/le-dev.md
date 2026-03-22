@@ -87,14 +87,10 @@ Skill(skill="dev-response")
 1. git pull
    git -C /Users/nhn/zman-lab/lawear pull
 
-2. 게시판 확인
-   curl -sf "http://127.0.0.1:8585/api/posts?board_slug=lawear-work&limit=5"
-   → 새 요청/피드백 있으면 우선 대응
-
-3. 세션 ID 생성
+2. 세션 ID 생성
    python3 -c "import secrets; print(f'lawear-{secrets.token_hex(2)}')"
 
-4. 브랜치 확인
+3. 브랜치 확인
    git -C /Users/nhn/zman-lab/lawear branch --show-current
 ```
 
