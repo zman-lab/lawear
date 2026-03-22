@@ -333,16 +333,20 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
     return answer;
   })();
 
+  // Lv.3은 문제/목차 없음 (답안만)
+  const displayProblem: string[] = level === 3 ? [] : problem;
+  const displayToc: typeof toc = level === 3 ? [] : toc;
+
   // 전체 문장 배열 (가사 뷰용)
   const allSentences: string[] = [
-    ...problem,
-    ...toc.map((t) => `${t.number}. ${t.text}`),
+    ...displayProblem,
+    ...displayToc.map((t) => `${t.number}. ${t.text}`),
     ...displayAnswer,
   ];
 
   // 섹션별 오프셋
-  const tocOffset = problem.length;
-  const answerOffset = problem.length + toc.length;
+  const tocOffset = displayProblem.length;
+  const answerOffset = displayProblem.length + displayToc.length;
 
   const setRef = (globalIndex: number) => (el: HTMLElement | null) => {
     sentenceRefs.current.set(globalIndex, el);
@@ -439,7 +443,8 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
       {/* 리더 뷰 */}
       {viewMode === 'reader' && (
         <div className="flex-1 overflow-y-auto px-4 pb-44">
-          {/* 문제 아코디언 */}
+          {/* 문제 아코디언 (Lv.3은 숨김) */}
+          {displayProblem.length > 0 && (
           <AccordionSection
             isOpen={accordion.problem}
             onToggle={() => setAccordion((prev) => ({ ...prev, problem: !prev.problem }))}
@@ -449,7 +454,7 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
             label="문제"
           >
             <div className="space-y-0.5 pb-3">
-              {problem.map((text, i) => (
+              {displayProblem.map((text, i) => (
                 <Sentence
                   key={i}
                   text={text}
@@ -464,8 +469,10 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
               ))}
             </div>
           </AccordionSection>
+          )}
 
-          {/* 목차 아코디언 */}
+          {/* 목차 아코디언 (Lv.3은 숨김) */}
+          {displayToc.length > 0 && (
           <AccordionSection
             isOpen={accordion.toc}
             onToggle={() => setAccordion((prev) => ({ ...prev, toc: !prev.toc }))}
@@ -475,7 +482,7 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
             label="목차"
           >
             <div className="space-y-1.5 pb-3 text-sm">
-              {toc.map((item, i) => (
+              {displayToc.map((item, i) => (
                 <TocItemRow
                   key={i}
                   item={item}
@@ -491,6 +498,7 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
               ))}
             </div>
           </AccordionSection>
+          )}
 
           {/* 답안 아코디언 */}
           <AccordionSection

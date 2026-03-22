@@ -24,9 +24,14 @@ function debugLog(...args: unknown[]) {
 
 // --- 타입 ---
 
+interface ArticleInfo {
+  title: string;
+  path: string;
+}
+
 interface StatuteData {
   mst: string;
-  articles: Record<string, string>;
+  articles: Record<string, ArticleInfo>;
 }
 
 interface LawArticlesJson {
@@ -96,10 +101,10 @@ export function getArticleTitle(statute: string, articleNum: string): string | n
   const statuteData = data.statutes[statute];
   if (!statuteData) return null;
 
-  const title = statuteData.articles[articleNum];
-  if (title === undefined || title === '') return null;
+  const info = statuteData.articles[articleNum];
+  if (!info || !info.title) return null;
 
-  return title;
+  return info.title;
 }
 
 /**
@@ -150,7 +155,8 @@ export function insertArticleTitles(
       }
 
       const articleKey = num + (suffix ?? '');
-      const title = statuteData.articles[articleKey];
+      const info = statuteData.articles[articleKey];
+      const title = info?.title;
 
       if (!title) {
         debugLog(`[LawArticle] 조문 제목 없음: ${statute} 제${articleKey}조 → 원본 유지`);
