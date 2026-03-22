@@ -173,7 +173,7 @@ function ReviewCard({
   );
 }
 
-const ESSAY_SUBJECT_IDS = ['2nd_minso_2026', '2nd_minbeop_2026', '2nd_hyung_2026', '2nd_hyungso_2026', '2nd_budeung_2026'];
+const ESSAY_SUBJECT_IDS = ['2nd_minso_2026', '2nd_minbeop_2026', '2nd_hyung_2026', '2nd_hyungso_2026', '2nd_budeung_2026', 'test_subject'];
 
 export function HomeScreen({ onSelectSubject, onOpenSettings }: HomeScreenProps) {
   const { playSelected } = usePlayer();
