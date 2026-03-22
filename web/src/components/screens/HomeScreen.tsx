@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { subjects } from '../../data/ttsData';
+import { subjects } from '../../data/tts';
 import type { Subject } from '../../types';
 import { loadExamDate, calcDday, formatDday } from '../../services/examDate';
 import { getReviewSummary, type ReviewItem } from '../../services/ebbinghaus';

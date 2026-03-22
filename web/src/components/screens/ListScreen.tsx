@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { subjects } from '../../data/ttsData';
+import { subjects } from '../../data/tts';
 import { usePlayer } from '../../context/PlayerContext';
 import { log } from '../../services/logger';
 import { loadFavorites, addItemToFavorite, saveFavorite } from '../../services/favoritePlaylist';

@@ -2,7 +2,7 @@
 import type { ProgressEntry } from './learningProgress';
 import { loadProgress } from './learningProgress';
 import { loadWeakMarks } from './weakMark';
-import { subjects } from '../data/ttsData';
+import { subjects } from '../data/tts';
 
 // 복습 간격 (일 단위): 1일 → 3일 → 7일 → 14일 → 30일
 const REVIEW_INTERVALS = [1, 3, 7, 14, 30];

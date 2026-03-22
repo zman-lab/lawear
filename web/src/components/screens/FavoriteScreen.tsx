@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
-import { subjects } from '../../data/ttsData';
+import { subjects } from '../../data/tts';
 import {
   loadFavorites,
   deleteFavorite,

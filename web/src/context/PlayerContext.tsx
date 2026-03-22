@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useRef, useEffect } from 'react';
 import { Capacitor, registerPlugin, PluginListenerHandle } from '@capacitor/core';
 import { PlayerState, PlaylistItem, Speed, Level, ViewMode, RepeatMode, SleepTimer, TTSVoice } from '../types';
-import { subjects } from '../data/ttsData';
+import { subjects } from '../data/tts';
 import { insertArticleTitles } from '../utils/lawArticleHelper';
 import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 

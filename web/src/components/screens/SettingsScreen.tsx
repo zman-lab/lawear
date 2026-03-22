@@ -35,7 +35,7 @@ import {
   type RenderItem,
   type RenderProgress,
 } from '../../services/renderQueue';
-import { subjects } from '../../data/ttsData';
+import { subjects } from '../../data/tts';
 import { APP_VERSION, BUILD_DATE } from '../../version';
 import { GITHUB_OWNER, GITHUB_REPO, GITHUB_API } from '../../config';
 import { loadExamDate, saveExamDate, clearExamDate, calcDday, formatDday } from '../../services/examDate';

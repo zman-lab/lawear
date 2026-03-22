@@ -1,6 +1,6 @@
 import { useRef, useState, useCallback, useEffect } from 'react';
 import { usePlayer } from '../../context/PlayerContext';
-import { subjects } from '../../data/ttsData';
+import { subjects } from '../../data/tts';
 import { SleepTimerSheet } from './SleepTimerSheet';
 import { VoiceSheet } from './VoiceSheet';
 import { SpeedSheet } from './SpeedSheet';
