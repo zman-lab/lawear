@@ -226,6 +226,25 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PlayerState>(initialState);
   const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
 
+  // 현재 문장 인덱스를 ref로도 유지 (콜백 클로저에서 최신값 참조)
+  const sentenceIndexRef = useRef(state.currentSentenceIndex);
+  const stateRef = useRef(state);
+  // fallback sync: updateState를 거치지 않는 setState 호출도 stateRef에 반영
+  useEffect(() => {
+    sentenceIndexRef.current = state.currentSentenceIndex;
+    stateRef.current = state;
+  }, [state]);
+
+  // ── updateState: setState + stateRef 자동 동기화 ──────────────────────────
+  const updateState = useCallback((updater: Partial<PlayerState> | ((prev: PlayerState) => Partial<PlayerState>)) => {
+    setState((prev) => {
+      const updates = typeof updater === 'function' ? updater(prev) : updater;
+      const next = { ...prev, ...updates };
+      stateRef.current = next;
+      return next;
+    });
+  }, []);
+
   // ── CDP 자동 QA용: window.__debug__에 state 노출 (dev 빌드 전용) ──
   useEffect(() => {
     if (typeof window !== 'undefined' && import.meta.env.DEV) {
@@ -335,15 +354,6 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // nextQuestion/prevQuestion을 콜백에서 호출하기 위한 ref
   const nextQuestionRef = useRef<(() => void) | null>(null);
   const prevQuestionRef = useRef<(() => void) | null>(null);
-
-  // 현재 문장 인덱스를 ref로도 유지 (콜백 클로저에서 최신값 참조)
-  // stateRef는 MediaSession 동기화 useEffect에서도 참조하므로 먼저 선언
-  const sentenceIndexRef = useRef(state.currentSentenceIndex);
-  const stateRef = useRef(state);
-  useEffect(() => {
-    sentenceIndexRef.current = state.currentSentenceIndex;
-    stateRef.current = state;
-  }, [state]);
 
   // ── MediaSession: 트랙/상태 동기화 ─────────────────────────────────────
   useEffect(() => {
@@ -488,184 +498,39 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             console.log('[AB Debug] no jump (condition not met)', { localIdx, end: stateRef.current.repeatSectionEnd });
           }
 
-          // 트랙 전환 감지 + 반복 모드 처리
+          // 트랙 전환 감지 → handleTrackEnd로 통합 처리
           const prevTrackIdx = stateRef.current.playlistIndex;
           if (trackIdx !== prevTrackIdx && stateRef.current.playlist.length > 0) {
             const mode = stateRef.current.repeatMode;
 
-            // repeat-one: 현재 트랙 시작점으로 되돌아가기
-            if (mode === 'repeat-one') {
-              if (isJumpingRef.current) return;
-              isJumpingRef.current = true;
-              const currentItem = stateRef.current.playlist[prevTrackIdx];
-              const jumpStart = currentItem?.sentenceIndex ?? 0;
-              const jumpAbsolute = (trackOffsets[prevTrackIdx] ?? 0) + jumpStart;
-              console.log('[Player] repeat-one: jumping back to track start', { prevTrackIdx, jumpStart, jumpAbsolute });
-              stateRef.current = { ...stateRef.current, currentSentenceIndex: jumpStart };
-              TTSFile!.jumpSequence({ index: jumpAbsolute }).then(() => {
-                isJumpingRef.current = false;
-              }).catch(() => {
-                isJumpingRef.current = false;
-              });
-              setState((prev) => ({ ...prev, currentSentenceIndex: jumpStart }));
-              sentenceIndexRef.current = jumpStart;
+            // repeat-all / stop-after-all: 순차 진행이므로 트랙 전환을 허용
+            if (mode === 'repeat-all' || mode === 'stop-after-all') {
+              const item = stateRef.current.playlist[trackIdx];
+              if (item) {
+                const newSents = getSentences(item.subjectId, item.fileId, item.questionId, stateRef.current.level);
+                sentencesRef.current = newSents;
+                updateState({
+                  currentSubjectId: item.subjectId,
+                  currentFileId: item.fileId,
+                  currentQuestionId: item.questionId,
+                  currentSentenceIndex: localIdx,
+                  playlistIndex: trackIdx,
+                });
+              }
+            } else {
+              // repeat-one, stop-after-one, shuffle: handleTrackEnd가 처리
+              handleTrackEndRef.current(mode, true, trackOffsets);
               return;
-            }
-
-            // stop-after-one: 트랙 전환 시 정지
-            if (mode === 'stop-after-one') {
-              console.log('[Player] stop-after-one: stopping at track boundary');
-              nativeSequenceActiveRef.current = false;
-              TTSFile!.stopSequence().catch(() => {});
-              console.log('[Player] isPlaying changed to', false, 'reason: stop-after-one at track boundary');
-              stateRef.current = { ...stateRef.current, isPlaying: false };
-              setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
-              sentenceIndexRef.current = 0;
-              return;
-            }
-
-            // shuffle: 랜덤 트랙으로 점프
-            if (mode === 'shuffle') {
-              const pl = stateRef.current.playlist;
-              const indexed = pl.map((item, i) => ({ item, i })).filter(({ i }) => i !== prevTrackIdx);
-              const chosen = indexed.length > 0
-                ? indexed[Math.floor(Math.random() * indexed.length)]
-                : { item: pl[prevTrackIdx], i: prevTrackIdx };
-              const nextItem = chosen.item;
-              const nextPIdx = chosen.i;
-              const nextStart = nextItem.sentenceIndex ?? 0;
-              const jumpAbsolute = (trackOffsets[nextPIdx] ?? 0) + nextStart;
-              console.log('[Player] shuffle: jumping to random track', { nextPIdx, nextStart, jumpAbsolute });
-              const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId, stateRef.current.level);
-              sentencesRef.current = newSents;
-              sentenceIndexRef.current = nextStart;
-              stateRef.current = {
-                ...stateRef.current,
-                currentSubjectId: nextItem.subjectId,
-                currentFileId: nextItem.fileId,
-                currentQuestionId: nextItem.questionId,
-                currentSentenceIndex: nextStart,
-                playlistIndex: nextPIdx,
-              };
-              setState((prev) => ({
-                ...prev,
-                currentSubjectId: nextItem.subjectId,
-                currentFileId: nextItem.fileId,
-                currentQuestionId: nextItem.questionId,
-                currentSentenceIndex: nextStart,
-                playlistIndex: nextPIdx,
-              }));
-              TTSFile!.jumpSequence({ index: jumpAbsolute }).catch(() => {});
-              return;
-            }
-
-            // repeat-all, stop-after-all: 순차 진행 (기존 로직)
-            const item = stateRef.current.playlist[trackIdx];
-            if (item) {
-              const newSents = getSentences(item.subjectId, item.fileId, item.questionId, stateRef.current.level);
-              sentencesRef.current = newSents;
-              stateRef.current = {
-                ...stateRef.current,
-                currentSubjectId: item.subjectId,
-                currentFileId: item.fileId,
-                currentQuestionId: item.questionId,
-                playlistIndex: trackIdx,
-              };
-              setState((prev) => ({
-                ...prev,
-                currentSubjectId: item.subjectId,
-                currentFileId: item.fileId,
-                currentQuestionId: item.questionId,
-                currentSentenceIndex: localIdx,
-                playlistIndex: trackIdx,
-              }));
             }
           } else {
             setState((prev) => ({ ...prev, currentSentenceIndex: localIdx }));
           }
           sentenceIndexRef.current = localIdx;
         } else if (ev.event === 'complete') {
-          // 전체 playlist 완료
+          // 전체 playlist 완료 → handleTrackEnd로 통합 처리
+          // complete에서는 trackOffsets를 넘기지 않음 (새 시퀀스를 시작해야 하므로)
           nativeSequenceActiveRef.current = false;
-          const mode = stateRef.current.repeatMode;
-          const latestState = stateRef.current;
-
-          if (mode === 'repeat-one') {
-            // 1곡 반복: 현재 트랙을 sentenceIndex부터 다시 재생
-            const currentItem = latestState.playlist.length > 0
-              ? latestState.playlist[latestState.playlistIndex]
-              : null;
-            const repeatStart = currentItem?.sentenceIndex ?? 0;
-            sentenceIndexRef.current = repeatStart;
-            stateRef.current = { ...stateRef.current, isPlaying: true, currentSentenceIndex: repeatStart };
-            setState((prev) => ({ ...prev, isPlaying: true, currentSentenceIndex: repeatStart }));
-            console.log('[Player] isPlaying changed to', true, 'reason: repeat-one restart (native)');
-            startNativeSequence(repeatStart, stateRef.current.speed);
-          } else if (mode === 'repeat-all' && latestState.playlist.length > 0) {
-            // 전곡반복: 처음부터 다시 — isPlaying 유지
-            const first = latestState.playlist[0];
-            const firstStart = first.sentenceIndex ?? 0;
-            const newSents = getSentences(first.subjectId, first.fileId, first.questionId, latestState.level);
-            const clampedStart = Math.max(0, Math.min(firstStart, newSents.length - 1));
-            sentencesRef.current = newSents;
-            sentenceIndexRef.current = clampedStart;
-            stateRef.current = {
-              ...stateRef.current,
-              isPlaying: true,
-              currentSubjectId: first.subjectId,
-              currentFileId: first.fileId,
-              currentQuestionId: first.questionId,
-              currentSentenceIndex: clampedStart,
-              playlistIndex: 0,
-            };
-            setState((prev) => ({
-              ...prev,
-              isPlaying: true,
-              currentSubjectId: first.subjectId,
-              currentFileId: first.fileId,
-              currentQuestionId: first.questionId,
-              currentSentenceIndex: clampedStart,
-              playlistIndex: 0,
-            }));
-            console.log('[Player] isPlaying changed to', true, 'reason: repeat-all restart');
-            startNativeSequence(clampedStart, stateRef.current.speed);
-          } else if (mode === 'shuffle' && latestState.playlist.length > 0) {
-            // 셔플: 랜덤 트랙 선택
-            const candidates = latestState.playlist.filter((_, i) => i !== latestState.playlistIndex);
-            const nextItem = candidates.length > 0
-              ? candidates[Math.floor(Math.random() * candidates.length)]
-              : latestState.playlist[latestState.playlistIndex];
-            const nextIdx = latestState.playlist.indexOf(nextItem);
-            const nextStart = nextItem.sentenceIndex ?? 0;
-            const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId, latestState.level);
-            const clampedNext = Math.max(0, Math.min(nextStart, newSents.length - 1));
-            sentencesRef.current = newSents;
-            sentenceIndexRef.current = clampedNext;
-            stateRef.current = {
-              ...stateRef.current,
-              isPlaying: true,
-              currentSubjectId: nextItem.subjectId,
-              currentFileId: nextItem.fileId,
-              currentQuestionId: nextItem.questionId,
-              currentSentenceIndex: clampedNext,
-              playlistIndex: nextIdx,
-            };
-            setState((prev) => ({
-              ...prev,
-              isPlaying: true,
-              currentSubjectId: nextItem.subjectId,
-              currentFileId: nextItem.fileId,
-              currentQuestionId: nextItem.questionId,
-              currentSentenceIndex: clampedNext,
-              playlistIndex: nextIdx,
-            }));
-            console.log('[Player] isPlaying changed to', true, 'reason: shuffle restart (native)');
-            startNativeSequence(clampedNext, stateRef.current.speed);
-          } else {
-            console.log('[Player] isPlaying changed to', false, 'reason: native sequence complete');
-            stateRef.current = { ...stateRef.current, isPlaying: false };
-            setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
-          }
+          handleTrackEndRef.current(stateRef.current.repeatMode, true);
         }
       });
 
@@ -692,12 +557,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (idx >= sents.length) {
         // 모든 문장 완료 → 정지
         console.log('[Player] isPlaying changed to', false, 'reason: all sentences complete (web)');
-        stateRef.current = { ...stateRef.current, isPlaying: false };
-        setState((prev) => ({
-          ...prev,
-          isPlaying: false,
-          currentSentenceIndex: 0,
-        }));
+        updateState({ isPlaying: false, currentSentenceIndex: 0 });
         cancel();
         return;
       }
@@ -754,12 +614,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             sentenceIndexRef.current = nextIdx;
             speakCurrentSentence(nextIdx, stateRef.current.speed);
           } else {
-            // 모든 문장 완료 → 진도 기록 + 플레이리스트 or repeatMode에 따라 분기
+            // 모든 문장 완료 → 진도 기록 + handleTrackEnd로 통합 처리
             log.player('track_complete');
             // 학습 진도 기록 + 복습 스케줄 처리
             const completedQuestionId = stateRef.current.currentQuestionId;
             if (completedQuestionId) {
-              // 복습 스케줄이 있고 기한이 도래했으면 복습 완료 처리
               const prog = loadProgress();
               const entry = prog[completedQuestionId];
               if (entry?.reviewSchedule && Date.now() >= entry.reviewSchedule.nextReviewAt) {
@@ -768,206 +627,323 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 recordCompletion(completedQuestionId);
               }
             }
-            const current = stateRef.current;
-            const { playlist, playlistIndex, repeatMode: mode } = current;
-
-            // 플레이리스트가 있으면 repeatMode를 먼저 체크
-            if (playlist.length > 0) {
-              // repeat-one: 항상 현재 트랙 반복 (sentenceIndex가 있으면 그 위치부터)
-              if (mode === 'repeat-one') {
-                const currentItem = playlist[playlistIndex];
-                const repeatStart = currentItem?.sentenceIndex ?? 0;
-                setState((prev) => ({ ...prev, currentSentenceIndex: repeatStart }));
-                sentenceIndexRef.current = repeatStart;
-                speakCurrentSentence(repeatStart, stateRef.current.speed);
-                return;
-              }
-
-              // stop-after-one: 현재 트랙 끝나면 정지
-              if (mode === 'stop-after-one') {
-                console.log('[Player] isPlaying changed to', false, 'reason: stop-after-one (web)');
-                stateRef.current = { ...stateRef.current, isPlaying: false };
-                setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
-                return;
-              }
-
-              // shuffle: 랜덤 트랙 선택
-              if (mode === 'shuffle') {
-                const candidates = playlist.filter((_, i) => i !== playlistIndex);
-                if (candidates.length === 0) {
-                  // 1곡짜리면 자기 자신 반복
-                  const selfStart = playlist[playlistIndex]?.sentenceIndex ?? 0;
-                  setState((prev) => ({ ...prev, currentSentenceIndex: selfStart }));
-                  sentenceIndexRef.current = selfStart;
-                  speakCurrentSentence(selfStart, stateRef.current.speed);
-                } else {
-                  const randomItem = candidates[Math.floor(Math.random() * candidates.length)];
-                  const randomIdx = playlist.indexOf(randomItem);
-                  const randomStart = randomItem.sentenceIndex ?? 0;
-                  const newSents = getSentences(randomItem.subjectId, randomItem.fileId, randomItem.questionId, current.level);
-                  const clampedRand = Math.max(0, Math.min(randomStart, newSents.length - 1));
-                  sentencesRef.current = newSents;
-                  sentenceIndexRef.current = clampedRand;
-                  stateRef.current = {
-                    ...stateRef.current,
-                    currentSubjectId: randomItem.subjectId,
-                    currentFileId: randomItem.fileId,
-                    currentQuestionId: randomItem.questionId,
-                    currentSentenceIndex: clampedRand,
-                    playlistIndex: randomIdx,
-                  };
-                  setState((prev) => ({
-                    ...prev,
-                    currentSubjectId: randomItem.subjectId,
-                    currentFileId: randomItem.fileId,
-                    currentQuestionId: randomItem.questionId,
-                    currentSentenceIndex: clampedRand,
-                    playlistIndex: randomIdx,
-                  }));
-                  speakCurrentSentence(clampedRand, stateRef.current.speed);
-                }
-                return;
-              }
-
-              // stop-after-all, repeat-all: 순차 진행
-              const nextTrackIdx = playlistIndex + 1;
-              if (nextTrackIdx < playlist.length) {
-                const nextItem = playlist[nextTrackIdx];
-                const nextStartSent = nextItem.sentenceIndex ?? 0;
-                const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId, current.level);
-                const clampedStart = Math.max(0, Math.min(nextStartSent, newSents.length - 1));
-                sentencesRef.current = newSents;
-                sentenceIndexRef.current = clampedStart;
-                stateRef.current = {
-                  ...stateRef.current,
-                  currentSubjectId: nextItem.subjectId,
-                  currentFileId: nextItem.fileId,
-                  currentQuestionId: nextItem.questionId,
-                  currentSentenceIndex: clampedStart,
-                  playlistIndex: nextTrackIdx,
-                };
-                setState((prev) => ({
-                  ...prev,
-                  currentSubjectId: nextItem.subjectId,
-                  currentFileId: nextItem.fileId,
-                  currentQuestionId: nextItem.questionId,
-                  currentSentenceIndex: clampedStart,
-                  playlistIndex: nextTrackIdx,
-                }));
-                speakCurrentSentence(clampedStart, stateRef.current.speed);
-              } else if (mode === 'repeat-all') {
-                const firstItem = playlist[0];
-                const firstStartSent = firstItem.sentenceIndex ?? 0;
-                const newSents = getSentences(firstItem.subjectId, firstItem.fileId, firstItem.questionId, current.level);
-                const clampedFirst = Math.max(0, Math.min(firstStartSent, newSents.length - 1));
-                sentencesRef.current = newSents;
-                sentenceIndexRef.current = clampedFirst;
-                stateRef.current = {
-                  ...stateRef.current,
-                  currentSubjectId: firstItem.subjectId,
-                  currentFileId: firstItem.fileId,
-                  currentQuestionId: firstItem.questionId,
-                  currentSentenceIndex: clampedFirst,
-                  playlistIndex: 0,
-                };
-                setState((prev) => ({
-                  ...prev,
-                  currentSubjectId: firstItem.subjectId,
-                  currentFileId: firstItem.fileId,
-                  currentQuestionId: firstItem.questionId,
-                  currentSentenceIndex: clampedFirst,
-                  playlistIndex: 0,
-                }));
-                speakCurrentSentence(clampedFirst, stateRef.current.speed);
-              } else {
-                // stop-after-all: 전곡 끝 → 정지
-                console.log('[Player] isPlaying changed to', false, 'reason: stop-after-all playlist end (web)');
-                stateRef.current = { ...stateRef.current, isPlaying: false };
-                setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
-              }
-              return;
-            }
-
-            // 플레이리스트 없으면 기존 repeatMode 로직
-            if (mode === 'stop-after-one') {
-              console.log('[Player] isPlaying changed to', false, 'reason: stop-after-one no-playlist (web)');
-              stateRef.current = { ...stateRef.current, isPlaying: false };
-              setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
-            } else if (mode === 'repeat-one') {
-              setState((prev) => ({ ...prev, currentSentenceIndex: 0 }));
-              sentenceIndexRef.current = 0;
-              speakCurrentSentence(0, stateRef.current.speed);
-            } else if (mode === 'stop-after-all') {
-              const nextQ = getAdjacentQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId, 1);
-              if (nextQ) {
-                const newSents = getSentences(nextQ.subjectId, nextQ.fileId, nextQ.questionId, current.level);
-                sentencesRef.current = newSents;
-                sentenceIndexRef.current = 0;
-                setState((prev) => ({
-                  ...prev,
-                  currentSubjectId: nextQ.subjectId,
-                  currentFileId: nextQ.fileId,
-                  currentQuestionId: nextQ.questionId,
-                  currentSentenceIndex: 0,
-                }));
-                speakCurrentSentence(0, stateRef.current.speed);
-              } else {
-                console.log('[Player] isPlaying changed to', false, 'reason: stop-after-all no-playlist end (web)');
-                stateRef.current = { ...stateRef.current, isPlaying: false };
-                setState((prev) => ({ ...prev, isPlaying: false, currentSentenceIndex: 0 }));
-              }
-            } else if (mode === 'repeat-all') {
-              const nextQ = getAdjacentQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId, 1);
-              if (nextQ) {
-                const newSents = getSentences(nextQ.subjectId, nextQ.fileId, nextQ.questionId, current.level);
-                sentencesRef.current = newSents;
-                sentenceIndexRef.current = 0;
-                setState((prev) => ({
-                  ...prev,
-                  currentSubjectId: nextQ.subjectId,
-                  currentFileId: nextQ.fileId,
-                  currentQuestionId: nextQ.questionId,
-                  currentSentenceIndex: 0,
-                }));
-                speakCurrentSentence(0, stateRef.current.speed);
-              } else {
-                const firstQ = getFirstQuestionInFile(current.currentSubjectId, current.currentFileId);
-                if (firstQ) {
-                  const newSents = getSentences(firstQ.subjectId, firstQ.fileId, firstQ.questionId, current.level);
-                  sentencesRef.current = newSents;
-                  sentenceIndexRef.current = 0;
-                  setState((prev) => ({
-                    ...prev,
-                    currentSubjectId: firstQ.subjectId,
-                    currentFileId: firstQ.fileId,
-                    currentQuestionId: firstQ.questionId,
-                    currentSentenceIndex: 0,
-                  }));
-                  speakCurrentSentence(0, stateRef.current.speed);
-                }
-              }
-            } else if (mode === 'shuffle') {
-              const randomQ = getRandomQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId);
-              if (randomQ) {
-                const newSents = getSentences(randomQ.subjectId, randomQ.fileId, randomQ.questionId, current.level);
-                sentencesRef.current = newSents;
-                sentenceIndexRef.current = 0;
-                setState((prev) => ({
-                  ...prev,
-                  currentSubjectId: randomQ.subjectId,
-                  currentFileId: randomQ.fileId,
-                  currentQuestionId: randomQ.questionId,
-                  currentSentenceIndex: 0,
-                }));
-                speakCurrentSentence(0, stateRef.current.speed);
-              }
-            }
+            handleTrackEndRef.current(stateRef.current.repeatMode, false);
           }
         },
       });
     },
     [speak, cancel],
   );
+
+  // ── playTrackAt: 트랙 전환 공통 로직 ─────────────────────────────────────
+  const playTrackAt = useCallback((
+    trackIdx: number,
+    item: PlaylistItem,
+    isNativeMode: boolean,
+    trackOffsets?: number[],
+  ) => {
+    const startSent = item.sentenceIndex ?? 0;
+    const newSents = getSentences(item.subjectId, item.fileId, item.questionId, stateRef.current.level);
+    const clampedStart = Math.max(0, Math.min(startSent, newSents.length - 1));
+
+    sentencesRef.current = newSents;
+    sentenceIndexRef.current = clampedStart;
+
+    updateState({
+      isPlaying: true,
+      currentSubjectId: item.subjectId,
+      currentFileId: item.fileId,
+      currentQuestionId: item.questionId,
+      currentSentenceIndex: clampedStart,
+      playlistIndex: trackIdx,
+    });
+
+    if (isNativeMode && trackOffsets && TTSFile) {
+      const jumpAbsolute = (trackOffsets[trackIdx] ?? 0) + clampedStart;
+      TTSFile.jumpSequence({ index: jumpAbsolute }).catch(() => {});
+    } else if (!isNativeMode) {
+      speakCurrentSentence(clampedStart, stateRef.current.speed);
+    }
+  }, [speakCurrentSentence, updateState]);
+
+  // ── handleNoPlaylistTrackEnd: playlist 없는 경우 ────────────────────────
+  const handleNoPlaylistTrackEnd = useCallback((
+    mode: RepeatMode,
+    isNativeMode: boolean,
+  ) => {
+    const current = stateRef.current;
+
+    if (mode === 'repeat-one') {
+      sentenceIndexRef.current = 0;
+      updateState({ currentSentenceIndex: 0 });
+      if (isNativeMode) {
+        startNativeSequence(0, current.speed);
+      } else {
+        speakCurrentSentence(0, current.speed);
+      }
+    } else if (mode === 'stop-after-one') {
+      console.log('[Player] isPlaying changed to', false, 'reason: stop-after-one no-playlist');
+      if (isNativeMode) nativeSequenceActiveRef.current = false;
+      updateState({ isPlaying: false, currentSentenceIndex: 0 });
+      sentenceIndexRef.current = 0;
+    } else if (mode === 'stop-after-all') {
+      const nextQ = getAdjacentQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId, 1);
+      if (nextQ) {
+        const newSents = getSentences(nextQ.subjectId, nextQ.fileId, nextQ.questionId, current.level);
+        sentencesRef.current = newSents;
+        sentenceIndexRef.current = 0;
+        updateState({
+          currentSubjectId: nextQ.subjectId,
+          currentFileId: nextQ.fileId,
+          currentQuestionId: nextQ.questionId,
+          currentSentenceIndex: 0,
+        });
+        if (isNativeMode) {
+          startNativeSequence(0, current.speed);
+        } else {
+          speakCurrentSentence(0, current.speed);
+        }
+      } else {
+        console.log('[Player] isPlaying changed to', false, 'reason: stop-after-all no-playlist end');
+        if (isNativeMode) nativeSequenceActiveRef.current = false;
+        updateState({ isPlaying: false, currentSentenceIndex: 0 });
+        sentenceIndexRef.current = 0;
+      }
+    } else if (mode === 'repeat-all') {
+      const nextQ = getAdjacentQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId, 1);
+      if (nextQ) {
+        const newSents = getSentences(nextQ.subjectId, nextQ.fileId, nextQ.questionId, current.level);
+        sentencesRef.current = newSents;
+        sentenceIndexRef.current = 0;
+        updateState({
+          currentSubjectId: nextQ.subjectId,
+          currentFileId: nextQ.fileId,
+          currentQuestionId: nextQ.questionId,
+          currentSentenceIndex: 0,
+        });
+        if (isNativeMode) {
+          startNativeSequence(0, current.speed);
+        } else {
+          speakCurrentSentence(0, current.speed);
+        }
+      } else {
+        const firstQ = getFirstQuestionInFile(current.currentSubjectId, current.currentFileId);
+        if (firstQ) {
+          const newSents = getSentences(firstQ.subjectId, firstQ.fileId, firstQ.questionId, current.level);
+          sentencesRef.current = newSents;
+          sentenceIndexRef.current = 0;
+          updateState({
+            currentSubjectId: firstQ.subjectId,
+            currentFileId: firstQ.fileId,
+            currentQuestionId: firstQ.questionId,
+            currentSentenceIndex: 0,
+          });
+          if (isNativeMode) {
+            startNativeSequence(0, current.speed);
+          } else {
+            speakCurrentSentence(0, current.speed);
+          }
+        }
+      }
+    } else if (mode === 'shuffle') {
+      const randomQ = getRandomQuestionInFile(current.currentSubjectId, current.currentFileId, current.currentQuestionId);
+      if (randomQ) {
+        const newSents = getSentences(randomQ.subjectId, randomQ.fileId, randomQ.questionId, current.level);
+        sentencesRef.current = newSents;
+        sentenceIndexRef.current = 0;
+        updateState({
+          currentSubjectId: randomQ.subjectId,
+          currentFileId: randomQ.fileId,
+          currentQuestionId: randomQ.questionId,
+          currentSentenceIndex: 0,
+        });
+        if (isNativeMode) {
+          startNativeSequence(0, current.speed);
+        } else {
+          speakCurrentSentence(0, current.speed);
+        }
+      }
+    }
+  }, [speakCurrentSentence, startNativeSequence, updateState]);
+
+  // ── handleTrackEnd: 트랙 종료 시 반복모드에 따른 다음 동작 결정 ───────────
+  // 네이티브/Web 양쪽에서 호출. 반복모드 로직을 한 곳에 통합.
+  const handleTrackEnd = useCallback((
+    mode: RepeatMode,
+    isNativeMode: boolean,
+    trackOffsets?: number[],
+  ) => {
+    const current = stateRef.current;
+    const { playlist, playlistIndex } = current;
+
+    // === 1. repeat-one: 현재 트랙 반복 ===
+    if (mode === 'repeat-one') {
+      if (playlist.length > 0) {
+        const currentItem = playlist[playlistIndex];
+        const repeatStart = currentItem?.sentenceIndex ?? 0;
+        if (isNativeMode && trackOffsets && TTSFile) {
+          if (isJumpingRef.current) return;
+          isJumpingRef.current = true;
+          const currentTrackIdx = playlistIndex >= 0 ? playlistIndex : 0;
+          const jumpAbsolute = (trackOffsets[currentTrackIdx] ?? 0) + repeatStart;
+          console.log('[Player] repeat-one: jumping back to track start', { currentTrackIdx, repeatStart, jumpAbsolute });
+          TTSFile.jumpSequence({ index: jumpAbsolute }).then(() => {
+            isJumpingRef.current = false;
+          }).catch(() => {
+            isJumpingRef.current = false;
+          });
+        } else if (!isNativeMode) {
+          speakCurrentSentence(repeatStart, current.speed);
+        }
+        updateState({ currentSentenceIndex: repeatStart });
+        sentenceIndexRef.current = repeatStart;
+      } else {
+        // playlist 없으면 no-playlist 핸들러로
+        handleNoPlaylistTrackEnd(mode, isNativeMode);
+      }
+      return;
+    }
+
+    // === 2. stop-after-one: 현재 트랙 끝나면 정지 ===
+    if (mode === 'stop-after-one') {
+      if (playlist.length > 0) {
+        console.log('[Player] stop-after-one: stopping at track boundary');
+        if (isNativeMode) {
+          nativeSequenceActiveRef.current = false;
+          TTSFile?.stopSequence().catch(() => {});
+        }
+        console.log('[Player] isPlaying changed to', false, 'reason: stop-after-one');
+        updateState({ isPlaying: false, currentSentenceIndex: 0 });
+        sentenceIndexRef.current = 0;
+      } else {
+        handleNoPlaylistTrackEnd(mode, isNativeMode);
+      }
+      return;
+    }
+
+    // === 3. shuffle: 랜덤 트랙 ===
+    if (mode === 'shuffle') {
+      if (playlist.length > 0) {
+        const indexed = playlist.map((item, i) => ({ item, i })).filter(({ i }) => i !== playlistIndex);
+        if (indexed.length > 0) {
+          const chosen = indexed[Math.floor(Math.random() * indexed.length)];
+          if (isNativeMode) {
+            // 네이티브: complete 이벤트에서는 startNativeSequence로 새로 시작
+            // start 이벤트(트랙 전환)에서는 jumpSequence 사용
+            if (trackOffsets) {
+              playTrackAt(chosen.i, chosen.item, true, trackOffsets);
+            } else {
+              // complete에서 호출됨 — nativeSequenceActiveRef가 false, 새로 시작 필요
+              const newSents = getSentences(chosen.item.subjectId, chosen.item.fileId, chosen.item.questionId, current.level);
+              const chosenStart = chosen.item.sentenceIndex ?? 0;
+              const clampedChosenStart = Math.max(0, Math.min(chosenStart, newSents.length - 1));
+              sentencesRef.current = newSents;
+              sentenceIndexRef.current = clampedChosenStart;
+              updateState({
+                isPlaying: true,
+                currentSubjectId: chosen.item.subjectId,
+                currentFileId: chosen.item.fileId,
+                currentQuestionId: chosen.item.questionId,
+                currentSentenceIndex: clampedChosenStart,
+                playlistIndex: chosen.i,
+              });
+              console.log('[Player] isPlaying changed to', true, 'reason: shuffle restart (native)');
+              startNativeSequence(clampedChosenStart, current.speed);
+            }
+          } else {
+            playTrackAt(chosen.i, chosen.item, false);
+          }
+        } else {
+          // 1곡짜리 playlist: 자기 자신 반복
+          const selfItem = playlist[playlistIndex];
+          const selfStart = selfItem?.sentenceIndex ?? 0;
+          sentenceIndexRef.current = selfStart;
+          updateState({ currentSentenceIndex: selfStart });
+          if (!isNativeMode) {
+            speakCurrentSentence(selfStart, current.speed);
+          } else if (trackOffsets && TTSFile) {
+            const jumpAbs = (trackOffsets[playlistIndex] ?? 0) + selfStart;
+            TTSFile.jumpSequence({ index: jumpAbs }).catch(() => {});
+          } else {
+            startNativeSequence(selfStart, current.speed);
+          }
+        }
+      } else {
+        handleNoPlaylistTrackEnd(mode, isNativeMode);
+      }
+      return;
+    }
+
+    // === 4. stop-after-all / repeat-all: 순차 진행 ===
+    if (playlist.length > 0) {
+      const nextTrackIdx = playlistIndex + 1;
+
+      if (nextTrackIdx < playlist.length) {
+        // 다음 트랙
+        if (isNativeMode && trackOffsets) {
+          playTrackAt(nextTrackIdx, playlist[nextTrackIdx], true, trackOffsets);
+        } else if (isNativeMode) {
+          // complete에서 호출 — 새로 startNativeSequence
+          const nextItem = playlist[nextTrackIdx];
+          const newSents = getSentences(nextItem.subjectId, nextItem.fileId, nextItem.questionId, current.level);
+          const nextStart = nextItem.sentenceIndex ?? 0;
+          const clampedNext = Math.max(0, Math.min(nextStart, newSents.length - 1));
+          sentencesRef.current = newSents;
+          sentenceIndexRef.current = clampedNext;
+          updateState({
+            isPlaying: true,
+            currentSubjectId: nextItem.subjectId,
+            currentFileId: nextItem.fileId,
+            currentQuestionId: nextItem.questionId,
+            currentSentenceIndex: clampedNext,
+            playlistIndex: nextTrackIdx,
+          });
+          startNativeSequence(clampedNext, current.speed);
+        } else {
+          playTrackAt(nextTrackIdx, playlist[nextTrackIdx], false);
+        }
+      } else if (mode === 'repeat-all') {
+        // 처음으로 돌아가기
+        if (isNativeMode) {
+          // 네이티브 complete → 새 시퀀스 시작
+          const first = playlist[0];
+          const firstStart = first.sentenceIndex ?? 0;
+          const newSents = getSentences(first.subjectId, first.fileId, first.questionId, current.level);
+          const clampedFirst = Math.max(0, Math.min(firstStart, newSents.length - 1));
+          sentencesRef.current = newSents;
+          sentenceIndexRef.current = clampedFirst;
+          updateState({
+            isPlaying: true,
+            currentSubjectId: first.subjectId,
+            currentFileId: first.fileId,
+            currentQuestionId: first.questionId,
+            currentSentenceIndex: clampedFirst,
+            playlistIndex: 0,
+          });
+          console.log('[Player] isPlaying changed to', true, 'reason: repeat-all restart');
+          startNativeSequence(clampedFirst, current.speed);
+        } else {
+          playTrackAt(0, playlist[0], false);
+        }
+      } else {
+        // stop-after-all: 전곡 끝 → 정지
+        console.log('[Player] isPlaying changed to', false, 'reason: stop-after-all playlist end');
+        if (isNativeMode) nativeSequenceActiveRef.current = false;
+        updateState({ isPlaying: false, currentSentenceIndex: 0 });
+        sentenceIndexRef.current = 0;
+      }
+      return;
+    }
+
+    // === 5. playlist 없으면 파일 내 다음 question으로 ===
+    handleNoPlaylistTrackEnd(mode, isNativeMode);
+  }, [playTrackAt, handleNoPlaylistTrackEnd, speakCurrentSentence, startNativeSequence, updateState]);
+
+  // handleTrackEnd ref — onEnd 콜백에서 최신 함수 참조
+  const handleTrackEndRef = useRef(handleTrackEnd);
+  useEffect(() => {
+    handleTrackEndRef.current = handleTrackEnd;
+  }, [handleTrackEnd]);
 
   // ── 네이티브 rate 변경 시 현재 문장 재시작 콜백 등록 ─────────────────────
   useEffect(() => {
@@ -991,9 +967,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const sents = getSentences(subjectId, fileId, questionId, stateRef.current.level);
       sentencesRef.current = sents;
       sentenceIndexRef.current = 0;
-      // stateRef도 즉시 갱신하여 togglePlay 재개 시 올바른 케이스를 참조하도록 함
-      stateRef.current = {
-        ...stateRef.current,
+      updateState({
         currentSubjectId: subjectId,
         currentFileId: fileId,
         currentQuestionId: questionId,
@@ -1003,21 +977,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         repeatSectionStart: null,
         repeatSectionEnd: null,
         isRepeatingSectionActive: false,
-      };
-      setState((prev) => ({
-        ...prev,
-        currentSubjectId: subjectId,
-        currentFileId: fileId,
-        currentQuestionId: questionId,
-        currentSentenceIndex: 0,
-        isPlaying: false,
-        // 구간 반복 자동 해제
-        repeatSectionStart: null,
-        repeatSectionEnd: null,
-        isRepeatingSectionActive: false,
-      }));
+      });
     },
-    [cancel, stopNativeSequence],
+    [cancel, stopNativeSequence, updateState],
   );
 
   // ── play (단일 문제 재생 — 플레이리스트 1개짜리로 설정) ─────────────────
@@ -1028,9 +990,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const filePlaylist = getFilePlaylist(subjectId, fileId);
       const idx = filePlaylist.findIndex((i) => i.questionId === questionId);
       console.log('[Player] isPlaying changed to', true, 'reason: play');
-      stateRef.current = { ...stateRef.current, isPlaying: true };
-      setState((prev) => ({
-        ...prev,
+      updateState({
         isPlaying: true,
         currentSubjectId: subjectId,
         currentFileId: fileId,
@@ -1041,13 +1001,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         repeatSectionStart: null,
         repeatSectionEnd: null,
         isRepeatingSectionActive: false,
-      }));
+      });
       sentenceIndexRef.current = 0;
       const sents = getSentences(subjectId, fileId, questionId);
       sentencesRef.current = sents;
       speakCurrentSentence(0, stateRef.current.speed);
     },
-    [speakCurrentSentence],
+    [speakCurrentSentence, updateState],
   );
 
   // ── playSubject (과목 전체 재생) ──────────────────────────────────────────
@@ -1058,9 +1018,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (playlist.length === 0) return;
       const first = playlist[0];
       console.log('[Player] isPlaying changed to', true, 'reason: playSubject');
-      stateRef.current = { ...stateRef.current, isPlaying: true };
-      setState((prev) => ({
-        ...prev,
+      updateState({
         isPlaying: true,
         currentSubjectId: first.subjectId,
         currentFileId: first.fileId,
@@ -1071,13 +1029,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         repeatSectionStart: null,
         repeatSectionEnd: null,
         isRepeatingSectionActive: false,
-      }));
+      });
       sentenceIndexRef.current = 0;
       const sents = getSentences(first.subjectId, first.fileId, first.questionId);
       sentencesRef.current = sents;
       speakCurrentSentence(0, stateRef.current.speed);
     },
-    [speakCurrentSentence],
+    [speakCurrentSentence, updateState],
   );
 
   // ── playFile (파일 전체 재생) ─────────────────────────────────────────────
@@ -1088,9 +1046,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (playlist.length === 0) return;
       const first = playlist[0];
       console.log('[Player] isPlaying changed to', true, 'reason: playFile');
-      stateRef.current = { ...stateRef.current, isPlaying: true };
-      setState((prev) => ({
-        ...prev,
+      updateState({
         isPlaying: true,
         currentSubjectId: first.subjectId,
         currentFileId: first.fileId,
@@ -1101,13 +1057,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         repeatSectionStart: null,
         repeatSectionEnd: null,
         isRepeatingSectionActive: false,
-      }));
+      });
       sentenceIndexRef.current = 0;
       const sents = getSentences(first.subjectId, first.fileId, first.questionId);
       sentencesRef.current = sents;
       speakCurrentSentence(0, stateRef.current.speed);
     },
-    [speakCurrentSentence],
+    [speakCurrentSentence, updateState],
   );
 
   // ── playSelected (선택된 항목들 재생) ─────────────────────────────────────
@@ -1120,9 +1076,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       const sents = getSentences(target.subjectId, target.fileId, target.questionId);
       const clampedSentIdx = Math.max(0, Math.min(startSentenceIndex, sents.length - 1));
       console.log('[Player] isPlaying changed to', true, 'reason: playSelected');
-      stateRef.current = { ...stateRef.current, isPlaying: true };
-      setState((prev) => ({
-        ...prev,
+      updateState((prev) => ({
         isPlaying: true,
         currentSubjectId: target.subjectId,
         currentFileId: target.fileId,
@@ -1137,19 +1091,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         isRepeatingSectionActive: false,
       }));
       sentenceIndexRef.current = clampedSentIdx;
-      stateRef.current = {
-        ...stateRef.current,
-        currentSubjectId: target.subjectId,
-        currentFileId: target.fileId,
-        currentQuestionId: target.questionId,
-        currentSentenceIndex: clampedSentIdx,
-        playlist: items,
-        playlistIndex: idx,
-      };
       sentencesRef.current = sents;
       speakCurrentSentence(clampedSentIdx, stateRef.current.speed);
     },
-    [speakCurrentSentence],
+    [speakCurrentSentence, updateState],
   );
 
   // ── togglePlay ────────────────────────────────────────────────────────────
@@ -1163,8 +1108,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       stopNativeSequence();
       pause();
       console.log('[Player] isPlaying changed to', false, 'reason: togglePlay pause');
-      stateRef.current = { ...stateRef.current, isPlaying: false };
-      setState((prev) => ({ ...prev, isPlaying: false }));
+      updateState({ isPlaying: false });
     } else {
       // 케이스가 변경된 경우(selectQuestion 후 재생): playlist를 새 케이스 기준으로 재설정
       // 또는 playlist가 비어있으면 현재 파일의 전체 케이스로 자동 설정
@@ -1176,27 +1120,19 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           const filePlaylist = getFilePlaylist(current.currentSubjectId, current.currentFileId);
           const idx = filePlaylist.findIndex((i) => i.questionId === current.currentQuestionId);
           const newPlaylistIndex = idx >= 0 ? idx : 0;
-          stateRef.current = { ...stateRef.current, isPlaying: true, playlist: filePlaylist, playlistIndex: newPlaylistIndex };
-          setState((prev) => ({
-            ...prev,
-            isPlaying: true,
-            playlist: filePlaylist,
-            playlistIndex: newPlaylistIndex,
-          }));
+          updateState({ isPlaying: true, playlist: filePlaylist, playlistIndex: newPlaylistIndex });
         } else {
-          stateRef.current = { ...stateRef.current, isPlaying: true };
-          setState((prev) => ({ ...prev, isPlaying: true }));
+          updateState({ isPlaying: true });
         }
       } else {
-        stateRef.current = { ...stateRef.current, isPlaying: true };
-        setState((prev) => ({ ...prev, isPlaying: true }));
+        updateState({ isPlaying: true });
       }
 
       console.log('[Player] isPlaying changed to', true, 'reason: togglePlay resume');
       // 재개: 현재 문장부터 다시 시작
       speakCurrentSentence(current.currentSentenceIndex, current.speed);
     }
-  }, [pause, speakCurrentSentence, stopNativeSequence]);
+  }, [pause, speakCurrentSentence, stopNativeSequence, updateState]);
 
   // ── stop ──────────────────────────────────────────────────────────────────
   const stop = useCallback(() => {
@@ -1204,14 +1140,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     stopNativeSequence();
     cancel();
     console.log('[Player] isPlaying changed to', false, 'reason: stop');
-    stateRef.current = { ...stateRef.current, isPlaying: false };
-    setState((prev) => ({
-      ...prev,
-      isPlaying: false,
-      currentSentenceIndex: 0,
-    }));
+    updateState({ isPlaying: false, currentSentenceIndex: 0 });
     sentenceIndexRef.current = 0;
-  }, [cancel, stopNativeSequence]);
+  }, [cancel, stopNativeSequence, updateState]);
 
   // ── setSpeed ──────────────────────────────────────────────────────────────
   const setSpeed = useCallback(
@@ -1280,13 +1211,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (remaining <= 0) {
         cancel();
         console.log('[Player] isPlaying changed to', false, 'reason: sleepTimer expired');
-        stateRef.current = { ...stateRef.current, isPlaying: false };
-        setState((prev) => ({
-          ...prev,
-          isPlaying: false,
-          currentSentenceIndex: 0,
-          sleepTimer: null,
-        }));
+        updateState({ isPlaying: false, currentSentenceIndex: 0, sleepTimer: null });
       }
     };
 
@@ -1466,26 +1391,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     sentencesRef.current = sents;
     sentenceIndexRef.current = 0;
     console.log('[Player] isPlaying changed to', true, 'reason: jumpToPlaylistIndex');
-    stateRef.current = {
-      ...stateRef.current,
+    updateState({
       isPlaying: true,
       currentSubjectId: item.subjectId,
       currentFileId: item.fileId,
       currentQuestionId: item.questionId,
       currentSentenceIndex: 0,
       playlistIndex: idx,
-    };
-    setState((prev) => ({
-      ...prev,
-      isPlaying: true,
-      currentSubjectId: item.subjectId,
-      currentFileId: item.fileId,
-      currentQuestionId: item.questionId,
-      currentSentenceIndex: 0,
-      playlistIndex: idx,
-    }));
+    });
     speakCurrentSentence(0, stateRef.current.speed);
-  }, [cancel, speakCurrentSentence]);
+  }, [cancel, speakCurrentSentence, updateState]);
 
   // ── toggleRepeatSection (A-B 구간 반복 토글) ─────────────────────────────
   const toggleRepeatSection = useCallback(() => {
@@ -1505,28 +1420,20 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       // 종료점이 시작점보다 앞이면 스왑
       const actualStart = Math.min(startIdx, endIdx);
       const actualEnd = Math.max(startIdx, endIdx);
-      setState((prev) => ({
-        ...prev,
+      updateState({
         repeatSectionStart: actualStart,
         repeatSectionEnd: actualEnd,
         isRepeatingSectionActive: true,
-      }));
-      stateRef.current = {
-        ...stateRef.current,
-        repeatSectionStart: actualStart,
-        repeatSectionEnd: actualEnd,
-        isRepeatingSectionActive: true,
-      };
+      });
     } else {
       // 1번째 탭: 시작점(A) 설정
-      setState((prev) => ({
-        ...prev,
+      updateState({
         repeatSectionStart: current.currentSentenceIndex,
         repeatSectionEnd: null,
         isRepeatingSectionActive: false,
-      }));
+      });
     }
-  }, []);
+  }, [updateState]);
 
   // ── clearRepeatSection ──────────────────────────────────────────────────
   const clearRepeatSection = useCallback(() => {
