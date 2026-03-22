@@ -34,6 +34,8 @@ Read: memory/feedback_tts_opus_only.md     — Opus only
 Read: memory/feedback_tts_team_structure.md — 3인 팀 구조
 Read: memory/feedback_tts_v3_round.md      — R-15~R-18
 Read: memory/feedback_tts_v4_round.md      — R-19~R-22
+Read: memory/feedback_tts_problem_style_v2.md — R-12 강화 v2 (구어체+형량삭제)
+Read: memory/feedback_tts_article_front.md — R-25 조문 앞배치
 ```
 
 ### Step 3.5. 조문명 룩업 도구 확인 (R-24)
@@ -50,7 +52,7 @@ python3 scripts/lookup_article.py {법령약칭} {조문번호}
 ### Step 4. 로드 완료 보고
 
 사용자에게 1줄 요약:
-> "TTS 규칙 로드 완료 — tts_rules.md(R-01~R-23) + 기준 게시글 N건 + 메모리 피드백 N건. 변환 준비 OK."
+> "TTS 규칙 로드 완료 — tts_rules.md(R-01~R-25) + 기준 게시글 N건 + 메모리 피드백 N건. 변환 준비 OK."
 
 ### Step 5. 규칙 충돌 체크
 
