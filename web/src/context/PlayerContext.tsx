@@ -225,6 +225,13 @@ const PlayerContext = createContext<PlayerContextValue | null>(null);
 export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<PlayerState>(initialState);
   const [sleepTimerRemaining, setSleepTimerRemaining] = useState<number | null>(null);
+
+  // ── CDP 자동 QA용: window.__debug__에 state 노출 (dev 빌드 전용) ──
+  useEffect(() => {
+    if (typeof window !== 'undefined' && import.meta.env.DEV) {
+      (window as any).__debug__ = { state, setState };
+    }
+  }, [state]);
   const { isSupported, isNative, speak, pause, resume, cancel, setRate, setOnRateChange, voices } = useSpeechSynthesis();
 
   // ── 백그라운드 WebView 활성 유지 ────────────────────────────────────────

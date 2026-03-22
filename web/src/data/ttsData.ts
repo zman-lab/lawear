@@ -10116,5 +10116,27 @@ export const subjects: Subject[] = [
     ],
     "totalQuestions": 20,
     "completedQuestions": 20
+  },
+  {
+    "id": "test_subject",
+    "name": "테스트과목",
+    "shortName": "테스트",
+    "colorClass": "violet",
+    "files": [
+      {
+        "id": "test_file_01",
+        "name": "테스트 파일",
+        "questions": [
+          {"id": "test_q01", "label": "T-1", "subtitle": "테스트 케이스 1", "duration": "0:10", "content": {"problem": [], "toc": [], "answer": ["T-1-첫째줄", "T-1-둘째줄", "T-1-셋째줄", "T-1-넷째줄"]}},
+          {"id": "test_q02", "label": "T-2", "subtitle": "테스트 케이스 2", "duration": "0:10", "content": {"problem": [], "toc": [], "answer": ["T-2-첫째줄", "T-2-둘째줄", "T-2-셋째줄", "T-2-넷째줄"]}},
+          {"id": "test_q03", "label": "T-3", "subtitle": "테스트 케이스 3", "duration": "0:10", "content": {"problem": [], "toc": [], "answer": ["T-3-첫째줄", "T-3-둘째줄", "T-3-셋째줄", "T-3-넷째줄"]}},
+          {"id": "test_q04", "label": "T-4", "subtitle": "테스트 케이스 4", "duration": "0:10", "content": {"problem": [], "toc": [], "answer": ["T-4-첫째줄", "T-4-둘째줄", "T-4-셋째줄", "T-4-넷째줄"]}},
+          {"id": "test_q05", "label": "T-5", "subtitle": "테스트 케이스 5", "duration": "0:10", "content": {"problem": [], "toc": [], "answer": ["T-5-첫째줄", "T-5-둘째줄", "T-5-셋째줄", "T-5-넷째줄"]}},
+          {"id": "test_q06", "label": "T-6", "subtitle": "테스트 케이스 6", "duration": "0:10", "content": {"problem": [], "toc": [], "answer": ["T-6-첫째줄", "T-6-둘째줄", "T-6-셋째줄", "T-6-넷째줄"]}}
+        ]
+      }
+    ],
+    "totalQuestions": 6,
+    "completedQuestions": 0
   }
 ];
