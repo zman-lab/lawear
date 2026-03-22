@@ -10,6 +10,7 @@ import sys
 import time
 import base64
 import os
+import threading
 
 # websocket-client 사용 (suppress_origin 지원)
 import websocket
@@ -18,6 +19,8 @@ import websocket
 
 ADB_DEVICE = os.environ.get("ADB_DEVICE", "")
 CDP_PORT = 9222
+CDP_KEEPALIVE_INTERVAL = 5  # 초: WebSocket idle timeout 방지 ping 간격
+CDP_KEEPALIVE_MSG_ID = 0    # keepalive 전용 msg_id (테스트와 충돌 방지)
 APP_PACKAGE = "com.zmanlab.lawear"
 APP_ACTIVITY = f"{APP_PACKAGE}/.MainActivity"
 PROJECT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -78,6 +81,41 @@ def adb_clear_logcat():
 
 _ws = None
 _msg_id = 0
+_ws_lock = threading.Lock()  # WebSocket send/recv 경합 방지
+_keepalive_timer = None
+
+def cdp_keepalive_start(ws, interval=CDP_KEEPALIVE_INTERVAL):
+    """interval초마다 빈 평가를 보내 WebSocket idle timeout 방지"""
+    global _keepalive_timer
+
+    def _ping():
+        global _keepalive_timer
+        with _ws_lock:
+            try:
+                ws.send(json.dumps({
+                    "id": CDP_KEEPALIVE_MSG_ID,
+                    "method": "Runtime.evaluate",
+                    "params": {"expression": "1"}
+                }))
+                ws.recv()
+            except Exception:
+                return  # 연결 끊김 — 타이머 중단
+        _keepalive_timer = threading.Timer(interval, _ping)
+        _keepalive_timer.daemon = True
+        _keepalive_timer.start()
+
+    _keepalive_timer = threading.Timer(interval, _ping)
+    _keepalive_timer.daemon = True
+    _keepalive_timer.start()
+
+
+def cdp_keepalive_stop():
+    """keepalive 타이머 정리"""
+    global _keepalive_timer
+    if _keepalive_timer:
+        _keepalive_timer.cancel()
+        _keepalive_timer = None
+
 
 def cdp_connect():
     global _ws
@@ -123,48 +161,60 @@ def cdp_connect():
 
     # WebSocket 연결 (suppress_origin 필수!)
     _ws = websocket.create_connection(ws_url, timeout=15, suppress_origin=True)
-    print("  ✓ CDP 연결 OK")
+    cdp_keepalive_start(_ws)
+    print("  ✓ CDP 연결 OK (keepalive 활성)")
     return True
 
 def cdp_eval(expr, timeout=10):
     global _msg_id
-    _msg_id += 1
-    msg = json.dumps({
-        "id": _msg_id,
-        "method": "Runtime.evaluate",
-        "params": {"expression": expr, "returnByValue": True, "awaitPromise": True}
-    })
-    _ws.send(msg)
-    _ws.settimeout(timeout)
-    while True:
-        try:
-            resp = json.loads(_ws.recv())
-        except websocket.WebSocketTimeoutException:
-            return None
-        if resp.get("id") == _msg_id:
-            result = resp.get("result", {}).get("result", {})
-            return result.get("value", result.get("description", str(result)))
+    with _ws_lock:
+        _msg_id += 1
+        my_id = _msg_id
+        msg = json.dumps({
+            "id": my_id,
+            "method": "Runtime.evaluate",
+            "params": {"expression": expr, "returnByValue": True, "awaitPromise": True}
+        })
+        _ws.send(msg)
+        _ws.settimeout(timeout)
+        while True:
+            try:
+                resp = json.loads(_ws.recv())
+            except websocket.WebSocketTimeoutException:
+                return None
+            # keepalive 응답은 무시
+            if resp.get("id") == CDP_KEEPALIVE_MSG_ID:
+                continue
+            if resp.get("id") == my_id:
+                result = resp.get("result", {}).get("result", {})
+                return result.get("value", result.get("description", str(result)))
     return None
 
 def cdp_screenshot(filename):
     global _msg_id
-    _msg_id += 1
-    msg = json.dumps({"id": _msg_id, "method": "Page.captureScreenshot", "params": {"format": "png"}})
-    _ws.send(msg)
-    _ws.settimeout(10)
-    while True:
-        resp = json.loads(_ws.recv())
-        if resp.get("id") == _msg_id:
-            data = resp.get("result", {}).get("data", "")
-            if data:
-                path = os.path.join(SCREENSHOT_DIR, filename)
-                with open(path, "wb") as f:
-                    f.write(base64.b64decode(data))
-                return path
-            return None
+    with _ws_lock:
+        _msg_id += 1
+        my_id = _msg_id
+        msg = json.dumps({"id": my_id, "method": "Page.captureScreenshot", "params": {"format": "png"}})
+        _ws.send(msg)
+        _ws.settimeout(10)
+        while True:
+            resp = json.loads(_ws.recv())
+            # keepalive 응답은 무시
+            if resp.get("id") == CDP_KEEPALIVE_MSG_ID:
+                continue
+            if resp.get("id") == my_id:
+                data = resp.get("result", {}).get("data", "")
+                if data:
+                    path = os.path.join(SCREENSHOT_DIR, filename)
+                    with open(path, "wb") as f:
+                        f.write(base64.b64decode(data))
+                    return path
+                return None
 
 def cdp_close():
     global _ws
+    cdp_keepalive_stop()
     if _ws:
         _ws.close()
         _ws = None

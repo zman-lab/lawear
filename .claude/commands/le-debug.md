@@ -18,6 +18,38 @@
 - 액티비티: com.zmanlab.lawear/.MainActivity
 - 해상도: 720x1544 (override)
 
+## 에뮬레이터 설정 (실기기 대체)
+
+실기기가 없을 때 에뮬레이터로 테스트 가능. 아래 설정 필수.
+
+### 해상도 고정 (720x1544)
+
+AVD config.ini 또는 Android Studio Device Manager에서:
+```
+hw.lcd.width=720
+hw.lcd.height=1544
+hw.lcd.density=320
+```
+
+### TTS 엔진 설정 (필수!)
+
+에뮬레이터 기본 TTS가 미설정이면 음성 합성 없이 콜백만 즉시 반환됨.
+```bash
+adb -s <에뮬레이터> shell settings put secure tts_default_synth com.google.android.tts
+# 앱 재시작 필요
+```
+
+**커버 범위:**
+| 항목 | 에뮬레이터 | 실기기 |
+|------|-----------|--------|
+| 로직 검증 (state) | ✅ | ✅ |
+| 1배속 TTS 타이밍 | ✅ (Google TTS 설정 시) | ✅ |
+| 배속 테스트 (2x~5x) | ❌ (합성 안됨) | ✅ |
+| UI/해상도 | ✅ (해상도 고정 시) | ✅ |
+| CDP 프로토콜 | ✅ 동일 | ✅ 동일 |
+
+> **배속 테스트가 필요하면 실기기 필수.** 그 외 로직/UI/1배속은 에뮬레이터로 충분.
+
 ## Phase 1: 무선 디버깅 연결
 
 ```

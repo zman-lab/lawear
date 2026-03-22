@@ -215,10 +215,10 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
     state,
     setViewMode,
     setSentenceIndex,
-    selectQuestion,
+    play,
   } = usePlayer();
 
-  const { isPlaying, currentSentenceIndex, viewMode, currentSubjectId, currentFileId, currentQuestionId, repeatSectionStart, repeatSectionEnd, isRepeatingSectionActive } = state;
+  const { isPlaying, currentSentenceIndex, viewMode, currentSubjectId, currentFileId, currentQuestionId, repeatSectionStart, repeatSectionEnd, isRepeatingSectionActive, level } = state;
 
   // 표시할 데이터 결정:
   // - props(subjectId, fileId, questionId)는 "사용자가 클릭한 케이스"를 의미.
@@ -271,10 +271,22 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
   const fileGroup = subject?.files.find((f) => f.id === displayFileId);
   const question = fileGroup?.questions.find((q) => q.id === displayQuestionId);
 
-  // 플레이어 초기화 (처음 마운트 시 또는 문제 변경 시)
+  // 플레이어 초기화 (처음 마운트 시 또는 문제/레벨 변경 시)
   // 단, playSelected/playSubject 등으로 이미 재생 중이고 playlist에 해당 문제가 있으면
   // selectQuestion을 호출하지 않는다 (selectQuestion은 isPlaying=false로 만들어 재생을 중단시킴)
+  const prevLevelRef = useRef(level);
+
   useEffect(() => {
+    const levelChanged = prevLevelRef.current !== level;
+    prevLevelRef.current = level;
+
+    if (levelChanged) {
+      // 사용자 확정 스펙: "같은 케이스 Lv 전환 → 새 Lv로 처음부터 재생"
+      log.nav('level_change_replay', { subjectId, fileId, questionId, level });
+      play(subjectId, fileId, questionId);
+      return;
+    }
+
     log.nav('player_open', { subjectId, fileId, questionId });
     const isAlreadyPlayingThis =
       state.isPlaying &&
@@ -287,10 +299,11 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
       ) &&
       state.currentQuestionId === questionId;
     if (!isAlreadyPlayingThis) {
-      selectQuestion(subjectId, fileId, questionId);
+      // 케이스 클릭 = 즉시 재생 (MP3 플레이어 방식)
+      play(subjectId, fileId, questionId);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subjectId, fileId, questionId]);
+  }, [subjectId, fileId, questionId, level]);
 
   // 문장 ref 맵
   const sentenceRefs = useRef<Map<number, HTMLElement | null>>(new Map());
@@ -311,13 +324,20 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
     );
   }
 
-  const { problem, toc, answer } = question.content;
+  const { problem, toc, answer, answer_lv2, answer_lv3 } = question.content;
+
+  // level에 따라 표시할 답안 배열 결정
+  const displayAnswer: string[] = (() => {
+    if (level === 2 && answer_lv2 && answer_lv2.length > 0) return answer_lv2;
+    if (level === 3 && answer_lv3 && answer_lv3.length > 0) return answer_lv3;
+    return answer;
+  })();
 
   // 전체 문장 배열 (가사 뷰용)
   const allSentences: string[] = [
     ...problem,
     ...toc.map((t) => `${t.number}. ${t.text}`),
-    ...answer,
+    ...displayAnswer,
   ];
 
   // 섹션별 오프셋
@@ -482,7 +502,7 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
             label="답안"
           >
             <div className="space-y-0.5 pb-3">
-              {answer.map((text, i) => {
+              {displayAnswer.map((text, i) => {
                 const globalIndex = answerOffset + i;
                 const isActive = globalIndex === currentSentenceIndex;
                 const isPast = globalIndex < currentSentenceIndex;

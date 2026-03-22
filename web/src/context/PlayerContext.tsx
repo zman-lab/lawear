@@ -1055,7 +1055,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         isRepeatingSectionActive: false,
       });
       sentenceIndexRef.current = 0;
-      const sents = getSentences(subjectId, fileId, questionId);
+      const sents = getSentences(subjectId, fileId, questionId, stateRef.current.level);
       sentencesRef.current = sents;
       speakCurrentSentence(0, stateRef.current.speed);
     },
@@ -1083,7 +1083,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         isRepeatingSectionActive: false,
       });
       sentenceIndexRef.current = 0;
-      const sents = getSentences(first.subjectId, first.fileId, first.questionId);
+      const sents = getSentences(first.subjectId, first.fileId, first.questionId, stateRef.current.level);
       sentencesRef.current = sents;
       speakCurrentSentence(0, stateRef.current.speed);
     },
@@ -1111,7 +1111,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         isRepeatingSectionActive: false,
       });
       sentenceIndexRef.current = 0;
-      const sents = getSentences(first.subjectId, first.fileId, first.questionId);
+      const sents = getSentences(first.subjectId, first.fileId, first.questionId, stateRef.current.level);
       sentencesRef.current = sents;
       speakCurrentSentence(0, stateRef.current.speed);
     },
@@ -1125,7 +1125,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (items.length === 0) return;
       const idx = Math.max(0, Math.min(startIndex, items.length - 1));
       const target = items[idx];
-      const sents = getSentences(target.subjectId, target.fileId, target.questionId);
+      const sents = getSentences(target.subjectId, target.fileId, target.questionId, stateRef.current.level);
       const clampedSentIdx = Math.max(0, Math.min(startSentenceIndex, sents.length - 1));
       console.log('[Player] isPlaying changed to', true, 'reason: playSelected');
       updateState((prev) => ({
@@ -1208,15 +1208,65 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   // ── setLevel ──────────────────────────────────────────────────────────────
   const setLevel = useCallback((level: Level) => {
-    setState((prev) => ({
-      ...prev,
-      level,
-      // 레벨 변경 시 문장 배열이 바뀌므로 구간 반복 해제
-      repeatSectionStart: null,
-      repeatSectionEnd: null,
-      isRepeatingSectionActive: false,
-    }));
-  }, []);
+    const current = stateRef.current;
+    const wasPlaying = current.isPlaying;
+
+    // 레벨 변경 전에 TTS 중단
+    if (wasPlaying) {
+      if (TTSFile && Capacitor.isNativePlatform()) {
+        stopNativeSequence();
+      } else {
+        cancel();
+      }
+    }
+
+    // 새 레벨로 sentences 즉시 재계산하여 sentencesRef 갱신 (비동기 useEffect 타이밍 문제 방지)
+    if (current.currentSubjectId && current.currentFileId && current.currentQuestionId) {
+      const newSents = getSentences(
+        current.currentSubjectId,
+        current.currentFileId,
+        current.currentQuestionId,
+        level,
+      );
+      sentencesRef.current = newSents;
+
+      // 레벨 전환 시 항상 처음부터 재시작
+      // (clamp하면 Lv2 sentences가 짧을 때 마지막 문장으로 이동 → 곧바로 완료 → 다음 케이스로 넘어가는 버그)
+      const startIdx = 0;
+      sentenceIndexRef.current = startIdx;
+
+      setState((prev) => ({
+        ...prev,
+        level,
+        currentSentenceIndex: startIdx,
+        // 레벨 변경 시 문장 배열이 바뀌므로 구간 반복 해제
+        repeatSectionStart: null,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
+        // wasPlaying이면 TTS는 중단했으므로 isPlaying도 false로 동기화
+        ...(wasPlaying ? { isPlaying: false } : {}),
+      }));
+      stateRef.current = {
+        ...stateRef.current,
+        level,
+        currentSentenceIndex: startIdx,
+        repeatSectionStart: null,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
+        ...(wasPlaying ? { isPlaying: false } : {}),
+      };
+
+      console.log(`[setLevel] level=${level}, sentenceIndex=${startIdx}, wasPlaying=${wasPlaying} (no auto-play)`);
+    } else {
+      setState((prev) => ({
+        ...prev,
+        level,
+        repeatSectionStart: null,
+        repeatSectionEnd: null,
+        isRepeatingSectionActive: false,
+      }));
+    }
+  }, [cancel, stopNativeSequence]);
 
   // ── setViewMode ───────────────────────────────────────────────────────────
   const setViewMode = useCallback((viewMode: ViewMode) => {
@@ -1326,7 +1376,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (nextIdx >= playlist.length) return;
       cancel();
       const item = playlist[nextIdx];
-      const sents = getSentences(item.subjectId, item.fileId, item.questionId);
+      const sents = getSentences(item.subjectId, item.fileId, item.questionId, stateRef.current.level);
       sentencesRef.current = sents;
       sentenceIndexRef.current = 0;
       if (current.isPlaying) {
@@ -1385,7 +1435,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (prevIdx < 0) return;
       cancel();
       const item = playlist[prevIdx];
-      const sents = getSentences(item.subjectId, item.fileId, item.questionId);
+      const sents = getSentences(item.subjectId, item.fileId, item.questionId, stateRef.current.level);
       sentencesRef.current = sents;
       sentenceIndexRef.current = 0;
       if (current.isPlaying) {
@@ -1439,7 +1489,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     if (idx < 0 || idx >= playlist.length) return;
     cancel();
     const item = playlist[idx];
-    const sents = getSentences(item.subjectId, item.fileId, item.questionId);
+    const sents = getSentences(item.subjectId, item.fileId, item.questionId, stateRef.current.level);
     sentencesRef.current = sents;
     sentenceIndexRef.current = 0;
     console.log('[Player] isPlaying changed to', true, 'reason: jumpToPlaylistIndex');
