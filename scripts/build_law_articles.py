@@ -29,14 +29,25 @@ OUTPUT_PATH = Path(__file__).resolve().parent.parent / "web" / "src" / "data" / 
 # 대상 법령 목록 (이름 → MST 번호, 검색으로 미리 확인된 값)
 # MST가 None이면 검색 API로 자동 조회
 STATUTES = {
-    "민법": None,
-    "민사소송법": None,
-    "민사집행법": None,
-    "형법": None,
-    "형사소송법": None,
-    "부동산등기법": None,
-    "부동산 실권리자명의 등기에 관한 법률": None,
-    "상법": None,
+    "형법": 284025,
+    "형사소송법": 269945,
+    "민법": 284415,
+    "민사소송법": 252393,
+    "상법": 284143,
+    "민사집행법": 268837,
+    "민사집행규칙": 272631,
+    "공탁법": 284413,
+    "공탁규칙": 272613,
+    "경찰관 직무집행법": 273315,
+    "폭력행위 등 처벌에 관한 법률": 178989,
+    "성폭력방지 및 피해자보호 등에 관한 법률": 270807,
+    "통신비밀보호법": 268703,
+    "개인정보 보호법": 270351,
+    "신탁법": 198564,
+    "주택임대차보호법": 276291,
+    "상가건물 임대차보호법": 276285,
+    "부동산등기법": 265377,
+    "부동산등기규칙": 266847,
 }
 
 
@@ -79,8 +90,8 @@ def search_mst(statute_name: str) -> str:
     )
 
 
-def fetch_articles(mst: str) -> dict[str, str]:
-    """MST로 법령 상세 조회 → {조문번호: 조문제목} 딕셔너리 반환."""
+def fetch_articles(mst: str) -> dict[str, dict]:
+    """MST로 법령 상세 조회 → {조문번호: {title, path}} 딕셔너리 반환."""
     data = api_get("lawService.do", {
         "target": "law",
         "MST": mst,
@@ -94,22 +105,56 @@ def fetch_articles(mst: str) -> dict[str, str]:
     if isinstance(units, dict):
         units = [units]
 
-    articles: dict[str, str] = {}
+    articles: dict[str, dict] = {}
+
+    # 편/장/절/관 트래킹
+    current_path: list[str] = []
+    # 편/장/절/관 계층 우선순위 (높을수록 상위)
+    HIERARCHY = {"편": 1, "장": 2, "절": 3, "관": 4}
 
     for unit in units:
-        # "전문"(편/장 제목)은 건너뛰고 "조문"만 처리
-        if unit.get("조문여부") != "조문":
+        jo_type = unit.get("조문여부", "")
+
+        if jo_type != "조문":
+            # 편/장/절/관 제목 추출
+            content = unit.get("조문내용", "")
+            if isinstance(content, list):
+                content = content[0] if content else ""
+            if not isinstance(content, str):
+                content = str(content) if content else ""
+            content = content.strip()
+
+            # "제1편 총칙", "제7장 변호", "제2절 증거조사" 등 파싱
+            m = re.match(r"(제\d+편|제\d+장|제\d+절|제\d+관)\s*(.*)", content)
+            if m:
+                marker = m.group(1)  # "제1편"
+                label = m.group(2).strip()  # "총칙"
+                entry = f"{marker} {label}" if label else marker
+
+                # 계층 레벨 판단
+                for key, level in HIERARCHY.items():
+                    if key in marker:
+                        # 현재 레벨 이상의 기존 항목 제거
+                        current_path = [p for p in current_path
+                                        if not any(k in p and HIERARCHY.get(k, 99) >= level
+                                                   for k in HIERARCHY)]
+                        current_path.append(entry)
+                        break
             continue
 
+        # 조문 처리
         base_num = unit.get("조문번호", "").strip()
         title = unit.get("조문제목", "").strip() if unit.get("조문제목") else ""
         content = unit.get("조문내용", "")
+        if isinstance(content, list):
+            content = content[0] if content else ""
+        if not isinstance(content, str):
+            content = str(content) if content else ""
 
         if not base_num:
             continue
 
         # 조문내용에서 정확한 조문번호 추출 (가지번호 포함)
-        # 예: "제109조의2(등기정보자료의 제공 등)" → "109의2"
         article_key = base_num
         m = re.match(r"제(\d+)조(의\d+)?", content)
         if m:
@@ -117,7 +162,10 @@ def fetch_articles(mst: str) -> dict[str, str]:
             suffix = m.group(2) or ""
             article_key = extracted_num + suffix
 
-        articles[article_key] = title
+        articles[article_key] = {
+            "title": title,
+            "path": " > ".join(current_path) if current_path else "",
+        }
 
     return articles
 

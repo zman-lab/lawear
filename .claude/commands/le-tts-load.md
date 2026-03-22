@@ -36,6 +36,17 @@ Read: memory/feedback_tts_v3_round.md      — R-15~R-18
 Read: memory/feedback_tts_v4_round.md      — R-19~R-22
 ```
 
+### Step 3.5. 조문명 룩업 도구 확인 (R-24)
+
+TTS 변환 시 조문 인용할 때 반드시 룩업 스크립트로 조회:
+```
+python3 scripts/lookup_article.py {법령약칭} {조문번호}
+```
+- 캐시: `web/src/data/lawArticles.json` (16개 법령, 5,169개 조문)
+- AI 학습 지식으로 조문명 추정 금지
+- Lv.1: 편/장 + 조문명, Lv.2: 조문명만, Lv.3: 번호만
+- 약칭: 형소, 형법, 민법, 민소, 상법, 민집, 민집규, 공탁, 공탁규, 경직, 폭처, 신탁, 주임, 상임, 부등, 부등규, 성폭력, 통비, 개보
+
 ### Step 4. 로드 완료 보고
 
 사용자에게 1줄 요약:
