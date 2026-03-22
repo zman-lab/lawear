@@ -792,7 +792,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           }).catch(() => {
             isJumpingRef.current = false;
           });
-        } else if (!isNativeMode) {
+        } else if (isNativeMode) {
+          // complete 이벤트: 새 시퀀스 시작
+          startNativeSequence(repeatStart, current.speed);
+        } else {
           speakCurrentSentence(repeatStart, current.speed);
         }
         updateState({ currentSentenceIndex: repeatStart });
@@ -862,8 +865,15 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           if (!isNativeMode) {
             speakCurrentSentence(selfStart, current.speed);
           } else if (trackOffsets && TTSFile) {
-            const jumpAbs = (trackOffsets[playlistIndex] ?? 0) + selfStart;
-            TTSFile.jumpSequence({ index: jumpAbs }).catch(() => {});
+            if (!isJumpingRef.current) {
+              isJumpingRef.current = true;
+              const jumpAbs = (trackOffsets[playlistIndex] ?? 0) + selfStart;
+              TTSFile.jumpSequence({ index: jumpAbs }).then(() => {
+                isJumpingRef.current = false;
+              }).catch(() => {
+                isJumpingRef.current = false;
+              });
+            }
           } else {
             startNativeSequence(selfStart, current.speed);
           }
