@@ -170,6 +170,26 @@ python3 scripts/dev-cdp-qa.py <기기IP:포트>
 2. "테스트과목" 존재 확인 → 없으면 "테스트과목이 없습니다" 보고 + test_07~10 스킵
 3. 기존 test_01~06은 전제조건 없이 항상 실행
 
+## Phase 4.5: QA 실패 대응
+
+test_01~10 중 FAIL 발생 시 아래 단계로 대응:
+
+### 1차: 서브에이전트 재시도
+- 서브에이전트(Opus)가 실패 원인 분석 + 수정 + 재테스트
+- CDP 스크립트 오류인지, 실제 코드 버그인지 구분
+
+### 1차 실패 → 메인 Opus 직접 실행
+- 메인이 Bash로 python3 CDP 스크립트를 직접 실행
+- 실패 → 즉시 원인 파악 → 스크립트 수정 → 재시도 (같은 컨텍스트)
+- 서브에이전트보다 효과적인 이유: 반복 학습 + 상태 인식 + 에러 대응이 동일 세션에서 가능
+
+### CDP 자동화 안정성 규칙
+- **모든 클릭 전 `window.__cdp.click(text)` 사용** (scrollIntoView 자동)
+- **상태 조회는 `window.__debug__.state` 사용** (DOM 파싱 불필요)
+- **바텀시트 옵션 선택은 `window.__debug__` 함수 직접 호출 우선** (DOM 클릭보다 안정적)
+  - 예: `window.__debug__.setRepeatMode('repeat-one')` > `__cdp.click('1곡 반복')`
+- **WebSocket idle 15초 초과 시 끊김** → 3초 간격 폴링으로 keepalive
+
 ## Phase 5: 크래시 분석
 
 ```
