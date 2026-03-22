@@ -8,7 +8,7 @@ import { files as budeungYegyuFiles } from './budeung_yegyu';
 
 const allSubjectDefs: Subject[] = [
   {
-    id: "hyungso",
+    id: "hyungso_2026",
     name: "형사소송법",
     shortName: "형소",
     colorClass: "rose",
@@ -17,7 +17,7 @@ const allSubjectDefs: Subject[] = [
     completedQuestions: 0,
   },
   {
-    id: "hyung",
+    id: "hyung_2026",
     name: "형법",
     shortName: "형법",
     colorClass: "orange",
@@ -26,7 +26,7 @@ const allSubjectDefs: Subject[] = [
     completedQuestions: 0,
   },
   {
-    id: "minso",
+    id: "minso_2026",
     name: "민사소송법",
     shortName: "민소",
     colorClass: "blue",
@@ -35,7 +35,7 @@ const allSubjectDefs: Subject[] = [
     completedQuestions: 0,
   },
   {
-    id: "minbeop",
+    id: "minbeop_2026",
     name: "민법",
     shortName: "민법",
     colorClass: "emerald",
@@ -44,7 +44,7 @@ const allSubjectDefs: Subject[] = [
     completedQuestions: 0,
   },
   {
-    id: "budeung",
+    id: "budeung_2026",
     name: "부동산등기법",
     shortName: "부등",
     colorClass: "purple",
@@ -53,7 +53,7 @@ const allSubjectDefs: Subject[] = [
     completedQuestions: 0,
   },
   {
-    id: "budeung_yegyu",
+    id: "budeung_yegyu_2026",
     name: "부동산등기법 예규",
     shortName: "부등예규",
     colorClass: "violet",

@@ -173,7 +173,7 @@ function ReviewCard({
   );
 }
 
-const ESSAY_SUBJECT_IDS = ['minso', 'minbeop', 'hyung', 'hyungso', 'budeung', 'budeung_yegyu', 'test_subject'];
+const ESSAY_SUBJECT_IDS = ['minso_2026', 'minbeop_2026', 'hyung_2026', 'hyungso_2026', 'budeung_2026', 'budeung_yegyu_2026', 'test_subject'];
 
 export function HomeScreen({ onSelectSubject, onOpenSettings }: HomeScreenProps) {
   const { playSelected } = usePlayer();
