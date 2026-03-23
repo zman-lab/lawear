@@ -82,12 +82,12 @@ function FileGroupCard({
   return (
     <div className="mx-4 mb-3">
       <div
-        className={`bg-[#161b22] border border-[#21262d] rounded-xl overflow-hidden ${
-          !isExpanded ? 'bg-[#161b22]/60' : ''
-        }`}
+        className="bg-[#161b22] border border-[#21262d] rounded-xl overflow-hidden"
       >
         {/* 파일 그룹 헤더 */}
-        <div className="px-4 py-2.5 flex items-center justify-between">
+        <div className={`px-4 py-2.5 flex items-center justify-between ${
+          isExpanded ? 'bg-amber-400/25' : 'bg-amber-500/10'
+        }`}>
           <div
             className="flex-1 cursor-pointer flex items-center gap-2"
             onClick={onToggle}
@@ -460,7 +460,23 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
           </svg>
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className="font-bold text-white">{subject.name}</h2>
+          <div className="flex items-center gap-2">
+            <h2 className="font-bold text-white">{subject.name}</h2>
+            <button
+              className="text-[10px] text-[#8b949e]/60 hover:text-[#8b949e] transition-colors px-1.5 py-0.5 rounded border border-[#21262d]/60 shrink-0"
+              onClick={() => {
+                const allExpanded = subject.files.every((f) => expandedFileIds.has(f.id));
+                if (allExpanded) {
+                  setExpandedFileIds(new Set());
+                } else {
+                  setExpandedFileIds(new Set(subject.files.map((f) => f.id)));
+                }
+              }}
+              aria-label="전체 접기/펼치기"
+            >
+              {subject.files.every((f) => expandedFileIds.has(f.id)) ? '접기' : '펼치기'}
+            </button>
+          </div>
           <p className="text-[11px] text-[#8b949e]">
             {subject.files.length} 파일 · {subject.totalQuestions} 설문
           </p>
