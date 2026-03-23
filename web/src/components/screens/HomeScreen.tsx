@@ -173,11 +173,9 @@ function ReviewCard({
   );
 }
 
-const ESSAY_SUBJECT_IDS = ['minso_2026', 'minbeop_2026', 'hyung_2026', 'hyungso_2026', 'budeung_2026', 'budeung_yegyu_2026', 'test_subject'];
-
 export function HomeScreen({ onSelectSubject, onOpenSettings }: HomeScreenProps) {
   const { playSelected } = usePlayer();
-  const essaySubjects = subjects.filter((s) => ESSAY_SUBJECT_IDS.includes(s.id));
+  const essaySubjects = subjects;
 
   // 복습 추천 데이터
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);

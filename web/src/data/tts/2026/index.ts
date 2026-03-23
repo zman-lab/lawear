@@ -10,7 +10,7 @@ const allSubjectDefs: Subject[] = [
   {
     id: "hyungso_2026",
     name: "형사소송법 2026",
-    shortName: "형소",
+    shortName: "형소26",
     colorClass: "rose",
     files: hyungsoFiles,
     totalQuestions: hyungsoFiles.reduce((sum, f) => sum + f.questions.length, 0),
@@ -19,7 +19,7 @@ const allSubjectDefs: Subject[] = [
   {
     id: "hyung_2026",
     name: "형법 2026",
-    shortName: "형법",
+    shortName: "형법26",
     colorClass: "orange",
     files: hyungFiles,
     totalQuestions: hyungFiles.reduce((sum, f) => sum + f.questions.length, 0),
@@ -28,7 +28,7 @@ const allSubjectDefs: Subject[] = [
   {
     id: "minso_2026",
     name: "민사소송법 2026",
-    shortName: "민소",
+    shortName: "민소26",
     colorClass: "blue",
     files: minsoFiles,
     totalQuestions: minsoFiles.reduce((sum, f) => sum + f.questions.length, 0),
@@ -37,7 +37,7 @@ const allSubjectDefs: Subject[] = [
   {
     id: "minbeop_2026",
     name: "민법 2026",
-    shortName: "민법",
+    shortName: "민법26",
     colorClass: "emerald",
     files: minbeopFiles,
     totalQuestions: minbeopFiles.reduce((sum, f) => sum + f.questions.length, 0),
@@ -46,7 +46,7 @@ const allSubjectDefs: Subject[] = [
   {
     id: "budeung_2026",
     name: "부동산등기법 2026",
-    shortName: "부등",
+    shortName: "부등26",
     colorClass: "purple",
     files: budeungFiles,
     totalQuestions: budeungFiles.reduce((sum, f) => sum + f.questions.length, 0),
@@ -55,7 +55,7 @@ const allSubjectDefs: Subject[] = [
   {
     id: "budeung_yegyu_2026",
     name: "부동산등기법 예규 2026",
-    shortName: "부등예규",
+    shortName: "부등예규26",
     colorClass: "violet",
     files: budeungYegyuFiles,
     totalQuestions: budeungYegyuFiles.reduce((sum, f) => sum + f.questions.length, 0),
