@@ -28,4 +28,4 @@ const testSubjects: Subject[] = [
   }
 ];
 
-export const subjects: Subject[] = [...subjects2025, ...subjects2026, ...testSubjects];
+export const subjects: Subject[] = [...subjects2026, ...subjects2025, ...testSubjects];

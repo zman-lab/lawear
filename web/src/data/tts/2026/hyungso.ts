@@ -300,7 +300,7 @@ export const files: FileGroup[] = [
             "F. 번복 진술조서 증거능력 없음, 법정 증언은 증거능력 있으나 증명력은 종합 고려."
           ]
         }
-      }
+      },
       {
         "id": "2026_hyungso_yebi_mogo02_02",
         "label": "제2문",
@@ -347,7 +347,7 @@ export const files: FileGroup[] = [
             "F. 석명 후 판단설이 타당하며, 법원은 전부에 대해 유 무죄 실체판단을 해야 한다."
           ]
         }
-      }
+      },
       {
         "id": "2026_hyungso_yebi_mogo02_03",
         "label": "제3문",
@@ -391,7 +391,7 @@ export const files: FileGroup[] = [
             "F. 을은 핵심증인이므로 소재탐지 및 구인장 없이 증인채택 취소한 것은 위법하다."
           ]
         }
-      }
+      },
       {
         "id": "2026_hyungso_yebi_mogo02_04",
         "label": "제4문",
@@ -447,7 +447,7 @@ export const files: FileGroup[] = [
             "F. 을의 자백은 갑에 대해 증거능력 있으나, 검사작성 피신조서는 갑 부인으로 증거능력 없고 제314조도 불가."
           ]
         }
-      }
+      },
       {
         "id": "2026_hyungso_yebi_mogo02_05",
         "label": "제5문",
