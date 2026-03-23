@@ -50,6 +50,7 @@ interface FileGroupCardProps {
   onToggle: () => void;
   currentQuestionId: string | null;
   currentFileId: string | null;
+  isPlaying: boolean;
   onSelectQuestion: (subjectId: string, fileId: string, questionId: string) => void;
   onPlayFile: (subjectId: string, fileId: string) => void;
   selectedIds: Set<string>;
@@ -67,6 +68,7 @@ function FileGroupCard({
   onToggle,
   currentQuestionId,
   currentFileId,
+  isPlaying,
   onSelectQuestion,
   onPlayFile,
   selectedIds,
@@ -142,7 +144,7 @@ function FileGroupCard({
           <div className="divide-y divide-[#21262d] border-t border-[#21262d]">
             {fileGroup.questions.map((question, idx) => {
               const isNowPlaying =
-                isCurrentFile && currentQuestionId === question.id;
+                isPlaying && isCurrentFile && currentQuestionId === question.id;
               const isSelected = selectedIds.has(question.id);
 
               return (
@@ -150,7 +152,7 @@ function FileGroupCard({
                   key={question.id}
                   className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors active:bg-white/[0.06] ${
                     isNowPlaying
-                      ? 'bg-[rgba(56,139,253,0.08)] border-l-[3px] border-[#388bfd]'
+                      ? 'bg-cyan-500/10 border-l-2 border-cyan-400'
                       : ''
                   }`}
                   onClick={() => {
@@ -195,7 +197,7 @@ function FileGroupCard({
                     <div
                       className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 ${
                         isNowPlaying
-                          ? 'bg-blue-600/20 text-blue-400'
+                          ? 'bg-cyan-500/20 text-cyan-400'
                           : 'bg-white/5 text-[#8b949e]'
                       }`}
                     >
@@ -207,7 +209,7 @@ function FileGroupCard({
                   <div className="flex-1 min-w-0">
                     <p
                       className={`text-sm font-medium truncate ${
-                        isNowPlaying ? 'text-white' : 'text-white/80'
+                        isNowPlaying ? 'text-cyan-300' : 'text-white/80'
                       }`}
                     >
                       {question.label}
@@ -238,7 +240,7 @@ function FileGroupCard({
                     )}
                     <span className="text-[11px] text-[#8b949e]">{question.duration}</span>
                     {isNowPlaying && (
-                      <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center">
+                      <div className="w-5 h-5 rounded-full bg-cyan-500 flex items-center justify-center">
                         <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 24 24">
                           <path d="M8 5v14l11-7z" />
                         </svg>
@@ -273,7 +275,7 @@ function FileGroupCard({
 export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorites }: ListScreenProps) {
   const subject = subjects.find((s) => s.id === subjectId);
   const { state, setLevel, playSubject, playFile, playSelected } = usePlayer();
-  const { level, currentFileId, currentQuestionId } = state;
+  const { level, isPlaying, currentFileId, currentQuestionId } = state;
   const [expandedFileIds, setExpandedFileIds] = useState<Set<string>>(
     () => new Set(subject?.files[0] ? [subject.files[0].id] : [])
   );
@@ -673,6 +675,7 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
               onToggle={() => toggleFile(fileGroup.id)}
               currentQuestionId={currentQuestionId}
               currentFileId={currentFileId}
+              isPlaying={isPlaying}
               onSelectQuestion={(sid, fid, qid) => {
                 log.ui('list_select_case', { subjectId: sid, fileId: fid, questionId: qid });
                 onSelectQuestion(sid, fid, qid);
