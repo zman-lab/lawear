@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTS 변환 뷰어 (210 Case)</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Pretendard', sans-serif; display: flex; height: 100vh; background: #0d1117; color: #c9d1d9; }
+
+  #sidebar { width: 320px; min-width: 320px; background: #161b22; border-right: 1px solid #30363d; overflow-y: auto; padding: 16px; }
+  #sidebar h2 { font-size: 14px; color: #58a6ff; margin-bottom: 12px; }
+  .dir-group { margin-bottom: 16px; }
+  .dir-group h3 { font-size: 13px; color: #8b949e; margin-bottom: 6px; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+  .dir-group h3:hover { background: #21262d; }
+  .dir-group h3 .count { color: #484f58; font-weight: normal; }
+  .file-list { list-style: none; }
+  .file-list li { font-size: 12px; padding: 4px 8px 4px 16px; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-list li:hover { background: #21262d; }
+  .file-list li.active { background: #1f6feb33; color: #58a6ff; }
+
+  #content { flex: 1; overflow-y: auto; padding: 32px 48px; }
+  #content h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 8px; margin-bottom: 16px; }
+  #content h2 { color: #e6edf3; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #21262d; padding-bottom: 4px; }
+  #content h3 { color: #c9d1d9; margin-top: 16px; margin-bottom: 8px; }
+  #content p { line-height: 1.7; margin-bottom: 8px; }
+  #content pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 8px 0; font-size: 13px; }
+  #content code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; }
+  #content table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  #content th, #content td { border: 1px solid #30363d; padding: 8px 12px; text-align: left; font-size: 13px; }
+  #content th { background: #161b22; color: #58a6ff; }
+  #content ul, #content ol { padding-left: 24px; margin-bottom: 8px; }
+  #content li { line-height: 1.6; margin-bottom: 4px; }
+  #content blockquote { border-left: 3px solid #58a6ff; padding-left: 16px; color: #8b949e; margin: 8px 0; }
+
+  .lv-tabs { display: flex; gap: 8px; margin-bottom: 16px; position: sticky; top: 0; background: #0d1117; padding: 8px 0; z-index: 10; }
+  .lv-tab { padding: 6px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 1px solid #30363d; background: #161b22; color: #8b949e; }
+  .lv-tab:hover { border-color: #58a6ff; color: #58a6ff; }
+  .lv-tab.active { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+
+  .search-box { width: 100%; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 13px; margin-bottom: 12px; }
+  .search-box:focus { border-color: #58a6ff; outline: none; }
+
+  .empty { color: #484f58; text-align: center; margin-top: 40vh; font-size: 14px; }
+  .stats { font-size: 12px; color: #484f58; margin-bottom: 16px; padding: 8px; background: #161b22; border-radius: 6px; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h2>TTS 변환 뷰어</h2>
+  <div class="stats" id="stats"></div>
+  <input class="search-box" id="search" placeholder="Case 검색 (예: Case 15, 상계)" />
+  <div id="fileTree"></div>
+</div>
+<div id="content">
+  <div class="empty">좌측에서 파일을 선택하세요</div>
+</div>
+
+<script>
+let fileIndex = {};
+let currentFile = null;
+let fullContent = '';
+
+async function init() {
+  const res = await fetch('_file_index.json');
+  fileIndex = await res.json();
+  const total = Object.values(fileIndex).reduce((s, v) => s + v.length, 0);
+  document.getElementById('stats').textContent = `${Object.keys(fileIndex).length}과목 / ${total}파일`;
+  renderTree();
+}
+
+function renderTree(filter = '') {
+  const tree = document.getElementById('fileTree');
+  tree.innerHTML = '';
+  const lowerFilter = filter.toLowerCase();
+
+  for (const [dir, files] of Object.entries(fileIndex)) {
+    const filtered = filter ? files.filter(f => f.toLowerCase().includes(lowerFilter)) : files;
+    if (filtered.length === 0) continue;
+
+    const group = document.createElement('div');
+    group.className = 'dir-group';
+    group.innerHTML = `<h3>${dir} <span class="count">(${filtered.length})</span></h3>`;
+
+    const ul = document.createElement('ul');
+    ul.className = 'file-list';
+    filtered.forEach(f => {
+      const li = document.createElement('li');
+      li.textContent = f.replace('.md', '').replace(/2026_(minbeop|minso)_(yebi|immun)_/, '');
+      li.title = f;
+      li.onclick = () => loadFile(dir, f, li);
+      ul.appendChild(li);
+    });
+    group.appendChild(ul);
+
+    const h3 = group.querySelector('h3');
+    h3.onclick = () => { ul.style.display = ul.style.display === 'none' ? '' : 'none'; };
+
+    tree.appendChild(group);
+  }
+}
+
+async function loadFile(dir, filename, el) {
+  document.querySelectorAll('.file-list li').forEach(li => li.classList.remove('active'));
+  el.classList.add('active');
+
+  const res = await fetch(`${dir}/${filename}`);
+  fullContent = await res.text();
+  currentFile = filename;
+  renderContent(fullContent);
+}
+
+function renderContent(md) {
+  const content = document.getElementById('content');
+
+  const sections = ['원본', 'Lv.1', 'Lv.2', 'Lv.3', 'Lv.4', 'diff', '체크리스트', 'R 적용표'];
+  let tabs = '<div class="lv-tabs">';
+  tabs += '<div class="lv-tab active" onclick="showSection(\'all\')">전체</div>';
+  sections.forEach(s => {
+    tabs += `<div class="lv-tab" onclick="showSection('${s}')">${s}</div>`;
+  });
+  tabs += '</div>';
+
+  content.innerHTML = tabs + '<div id="mdContent">' + marked.parse(md) + '</div>';
+}
+
+function showSection(section) {
+  document.querySelectorAll('.lv-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+
+  if (section === 'all') {
+    document.getElementById('mdContent').innerHTML = marked.parse(fullContent);
+    return;
+  }
+
+  const lines = fullContent.split('\n');
+  let capture = false;
+  let result = [];
+  const metaEnd = lines.findIndex(l => l.startsWith('## 원본') || l.startsWith('## Lv.'));
+  if (metaEnd > 0) result.push(...lines.slice(0, Math.min(metaEnd, 5)));
+
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i].startsWith('## ') && lines[i].includes(section)) {
+      capture = true;
+      result.push(lines[i]);
+    } else if (capture && lines[i].startsWith('## ')) {
+      break;
+    } else if (capture) {
+      result.push(lines[i]);
+    }
+  }
+
+  document.getElementById('mdContent').innerHTML = result.length > 5
+    ? marked.parse(result.join('\n'))
+    : '<p style="color:#484f58;">해당 섹션을 찾을 수 없습니다.</p>';
+}
+
+document.getElementById('search').addEventListener('input', e => renderTree(e.target.value));
+init();
+</script>
+</body>
+</html>

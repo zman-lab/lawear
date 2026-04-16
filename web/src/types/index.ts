@@ -14,7 +14,7 @@ export interface TTSEngine {
 }
 
 export type Theme = 'dark' | 'light';
-export type Level = 1 | 2 | 3;
+export type Level = 1 | 2 | 3 | 4;
 export type ViewMode = 'reader' | 'lyrics';
 export type Speed = number;
 
@@ -55,6 +55,7 @@ export interface TTSContent {
   answer: string[];
   answer_lv2?: string[];  // Lv.2 핵심요약 답안
   answer_lv3?: string[];  // Lv.3 슈퍼심플 답안
+  answer_lv4?: string[];  // Lv.4 암기노트 답안
 }
 
 export interface TocItem {

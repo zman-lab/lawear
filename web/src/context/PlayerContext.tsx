@@ -84,6 +84,16 @@ function getSentences(
       );
       raw = [...tocSentences, ...(keyAnswer.length > 0 ? keyAnswer : [answer[0] ?? ''])];
     }
+  } else if (level === 4) {
+    // 암기노트: 전용 answer_lv4 있으면 사용 (문제/목차 없음)
+    const lv4Answer = question.content.answer_lv4;
+    if (lv4Answer && lv4Answer.length > 0) {
+      raw = [...lv4Answer];
+    } else {
+      // fallback: Lv.3 또는 answer
+      const lv3Answer = question.content.answer_lv3;
+      raw = (lv3Answer && lv3Answer.length > 0) ? [...lv3Answer] : [...answer];
+    }
   } else {
     // Lv.1 빠른복습: 전체
     raw = [...problem, ...tocSentences, ...answer];

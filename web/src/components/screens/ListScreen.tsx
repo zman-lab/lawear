@@ -20,6 +20,7 @@ const LEVEL_LABELS: Record<Level, { short: string; long: string; ready: boolean 
   1: { short: 'Lv.1', long: '빠른복습', ready: true },
   2: { short: 'Lv.2', long: '핵심요약', ready: true },
   3: { short: 'Lv.3', long: '슈퍼심플', ready: true },
+  4: { short: 'Lv.4', long: '암기노트', ready: true },
 };
 
 function formatTotalDuration(questions: Question[]): string {
@@ -537,7 +538,7 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
       <div className="px-4 pb-3 space-y-2.5 shrink-0">
         {/* 레벨 토글 */}
         <div className="flex gap-2">
-          {([1, 2, 3] as Level[]).map((lv) => (
+          {([1, 2, 3, 4] as Level[]).map((lv) => (
             <button
               key={lv}
               className={`flex-1 py-2 rounded-xl text-center transition-all border ${

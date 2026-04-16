@@ -324,18 +324,19 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
     );
   }
 
-  const { problem, toc, answer, answer_lv2, answer_lv3 } = question.content;
+  const { problem, toc, answer, answer_lv2, answer_lv3, answer_lv4 } = question.content;
 
   // level에 따라 표시할 답안 배열 결정
   const displayAnswer: string[] = (() => {
     if (level === 2 && answer_lv2 && answer_lv2.length > 0) return answer_lv2;
     if (level === 3 && answer_lv3 && answer_lv3.length > 0) return answer_lv3;
+    if (level === 4 && answer_lv4 && answer_lv4.length > 0) return answer_lv4;
     return answer;
   })();
 
-  // Lv.3은 문제/목차 없음 (답안만)
-  const displayProblem: string[] = level === 3 ? [] : problem;
-  const displayToc: typeof toc = level === 3 ? [] : toc;
+  // Lv.3/4는 문제/목차 없음 (답안만)
+  const displayProblem: string[] = (level === 3 || level === 4) ? [] : problem;
+  const displayToc: typeof toc = (level === 3 || level === 4) ? [] : toc;
 
   // 전체 문장 배열 (가사 뷰용)
   const allSentences: string[] = [

@@ -127,9 +127,9 @@ export function insertArticleTitles(
   defaultStatute: string,
   level: Level = 1,
 ): string {
-  // Lv.3 슈퍼심플: 제목 삽입 안 함
-  if (level === 3) {
-    debugLog(`[LawArticle] Lv.3 — 조문 제목 삽입 생략`);
+  // Lv.3 슈퍼심플, Lv.4 암기노트: 제목 삽입 안 함
+  if (level === 3 || level === 4) {
+    debugLog(`[LawArticle] Lv.${level} — 조문 제목 삽입 생략`);
     return text;
   }
 
