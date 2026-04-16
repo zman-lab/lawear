@@ -443,7 +443,7 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
 
       {/* 리더 뷰 */}
       {viewMode === 'reader' && (
-        <div className="flex-1 overflow-y-auto px-4 pb-44">
+        <div className="flex-1 overflow-y-auto px-4 pb-player-bar">
           {/* 문제 아코디언 (Lv.3은 숨김) */}
           {displayProblem.length > 0 && (
           <AccordionSection
@@ -564,7 +564,7 @@ export function PlayerScreen({ subjectId, fileId, questionId, onBack }: PlayerSc
 
       {/* 가사 뷰 */}
       {viewMode === 'lyrics' && (
-        <div className="flex-1 overflow-y-auto px-5 pb-44">
+        <div className="flex-1 overflow-y-auto px-5 pb-player-bar">
           <div className="space-y-4 text-center py-8">
             {allSentences.map((text, i) => {
               const isActive = i === currentSentenceIndex;

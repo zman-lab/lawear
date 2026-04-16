@@ -2,6 +2,16 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* PlayerBar 높이 기본값 (PlayerBar가 마운트되면 실측 높이로 덮어씀) */
+  --player-bar-height: 200px;
+}
+
+/* 스크롤 영역이 PlayerBar에 가려지지 않도록 보장 */
+.pb-player-bar {
+  padding-bottom: calc(var(--player-bar-height) + 16px);
+}
+
 [data-theme="dark"] {
   --bg-primary: #0d1117;
   --bg-secondary: #161b22;

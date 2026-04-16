@@ -12,6 +12,10 @@ import { isWeakMarked, toggleWeakMark } from '../../services/weakMark';
 import { isBookmarked } from '../../services/bookmark';
 import type { Speed, RepeatMode } from '../../types';
 
+// 플레이바 높이를 CSS 변수로 공유 → 각 스크린이 pb 계산에 사용
+// PlayerBar가 재생 상태/콘텐츠에 따라 동적으로 높이 변함 (~148~200px)
+// ResizeObserver로 측정해서 전역 CSS 변수에 주입
+
 function speedLabel(speed: Speed): string {
   return `${speed.toFixed(1)}x`;
 }
@@ -143,8 +147,28 @@ export function PlayerBar() {
 
   const hasContent = !!question;
 
+  // 플레이바 자신의 높이 측정 → CSS 변수로 노출
+  const barRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = barRef.current;
+    if (!el) return;
+    const update = () => {
+      const h = el.getBoundingClientRect().height;
+      document.documentElement.style.setProperty('--player-bar-height', `${Math.ceil(h)}px`);
+    };
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    window.addEventListener('resize', update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', update);
+    };
+  }, []);
+
   return (
     <div
+      ref={barRef}
       className="fixed bottom-0 left-0 right-0 max-w-md mx-auto z-50"
       style={{
         background: 'rgba(13,17,23,0.92)',

@@ -323,7 +323,7 @@ export function HomeScreen({ onSelectSubject, onOpenSettings }: HomeScreenProps)
       </div>
 
       {/* 스크롤 영역 */}
-      <div className="flex-1 overflow-y-auto px-5 pb-24 space-y-2.5">
+      <div className="flex-1 overflow-y-auto px-5 pb-player-bar space-y-2.5">
         {/* 복습 추천 섹션 */}
         {reviewItems.length > 0 && (
           <div className="pt-1">

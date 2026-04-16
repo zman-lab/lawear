@@ -290,7 +290,7 @@ export function SettingsScreen({ onBack }: SettingsScreenProps) {
       </header>
 
       {/* 설정 목록 */}
-      <div className="flex-1 overflow-y-auto px-4 pb-24 space-y-3">
+      <div className="flex-1 overflow-y-auto px-4 pb-player-bar space-y-3">
         {/* 시험 날짜 섹션 */}
         <p className="text-[10px] font-bold text-[#8b949e]/60 uppercase tracking-widest pt-1 pb-1">
           시험 날짜

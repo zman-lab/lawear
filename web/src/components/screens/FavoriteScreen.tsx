@@ -215,7 +215,7 @@ function ListView({ favorites, onSelect, onPlay, onRename, onDelete }: ListViewP
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto pb-44 px-4 pt-2 space-y-3">
+      <div className="flex-1 overflow-y-auto pb-player-bar px-4 pt-2 space-y-3">
         {favorites.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-48 gap-3">
             <div className="w-14 h-14 rounded-2xl bg-amber-500/10 flex items-center justify-center">
@@ -394,7 +394,7 @@ function DetailView({
       </div>
 
       {/* 곡 목록 */}
-      <div className="flex-1 overflow-y-auto pb-44">
+      <div className="flex-1 overflow-y-auto pb-player-bar">
         {fav.items.length === 0 ? (
           <div className="flex items-center justify-center h-32">
             <p className="text-[#8b949e] text-sm">곡이 없습니다</p>

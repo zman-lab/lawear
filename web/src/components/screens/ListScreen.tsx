@@ -628,7 +628,7 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
 
       {/* 검색 결과 */}
       {showSearch && debouncedQuery.length >= 2 && (
-        <div className="flex-1 overflow-y-auto pb-24">
+        <div className="flex-1 overflow-y-auto pb-player-bar">
           {searchResults.length === 0 ? (
             <div className="flex items-center justify-center h-32">
               <p className="text-[#8b949e] text-sm">"{debouncedQuery}" 검색 결과 없음</p>
@@ -666,7 +666,7 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
 
       {/* 파일 그룹 목록 (검색 중이면 숨김) */}
       {!(showSearch && debouncedQuery.length >= 2) && (
-        <div className="flex-1 overflow-y-auto pb-24">
+        <div className="flex-1 overflow-y-auto pb-player-bar">
           {subject.files.map((fileGroup) => (
             <FileGroupCard
               key={fileGroup.id}
@@ -698,10 +698,11 @@ export function ListScreen({ subjectId, onBack, onSelectQuestion, onOpenFavorite
         </div>
       )}
 
-      {/* 선택 모드 하단 바 */}
+      {/* 선택 모드 하단 바 (플레이바 바로 위에 위치) */}
       {selectMode && selectedIds.size > 0 && (
         <div
-          className="fixed bottom-36 left-0 right-0 max-w-md mx-auto z-[55] px-4 pb-3 flex gap-2"
+          className="fixed left-0 right-0 max-w-md mx-auto z-[55] px-4 pb-3 flex gap-2"
+          style={{ bottom: 'calc(var(--player-bar-height) + 8px)' }}
         >
           <button
             className="flex-1 py-3.5 rounded-xl bg-blue-500 text-white font-bold text-sm flex items-center justify-center gap-2 active:bg-blue-600 transition-colors shadow-lg shadow-blue-500/30"
