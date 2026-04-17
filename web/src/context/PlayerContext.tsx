@@ -1625,9 +1625,11 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       d.playSelected = playSelected;
       d.playFile = playFile;
       d.setSpeed = setSpeed;
+      d.setVoice = setVoice;
+      d.playSubject = playSubject;
       (window as any).__debug__ = d;
     }
-  }, [play, stop, togglePlay, setRepeatMode, playSelected, playFile, setSpeed]);
+  }, [play, stop, togglePlay, setRepeatMode, playSelected, playFile, setSpeed, setVoice, playSubject]);
 
   return <PlayerContext.Provider value={value}>{children}</PlayerContext.Provider>;
 }
