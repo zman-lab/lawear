@@ -1308,9 +1308,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── setVoice ────────────────────────────────────────────────────────────
   const setVoice = useCallback((voiceURI: string | null) => {
     log.player('voice_change', { voiceURI });
-    setState((prev) => ({ ...prev, selectedVoiceURI: voiceURI }));
+    updateState({ selectedVoiceURI: voiceURI });
     saveVoiceURI(voiceURI);
-  }, []);
+  }, [updateState]);
 
   // ── 슬립 타이머 카운트다운 ──────────────────────────────────────────────
   useEffect(() => {
