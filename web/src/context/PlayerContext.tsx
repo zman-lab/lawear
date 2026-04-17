@@ -1080,7 +1080,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (playlist.length === 0) return;
       const first = playlist[0];
       console.log('[Player] isPlaying changed to', true, 'reason: playSubject');
-      updateState({
+      updateState((prev) => ({
         isPlaying: true,
         currentSubjectId: first.subjectId,
         currentFileId: first.fileId,
@@ -1088,10 +1088,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentSentenceIndex: 0,
         playlist,
         playlistIndex: 0,
+        // 전체 재생은 전곡을 다 듣는 게 자연스러우므로 stop-after-one이면 stop-after-all로 전환
+        repeatMode: prev.repeatMode === 'stop-after-one' ? 'stop-after-all' : prev.repeatMode,
         repeatSectionStart: null,
         repeatSectionEnd: null,
         isRepeatingSectionActive: false,
-      });
+      }));
       sentenceIndexRef.current = 0;
       const sents = getSentences(first.subjectId, first.fileId, first.questionId, stateRef.current.level);
       sentencesRef.current = sents;
@@ -1108,7 +1110,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       if (playlist.length === 0) return;
       const first = playlist[0];
       console.log('[Player] isPlaying changed to', true, 'reason: playFile');
-      updateState({
+      updateState((prev) => ({
         isPlaying: true,
         currentSubjectId: first.subjectId,
         currentFileId: first.fileId,
@@ -1116,10 +1118,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         currentSentenceIndex: 0,
         playlist,
         playlistIndex: 0,
+        // 파일 전체 재생은 전곡을 다 듣는 게 자연스러우므로 stop-after-one이면 stop-after-all로 전환
+        repeatMode: prev.repeatMode === 'stop-after-one' ? 'stop-after-all' : prev.repeatMode,
         repeatSectionStart: null,
         repeatSectionEnd: null,
         isRepeatingSectionActive: false,
-      });
+      }));
       sentenceIndexRef.current = 0;
       const sents = getSentences(first.subjectId, first.fileId, first.questionId, stateRef.current.level);
       sentencesRef.current = sents;
