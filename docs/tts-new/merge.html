@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title id="page-title">TTS 머지 뷰어 (17895)</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, 'Pretendard', sans-serif; display: flex; height: 100vh; background: #0d1117; color: #c9d1d9; }
+
+  #sidebar { width: 340px; min-width: 340px; background: #161b22; border-right: 1px solid #30363d; overflow-y: auto; padding: 16px; transition: width 0.2s, min-width 0.2s, padding 0.2s; }
+  #sidebar.collapsed { width: 0; min-width: 0; padding: 16px 0; border-right: none; overflow: hidden; }
+  #sidebar h2 { font-size: 14px; color: #58a6ff; margin-bottom: 12px; white-space: nowrap; }
+  .dir-group { margin-bottom: 8px; }
+  .dir-group h3 { font-size: 13px; color: #8b949e; margin-bottom: 6px; cursor: pointer; padding: 6px 8px; border-radius: 4px; display: flex; align-items: center; gap: 6px; user-select: none; }
+  .dir-group h3:hover { background: #21262d; }
+  .dir-group h3 .arrow { display: inline-block; width: 12px; font-size: 10px; color: #8b949e; transition: transform 0.15s; }
+  .dir-group.collapsed h3 .arrow { transform: rotate(-90deg); }
+  .dir-group.collapsed .file-list { display: none; }
+  .dir-group h3 .count { color: #484f58; font-weight: normal; margin-left: auto; }
+  .dir-group h3 .dir-checkbox { cursor: pointer; accent-color: #58a6ff; }
+  .file-list { list-style: none; }
+  .file-list li { font-size: 12px; padding: 4px 8px 4px 22px; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
+  .file-list li:hover { background: #21262d; }
+  .file-list li.active { background: #1f6feb33; color: #58a6ff; }
+  .file-list li input[type="checkbox"] { flex-shrink: 0; cursor: pointer; accent-color: #58a6ff; }
+  .file-list li .filename { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+
+  #sidebar-toggle {
+    position: fixed; top: 10px; left: 340px; z-index: 100;
+    width: 22px; height: 36px;
+    border: 1px solid #30363d; border-left: none;
+    background: #161b22; color: #8b949e;
+    border-radius: 0 6px 6px 0;
+    cursor: pointer; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    transition: left 0.2s;
+  }
+  #sidebar-toggle:hover { background: #21262d; color: #58a6ff; }
+  #sidebar.collapsed ~ #sidebar-toggle { left: 0; }
+
+  #stealth-toggle {
+    position: fixed; top: 10px; right: 14px; z-index: 100;
+    width: 36px; height: 36px;
+    border: 1px solid #30363d;
+    background: #161b22; color: #8b949e;
+    border-radius: 6px;
+    cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #stealth-toggle:hover { background: #21262d; color: #58a6ff; }
+  #stealth-toggle.active { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+
+  #content { flex: 1; overflow-y: auto; padding: 32px 48px; }
+  #content h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 8px; margin-bottom: 16px; }
+  #content h2 { color: #e6edf3; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #21262d; padding-bottom: 4px; }
+  #content h3 { color: #c9d1d9; margin-top: 16px; margin-bottom: 8px; }
+  #content p { line-height: 1.7; margin-bottom: 8px; }
+  #content pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 8px 0; font-size: 13px; }
+  #content code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; }
+  #content table { width: 100%; border-collapse: collapse; margin: 8px 0; }
+  #content th, #content td { border: 1px solid #30363d; padding: 8px 12px; text-align: left; font-size: 13px; vertical-align: top; }
+  #content th { background: #161b22; color: #58a6ff; }
+  #content ul, #content ol { padding-left: 24px; margin-bottom: 8px; }
+  #content li { line-height: 1.6; margin-bottom: 4px; }
+  #content blockquote { border-left: 3px solid #58a6ff; padding-left: 16px; color: #8b949e; margin: 8px 0; }
+
+  .compare-table { table-layout: fixed; width: 100%; }
+  .compare-table th { width: 33.33%; text-align: center; }
+  .compare-table td { font-size: 12px; line-height: 1.5; }
+  .compare-table td h3, .compare-table td h4 { font-size: 13px; margin-top: 12px; }
+
+  .lv-tabs { display: flex; gap: 8px; margin-bottom: 16px; position: sticky; top: 0; background: #0d1117; padding: 8px 0; z-index: 10; }
+  .lv-tab { padding: 6px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 1px solid #30363d; background: #161b22; color: #8b949e; }
+  .lv-tab:hover { border-color: #58a6ff; color: #58a6ff; }
+  .lv-tab.active { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+
+  .search-box { width: 100%; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 13px; margin-bottom: 12px; }
+  .search-box:focus { border-color: #58a6ff; outline: none; }
+
+  .sidebar-actions { display: flex; gap: 4px; margin-bottom: 8px; }
+  .sidebar-actions button {
+    flex: 1; padding: 6px 8px; font-size: 12px;
+    background: #161b22; color: #c9d1d9;
+    border: 1px solid #30363d; border-radius: 4px;
+    cursor: pointer;
+  }
+  .sidebar-actions button:hover { background: #21262d; color: #58a6ff; border-color: #58a6ff; }
+  .sidebar-actions button.primary { background: #238636; color: #fff; border-color: #2ea043; }
+  .sidebar-actions button.primary:hover { background: #2ea043; }
+
+  .selected-count { font-size: 11px; color: #58a6ff; padding: 4px 8px; background: #1f6feb1a; border-radius: 4px; margin-bottom: 8px; text-align: center; }
+
+  .empty { color: #484f58; text-align: center; margin-top: 40vh; font-size: 14px; }
+  .stats { font-size: 12px; color: #484f58; margin-bottom: 16px; padding: 8px; background: #161b22; border-radius: 6px; }
+
+  /* 강조 표시 (P-12 R-28) */
+  .tts-red    { color: #ff6b6b; font-weight: 500; }
+  .tts-blue   { color: #4dabf7; font-weight: 500; }
+  .tts-bold   { color: #ffd43b; font-weight: 700; }
+  .tts-underline { text-decoration: underline; text-decoration-color: #adb5bd; text-decoration-thickness: 2px; }
+  .tts-blank  { background: #ffd43b; color: #1971c2; padding: 0 6px; border-radius: 3px; font-weight: 600; }
+
+  /* 위장 모드 — 강조 표시 모두 무효화 */
+  body.stealth .tts-red,
+  body.stealth .tts-blue,
+  body.stealth .tts-bold,
+  body.stealth .tts-underline,
+  body.stealth .tts-blank {
+    color: inherit !important;
+    background: transparent !important;
+    font-weight: normal !important;
+    text-decoration: none !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+  }
+
+  /* Modal */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.65);
+    display: none; align-items: center; justify-content: center; z-index: 1000;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 24px; min-width: 360px; max-width: 480px;
+  }
+  .modal h3 { color: #58a6ff; margin-bottom: 8px; font-size: 16px; }
+  .modal .modal-info { color: #8b949e; font-size: 13px; margin-bottom: 16px; }
+  .modal label {
+    display: block; padding: 8px 12px; margin-bottom: 6px;
+    background: #0d1117; border: 1px solid #30363d; border-radius: 4px; cursor: pointer;
+    font-size: 14px;
+  }
+  .modal label:hover { border-color: #58a6ff; }
+  .modal label input[type="radio"] { margin-right: 8px; accent-color: #58a6ff; }
+  .modal-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
+  .modal-buttons button {
+    padding: 8px 18px; font-size: 13px; border-radius: 4px; cursor: pointer;
+    border: 1px solid #30363d; background: #21262d; color: #c9d1d9;
+  }
+  .modal-buttons button.primary { background: #238636; color: #fff; border-color: #2ea043; }
+  .modal-buttons button.primary:hover { background: #2ea043; }
+  .modal-buttons button:hover { background: #30363d; }
+</style>
+</head>
+<body>
+<div id="sidebar">
+  <h2 id="sidebar-title">TTS 머지 뷰어 (17895)</h2>
+  <div class="stats" id="stats"></div>
+  <input class="search-box" id="search" placeholder="검색" />
+  <div class="sidebar-actions">
+    <button onclick="openDownloadModal()" class="primary" id="btn-download">다운로드</button>
+  </div>
+  <div class="sidebar-actions">
+    <button onclick="expandAll()" id="btn-expand">모두 펼치기</button>
+    <button onclick="collapseAll()" id="btn-collapse">모두 접기</button>
+  </div>
+  <div class="selected-count" id="selected-count">선택: 0개</div>
+  <div id="fileTree"></div>
+</div>
+<button id="sidebar-toggle" onclick="toggleSidebar()" title="사이드바 토글 (B)">◀</button>
+<button id="stealth-toggle" onclick="toggleStealth()" title="위장 모드 토글 (Z)">👀</button>
+<div id="content">
+  <div class="empty" id="empty-msg">좌측에서 파일을 선택하세요</div>
+</div>
+
+<div id="download-modal" class="modal-overlay" onclick="if(event.target===this) closeModal()">
+  <div class="modal">
+    <h3>머지 다운로드</h3>
+    <p class="modal-info" id="modal-info">0개 파일 머지</p>
+    <label><input type="radio" name="merge-level" value="원본"> 원본</label>
+    <label><input type="radio" name="merge-level" value="Lv.1" checked> Lv.1 빠른복습</label>
+    <label><input type="radio" name="merge-level" value="Lv.4"> Lv.4 암기노트</label>
+    <div class="modal-buttons">
+      <button onclick="closeModal()">취소</button>
+      <button class="primary" onclick="doDownload()">확인</button>
+    </div>
+  </div>
+</div>
+
+<script>
+let fileIndex = {};
+let currentFile = null;
+let fullContent = '';
+let selectedFiles = new Set();
+let stealthMode = localStorage.getItem('stealth') === 'true';
+
+// 위장 모드 사이드바 매핑 (사용자 정의)
+// 과목: min(민법) mso(민소) hyung(형법) hso(형소) bu(부등) bso(부등서류) msso(민사서류)
+// 단계: 001_(예비) 002_(입문) 010_(1순환) 020_(2순환) 030_(3순환)
+// 시험: sub_(미케) mo_(모고) quiz_(쪽지시험)
+const stealthDirMap = {
+  '입문_민법': '002_min',
+  '입문_민소': '002_mso',
+  '입문_형법': '002_hyung',
+  '입문_부등': '002_bu',
+  '예비_민법': '001_min',
+  '예비_민소': '001_mso',
+  '예비_형법': '001_hyung',
+  '예비_형소': '001_hso',
+  '1순환_민법': '010_min',
+  '1순환_민소': '010_mso',
+  '1순환_형법': '010_hyung',
+  '1순환_형소': '010_hso',
+  '2순환_민법': '020_min',
+  '2순환_민소': '020_mso',
+  '2순환_형법': '020_hyung',
+  '2순환_형소': '020_hso',
+  '3순환_민법': '030_min',
+  '3순환_민소': '030_mso',
+  '3순환_형법': '030_hyung',
+  '3순환_형소': '030_hso',
+  '입문_부등서류': '002_bso',
+  '입문_민사서류': '002_msso',
+};
+
+// 위장 모드 UI 텍스트
+const stealthUI = {
+  pageTitle: { real: 'TTS 머지 뷰어 (17895)', fake: 'Document Viewer' },
+  sidebarTitle: { real: 'TTS 머지 뷰어 (17895)', fake: 'Documents' },
+  search: { real: '검색 (예: Case 15, 상계)', fake: 'Search' },
+  download: { real: '다운로드', fake: 'Download' },
+  expand: { real: '모두 펼치기', fake: 'Expand all' },
+  collapse: { real: '모두 접기', fake: 'Collapse all' },
+  selectedCount: { real: '선택', fake: 'Selected' },
+  emptyMsg: { real: '좌측에서 파일을 선택하세요', fake: 'Select a document from the left' },
+  tabs: { real: ['원본', '전체', 'Lv.1', 'Lv.4'], fake: ['Source', 'All', 'V1', 'V4'] },
+};
+
+function displayDir(dir) {
+  return stealthMode ? (stealthDirMap[dir] || dir) : dir;
+}
+
+function displayFile(filename) {
+  const base = filename.replace('.md', '');
+  if (stealthMode) {
+    // 미케NN_MM → sub_NN_MM
+    const mike = base.match(/미케(\d+)_(\d+)/);
+    if (mike) return `sub_${mike[1]}_${mike[2]}`;
+    // 모고NN_MM → mo_NN_MM
+    const mogoSub = base.match(/모고(\d+)_(\d+)/);
+    if (mogoSub) return `mo_${mogoSub[1]}_${mogoSub[2]}`;
+    // 모고NN → mo_NN
+    const mogo = base.match(/모고(\d+)/);
+    if (mogo) return `mo_${mogo[1]}`;
+    // 쪽지시험NN_MM → quiz_NN_MM
+    const quizSub = base.match(/쪽지시험_?(\d+)_(\d+)/);
+    if (quizSub) return `quiz_${quizSub[1]}_${quizSub[2]}`;
+    // 쪽지시험NN → quiz_NN
+    const quiz = base.match(/쪽지시험_?(\d+)/);
+    if (quiz) return `quiz_${quiz[1]}`;
+    return base.replace(/2026_(minbeop|minso)_(yebi|immun)_/, '');
+  }
+  return base.replace(/2026_(minbeop|minso)_(yebi|immun)_/, '');
+}
+
+function applyStealthUI() {
+  const t = stealthUI;
+  const k = stealthMode ? 'fake' : 'real';
+  document.getElementById('page-title').textContent = t.pageTitle[k];
+  document.title = t.pageTitle[k];
+  document.getElementById('sidebar-title').textContent = t.sidebarTitle[k];
+  document.getElementById('search').placeholder = t.search[k];
+  document.getElementById('btn-download').textContent = t.download[k];
+  document.getElementById('btn-expand').textContent = t.expand[k];
+  document.getElementById('btn-collapse').textContent = t.collapse[k];
+  const empty = document.getElementById('empty-msg');
+  if (empty) empty.textContent = t.emptyMsg[k];
+  document.getElementById('stealth-toggle').textContent = stealthMode ? '🔓' : '👀';
+  document.getElementById('stealth-toggle').classList.toggle('active', stealthMode);
+  updateSelectedCount();
+}
+
+function toggleStealth() {
+  stealthMode = !stealthMode;
+  localStorage.setItem('stealth', stealthMode);
+  document.body.classList.toggle('stealth', stealthMode);
+  applyStealthUI();
+  renderTree(document.getElementById('search').value);
+  if (currentFile) renderContent();
+}
+
+function renderEmphasis(html) {
+  return html
+    .replace(/\[red\]([\s\S]+?)\[\/red\]/g, '<span class="tts-red">$1</span>')
+    .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '<span class="tts-blue">$1</span>')
+    .replace(/\[bold\]([\s\S]+?)\[\/bold\]/g, '<span class="tts-bold">$1</span>')
+    .replace(/\[u\]([\s\S]+?)\[\/u\]/g, '<span class="tts-underline">$1</span>')
+    .replace(/\[blank\]([\s\S]+?)\[\/blank\]/g, '<span class="tts-blank">$1</span>');
+}
+
+function renderMd(md) {
+  return renderEmphasis(marked.parse(md));
+}
+
+let fileMetadata = {}; // path → metadata (새 인덱스 형식 풍부 메타)
+
+async function init() {
+  const res = await fetch('_file_index.json');
+  const raw = await res.json();
+  // 새 형식 ({files: [...], meta: {...}}) vs 구 형식 ({dir: [...]}) 호환
+  if (raw.files && Array.isArray(raw.files)) {
+    fileIndex = {};
+    fileMetadata = {};
+    for (const item of raw.files) {
+      const slash = item.path.indexOf('/');
+      const dir = item.path.slice(0, slash);
+      const fname = item.path.slice(slash + 1);
+      if (!fileIndex[dir]) fileIndex[dir] = [];
+      fileIndex[dir].push(fname);
+      fileMetadata[item.path] = item;
+    }
+  } else {
+    fileIndex = raw;
+    fileMetadata = {};
+  }
+  const total = Object.values(fileIndex).reduce((s, v) => s + v.length, 0);
+  document.getElementById('stats').textContent = `${Object.keys(fileIndex).length}과목 / ${total}파일`;
+  document.body.classList.toggle('stealth', stealthMode);
+  applyStealthUI();
+  renderTree();
+}
+
+function updateSelectedCount() {
+  const k = stealthMode ? 'fake' : 'real';
+  document.getElementById('selected-count').textContent = `${stealthUI.selectedCount[k]}: ${selectedFiles.size}`;
+}
+
+function updateDirCheckboxStates() {
+  document.querySelectorAll('.dir-checkbox').forEach(cb => {
+    const dir = cb.dataset.dir;
+    const files = fileIndex[dir] || [];
+    const selectedInDir = files.filter(f => selectedFiles.has(`${dir}/${f}`)).length;
+    if (selectedInDir === 0) { cb.checked = false; cb.indeterminate = false; }
+    else if (selectedInDir === files.length) { cb.checked = true; cb.indeterminate = false; }
+    else { cb.checked = false; cb.indeterminate = true; }
+  });
+}
+
+function renderTree(filter = '') {
+  const tree = document.getElementById('fileTree');
+  tree.innerHTML = '';
+  const lowerFilter = filter.toLowerCase();
+
+  for (const [dir, files] of Object.entries(fileIndex)) {
+    const filtered = filter ? files.filter(f => f.toLowerCase().includes(lowerFilter) || displayFile(f).toLowerCase().includes(lowerFilter)) : files;
+    if (filtered.length === 0) continue;
+
+    const group = document.createElement('div');
+    group.className = 'dir-group' + (filter ? '' : ' collapsed');
+
+    const h3 = document.createElement('h3');
+    const dirCb = document.createElement('input');
+    dirCb.type = 'checkbox';
+    dirCb.className = 'dir-checkbox';
+    dirCb.dataset.dir = dir;
+    dirCb.onclick = (e) => { e.stopPropagation(); toggleDirSelection(dir, dirCb.checked); };
+    const arrow = document.createElement('span'); arrow.className = 'arrow'; arrow.textContent = '▾';
+    const dirName = document.createElement('span'); dirName.textContent = displayDir(dir);
+    const count = document.createElement('span'); count.className = 'count'; count.textContent = filtered.length;
+    h3.appendChild(dirCb); h3.appendChild(arrow); h3.appendChild(dirName); h3.appendChild(count);
+    h3.onclick = (e) => { if (e.target === dirCb) return; group.classList.toggle('collapsed'); };
+    group.appendChild(h3);
+
+    const ul = document.createElement('ul'); ul.className = 'file-list';
+    filtered.forEach(f => {
+      const path = `${dir}/${f}`;
+      const li = document.createElement('li');
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = selectedFiles.has(path);
+      cb.onclick = (e) => {
+        e.stopPropagation();
+        if (cb.checked) selectedFiles.add(path); else selectedFiles.delete(path);
+        updateSelectedCount(); updateDirCheckboxStates();
+      };
+      const span = document.createElement('span'); span.className = 'filename';
+      span.textContent = displayFile(f); span.title = f;
+      span.onclick = () => loadFile(dir, f, li);
+      li.appendChild(cb); li.appendChild(span);
+      ul.appendChild(li);
+    });
+    group.appendChild(ul);
+    tree.appendChild(group);
+  }
+  updateSelectedCount();
+  updateDirCheckboxStates();
+}
+
+function toggleDirSelection(dir, checked) {
+  const files = fileIndex[dir] || [];
+  files.forEach(f => {
+    const path = `${dir}/${f}`;
+    if (checked) selectedFiles.add(path); else selectedFiles.delete(path);
+  });
+  renderTree(document.getElementById('search').value);
+}
+
+function expandAll() { document.querySelectorAll('.dir-group').forEach(g => g.classList.remove('collapsed')); }
+function collapseAll() { document.querySelectorAll('.dir-group').forEach(g => g.classList.add('collapsed')); }
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebar-toggle');
+  sidebar.classList.toggle('collapsed');
+  btn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+}
+
+async function loadFile(dir, filename, el) {
+  document.querySelectorAll('.file-list li').forEach(li => li.classList.remove('active'));
+  el.classList.add('active');
+  const res = await fetch(`${dir}/${filename}`);
+  fullContent = await res.text();
+  currentFile = filename;
+  renderContent();
+}
+
+function renderContent() {
+  const content = document.getElementById('content');
+  const k = stealthMode ? 'fake' : 'real';
+  const tabLabels = stealthUI.tabs[k];
+  const tabKeys = ['원본', '전체', 'Lv.1', 'Lv.4'];
+  let tabs = '<div class="lv-tabs">';
+  tabKeys.forEach((s, i) => {
+    tabs += `<div class="lv-tab${i===1?' active':''}" data-key="${s}" onclick="showSection('${s}', event)">${tabLabels[i]}</div>`;
+  });
+  tabs += '</div>';
+  content.innerHTML = tabs + '<div id="mdContent"></div>';
+  showSection('전체');
+}
+
+function showSection(section, event) {
+  document.querySelectorAll('.lv-tab').forEach(t => t.classList.remove('active'));
+  if (event) event.target.classList.add('active');
+  else {
+    document.querySelectorAll('.lv-tab').forEach(t => { if (t.dataset.key === section) t.classList.add('active'); });
+  }
+
+  const md = fullContent;
+  const target = document.getElementById('mdContent');
+
+  if (section === '전체') {
+    const original = extractSection(md, '원본');
+    const lv1 = extractSection(md, 'Lv.1 빠른복습');
+    const lv4 = extractSection(md, 'Lv.4 암기노트');
+    const k = stealthMode ? 'fake' : 'real';
+    const labels = stealthUI.tabs[k];
+    target.innerHTML = `
+      <table class="compare-table">
+        <thead><tr><th>${labels[0]}</th><th>Lv.1</th><th>Lv.4</th></tr></thead>
+        <tbody><tr>
+          <td>${renderMd(original || '(없음)')}</td>
+          <td>${renderMd(lv1 || '(없음)')}</td>
+          <td>${renderMd(lv4 || '(없음)')}</td>
+        </tr></tbody>
+      </table>
+    `;
+    return;
+  }
+
+  let sectionHeader;
+  if (section === '원본') sectionHeader = '원본';
+  else if (section === 'Lv.1') sectionHeader = 'Lv.1 빠른복습';
+  else if (section === 'Lv.4') sectionHeader = 'Lv.4 암기노트';
+
+  const c = extractSection(md, sectionHeader);
+  target.innerHTML = c ? renderMd(`## ${sectionHeader}\n\n${c}`) : '<p style="color:#484f58;">해당 섹션을 찾을 수 없습니다.</p>';
+}
+
+function extractSection(md, sectionName) {
+  const lines = md.split('\n');
+  let capture = false;
+  let result = [];
+  for (const line of lines) {
+    if (line.startsWith('## ') && line.includes(sectionName)) { capture = true; continue; }
+    if (capture && line.startsWith('## ')) break;
+    if (capture) result.push(line);
+  }
+  return result.join('\n').trim();
+}
+
+function parseSubsections(section) {
+  const result = {};
+  const lines = section.split('\n');
+  let current = null;
+  let buffer = [];
+  for (const line of lines) {
+    const m = line.match(/^###\s+(.+)$/);
+    if (m) {
+      if (current) result[current] = buffer.join('\n').trim();
+      current = m[1].trim();
+      buffer = [];
+    } else if (current) buffer.push(line);
+  }
+  if (current) result[current] = buffer.join('\n').trim();
+  return result;
+}
+
+function stripEmphasis(text) {
+  // 머지 다운로드 시 강조 태그 제거 (TTS용 plain)
+  return text
+    .replace(/\[red\]([\s\S]+?)\[\/red\]/g, '$1')
+    .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '$1')
+    .replace(/\[bold\]([\s\S]+?)\[\/bold\]/g, '$1')
+    .replace(/\[u\]([\s\S]+?)\[\/u\]/g, '$1')
+    .replace(/\[blank\]([\s\S]+?)\[\/blank\]/g, '$1');
+}
+
+function extractCaseNum(filename) {
+  const m = filename.match(/미케(\d+)_(\d+)/);
+  if (m) return `${parseInt(m[1], 10)}-${parseInt(m[2], 10)}`;
+  const m2 = filename.match(/모고(\d+)_(\d+)/);
+  if (m2) return `모고${parseInt(m2[1], 10)}-${parseInt(m2[2], 10)}`;
+  return filename.replace('.md', '');
+}
+
+function isAnswerHeader(line) {
+  const t = line.trim();
+  return /^\d+\.\s+\S/.test(t) || /^\(\d+\)\s+\S/.test(t) || /^\d+\)\s+\S/.test(t);
+}
+
+function formatOriginalMerge(md, caseNum) {
+  const section = stripEmphasis(extractSection(md, '원본'));
+  const cleaned = section.split('\n').filter(l => !/^###\s+/.test(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return `Case ${caseNum}.\n${cleaned}`;
+}
+
+function formatLv1Merge(md, caseNum) {
+  const section = stripEmphasis(extractSection(md, 'Lv.1 빠른복습'));
+  const sub = parseSubsections(section);
+  let problem = (sub['문제'] || '').trim();
+  const tocRaw = (sub['목차'] || '').trim();
+  const answerRaw = (sub['답안'] || '').trim();
+  if (problem.endsWith('.')) problem = problem.slice(0, -1) + '?';
+  const tocItems = [];
+  tocRaw.split('\n').forEach(line => {
+    const t = line.trim();
+    if (!t) return;
+    let item = t.replace(/^\d+\.\s*/, '').replace(/^\(\d+\)\s*/, '').replace(/^\d+\)\s*/, '');
+    if (!item) return;
+    if (/^(결론|이유|사안의?\s*경우)$/.test(item)) return;
+    tocItems.push(item);
+  });
+  const tocText = tocItems.map((it, i) => `목차 ${i+1}번, ${it},`).join('\n');
+  const answerLines = answerRaw.split('\n').map(line => isAnswerHeader(line) ? '' : line);
+  const compact = [];
+  for (const line of answerLines) {
+    if (line === '' && compact[compact.length-1] === '') continue;
+    compact.push(line);
+  }
+  while (compact[0] === '') compact.shift();
+  while (compact[compact.length-1] === '') compact.pop();
+  return `Case ${caseNum}.\n${problem}\n${tocText}\n${compact.join('\n')}`;
+}
+
+function formatLv4Merge(md, caseNum) {
+  const section = stripEmphasis(extractSection(md, 'Lv.4 암기노트'));
+  const lines = section.split('\n').filter(l => l.trim());
+  if (lines.length === 0) return `Case ${caseNum}. (Lv.4 없음)`;
+  return `Case ${caseNum}. ${lines[0]}\n${lines.slice(1).join('\n')}`;
+}
+
+function openDownloadModal() {
+  if (selectedFiles.size === 0) { alert('파일을 1개 이상 체크하세요'); return; }
+  document.getElementById('modal-info').textContent = `${selectedFiles.size}개 파일 머지`;
+  document.getElementById('download-modal').classList.add('show');
+}
+
+function closeModal() { document.getElementById('download-modal').classList.remove('show'); }
+
+async function doDownload() {
+  const level = document.querySelector('input[name="merge-level"]:checked').value;
+  const files = Array.from(selectedFiles).sort();
+  const parts = [];
+  for (const filepath of files) {
+    const slash = filepath.indexOf('/');
+    const dir = filepath.slice(0, slash);
+    const filename = filepath.slice(slash + 1);
+    const res = await fetch(`${dir}/${filename}`);
+    const md = await res.text();
+    const caseNum = extractCaseNum(filename);
+    let merged;
+    if (level === '원본') merged = formatOriginalMerge(md, caseNum);
+    else if (level === 'Lv.1') merged = formatLv1Merge(md, caseNum);
+    else if (level === 'Lv.4') merged = formatLv4Merge(md, caseNum);
+    parts.push(merged);
+  }
+  const blob = new Blob([parts.join('\n\n\n')], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const today = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `merged_${level.replace('.', '')}_${selectedFiles.size}_${today}.txt`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  closeModal();
+}
+
+document.getElementById('search').addEventListener('input', e => renderTree(e.target.value));
+document.addEventListener('keydown', e => {
+  if (e.target.matches('input, textarea')) return;
+  if (e.key === 'b') toggleSidebar();
+  if (e.key === 'z') toggleStealth();
+  if (e.key === 'Escape') closeModal();
+});
+init();
+</script>
+</body>
+</html>

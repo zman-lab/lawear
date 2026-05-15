@@ -148,15 +148,135 @@ log = logging.getLogger(__name__)
 # PDF 텍스트 추출
 # ---------------------------------------------------------------------------
 
-def extract_pdf_pages(pdf_path: str) -> list[dict]:
-    """PDF에서 페이지별 텍스트를 추출한다."""
+def extract_pdf_pages(pdf_path: str, with_emphasis: bool = False) -> list[dict]:
+    """PDF에서 페이지별 텍스트를 추출한다.
+
+    Args:
+        with_emphasis: True면 색/Bold 강조를 [red]/[blue]/[bold] 인라인 태그로 변환.
+                       기본 False (기존 호환).
+    """
     doc = fitz.open(pdf_path)
     pages = []
     for i, page in enumerate(doc):
-        text = page.get_text("text")
+        if with_emphasis:
+            text = _extract_text_with_emphasis(page)
+        else:
+            text = page.get_text("text")
         pages.append({"page_num": i + 1, "text": text})
     doc.close()
     return pages
+
+
+def _detect_emphasis(color: int, flags: int) -> str | None:
+    """span의 color/flags로 강조 태그를 결정한다.
+
+    우선순위: red > blue > bold > None
+    빈칸은 PDF 색·flags가 아닌 텍스트 패턴(원문자 ① 등)으로 별도 인식.
+    밑줄은 _extract_underlines()에서 별도 처리.
+    """
+    r = (color >> 16) & 0xFF
+    g = (color >> 8) & 0xFF
+    b = color & 0xFF
+    # fitz flags: bit 0=superscript, 1=italic, 2=serifed, 3=monospaced, 4=bold, 5=embedded
+    # 그러나 일부 PDF는 별도 글꼴명(예: Bold-suffixed) 사용 — flags 비트만으로는 미흡
+    # 너그러운 Bold 인식: flags bit 4 OR (검정 회색조 + font name에 Bold)
+    bold = (flags & 16) != 0
+
+    # 빨강: R 우세 (보통 255,0,0 또는 부근)
+    if r > 150 and g < 100 and b < 100:
+        return "red"
+    # 파랑: B 우세
+    if b > 150 and r < 100 and g < 120:
+        return "blue"
+    # Bold (검정/회색조 + bold flag)
+    if bold and abs(r - g) < 50 and abs(g - b) < 50 and r < 100:
+        return "bold"
+    return None
+
+
+def _is_underline_below(span: dict, drawings: list, tolerance: float = 3.0) -> bool:
+    """span 아래에 그래픽 라인(밑줄)이 있는지 확인한다.
+
+    fitz의 page.get_drawings()는 모든 그래픽 객체를 반환.
+    밑줄은 보통 글자 baseline 바로 아래(1~5px)에 가로 라인으로 그려진다.
+    """
+    if not drawings:
+        return False
+    bbox = span.get("bbox")
+    if not bbox:
+        return False
+    x0, y0, x1, y1 = bbox  # span의 bounding box
+    baseline_y = y1  # 글자 아래쪽 (PDF y는 위→아래 증가)
+
+    for d in drawings:
+        items = d.get("items", [])
+        for item in items:
+            # item = ('l', start_point, end_point) — line
+            if len(item) >= 3 and item[0] == "l":
+                p1, p2 = item[1], item[2]
+                # 수평 라인 (y 좌표 비슷)
+                if abs(p1.y - p2.y) < 1.0:
+                    line_y = p1.y
+                    # 라인이 span baseline 바로 아래에 있고
+                    if 0 < line_y - baseline_y < tolerance + 2:
+                        # 라인 x 범위가 span x 범위와 겹침
+                        lx0, lx1 = min(p1.x, p2.x), max(p1.x, p2.x)
+                        if lx0 <= x1 and lx1 >= x0:
+                            # 겹치는 길이가 span 너비의 30% 이상
+                            overlap = min(x1, lx1) - max(x0, lx0)
+                            if overlap > (x1 - x0) * 0.3:
+                                return True
+    return False
+
+
+def _extract_text_with_emphasis(page) -> str:
+    """페이지에서 텍스트 + 강조 태그(색·Bold·밑줄)를 추출한다."""
+    # 그래픽 객체(밑줄용) 미리 로드
+    try:
+        drawings = page.get_drawings()
+    except Exception:
+        drawings = []
+
+    out_lines = []
+    blocks = page.get_text("dict").get("blocks", [])
+    for block in blocks:
+        for line in block.get("lines", []):
+            parts = []
+            prev_tag = None
+            buffer = ""
+            for span in line.get("spans", []):
+                text = span.get("text", "")
+                if not text:
+                    continue
+                color = span.get("color", 0)
+                flags = span.get("flags", 0)
+                # 우선순위: 색·Bold가 우선, 그 다음 밑줄
+                tag = _detect_emphasis(color, flags)
+                # 색·Bold가 없으면 밑줄 확인
+                if tag is None and _is_underline_below(span, drawings):
+                    tag = "u"
+                # 같은 태그 연속이면 buffer에 누적, 다르면 flush
+                if tag == prev_tag:
+                    buffer += text
+                else:
+                    if buffer:
+                        if prev_tag:
+                            parts.append(f"[{prev_tag}]{buffer}[/{prev_tag}]")
+                        else:
+                            parts.append(buffer)
+                    buffer = text
+                    prev_tag = tag
+            # 마지막 flush
+            if buffer:
+                if prev_tag:
+                    parts.append(f"[{prev_tag}]{buffer}[/{prev_tag}]")
+                else:
+                    parts.append(buffer)
+            if parts:
+                out_lines.append("".join(parts))
+        if block.get("lines"):
+            out_lines.append("")  # 블록 사이 빈 줄
+    return "\n".join(out_lines)
 
 
 def clean_page_header(text: str) -> str:
@@ -767,9 +887,10 @@ def extract_file(target: dict) -> dict | None:
     try:
         if target["split"]:
             # 문제/답안 분리 파일
-            prob_pages = extract_pdf_pages(target["problem_pdf"])
+            we = target.get("with_emphasis", False)
+            prob_pages = extract_pdf_pages(target["problem_pdf"], with_emphasis=we)
             ans_pages = (
-                extract_pdf_pages(target["answer_pdf"])
+                extract_pdf_pages(target["answer_pdf"], with_emphasis=we)
                 if target.get("answer_pdf")
                 else []
             )
@@ -787,7 +908,7 @@ def extract_file(target: dict) -> dict | None:
             pdf_path_rel = os.path.relpath(target["problem_pdf"], PDF_BASE)
         else:
             # 단일 PDF
-            pages = extract_pdf_pages(target["pdf_path"])
+            pages = extract_pdf_pages(target["pdf_path"], with_emphasis=target.get("with_emphasis", False))
             pdf_path_rel = os.path.relpath(target["pdf_path"], PDF_BASE)
 
             if subj_key == "형소":
@@ -912,6 +1033,10 @@ def main():
     parser.add_argument(
         "--list", action="store_true", help="대상 파일 목록만 출력"
     )
+    parser.add_argument(
+        "--emphasis", action="store_true",
+        help="색/Bold 강조 표시를 [red]/[blue]/[bold] 인라인 태그로 변환 (17895 뷰어용)"
+    )
     args = parser.parse_args()
 
     # 과목 검증
@@ -925,6 +1050,11 @@ def main():
 
     # 대상 파일 찾기
     targets = find_target_files(args.subject)
+
+    # --emphasis 옵션을 각 target에 전달
+    if args.emphasis:
+        for t in targets:
+            t["with_emphasis"] = True
 
     # --file 필터
     if args.file:

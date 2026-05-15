@@ -9,16 +9,33 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: -apple-system, 'Pretendard', sans-serif; display: flex; height: 100vh; background: #0d1117; color: #c9d1d9; }
 
-  #sidebar { width: 320px; min-width: 320px; background: #161b22; border-right: 1px solid #30363d; overflow-y: auto; padding: 16px; }
-  #sidebar h2 { font-size: 14px; color: #58a6ff; margin-bottom: 12px; }
-  .dir-group { margin-bottom: 16px; }
-  .dir-group h3 { font-size: 13px; color: #8b949e; margin-bottom: 6px; cursor: pointer; padding: 4px 8px; border-radius: 4px; }
+  #sidebar { width: 320px; min-width: 320px; background: #161b22; border-right: 1px solid #30363d; overflow-y: auto; padding: 16px; transition: width 0.2s, min-width 0.2s, padding 0.2s; }
+  #sidebar.collapsed { width: 0; min-width: 0; padding: 16px 0; border-right: none; overflow: hidden; }
+  #sidebar h2 { font-size: 14px; color: #58a6ff; margin-bottom: 12px; white-space: nowrap; }
+  .dir-group { margin-bottom: 8px; }
+  .dir-group h3 { font-size: 13px; color: #8b949e; margin-bottom: 6px; cursor: pointer; padding: 6px 8px; border-radius: 4px; display: flex; align-items: center; gap: 6px; user-select: none; }
   .dir-group h3:hover { background: #21262d; }
-  .dir-group h3 .count { color: #484f58; font-weight: normal; }
+  .dir-group h3 .arrow { display: inline-block; width: 12px; font-size: 10px; color: #8b949e; transition: transform 0.15s; }
+  .dir-group.collapsed h3 .arrow { transform: rotate(-90deg); }
+  .dir-group.collapsed .file-list { display: none; }
+  .dir-group h3 .count { color: #484f58; font-weight: normal; margin-left: auto; }
   .file-list { list-style: none; }
-  .file-list li { font-size: 12px; padding: 4px 8px 4px 16px; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .file-list li { font-size: 12px; padding: 4px 8px 4px 22px; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .file-list li:hover { background: #21262d; }
   .file-list li.active { background: #1f6feb33; color: #58a6ff; }
+
+  #sidebar-toggle {
+    position: fixed; top: 10px; left: 320px; z-index: 100;
+    width: 22px; height: 36px;
+    border: 1px solid #30363d; border-left: none;
+    background: #161b22; color: #8b949e;
+    border-radius: 0 6px 6px 0;
+    cursor: pointer; font-size: 12px;
+    display: flex; align-items: center; justify-content: center;
+    transition: left 0.2s;
+  }
+  #sidebar-toggle:hover { background: #21262d; color: #58a6ff; }
+  #sidebar.collapsed ~ #sidebar-toggle { left: 0; }
 
   #content { flex: 1; overflow-y: auto; padding: 32px 48px; }
   #content h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 8px; margin-bottom: 16px; }
@@ -42,6 +59,15 @@
   .search-box { width: 100%; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 13px; margin-bottom: 12px; }
   .search-box:focus { border-color: #58a6ff; outline: none; }
 
+  .sidebar-actions { display: flex; gap: 4px; margin-bottom: 10px; }
+  .sidebar-actions button {
+    flex: 1; padding: 4px 8px; font-size: 11px;
+    background: #161b22; color: #8b949e;
+    border: 1px solid #30363d; border-radius: 4px;
+    cursor: pointer;
+  }
+  .sidebar-actions button:hover { background: #21262d; color: #58a6ff; }
+
   .empty { color: #484f58; text-align: center; margin-top: 40vh; font-size: 14px; }
   .stats { font-size: 12px; color: #484f58; margin-bottom: 16px; padding: 8px; background: #161b22; border-radius: 6px; }
 </style>
@@ -51,8 +77,13 @@
   <h2>TTS 변환 뷰어</h2>
   <div class="stats" id="stats"></div>
   <input class="search-box" id="search" placeholder="Case 검색 (예: Case 15, 상계)" />
+  <div class="sidebar-actions">
+    <button onclick="expandAll()">모두 펼치기</button>
+    <button onclick="collapseAll()">모두 접기</button>
+  </div>
   <div id="fileTree"></div>
 </div>
+<button id="sidebar-toggle" onclick="toggleSidebar()" title="사이드바 토글 (B)">◀</button>
 <div id="content">
   <div class="empty">좌측에서 파일을 선택하세요</div>
 </div>
@@ -80,8 +111,8 @@ function renderTree(filter = '') {
     if (filtered.length === 0) continue;
 
     const group = document.createElement('div');
-    group.className = 'dir-group';
-    group.innerHTML = `<h3>${dir} <span class="count">(${filtered.length})</span></h3>`;
+    group.className = 'dir-group' + (filter ? '' : ' collapsed');
+    group.innerHTML = `<h3><span class="arrow">▾</span><span>${dir}</span><span class="count">${filtered.length}</span></h3>`;
 
     const ul = document.createElement('ul');
     ul.className = 'file-list';
@@ -89,16 +120,31 @@ function renderTree(filter = '') {
       const li = document.createElement('li');
       li.textContent = f.replace('.md', '').replace(/2026_(minbeop|minso)_(yebi|immun)_/, '');
       li.title = f;
-      li.onclick = () => loadFile(dir, f, li);
+      li.onclick = (e) => { e.stopPropagation(); loadFile(dir, f, li); };
       ul.appendChild(li);
     });
     group.appendChild(ul);
 
     const h3 = group.querySelector('h3');
-    h3.onclick = () => { ul.style.display = ul.style.display === 'none' ? '' : 'none'; };
+    h3.onclick = () => group.classList.toggle('collapsed');
 
     tree.appendChild(group);
   }
+}
+
+function expandAll() {
+  document.querySelectorAll('.dir-group').forEach(g => g.classList.remove('collapsed'));
+}
+
+function collapseAll() {
+  document.querySelectorAll('.dir-group').forEach(g => g.classList.add('collapsed'));
+}
+
+function toggleSidebar() {
+  const sidebar = document.getElementById('sidebar');
+  const btn = document.getElementById('sidebar-toggle');
+  sidebar.classList.toggle('collapsed');
+  btn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
 }
 
 async function loadFile(dir, filename, el) {
@@ -157,6 +203,9 @@ function showSection(section) {
 }
 
 document.getElementById('search').addEventListener('input', e => renderTree(e.target.value));
+document.addEventListener('keydown', e => {
+  if (e.key === 'b' && !e.target.matches('input, textarea')) toggleSidebar();
+});
 init();
 </script>
 </body>

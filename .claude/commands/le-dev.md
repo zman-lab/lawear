@@ -191,6 +191,7 @@ TTS 작업 시 아래 순서로 진행하세요:
 | `le-sample` | 샘플 TTS 생성 (과목/파일 지정) |
 | `le-summary` | Lv.2 핵심요약 TTS 변환 (문제 제거, 답안 축약) |
 | `le-supersimple` | Lv.3 슈퍼심플 TTS 변환 (의의/취지/요건만) |
+| `le-lv4` | Lv.4 암기노트 TTS 변환 (결론 한 줄 + 평면 번호) |
 | `le-deploy-lock` | 배포 락 프로토콜 |
 | `le-restart` | 서버 재시작 |
 | `commit` | 범용 커밋 |

@@ -1,0 +1,26 @@
+{
+  "lastUpdated": "2026-05-15T14:31:51.144635+00:00",
+  "subjects": {
+    "minbeop": {
+      "files": {
+        "yebi_mike01": {
+          "status": "extracted",
+          "cases": 8,
+          "label": "미케01"
+        },
+        "immun_mike01": {
+          "status": "extracted",
+          "cases": 13,
+          "label": "미케01"
+        }
+      }
+    }
+  },
+  "stats": {
+    "totalFiles": 2,
+    "extractedFiles": 2,
+    "ttsDoneFiles": 0,
+    "totalCases": 21,
+    "extractedCases": 21
+  }
+}
