@@ -18,6 +18,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
+import android.speech.tts.Voice;
 import android.util.Log;
 
 import androidx.core.app.NotificationCompat;
@@ -64,6 +65,8 @@ public class TtsPlaybackService extends Service {
     private volatile int sequenceIndex = -1;
     private List<String> sequenceTexts = new ArrayList<>();
     private float sequenceRate = 1.0f;
+    // 현재 선택된 음성 이름 (Voice.getName()) — null이면 시스템 기본
+    private volatile String currentVoiceName = null;
 
     // 트랙 정보 (알림 표시용)
     private String trackTitle = "";
@@ -193,13 +196,21 @@ public class TtsPlaybackService extends Service {
     }
 
     /**
+     * 시퀀스 재생 시작 (기본 — 음성 유지)
+     */
+    public void speakSequence(List<String> texts, int startIndex, float rate) {
+        speakSequence(texts, startIndex, rate, null);
+    }
+
+    /**
      * 시퀀스 재생 시작
      *
      * @param texts      문장 배열
      * @param startIndex 시작 인덱스
      * @param rate       재생 속도
+     * @param voiceName  음성 이름 (Voice.getName()). null이면 이전 설정/시스템 기본 유지
      */
-    public void speakSequence(List<String> texts, int startIndex, float rate) {
+    public void speakSequence(List<String> texts, int startIndex, float rate, String voiceName) {
         if (!ttsReady) {
             Log.e(TAG, "speakSequence: TTS not ready");
             return;
@@ -212,8 +223,52 @@ public class TtsPlaybackService extends Service {
         sequenceRate = rate;
         sequencePlaying = true;
 
+        // 음성 설정 (voiceName 명시적으로 null이면 기본으로 초기화)
+        applyVoice(voiceName);
+
         tts.setSpeechRate(rate);
         speakAtIndex(startIndex);
+    }
+
+    /**
+     * 재생 중 음성 변경.
+     * 현재 utterance는 그대로 완료되고, 다음 문장부터 새 voice로 재생됨.
+     * 즉시 반영하려면 호출 측에서 stop 후 speakSequence 재호출.
+     */
+    public void setVoiceByName(String voiceName) {
+        applyVoice(voiceName);
+    }
+
+    /**
+     * Android TTS 엔진의 voice 목록에서 이름으로 검색하여 설정.
+     * voiceName이 null이면 기본 한국어 음성 복원.
+     */
+    private void applyVoice(String voiceName) {
+        currentVoiceName = voiceName;
+        if (tts == null) return;
+        try {
+            if (voiceName == null) {
+                // 기본 한국어 음성으로 되돌리기
+                Voice def = tts.getDefaultVoice();
+                if (def != null) {
+                    tts.setVoice(def);
+                } else {
+                    tts.setLanguage(Locale.KOREAN);
+                }
+                Log.d(TAG, "applyVoice: reset to default");
+                return;
+            }
+            for (Voice voice : tts.getVoices()) {
+                if (voice.getName().equals(voiceName)) {
+                    tts.setVoice(voice);
+                    Log.d(TAG, "applyVoice: " + voiceName);
+                    return;
+                }
+            }
+            Log.w(TAG, "applyVoice: voice not found " + voiceName);
+        } catch (Exception e) {
+            Log.w(TAG, "applyVoice failed: " + e.getMessage());
+        }
     }
 
     public void stop() {

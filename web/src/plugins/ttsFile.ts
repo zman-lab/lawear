@@ -37,6 +37,13 @@ export interface TTSFilePlugin {
   }): Promise<SynthesizeResult>;
 
   /**
+   * 시퀀스 재생용 음성 설정. speakSequence 호출 시에도 설정되지만,
+   * 재생 중에 음성을 즉시 바꿀 때 사용한다.
+   * voiceName이 null/undefined면 시스템 기본 음성으로 복원.
+   */
+  setSequenceVoice(opts: { voiceName: string | null }): Promise<void>;
+
+  /**
    * 설치된 TTS 엔진 목록을 반환한다.
    */
   getEngines(): Promise<{

@@ -7,10 +7,12 @@ import { useSpeechSynthesis } from '../hooks/useSpeechSynthesis';
 
 // ── 네이티브 TTS 순차 재생 플러그인 (백그라운드 안전) ───────────────────────
 interface TTSFilePlugin {
-  speakSequence(opts: { texts: string[]; startIndex: number; rate: number; trackTitle?: string }): Promise<void>;
+  speakSequence(opts: { texts: string[]; startIndex: number; rate: number; trackTitle?: string; voiceName?: string }): Promise<void>;
   stopSequence(): Promise<void>;
   updateSequenceRate(opts: { rate: number }): Promise<void>;
   jumpSequence(opts: { index: number }): Promise<void>;
+  /** 시퀀스 재생 음성 변경 (재생 중에도 호출 가능) */
+  setSequenceVoice(opts: { voiceName: string | null }): Promise<void>;
   addListener(eventName: 'sequenceEvent', handler: (ev: { event: string; index: number }) => void): Promise<PluginListenerHandle>;
   setBatteryOptimization(opts: { enabled: boolean }): Promise<void>;
   getBatteryStatus(): Promise<{ isExcluded: boolean }>;
@@ -586,8 +588,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         }
       });
 
+      // 현재 선택된 음성 URI → 네이티브 voice 이름(Voice.getName())과 동일
+      const selectedVoiceName = current.selectedVoiceURI ?? undefined;
+
       // 시퀀스 시작 (Promise는 즉시 resolve)
-      await TTSFile.speakSequence({ texts: allSents, startIndex: absoluteIdx, rate: speed, trackTitle: nativeTrackTitle });
+      await TTSFile.speakSequence({
+        texts: allSents,
+        startIndex: absoluteIdx,
+        rate: speed,
+        trackTitle: nativeTrackTitle,
+        ...(selectedVoiceName ? { voiceName: selectedVoiceName } : {}),
+      });
     },
     [buildAllSentences],
   );
@@ -1308,9 +1319,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   // ── setVoice ────────────────────────────────────────────────────────────
   const setVoice = useCallback((voiceURI: string | null) => {
     log.player('voice_change', { voiceURI });
+    // stateRef를 먼저 직접 업데이트 — startNativeSequence가 읽기 전에 새 voice 반영 보장
+    // (setState functional updater는 React 배치로 지연 가능성 있음)
+    stateRef.current = { ...stateRef.current, selectedVoiceURI: voiceURI };
     updateState({ selectedVoiceURI: voiceURI });
     saveVoiceURI(voiceURI);
-  }, [updateState]);
+
+    // 재생 중이면 현재 문장을 새 voice로 즉시 재시작
+    // (네이티브는 기존 시퀀스가 이미 설정된 voice를 계속 사용하므로 새 speakSequence 호출 필요)
+    const current = stateRef.current;
+    if (!current.isPlaying) return;
+
+    if (TTSFile && Capacitor.isNativePlatform()) {
+      // 네이티브: setSequenceVoice로 즉시 반영 시도 → 완전 반영을 위해 현재 문장부터 새로 시작
+      TTSFile.setSequenceVoice({ voiceName: voiceURI }).catch(() => {});
+      stopNativeSequence();
+      startNativeSequence(current.currentSentenceIndex, current.speed);
+    } else {
+      // 웹: cancel 후 현재 문장을 새 voice로 재시작
+      cancel();
+      speakCurrentSentence(current.currentSentenceIndex, current.speed);
+    }
+  }, [updateState, cancel, speakCurrentSentence, startNativeSequence, stopNativeSequence]);
 
   // ── 슬립 타이머 카운트다운 ──────────────────────────────────────────────
   useEffect(() => {

@@ -343,6 +343,8 @@ public class TTSFilePlugin extends Plugin {
             // 트랙 정보 (선택적) — 알림 제목에 표시됨
             // 형식: "민사소송법 · Case 01"
             String trackTitle = call.getString("trackTitle");
+            // 음성 이름 (선택적) — Android Voice.getName() 값
+            String voiceName = call.getString("voiceName");
 
             if (textsArr == null || textsArr.length() == 0) {
                 call.reject("texts array required");
@@ -364,7 +366,7 @@ public class TTSFilePlugin extends Plugin {
                 playbackService.setTrackInfo(trackTitle);
             }
 
-            playbackService.speakSequence(texts, startIndex, rate);
+            playbackService.speakSequence(texts, startIndex, rate, voiceName);
 
             // 즉시 성공 응답 — 이벤트는 notifyListeners("sequenceEvent")로 전달
             call.resolve();
@@ -372,6 +374,15 @@ public class TTSFilePlugin extends Plugin {
         } catch (Exception e) {
             call.reject("speakSequence failed: " + e.getMessage());
         }
+    }
+
+    @PluginMethod
+    public void setSequenceVoice(PluginCall call) {
+        String voiceName = call.getString("voiceName");
+        if (serviceBound && playbackService != null) {
+            playbackService.setVoiceByName(voiceName);
+        }
+        call.resolve();
     }
 
     @PluginMethod
