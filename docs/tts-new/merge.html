@@ -101,13 +101,15 @@
   .tts-bold   { color: #ffd43b; font-weight: 700; }
   .tts-underline { text-decoration: underline; text-decoration-color: #adb5bd; text-decoration-thickness: 2px; }
   .tts-blank  { background: #ffd43b; color: #1971c2; padding: 0 6px; border-radius: 3px; font-weight: 600; }
+  .tts-blank2 { background: #c92a2a; color: #ffd43b; padding: 0 6px; border-radius: 3px; font-weight: 600; }
 
   /* 위장 모드 — 강조 표시 모두 무효화 */
   body.stealth .tts-red,
   body.stealth .tts-blue,
   body.stealth .tts-bold,
   body.stealth .tts-underline,
-  body.stealth .tts-blank {
+  body.stealth .tts-blank,
+  body.stealth .tts-blank2 {
     color: inherit !important;
     background: transparent !important;
     font-weight: normal !important;
@@ -181,6 +183,7 @@
   .em-btn.em-bold { color: #ffd43b; font-weight: 700; }
   .em-btn.em-underline { color: #adb5bd; text-decoration: underline; }
   .em-btn.em-blank { background: #ffd43b; color: #1971c2; border-color: #fab005; }
+  .em-btn.em-blank2 { background: #c92a2a; color: #ffd43b; border-color: #a51e1e; }
   .em-btn.em-clear { color: #ef4444; }
   .save-btn { background: #238636 !important; color: #fff !important; border-color: #2ea043 !important; margin-left: auto; padding: 6px 18px !important; }
   .save-btn:hover { background: #2ea043 !important; }
@@ -236,7 +239,8 @@
       <button class="em-btn em-blue" onclick="wrapEmphasis('blue')" title="파랑 [blue]">blue</button>
       <button class="em-btn em-bold" onclick="wrapEmphasis('bold')" title="굵게 [bold]">bold</button>
       <button class="em-btn em-underline" onclick="wrapEmphasis('u')" title="밑줄 [u]">underline</button>
-      <button class="em-btn em-blank" onclick="wrapEmphasis('blank')" title="빈칸 [blank]">blank</button>
+      <button class="em-btn em-blank" onclick="wrapEmphasis('blank')" title="빈칸 [blank] — 노랑 배경/파랑 글씨">blank</button>
+      <button class="em-btn em-blank2" onclick="wrapEmphasis('blank2')" title="빈칸2 [blank2] — 빨강 배경/노랑 글씨">blank2</button>
       <button class="em-btn em-clear" onclick="wrapEmphasis('clear')" title="강조 제거">제거</button>
       <button class="save-btn" id="save-btn" onclick="saveFile()" title="저장 (Ctrl+S / Cmd+S)">💾 저장</button>
       <span class="save-status" id="save-status"></span>
@@ -370,6 +374,7 @@ function renderEmphasis(html) {
     .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '<span class="tts-blue">$1</span>')
     .replace(/\[bold\]([\s\S]+?)\[\/bold\]/g, '<span class="tts-bold">$1</span>')
     .replace(/\[u\]([\s\S]+?)\[\/u\]/g, '<span class="tts-underline">$1</span>')
+    .replace(/\[blank2\]([\s\S]+?)\[\/blank2\]/g, '<span class="tts-blank2">$1</span>')
     .replace(/\[blank\]([\s\S]+?)\[\/blank\]/g, '<span class="tts-blank">$1</span>');
 }
 
@@ -378,7 +383,8 @@ function renderMd(md) {
   // innermost-first 반복 매칭으로 중첩 강조([red]...[blank]X[/blank]...[/red]) 지원
   const placeholders = [];
   // content 안에 다른 강조 시작 태그가 없는 경우만 매칭 = innermost
-  const tagRe = /\[(red|blue|bold|u|blank)\]((?:(?!\[(?:red|blue|bold|u|blank)\])[\s\S])*?)\[\/\1\]/g;
+  // blank2가 blank보다 먼저 (정규식 alternation leftmost — 긴 거 우선)
+  const tagRe = /\[(red|blue|bold|u|blank2|blank)\]((?:(?!\[(?:red|blue|bold|u|blank2|blank)\])[\s\S])*?)\[\/\1\]/g;
   let escaped = md;
   let prev;
   let iter = 0;
@@ -615,6 +621,7 @@ function stripEmphasis(text) {
     .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '$1')
     .replace(/\[bold\]([\s\S]+?)\[\/bold\]/g, '$1')
     .replace(/\[u\]([\s\S]+?)\[\/u\]/g, '$1')
+    .replace(/\[blank2\]([\s\S]+?)\[\/blank2\]/g, '$1')
     .replace(/\[blank\]([\s\S]+?)\[\/blank\]/g, '$1');
 }
 
@@ -764,7 +771,7 @@ function wrapEmphasis(tag) {
   const end = ta.selectionEnd;
   if (start === end) { setSaveStatus('텍스트를 먼저 선택하세요', 'error'); return; }
   const selected = ta.value.substring(start, end);
-  const allTags = ['red', 'blue', 'bold', 'u', 'blank'];
+  const allTags = ['red', 'blue', 'bold', 'u', 'blank2', 'blank'];
   let cleaned = selected;
   for (const t of allTags) {
     const re = new RegExp(`\\[${t}\\]([\\s\\S]+?)\\[\\/${t}\\]`, 'g');
