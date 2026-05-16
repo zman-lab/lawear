@@ -1,12 +1,15 @@
 #!/usr/bin/env python3
-"""Grader — Anthropic Claude API + 7기준 채점 + mock 모드 + env-aware (Step 6).
+"""Grader — Anthropic Claude API + 8기준 채점 + mock 모드 + env-aware (Step 6/20).
 
 dev-design archive #48 §5 (채점 프롬프트) + dev-impl-plan #51 Step 6.
+Step 20 (사용자 명시 2026-05-16): 채점 기준 v4 — articles 신설 (8기준).
+  - Lv.4핏 (mnem/color/under/sem/miss 합 60) + outline 10 + articles 10 + rich 20 = 100
+  - 점수 표시 소수점 2자리 (실제 시험 형식).
 
 핵심:
 - `grade(case_meta, user_answer, weights, model='claude-opus-4-7', *, mock=None) -> dict`
-  - 입력: 사용자 답안 + 케이스 메타(.md 본문 raw + Lv.1 + Lv.4 + 강조 태그) + 가중치 7항목
-  - 출력: 7기준 score/max/weight/comment + total/max/pct + grade + eval_notes + diff_segments
+  - 입력: 사용자 답안 + 케이스 메타(.md 본문 raw + Lv.1 + Lv.4 + 강조 태그) + 가중치 8항목
+  - 출력: 8기준 score/max/weight/comment + total/max/pct + grade + eval_notes + diff_segments
 - `_build_prompt(case_meta, user_answer, weights) -> tuple[str, str]` — system + user 분리
 - `_parse_response(text) -> dict` — Claude 응답 JSON 추출 (코드펜스 + 견고)
 - `_compute_score(criteria, weights) -> tuple[total, max_score, pct, grade]`
@@ -42,18 +45,33 @@ MAX_TOKENS: int = int(os.environ.get("LAWEAR_GRADER_MAX_TOKENS", "4096"))
 RATE_LIMIT_RETRIES: int = int(os.environ.get("LAWEAR_GRADER_RETRIES", "3"))
 RATE_LIMIT_BACKOFF_SEC: float = float(os.environ.get("LAWEAR_GRADER_BACKOFF", "1.0"))
 
-# 7기준 키 (DB CHECK 와 1:1) — dev-design #48 §3-2 / §4-2 attempt_criteria
-CRITERION_KEYS: tuple[str, ...] = ("mnem", "color", "under", "outline", "sem", "rich", "miss")
+# 8기준 키 (DB CHECK 와 1:1) — dev-design #48 §3-2 / §4-2 attempt_criteria
+# Step 20 (사용자 2026-05-16): articles 신설 — 원본 언급 조문(제397조/제387조 등) 명시 여부.
+CRITERION_KEYS: tuple[str, ...] = (
+    "mnem",
+    "color",
+    "under",
+    "outline",
+    "sem",
+    "rich",
+    "miss",
+    "articles",
+)
 
-# 기본 가중치 (dev-design #48 §3-2 초기 settings) — 합계 100
+# 기본 가중치 v4 (사용자 명시 2026-05-16) — 합계 100
+#   Lv.4핏 (mnem 16 + color 13 + under 8 + sem 12 + miss 11 = 60)
+# + outline 10 (별도, Lv.4핏에서 분리)
+# + articles 10 (신설, 원본 조문 매칭)
+# + rich 20 (사안의 경우 논리적 풍부함)
 DEFAULT_WEIGHTS: dict[str, int] = {
-    "mnem": 20,
-    "color": 15,
-    "under": 10,
-    "outline": 15,
-    "sem": 15,
-    "rich": 10,
-    "miss": 15,
+    "mnem": 16,
+    "color": 13,
+    "under": 8,
+    "outline": 10,
+    "sem": 12,
+    "rich": 20,
+    "miss": 11,
+    "articles": 10,
 }
 
 # Grade threshold (dev-design #48 §5-4 + dev-impl-plan #51 Q9)
@@ -111,14 +129,16 @@ class GraderParseError(GraderError):
 
 SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한국어로 평가하세요.
 
-[채점 7기준 (시안 Evaluation 패널 1:1)]
-1. mnem    — Lv.4 두문자([blank2]) 풀이형 키워드 누락 여부 (두문자 그대로 X — 풀이형으로 평가)
-2. color   — Color Emphasis ([red]/[blue]/[bold]/[blank]) 키워드가 답안에 반영되었는지
-3. under   — Underline Coverage ([u]) 키워드 누락 여부
-4. outline — Lv.1 Outline Match: 답안 목차가 Lv.1 기준 목차와 의미 일치
-5. sem     — Semantic Match: 강조 태그를 글자 그대로는 못 써도 의미가 유사한지
-6. rich    — Richness: 답안 풍부함이 Lv.4(0) / Lv.1(1) / 원본(2) 중 어디에 해당
-7. miss    — Missing Arguments: 레퍼런스(Lv.1+원본) 대비 누락 논점 (감점, score 음수 가능)
+[채점 8기준 (시안 Evaluation 패널 1:1, v4 — 사용자 2026-05-16)]
+1. mnem     — Lv.4 두문자([blank2]) 풀이형 키워드 누락 여부 (두문자 그대로 X — 풀이형으로 평가)
+2. color    — Color Emphasis ([red]/[blue]/[bold]/[blank]) 키워드가 답안에 반영되었는지
+3. under    — Underline Coverage ([u]) 키워드 누락 여부
+4. outline  — Lv.1 Outline Match: 답안 목차가 Lv.1 기준 목차와 의미 일치 (Lv.4핏 별도)
+5. sem      — Semantic Match: 강조 태그를 글자 그대로는 못 써도 의미가 유사한지
+6. rich     — Richness: 사안의 경우 (사실관계+결론 적용) 논리적 풍부함 평가
+7. miss     — Missing Arguments: 레퍼런스(Lv.1+원본) 대비 누락 논점 (감점, score 음수 가능)
+8. articles — Article Match: 원본 언급 조문(제397조/제387조 등) 모두 명시 시 만점,
+              누락마다 비례 감점 (단순 조문번호 매칭 — 의미는 sem 별도)
 
 [강조 태그 의미]
 - [red]…[/red]:     빨강 (조문/판례/요건)
@@ -133,19 +153,22 @@ SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한�
 - 두문자(예 "위,발,간")를 그대로 외운 게 아니라 "풀이형 키워드"(예 "관할위반/발견시 조치/간과판결")로 적었어도 OK.
 - 색 강조는 글자가 완전히 똑같지 않아도 의미만 비슷하면 OK (sem 기준에서 가산).
 - 누락 논점은 차감 (miss: score 는 0 이하 음수 또는 0, max=0).
-- Richness 점수: 0=Lv.4 수준, 1=Lv.1 수준, 2=원본 수준 (max=2).
+- Richness 점수: 사안의 경우 적용 정도 — Lv.4 수준(키워드만)~원본 수준(사실관계+결론 연결)까지 (max=2).
+- articles: 원본 답안에 명시된 조문(예 "제397조 제2항", "제387조") 전체 중 답안에 적힌 비율.
+  조문이 없는 케이스는 max=0 또는 N/A(만점) 처리.
 - comment 는 한국어 1~2 문장, 간결, 자료 인용 가능.
 
 [출력 형식 — JSON only (코드펜스 없이 raw JSON 만)]
 {
   "criteria": [
-    {"key":"mnem",    "score":<int|float>, "max":<int|float>, "comment":"..."},
-    {"key":"color",   "score":<int|float>, "max":<int|float>, "comment":"..."},
-    {"key":"under",   "score":<int|float>, "max":<int|float>, "comment":"..."},
-    {"key":"outline", "score":<int|float>, "max":<int|float>, "comment":"..."},
-    {"key":"sem",     "score":<int|float>, "max":<int|float>, "comment":"..."},
-    {"key":"rich",    "score":<int|float>, "max":<int|float>, "comment":"..."},
-    {"key":"miss",    "score":<int|float>, "max":0,           "comment":"..."}
+    {"key":"mnem",     "score":<int|float>, "max":<int|float>, "comment":"..."},
+    {"key":"color",    "score":<int|float>, "max":<int|float>, "comment":"..."},
+    {"key":"under",    "score":<int|float>, "max":<int|float>, "comment":"..."},
+    {"key":"outline",  "score":<int|float>, "max":<int|float>, "comment":"..."},
+    {"key":"sem",      "score":<int|float>, "max":<int|float>, "comment":"..."},
+    {"key":"rich",     "score":<int|float>, "max":<int|float>, "comment":"..."},
+    {"key":"miss",     "score":<int|float>, "max":0,           "comment":"..."},
+    {"key":"articles", "score":<int|float>, "max":<int|float>, "comment":"..."}
   ],
   "eval_notes": {
     "strength": "한국어 1~2 문장",
@@ -389,8 +412,9 @@ def _mock_response(
         _mock_criterion("under", 2.0, "[mock] 밑줄 강조 일부 반영"),
         _mock_criterion("outline", 3.0, "[mock] 목차 구조 Lv.1 기준 부분 일치"),
         _mock_criterion("sem", 10.0, "[mock] 의미 유사도 양호"),
-        _mock_criterion("rich", 2.0, "[mock] Lv.1 수준 답안"),
+        _mock_criterion("rich", 2.0, "[mock] 사안의 경우 풍부함 중간"),
         _mock_criterion("miss", 0.0, "[mock] 일부 논점 누락 가능 — 실 채점 필요"),
+        _mock_criterion("articles", 3.0, "[mock] 원본 조문 일부 명시 (Step 20)"),
     ]
     # diff_segments — user_answer 앞 100자 match (자의 텍스트 생성 X)
     head = (user_answer or "").strip()[:120]
@@ -539,7 +563,7 @@ def _call_anthropic(
 
 
 def validate_weights(weights: dict[str, int]) -> None:
-    """가중치 검증: 합계 100 + 7키 모두 존재.
+    """가중치 검증: 합계 100 + 8키 모두 존재 (Step 20 v4 — articles 신설).
 
     Raises:
         ValueError: 합계 != 100 또는 키 누락 (handler 에서 409 weights_invalid 매핑).
