@@ -3078,9 +3078,41 @@
   const notesInfoEl = document.getElementById('rv-notes-info');
 
   function pad2(n) { return String(n).padStart(2, '0'); }
-  function nowHHMM() {
-    const d = new Date();
-    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+
+  // ─── Asia/Seoul 시간 포맷 (Step 19-1 사용자 명시) ─────────────────────
+  // 백엔드 응답은 UTC ISO 그대로 (DB 저장도 UTC 일관). 시안 표시만 KST 변환.
+  //   * style='full'  : 'YYYY-MM-DD HH:MM' (테이블 행, tooltip 등 기본)
+  //   * style='date'  : 'YYYY-MM-DD' (날짜만)
+  //   * style='time'  : 'HH:MM' (시각만 — auto-saved 표시 등)
+  //   * style='badge' : 'yyyyMMdd_HHmm' (모달 타임스탬프 배지)
+  //   * style='short' : 'MM-DD' (Reports x_label 압축)
+  const SEOUL_TZ = 'Asia/Seoul';
+  function fmtSeoul(iso, opts) {
+    if (!iso) return '—';
+    try {
+      const d = new Date(iso);
+      if (isNaN(d.getTime())) return iso;
+      const style = (opts && opts.style) || 'full';
+      const parts = new Intl.DateTimeFormat('en-CA', {
+        timeZone: SEOUL_TZ,
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit',
+        hour12: false,
+      }).formatToParts(d);
+      const m = Object.fromEntries(parts.map(p => [p.type, p.value]));
+      // hour=24 → 00 보정 (en-CA midnight quirk)
+      const hh = (m.hour === '24') ? '00' : m.hour;
+      if (style === 'badge') return `${m.year}${m.month}${m.day}_${hh}${m.minute}`;
+      if (style === 'date')  return `${m.year}-${m.month}-${m.day}`;
+      if (style === 'time')  return `${hh}:${m.minute}`;
+      if (style === 'short') return `${m.month}-${m.day}`;
+      // full (default)
+      return `${m.year}-${m.month}-${m.day} ${hh}:${m.minute}`;
+    } catch (e) { return iso; }
+  }
+  // 현재 시각 (auto-saved 등) — 항상 Seoul TZ
+  function nowSeoul(style) {
+    return fmtSeoul(new Date().toISOString(), { style: style || 'time' });
   }
 
   function fmtChars(n) {
@@ -3106,7 +3138,7 @@
   function saveDraft(caseId, text) {
     if (!caseId) return null;
     try {
-      const t = nowHHMM();
+      const t = nowSeoul('time');
       localStorage.setItem(draftKey(caseId), JSON.stringify({ text: text, t: t }));
       return t;
     } catch (e) {
@@ -3467,8 +3499,8 @@
   }
 
   function renderEvaluationDone(att) {
-    // 헤더
-    const submitted = (att.submitted_at || '').replace('T', ' ').replace('Z', '');
+    // 헤더 (Step 19-1: fmtSeoul KST 변환)
+    const submitted = fmtSeoul(att.submitted_at, { style: 'full' });
     const subjLine = `${I18N[currentLang].eval_submitted_at} ${submitted} · model: ${att.model || '—'}`;
     setEvHeader(att.case_short_id || att.case_id || '—', subjLine, 'status_evaluated');
 
@@ -3886,16 +3918,13 @@
     const ms = (Math.round(m * 10) / 10).toString();
     return `${ts} / ${ms}`;
   }
+  // Step 19-1 — fmtSeoul 단일 함수로 통합. 모든 시간 표시는 Asia/Seoul TZ.
+  // 기존 fmtDate / fmtDateShort 는 호환용 thin wrapper (호출처는 유지).
   function fmtDate(iso) {
-    if (!iso) return '—';
-    // 'YYYY-MM-DDTHH:MM:SSZ' → 'YYYY-MM-DD HH:MM'
-    const m = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
-    return m ? `${m[1]} ${m[2]}` : iso;
+    return fmtSeoul(iso, { style: 'full' });
   }
   function fmtDateShort(iso) {
-    if (!iso) return '—';
-    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
-    return m ? `${m[2]}-${m[3]}` : iso;
+    return fmtSeoul(iso, { style: 'short' });
   }
   function gradeColor(grade) {
     if (grade === 'A') return 'var(--success)';
@@ -4496,12 +4525,9 @@
     caseData: null, // GET /api/cases/{id} 응답 (origin, lv1, lv4, points 등)
   };
 
-  // yyyyMMdd_HHmm 포맷 (사용자 명시)
+  // yyyyMMdd_HHmm 포맷 (사용자 명시) — Step 19-1 fmtSeoul 위임
   function fmtTimestampBadge(iso) {
-    if (!iso) return '—';
-    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
-    if (!m) return iso;
-    return `${m[1]}${m[2]}${m[3]}_${m[4]}${m[5]}`;
+    return fmtSeoul(iso, { style: 'badge' });
   }
 
   function openAttemptModal() {
