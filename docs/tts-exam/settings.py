@@ -30,10 +30,11 @@ import grader as grader_mod
 KEY_WEIGHTS: str = "weights"
 KEY_BIAS: str = "bias"
 KEY_VOICE: str = "voice"
+KEY_GRADING_MODE: str = "grading_mode"
 
-ALL_KEYS: tuple[str, ...] = (KEY_WEIGHTS, KEY_BIAS, KEY_VOICE)
+ALL_KEYS: tuple[str, ...] = (KEY_WEIGHTS, KEY_BIAS, KEY_VOICE, KEY_GRADING_MODE)
 
-# ─── 디폴트 (마이그 v1 초기 INSERT 와 1:1 — 동기화 의무) ────────────────
+# ─── 디폴트 (마이그 v1/v3 초기 INSERT 와 1:1 — 동기화 의무) ────────────
 DEFAULT_WEIGHTS: dict[str, int] = dict(grader_mod.DEFAULT_WEIGHTS)
 
 DEFAULT_BIAS: dict[str, int] = {
@@ -48,10 +49,19 @@ DEFAULT_VOICE: dict[str, Any] = {
     "silence_sec": 3,
 }
 
+# Step 13 — Claude Code 외부 채점이 기본 (사용자 명시 2026-05-16:
+#   "ANTHROPIC_API_KEY 미보유 → manual, 키 생기면 auto 로 전환").
+DEFAULT_GRADING_MODE: str = "manual"
+
 # ─── voice 허용값 ────────────────────────────────────────────────────
 ALLOWED_VOICE_LANGS: tuple[str, ...] = ("ko-KR", "en-US")
 VOICE_SILENCE_MIN: int = 1
 VOICE_SILENCE_MAX: int = 10
+
+# ─── grading_mode 허용값 ─────────────────────────────────────────────
+GRADING_MODE_MANUAL: str = "manual"
+GRADING_MODE_AUTO: str = "auto"
+ALLOWED_GRADING_MODES: tuple[str, ...] = (GRADING_MODE_MANUAL, GRADING_MODE_AUTO)
 
 # ─── bias 허용 범위 ──────────────────────────────────────────────────
 BIAS_WEIGHT_MIN: int = 0
@@ -176,6 +186,32 @@ def validate_bias(bias: dict[str, Any]) -> dict[str, int]:
     return coerced
 
 
+def validate_grading_mode(mode: Any) -> str:
+    """grading_mode 검증: 'manual' | 'auto' 만 허용.
+
+    Args:
+        mode: 문자열 (기타 타입은 거부).
+
+    Returns:
+        검증된 문자열 ('manual' 또는 'auto').
+
+    Raises:
+        SettingsValidationError(bad_request): 허용값 외.
+    """
+    if not isinstance(mode, str):
+        raise SettingsValidationError(
+            f"grading_mode must be string, got {type(mode).__name__}",
+            "bad_request",
+        )
+    normalized = mode.strip()
+    if normalized not in ALLOWED_GRADING_MODES:
+        raise SettingsValidationError(
+            f"grading_mode must be one of {ALLOWED_GRADING_MODES}, got {mode!r}",
+            "bad_request",
+        )
+    return normalized
+
+
 def validate_voice(voice: dict[str, Any]) -> dict[str, Any]:
     """voice 검증: lang enum + silence_sec 범위.
 
@@ -240,21 +276,57 @@ def _load_one(conn: sqlite3.Connection, key: str, default: dict[str, Any]) -> di
         return dict(default)
 
 
+def _load_scalar(conn: sqlite3.Connection, key: str, default: str) -> str:
+    """settings 단일 키를 scalar 문자열로 로드.
+
+    Step 13 — grading_mode 처럼 dict 가 아닌 단일 문자열 값 로딩.
+    """
+    cur = conn.execute(
+        "SELECT value_json FROM settings WHERE key = ?", (key,)
+    )
+    row = cur.fetchone()
+    if row is None or row["value_json"] is None:
+        return default
+    try:
+        parsed = json.loads(row["value_json"])
+        if isinstance(parsed, str):
+            return parsed
+        return default
+    except (json.JSONDecodeError, TypeError):
+        return default
+
+
+def load_grading_mode(conn: sqlite3.Connection) -> str:
+    """settings.grading_mode 로드. 부재/오류 시 DEFAULT_GRADING_MODE.
+
+    Step 13 — POST /api/attempts 분기 + 시안 Settings 라디오에 사용.
+    """
+    raw = _load_scalar(conn, KEY_GRADING_MODE, DEFAULT_GRADING_MODE)
+    # 허용값 외는 디폴트로 강등 (R-09 자의적 해석 X, 안전한 fallback)
+    if raw not in ALLOWED_GRADING_MODES:
+        return DEFAULT_GRADING_MODE
+    return raw
+
+
 def load_all(conn: sqlite3.Connection) -> dict[str, Any]:
     """전체 settings 조회. 부재 키는 default 채움.
 
     Returns:
-        {"weights": {...}, "bias": {...}, "voice": {...}}
+        {"weights": {...}, "bias": {...}, "voice": {...}, "grading_mode": "manual"|"auto"}
     """
     return {
         "weights": _load_one(conn, KEY_WEIGHTS, DEFAULT_WEIGHTS),
         "bias": _load_one(conn, KEY_BIAS, DEFAULT_BIAS),
         "voice": _load_one(conn, KEY_VOICE, DEFAULT_VOICE),
+        "grading_mode": load_grading_mode(conn),
     }
 
 
-def _upsert(conn: sqlite3.Connection, key: str, value: dict[str, Any], now: str) -> None:
-    """INSERT OR REPLACE — 단일 row UPSERT."""
+def _upsert(conn: sqlite3.Connection, key: str, value: Any, now: str) -> None:
+    """INSERT OR REPLACE — 단일 row UPSERT.
+
+    Step 13: value 가 dict 외 scalar (str) 도 허용 — grading_mode 처럼 단일 값.
+    """
     conn.execute(
         """
         INSERT INTO settings (key, value_json, updated_at)
@@ -273,11 +345,12 @@ def save_settings(
     weights: dict[str, Any] | None = None,
     bias: dict[str, Any] | None = None,
     voice: dict[str, Any] | None = None,
+    grading_mode: str | None = None,
 ) -> dict[str, Any]:
     """부분 갱신 저장. 제공된 섹션만 UPDATE.
 
     Args:
-        weights/bias/voice: 각각 None 이면 변경 없음.
+        weights/bias/voice/grading_mode: 각각 None 이면 변경 없음.
 
     Returns:
         저장 후 전체 settings (load_all 동일).
@@ -286,19 +359,21 @@ def save_settings(
         SettingsValidationError: 검증 실패 (handler 가 409/400 매핑).
     """
     # 1. 검증 (트랜잭션 진입 전 — 실패 시 BEGIN 안 들어감)
-    validated: dict[str, dict[str, Any]] = {}
+    validated: dict[str, Any] = {}
     if weights is not None:
         validated["weights"] = validate_weights(weights)
     if bias is not None:
         validated["bias"] = validate_bias(bias)
     if voice is not None:
         validated["voice"] = validate_voice(voice)
+    if grading_mode is not None:
+        validated["grading_mode"] = validate_grading_mode(grading_mode)
 
     # 2. 변경 없음 → 현재 상태 그대로 반환
     if not validated:
         return load_all(conn)
 
-    # 3. 단일 트랜잭션 (1~3 UPSERT + COMMIT)
+    # 3. 단일 트랜잭션 (1~N UPSERT + COMMIT)
     now = _utcnow_iso()
     try:
         conn.execute("BEGIN")
@@ -308,6 +383,8 @@ def save_settings(
             _upsert(conn, KEY_BIAS, validated["bias"], now)
         if "voice" in validated:
             _upsert(conn, KEY_VOICE, validated["voice"], now)
+        if "grading_mode" in validated:
+            _upsert(conn, KEY_GRADING_MODE, validated["grading_mode"], now)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -323,4 +400,5 @@ def reset_to_default(conn: sqlite3.Connection) -> dict[str, Any]:
         weights=dict(DEFAULT_WEIGHTS),
         bias=dict(DEFAULT_BIAS),
         voice=dict(DEFAULT_VOICE),
+        grading_mode=DEFAULT_GRADING_MODE,
     )

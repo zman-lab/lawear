@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import datetime as _dt
 import json
+import os
 import sqlite3
 import sys
 import threading
@@ -41,21 +42,27 @@ import grader as grader_mod
 
 # ─── 상수 ────────────────────────────────────────────────────────────────
 
-# attempts.status CHECK 는 v1 그대로 ('grading','done','error').
-# 사양에서 사용자가 명시한 'completed'/'failed' 는 클라이언트 응답 라벨로만 매핑.
+# attempts.status CHECK v3: ('grading','done','error','pending_grade').
+# 'pending_grade' = Step 13 manual 채점 대기 (Claude Code 외부 채점 대상).
 DB_STATUS_GRADING: str = "grading"
 DB_STATUS_DONE: str = "done"
 DB_STATUS_ERROR: str = "error"
+DB_STATUS_PENDING_GRADE: str = "pending_grade"
 
 # Reports / 클라이언트 응답에 노출되는 상태 라벨
 CLIENT_STATUS_MAP: dict[str, str] = {
     DB_STATUS_GRADING: "grading",
     DB_STATUS_DONE: "completed",  # 사양 align
     DB_STATUS_ERROR: "failed",  # 사양 align
+    DB_STATUS_PENDING_GRADE: "pending_grade",  # Step 13 — manual 채점 대기
 }
 
 # settings.weights 키 (없을 때 fallback)
 SETTINGS_WEIGHTS_KEY: str = "weights"
+
+# 채점 모드 (settings.grading_mode 와 1:1)
+GRADING_MODE_MANUAL: str = "manual"
+GRADING_MODE_AUTO: str = "auto"
 
 # Limit clamp
 DEFAULT_LIST_LIMIT: int = 50
@@ -75,6 +82,24 @@ class AttemptValidationError(Exception):
 
 class AttemptNotFoundError(Exception):
     """attempt_id 미존재 (HTTP 404)."""
+
+
+class AttemptAlreadyGradedError(Exception):
+    """이미 채점 완료된 attempt 에 PUT /grade 시도 (HTTP 409).
+
+    Step 13 — 재채점은 별도 endpoint 검토 (사용자 명시).
+    """
+
+
+class GradeInjectionError(Exception):
+    """PUT /api/attempts/{id}/grade 검증 실패 (HTTP 400).
+
+    criteria 7키 누락 / 잘못된 형식 / 필수 필드 부재.
+    """
+
+    def __init__(self, message: str, error_code: str = "bad_request") -> None:
+        super().__init__(message)
+        self.error_code = error_code
 
 
 # ─── 유틸 ────────────────────────────────────────────────────────────────
@@ -359,8 +384,15 @@ def create_attempt(
     *,
     started_at: str | None = None,
     submitted_at: str | None = None,
+    grading_mode: str = GRADING_MODE_MANUAL,
 ) -> dict[str, Any]:
-    """POST /api/attempts — 즉시 INSERT + daemon thread 트리거.
+    """POST /api/attempts — 즉시 INSERT + (auto 모드) daemon thread 트리거.
+
+    Step 13 분기:
+      - grading_mode='manual': INSERT row(status='pending_grade'), thread 안 띄움.
+        클라이언트가 별도 PUT /api/attempts/{id}/grade 로 결과 주입할 때까지 대기.
+      - grading_mode='auto':   기존 흐름 (status='grading' + daemon thread + grader.grade).
+        ANTHROPIC_API_KEY 미설정 시 자동으로 manual 강등 + 응답에 warning 포함.
 
     Args:
         conn:         (요청 핸들러가 보유한) DB connection — INSERT 전용. 트랜잭션 분리.
@@ -369,9 +401,12 @@ def create_attempt(
         answer_text:  검토 의견 본문. 빈 값/공백만 → 400.
         started_at:   클라이언트 시작 시각 (선택).
         submitted_at: 클라이언트 제출 시각 (선택, 기본 utcnow).
+        grading_mode: 'manual' (디폴트, Step 13) 또는 'auto'.
 
     Returns:
-        {"attempt_id": int, "status": "grading", "case_id": str, "submitted_at": str}
+        manual: {"attempt_id", "status": "pending_grade", "case_id", "submitted_at", "grading_mode": "manual"}
+        auto:   {"attempt_id", "status": "grading",       "case_id", "submitted_at", "grading_mode": "auto"}
+        auto+키없음 fallback: 위 manual 응답 + "warning": "api_key_missing — fell back to manual"
 
     Raises:
         AttemptValidationError: answer_text 빈 값.
@@ -391,7 +426,24 @@ def create_attempt(
 
     submitted = submitted_at or _utcnow_iso()
 
-    # INSERT attempts (status='grading')
+    # ─── 모드 분기 ─────────────────────────────────────────────────
+    # auto + 키 없음 → manual 강등 (warning 응답 포함)
+    warning: str | None = None
+    effective_mode = grading_mode
+    if effective_mode == GRADING_MODE_AUTO and not os.environ.get("ANTHROPIC_API_KEY"):
+        warning = "api_key_missing — fell back to manual grading"
+        effective_mode = GRADING_MODE_MANUAL
+        print(
+            f"[Attempts] grading_mode=auto requested but ANTHROPIC_API_KEY missing — "
+            f"degrading to manual (case_id={case_id})",
+            file=sys.stderr,
+        )
+
+    initial_status = (
+        DB_STATUS_GRADING if effective_mode == GRADING_MODE_AUTO else DB_STATUS_PENDING_GRADE
+    )
+
+    # INSERT attempts
     cur = conn.execute(
         """
         INSERT INTO attempts
@@ -403,7 +455,7 @@ def create_attempt(
             answer_text,
             started_at,
             submitted,
-            DB_STATUS_GRADING,
+            initial_status,
             weights_json,
         ),
     )
@@ -412,26 +464,375 @@ def create_attempt(
     if attempt_id <= 0:
         raise RuntimeError("attempt INSERT returned invalid lastrowid")
 
-    # 백그라운드 채점 (daemon — 서버 종료 시 함께 종료)
-    th = threading.Thread(
-        target=_grade_async,
-        args=(db_path, attempt_id, case_meta, answer_text, weights),
-        name=f"grader-attempt-{attempt_id}",
-        daemon=True,
+    if effective_mode == GRADING_MODE_AUTO:
+        # 백그라운드 채점 (daemon — 서버 종료 시 함께 종료)
+        th = threading.Thread(
+            target=_grade_async,
+            args=(db_path, attempt_id, case_meta, answer_text, weights),
+            name=f"grader-attempt-{attempt_id}",
+            daemon=True,
+        )
+        th.start()
+        print(
+            f"[Attempts] created attempt_id={attempt_id} case_id={case_id} "
+            f"thread={th.name} mode=auto (background)",
+            file=sys.stderr,
+        )
+    else:
+        print(
+            f"[Attempts] created attempt_id={attempt_id} case_id={case_id} "
+            f"mode=manual (awaiting external grade injection via PUT /api/attempts/{attempt_id}/grade)",
+            file=sys.stderr,
+        )
+
+    result: dict[str, Any] = {
+        "attempt_id": attempt_id,
+        "status": _client_status(initial_status),
+        "case_id": case_id,
+        "submitted_at": submitted,
+        "grading_mode": effective_mode,
+    }
+    if warning is not None:
+        result["warning"] = warning
+    return result
+
+
+# ─── 외부 채점 결과 주입 (Step 13 — PUT /api/attempts/{id}/grade) ─────
+
+
+# 입력 alias → DB criterion_key (grader.CRITERION_KEYS) 매핑.
+# 사용자 워크플로우 (reference_grading_workflow.md) 의 긴 이름 + grader.py 의 짧은 키 둘 다 허용.
+CRITERIA_KEY_ALIASES: dict[str, str] = {
+    # 긴 이름 (사용자 워크플로우)
+    "mnemonics": "mnem",
+    "color": "color",
+    "underline": "under",
+    "outline": "outline",
+    "semantic": "sem",
+    "richness": "rich",
+    "missing": "miss",
+    # 짧은 이름 (grader.py / DB CHECK)
+    "mnem": "mnem",
+    "under": "under",
+    "sem": "sem",
+    "rich": "rich",
+    "miss": "miss",
+}
+
+# 외부 채점 응답 필수 필드 (메인 응답에 7기준 + total/max/pct + grade + eval_notes 다 필요)
+_REQUIRED_INJECT_FIELDS: tuple[str, ...] = (
+    "criteria",
+    "total_score",
+    "max_score",
+    "score_pct",
+    "grade",
+    "eval_notes",
+)
+
+# eval_notes 필수 키 (strength / caution / missing)
+_EVAL_NOTES_KEYS: tuple[str, ...] = ("strength", "caution", "missing")
+
+# diff_segments 의 type 화이트리스트
+_DIFF_SEGMENT_TYPES: frozenset[str] = frozenset({"match", "miss", "partial"})
+
+
+def _normalize_criteria(raw: Any) -> list[dict[str, Any]]:
+    """입력 criteria 배열을 DB 저장용 7항목으로 정규화.
+
+    Raises:
+        GradeInjectionError: 7키 누락 / 형식 오류.
+
+    Returns:
+        [{key (DB short), score, weight, max, comment}] × 7 (CRITERION_KEYS 순서).
+    """
+    if not isinstance(raw, list):
+        raise GradeInjectionError(
+            f"criteria must be array, got {type(raw).__name__}"
+        )
+
+    by_key: dict[str, dict[str, Any]] = {}
+    for entry in raw:
+        if not isinstance(entry, dict):
+            raise GradeInjectionError(
+                f"each criteria entry must be object, got {type(entry).__name__}"
+            )
+        raw_key = entry.get("key")
+        if not isinstance(raw_key, str):
+            raise GradeInjectionError("criteria entry missing 'key'")
+        db_key = CRITERIA_KEY_ALIASES.get(raw_key.strip())
+        if db_key is None:
+            raise GradeInjectionError(
+                f"unknown criteria key {raw_key!r} "
+                f"(allowed aliases: {sorted(CRITERIA_KEY_ALIASES)})"
+            )
+        # score 필수, weight_applied 또는 weight 둘 다 허용, comment 선택
+        if "score" not in entry:
+            raise GradeInjectionError(f"criteria[{raw_key}] missing 'score'")
+        try:
+            score = float(entry["score"])
+        except (TypeError, ValueError) as e:
+            raise GradeInjectionError(
+                f"criteria[{raw_key}].score must be number, got {entry['score']!r}"
+            ) from e
+
+        # weight_applied (사용자 사양) 또는 weight (grader 사양)
+        weight_raw = entry.get("weight_applied")
+        if weight_raw is None:
+            weight_raw = entry.get("weight", 0)
+        try:
+            weight = float(weight_raw)
+        except (TypeError, ValueError):
+            weight = 0.0
+
+        # max 필드 (없으면 weight 동일 — miss 는 0 으로 보정 별도)
+        max_raw = entry.get("max")
+        if max_raw is None:
+            # 외부 채점은 weight_applied 자체가 100점 만점이므로 max = weight
+            max_val = weight if db_key != "miss" else 0.0
+        else:
+            try:
+                max_val = float(max_raw)
+            except (TypeError, ValueError):
+                max_val = weight if db_key != "miss" else 0.0
+
+        comment = entry.get("comment")
+        if comment is not None and not isinstance(comment, str):
+            comment = str(comment)
+
+        by_key[db_key] = {
+            "key": db_key,
+            "score": score,
+            "max": max_val,
+            "weight": weight,
+            "comment": comment or "",
+        }
+
+    # 7키 모두 존재 검증
+    missing = [k for k in grader_mod.CRITERION_KEYS if k not in by_key]
+    if missing:
+        raise GradeInjectionError(
+            f"criteria missing keys: {missing} "
+            f"(received: {sorted(by_key.keys())}, "
+            f"required: {list(grader_mod.CRITERION_KEYS)})"
+        )
+
+    # CRITERION_KEYS 순서로 정렬
+    return [by_key[k] for k in grader_mod.CRITERION_KEYS]
+
+
+def _normalize_eval_notes(raw: Any) -> dict[str, str]:
+    """eval_notes 검증 + 정규화.
+
+    Raises:
+        GradeInjectionError: dict 아님.
+
+    Returns:
+        {"strength": str, "caution": str, "missing": str} (없는 키는 빈 문자열).
+    """
+    if not isinstance(raw, dict):
+        raise GradeInjectionError(
+            f"eval_notes must be object, got {type(raw).__name__}"
+        )
+    return {k: str(raw.get(k) or "") for k in _EVAL_NOTES_KEYS}
+
+
+def _normalize_diff_segments(raw: Any) -> list[dict[str, str]]:
+    """diff_segments 검증 + 정규화. None/누락 시 빈 배열."""
+    if raw is None:
+        return []
+    if not isinstance(raw, list):
+        raise GradeInjectionError(
+            f"diff_segments must be array, got {type(raw).__name__}"
+        )
+    out: list[dict[str, str]] = []
+    for seg in raw:
+        if not isinstance(seg, dict):
+            continue
+        seg_type = seg.get("type", "match")
+        if seg_type not in _DIFF_SEGMENT_TYPES:
+            seg_type = "match"
+        text = seg.get("text", "")
+        if not isinstance(text, str):
+            text = str(text)
+        out.append({"type": seg_type, "text": text})
+    return out
+
+
+def inject_grade(
+    conn: sqlite3.Connection,
+    attempt_id: int,
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    """PUT /api/attempts/{id}/grade — 외부 채점 결과 주입.
+
+    Step 13 사용자 명시 (2026-05-16):
+      Claude Code 메인 세션(Opus)이 채점 → 결과를 17896 에 주입.
+      attempt.status='pending_grade' (또는 호환 'grading') → 'done' 전환.
+
+    Args:
+        conn:       핸들러 보유 DB connection.
+        attempt_id: 대상 attempt PK.
+        payload:    외부 채점 결과 JSON. 스키마:
+            {
+              "criteria": [{key, score, weight_applied, comment}] × 7,
+              "total_score": float,
+              "max_score": float,
+              "score_pct": float,
+              "grade": "A"|"B"|"C"|"F",
+              "eval_notes": {strength, caution, missing},
+              "diff_segments": [{type, text}]?,    # optional
+              "model": str?,                       # optional — 디폴트 "claude-code-opus"
+            }
+
+    Returns:
+        {"attempt_id", "status": "completed", "total_score", "max_score",
+         "score_pct", "grade", "case_id", ...}
+
+    Raises:
+        AttemptNotFoundError:       attempt_id 미존재.
+        AttemptAlreadyGradedError:  status='done' (재채점 별도 endpoint).
+        GradeInjectionError:        필수 필드 누락 / 7기준 누락 / 형식 오류.
+    """
+    # 1. attempt 존재 + status 가드
+    cur = conn.execute(
+        "SELECT id, case_id, status, submitted_at FROM attempts WHERE id = ?",
+        (int(attempt_id),),
     )
-    th.start()
+    row = cur.fetchone()
+    if row is None:
+        raise AttemptNotFoundError(f"attempt_id={attempt_id}")
+
+    current_status = row["status"]
+    if current_status == DB_STATUS_DONE:
+        raise AttemptAlreadyGradedError(
+            f"attempt {attempt_id} already completed (status='done'). "
+            "Re-grading endpoint not implemented in Step 13."
+        )
+    if current_status not in (DB_STATUS_PENDING_GRADE, DB_STATUS_GRADING):
+        raise GradeInjectionError(
+            f"attempt {attempt_id} status={current_status!r} is not graded-able "
+            f"(allowed: pending_grade, grading)",
+            "bad_request",
+        )
+
+    # 2. payload 필수 필드
+    missing_fields = [f for f in _REQUIRED_INJECT_FIELDS if f not in payload]
+    if missing_fields:
+        raise GradeInjectionError(f"missing required fields: {missing_fields}")
+
+    # 3. 필드별 정규화
+    criteria_normalized = _normalize_criteria(payload["criteria"])
+    eval_notes_normalized = _normalize_eval_notes(payload["eval_notes"])
+    diff_segments_normalized = _normalize_diff_segments(payload.get("diff_segments"))
+
+    # total/max/pct 숫자 검증
+    try:
+        total_score = float(payload["total_score"])
+        max_score = float(payload["max_score"])
+        score_pct = float(payload["score_pct"])
+    except (TypeError, ValueError) as e:
+        raise GradeInjectionError(
+            f"total_score/max_score/score_pct must be numbers: {e}"
+        ) from e
+
+    # grade enum 검증 (DB CHECK 와 동일)
+    grade_raw = payload["grade"]
+    if not isinstance(grade_raw, str) or grade_raw.upper() not in ("A", "B", "C", "F", "ERROR"):
+        raise GradeInjectionError(
+            f"grade must be one of A/B/C/F/ERROR, got {grade_raw!r}"
+        )
+    grade = grade_raw.upper()
+
+    model = payload.get("model")
+    if not isinstance(model, str) or not model.strip():
+        model = "claude-code-opus"  # 디폴트 — Claude Code 메인 세션이 채점
+
+    # 4. 단일 트랜잭션 — UPDATE attempts + INSERT attempt_criteria × 7
+    completed_at = _utcnow_iso()
+    elapsed = _elapsed_since(row["submitted_at"])
+    eval_notes_json = json.dumps(eval_notes_normalized, ensure_ascii=False)
+    diff_json = json.dumps(diff_segments_normalized, ensure_ascii=False)
+    raw_response = json.dumps(payload, ensure_ascii=False)
+    # diff_html (시안 .diff-area 호환)
+    diff_html = _diff_segments_to_html(diff_segments_normalized)
+
+    try:
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+        except sqlite3.OperationalError:
+            conn.execute("BEGIN")
+
+        conn.execute(
+            """
+            UPDATE attempts
+               SET status         = ?,
+                   score_total    = ?,
+                   score_max      = ?,
+                   score_pct      = ?,
+                   grade          = ?,
+                   model          = ?,
+                   eval_notes_json = ?,
+                   diff_json      = ?,
+                   raw_response   = ?,
+                   completed_at   = ?,
+                   elapsed_sec    = ?,
+                   is_mock        = 0,
+                   error_code     = NULL,
+                   error_message  = NULL
+             WHERE id = ?
+            """,
+            (
+                DB_STATUS_DONE,
+                total_score,
+                max_score,
+                score_pct,
+                grade,
+                model,
+                eval_notes_json,
+                diff_json,
+                raw_response,
+                completed_at,
+                elapsed,
+                int(attempt_id),
+            ),
+        )
+
+        # pending_grade 였으면 row 없음. grading 이었으면 부분 채점 row 있을 수 있어 DELETE.
+        conn.execute(
+            "DELETE FROM attempt_criteria WHERE attempt_id = ?", (int(attempt_id),)
+        )
+        for c in criteria_normalized:
+            conn.execute(
+                """
+                INSERT INTO attempt_criteria
+                  (attempt_id, criterion_key, score, max_score, weight, comment)
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    int(attempt_id),
+                    c["key"],
+                    float(c["score"]),
+                    float(c["max"]),
+                    float(c["weight"]),
+                    c["comment"],
+                ),
+            )
+        conn.commit()
+    except Exception:
+        try:
+            conn.rollback()
+        except sqlite3.DatabaseError:
+            pass
+        raise
+
     print(
-        f"[Attempts] created attempt_id={attempt_id} case_id={case_id} "
-        f"thread={th.name} (background)",
+        f"[Attempts] inject_grade attempt_id={attempt_id} status=done "
+        f"score={total_score}/{max_score} pct={score_pct} grade={grade} model={model}",
         file=sys.stderr,
     )
 
-    return {
-        "attempt_id": attempt_id,
-        "status": _client_status(DB_STATUS_GRADING),
-        "case_id": case_id,
-        "submitted_at": submitted,
-    }
+    # 5. 응답 — 클라이언트 폴링이 받을 형식과 동일하게
+    return get_attempt(conn, attempt_id)
 
 
 def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
@@ -475,6 +876,14 @@ def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     elif db_status == DB_STATUS_GRADING:
         # elapsed_sec live 계산 (폴링)
         out["elapsed_sec"] = round(_elapsed_since(row["submitted_at"]), 2)
+    elif db_status == DB_STATUS_PENDING_GRADE:
+        # Step 13 — Claude Code 외부 채점 대기. elapsed_sec live + answer_text 노출 (채점 자료).
+        out["elapsed_sec"] = round(_elapsed_since(row["submitted_at"]), 2)
+        # answer_text 전체 — 메인 Opus 가 채점에 사용 (R-09: 요약 X)
+        try:
+            out["answer_text"] = row["answer_text"]
+        except (IndexError, KeyError):
+            out["answer_text"] = None
     elif db_status == DB_STATUS_ERROR:
         out["error_code"] = row["error_code"]
         out["error_message"] = row["error_message"]
@@ -638,8 +1047,11 @@ def list_attempts(
     total = int(crow["cnt"]) if crow else 0
 
     # 페이지
+    # Step 13 — pending_grade 필터 시 answer_text 도 반환 (외부 채점 자료).
+    # 다른 status 에서도 응답에 포함 (메인 Opus 가 'pending 채점' 명령으로 본 endpoint 호출).
     page_sql = f"""
         SELECT a.id, a.case_id, a.submitted_at, a.completed_at, a.status,
+               a.answer_text,
                a.score_total, a.score_max, a.score_pct, a.grade,
                a.is_stale, a.is_mock, a.error_code,
                c.title AS case_title, c.subject AS case_subject,
@@ -669,6 +1081,7 @@ def list_attempts(
                 "submitted_at": r["submitted_at"],
                 "completed_at": r["completed_at"],
                 "status": _client_status(r["status"]),
+                "answer_text": r["answer_text"],
                 "score_total": r["score_total"],
                 "score_max": r["score_max"],
                 "score_pct": r["score_pct"],

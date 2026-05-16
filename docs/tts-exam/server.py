@@ -49,7 +49,7 @@ BIND: str = os.environ.get("LAWEAR_EXAM_BIND", "127.0.0.1")
 ROOT: Path = Path(__file__).parent.resolve()
 DB_PATH: str = os.environ.get("LAWEAR_EXAM_DB", str(ROOT / "exam.db"))
 SERVER_NAME: str = "lawear-examconsole"
-SERVER_VERSION: str = "0.8.0-stt-placeholder"
+SERVER_VERSION: str = "0.9.0-manual-grading"
 
 
 class ExamHandler(SimpleHTTPRequestHandler):
@@ -216,6 +216,22 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._handle_settings_put()
             return
 
+        # Step 13 — 외부 채점 결과 주입: PUT /api/attempts/{id}/grade
+        if path.startswith("/api/attempts/") and path.endswith("/grade"):
+            tail = path[len("/api/attempts/"):-len("/grade")].strip("/")
+            if not tail or "/" in tail:
+                self._send_error(400, "bad_request", "invalid attempt_id in grade injection path")
+                return
+            try:
+                attempt_id = int(tail)
+            except ValueError:
+                self._send_error(
+                    400, "bad_request", f"attempt_id must be int, got {tail!r}"
+                )
+                return
+            self._handle_attempt_grade_put(attempt_id)
+            return
+
         # 미구현 PUT (Step 11+ placeholder)
         if path.startswith("/api/"):
             self._send_error(
@@ -372,6 +388,8 @@ class ExamHandler(SimpleHTTPRequestHandler):
 
         try:
             with db_mod.get_conn(DB_PATH) as conn:
+                # Step 13 — settings.grading_mode 동적 로드 (manual / auto 분기).
+                grading_mode = settings_mod.load_grading_mode(conn)
                 result = attempts_mod.create_attempt(
                     conn,
                     DB_PATH,
@@ -379,6 +397,7 @@ class ExamHandler(SimpleHTTPRequestHandler):
                     answer_text=answer_text,
                     started_at=started_at if isinstance(started_at, str) else None,
                     submitted_at=submitted_at if isinstance(submitted_at, str) else None,
+                    grading_mode=grading_mode,
                 )
             self._send_json(200, result)
         except attempts_mod.AttemptValidationError as e:
@@ -407,6 +426,46 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._send_json(200, attempt)
         except attempts_mod.AttemptNotFoundError as e:
             self._send_error(404, "attempt_not_found", str(e))
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    def _handle_attempt_grade_put(self, attempt_id: int) -> None:
+        """`PUT /api/attempts/{id}/grade` — 외부 채점 결과 주입 (Step 13).
+
+        Claude Code 메인 세션(Opus)이 manual 모드 attempt 를 채점한 결과를 주입.
+
+        요청 본문 (JSON):
+          {
+            "criteria": [{key, score, weight_applied, comment}] × 7,
+            "total_score": float, "max_score": float, "score_pct": float, "grade": str,
+            "eval_notes": {strength, caution, missing},
+            "diff_segments": [{type, text}]?,
+            "model": str?
+          }
+
+        에러:
+          400 bad_request          — JSON 파싱 / 필수 필드 누락 / 7기준 키 누락
+          404 attempt_not_found    — attempt_id 미존재
+          409 already_graded       — 이미 status='done'
+          500 internal_error       — 기타
+        """
+        # 1. JSON 본문 파싱
+        try:
+            body = self._read_json_body()
+        except ValueError as e:
+            self._send_error(400, "bad_request", str(e))
+            return
+
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                result = attempts_mod.inject_grade(conn, attempt_id, body)
+            self._send_json(200, result)
+        except attempts_mod.AttemptNotFoundError as e:
+            self._send_error(404, "attempt_not_found", str(e))
+        except attempts_mod.AttemptAlreadyGradedError as e:
+            self._send_error(409, "already_graded", str(e))
+        except attempts_mod.GradeInjectionError as e:
+            self._send_error(400, e.error_code, str(e))
         except Exception as e:  # noqa: BLE001
             self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
 
@@ -476,6 +535,7 @@ class ExamHandler(SimpleHTTPRequestHandler):
         weights = body.get("weights")
         bias = body.get("bias")
         voice = body.get("voice")
+        grading_mode = body.get("grading_mode")  # Step 13 — 'manual' | 'auto'
 
         # 최소 하나는 제공되어야 함 (옵션 — 빈 PUT 도 허용해 현 상태 반환)
         # dev-design #48 PUT 명세 상 부분 갱신 가능 → 빈 객체는 NOOP.
@@ -487,6 +547,7 @@ class ExamHandler(SimpleHTTPRequestHandler):
                     weights=weights if isinstance(weights, dict) else None,
                     bias=bias if isinstance(bias, dict) else None,
                     voice=voice if isinstance(voice, dict) else None,
+                    grading_mode=grading_mode if isinstance(grading_mode, str) else None,
                 )
             self._send_json(200, data)
         except settings_mod.SettingsValidationError as e:
