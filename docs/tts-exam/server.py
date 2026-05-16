@@ -12,10 +12,12 @@ Step 6 (commit e2af4e6): Grader (Anthropic API + 7기준 채점 + mock + env 로
 Step 7 (commit 0207a5c): Attempts API (POST/GET /api/attempts + background 채점 + 폴링).
 Step 8 (commit e38294e): Settings API (GET/PUT /api/settings + weights/bias/voice 검증).
 Step 9 (commit e38294e): Bookmarks API (POST/DELETE /api/bookmarks/{case_id}).
-Step 10 (본 커밋): Reports 집계 API (overall/by-subject/by-case + subjects/cases picker).
+Step 10 (commit c6acfb4): Reports 집계 API (overall/by-subject/by-case + subjects/cases picker).
+Step 11 (본 커밋): STT placeholder (`POST /api/stt` → 501 stt_not_implemented).
+                    실제 STT 는 index.html Web Speech API 클라이언트 사이드 wire.
 
 dev-design archive #48 §3-1 endpoint matrix + §3-3 ErrorCode 1:1.
-dev-impl-plan #51 Step 3~10 표 1:1.
+dev-impl-plan #51 Step 3~11 표 1:1.
 """
 from __future__ import annotations
 
@@ -47,7 +49,7 @@ BIND: str = os.environ.get("LAWEAR_EXAM_BIND", "127.0.0.1")
 ROOT: Path = Path(__file__).parent.resolve()
 DB_PATH: str = os.environ.get("LAWEAR_EXAM_DB", str(ROOT / "exam.db"))
 SERVER_NAME: str = "lawear-examconsole"
-SERVER_VERSION: str = "0.7.0-reports"
+SERVER_VERSION: str = "0.8.0-stt-placeholder"
 
 
 class ExamHandler(SimpleHTTPRequestHandler):
@@ -70,7 +72,7 @@ class ExamHandler(SimpleHTTPRequestHandler):
                 "status": "ok",
                 "server": SERVER_NAME,
                 "version": SERVER_VERSION,
-                "phase": "attempts",
+                "phase": "stt-placeholder",
             })
             return
 
@@ -182,12 +184,23 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._handle_bookmark_add(urllib.parse.unquote(case_id))
             return
 
-        # 미구현 POST (Step 11+ placeholder)
+        # STT 서버 사이드 (옵션) — dev-design #48 §3-1 optional row
+        # 본 단계에서는 클라이언트 Web Speech API 만 사용. 서버 사이드 STT 는 외부 의존성 +
+        # 사용자 결정 + 비용 분석 필요 → 후속. 명시적 501 + 안내 메시지.
+        if path == "/api/stt":
+            self._send_error(
+                501,
+                "stt_not_implemented",
+                "Server-side STT is not implemented. Use the in-browser Web Speech API (Chrome/Edge).",
+            )
+            return
+
+        # 미구현 POST (Step 12+ placeholder — Step 11 이후 신규 endpoint 추가 시 위로 이동)
         if path.startswith("/api/"):
             self._send_error(
                 501,
                 "not_implemented",
-                f"Step 11+ API placeholder ({path})",
+                f"Unknown API endpoint ({path})",
             )
             return
 

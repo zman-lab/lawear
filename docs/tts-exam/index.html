@@ -1329,6 +1329,23 @@
       kpi_since_fmt: 'since {date}',
       kpi_recurring_fmt: '{n}/{total} attempts',
       kpi_score_fmt: '{score} / {max}',
+      // wire (Step 11 — STT / Web Speech API)
+      voice_unsupported: 'Voice input not supported in this browser',
+      voice_tooltip: 'Click to start / stop voice input (mic permission required)',
+      voice_listening: '🎤 Listening…',
+      voice_no_target: 'No reviewer-notes input to dictate into',
+      voice_err_no_speech: 'No speech detected — please try again',
+      voice_err_audio_capture: 'No microphone found',
+      voice_err_not_allowed: 'Microphone permission denied — allow in browser settings',
+      voice_err_network: 'Speech service network error',
+      voice_err_start: 'Failed to start voice input',
+      voice_err_unknown: 'Voice input error',
+      // wire (Step 12 — toasts / settings)
+      toast_settings_load_failed: 'Failed to load settings: {msg}',
+      toast_settings_saved: 'Settings saved',
+      toast_settings_save_failed: 'Failed to save settings: {msg}',
+      toast_weights_sum_bad: 'Weights sum is {n}. Adjust so total = 100.',
+      toast_bookmark_failed: 'Bookmark toggle failed: {msg}',
     },
     ko: {
       mock_label: '시안',
@@ -1433,6 +1450,23 @@
       kpi_since_fmt: '시작 {date}',
       kpi_recurring_fmt: '{total}중 {n}회',
       kpi_score_fmt: '{score} / {max}',
+      // wire (Step 11 — STT / Web Speech API)
+      voice_unsupported: '이 브라우저는 음성 입력을 지원하지 않습니다',
+      voice_tooltip: '클릭하여 음성 입력 시작/정지 (마이크 권한 필요)',
+      voice_listening: '🎤 듣는 중…',
+      voice_no_target: '음성 입력을 받을 검토 의견 영역이 없습니다',
+      voice_err_no_speech: '음성이 감지되지 않았습니다 — 다시 시도하세요',
+      voice_err_audio_capture: '마이크를 찾을 수 없습니다',
+      voice_err_not_allowed: '마이크 권한이 거부되었습니다 — 브라우저 설정에서 허용하세요',
+      voice_err_network: '음성 서비스 네트워크 오류',
+      voice_err_start: '음성 입력 시작 실패',
+      voice_err_unknown: '음성 입력 오류',
+      // wire (Step 12 — 토스트 / 설정)
+      toast_settings_load_failed: 'Settings 로드 실패: {msg}',
+      toast_settings_saved: 'Settings 저장 완료',
+      toast_settings_save_failed: 'Settings 저장 실패: {msg}',
+      toast_weights_sum_bad: 'Weights 합계가 {n} 입니다. 100 이 되도록 조정하세요.',
+      toast_bookmark_failed: 'Bookmark 토글 실패: {msg}',
     },
   };
 
@@ -1562,20 +1596,216 @@
     });
   });
 
-  // ─── mic (개별 클릭) ────────────────────────────
-  document.querySelectorAll('.btn.mic').forEach(m => {
-    m.addEventListener('click', () => {
-      m.classList.toggle('recording');
-      const span = m.querySelector('span');
-      if (m.classList.contains('recording')) {
-        m.firstChild.nodeValue = '■ ';
-        span.textContent = currentLang === 'en' ? 'Recording…' : '녹음중…';
+  // ─── mic — Step 11: Web Speech API STT 와이어 ──────────────────
+  // 시안 코드는 토글만 했으나 본 단계에서 실제 STT 인식을 연결한다.
+  // 지원 브라우저(Chrome/Edge): 마이크 권한 → SpeechRecognition → 결과를 textarea 에 누적.
+  // 미지원 브라우저(Firefox/일부 Safari): 마이크 버튼 비활성 + 안내 툴팁.
+  // Settings.voice.lang 사용 (fetchSettings 응답 캐시 SETTINGS_CACHE).
+  // Settings.voice.silence_sec 활용 (무음 N초 → stop()).
+  (function wireSpeechToText() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const supported = !!SR;
+
+    // 미지원 → 모든 mic 버튼 비활성 + 툴팁 + i18n
+    if (!supported) {
+      document.querySelectorAll('.btn.mic').forEach(m => {
+        m.disabled = true;
+        m.style.opacity = '0.5';
+        m.style.cursor = 'not-allowed';
+        m.title = (I18N[currentLang] && I18N[currentLang].voice_unsupported)
+          || 'Voice input not supported in this browser';
+      });
+      return;
+    }
+
+    // 인식 상태 (mic 1개씩만 활성, 동시 다중 인식 금지)
+    let activeRec = null;
+    let activeBtn = null;
+    let silenceTimer = null;
+    let interimEl = null;
+
+    function ensureInterimEl(textarea) {
+      // textarea 아래에 interim 미리보기 (시안 마크업 변경 X — 동적 div)
+      if (interimEl && interimEl.isConnected) return interimEl;
+      const div = document.createElement('div');
+      div.id = 'lawear-stt-interim';
+      div.style.cssText = `
+        margin-top: 4px; padding: 6px 10px; font-size: 12px;
+        color: var(--text-dim); border-left: 2px solid var(--accent, #2a7);
+        background: rgba(78,201,176,0.06); border-radius: 0 4px 4px 0;
+        display: none; min-height: 1.2em; white-space: pre-wrap;
+      `;
+      // textarea 형제로 삽입 (.answer-area 안)
+      const parent = textarea.parentElement;
+      if (parent) parent.insertBefore(div, textarea.nextSibling);
+      interimEl = div;
+      return div;
+    }
+
+    function setMicUi(btn, recording) {
+      if (!btn) return;
+      const span = btn.querySelector('span');
+      if (recording) {
+        btn.classList.add('recording');
+        btn.firstChild.nodeValue = '■ ';
+        if (span) span.textContent = currentLang === 'en' ? 'Recording…' : '녹음중…';
       } else {
-        m.firstChild.nodeValue = '● ';
-        span.textContent = I18N[currentLang].btn_voice;
+        btn.classList.remove('recording');
+        btn.firstChild.nodeValue = '● ';
+        if (span) span.textContent = (I18N[currentLang] && I18N[currentLang].btn_voice) || 'Voice Input';
       }
+    }
+
+    function getSilenceMs() {
+      // Settings 응답 우선, 없으면 디폴트 3s
+      let sec = 3;
+      try {
+        if (window.SETTINGS_CACHE && window.SETTINGS_CACHE.voice && window.SETTINGS_CACHE.voice.silence_sec) {
+          sec = Number(window.SETTINGS_CACHE.voice.silence_sec) || 3;
+        }
+      } catch (e) { /* ignore */ }
+      return Math.max(1, sec) * 1000;
+    }
+
+    function getSttLang() {
+      try {
+        if (window.SETTINGS_CACHE && window.SETTINGS_CACHE.voice && window.SETTINGS_CACHE.voice.lang) {
+          return window.SETTINGS_CACHE.voice.lang;
+        }
+      } catch (e) { /* ignore */ }
+      return 'ko-KR';
+    }
+
+    function resetSilenceTimer(rec) {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        try { rec.stop(); } catch (e) { /* ignore */ }
+      }, getSilenceMs());
+    }
+
+    function stopAll() {
+      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+      if (interimEl) { interimEl.style.display = 'none'; interimEl.textContent = ''; }
+      if (activeRec) {
+        try { activeRec.stop(); } catch (e) { /* ignore */ }
+      }
+    }
+
+    function startRec(btn) {
+      // 대상 textarea — 본 단계에서는 #rv-notes 1개만 (mic 버튼은 검토의견 옆 1개)
+      const textarea = document.getElementById('rv-notes');
+      if (!textarea) {
+        showToast((I18N[currentLang] && I18N[currentLang].voice_no_target) || 'No input target', 'error');
+        return;
+      }
+
+      const rec = new SR();
+      rec.lang = getSttLang();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+
+      const interim = ensureInterimEl(textarea);
+      interim.style.display = '';
+      interim.textContent = (I18N[currentLang] && I18N[currentLang].voice_listening) || '🎤 Listening…';
+
+      rec.onstart = () => {
+        activeRec = rec;
+        activeBtn = btn;
+        setMicUi(btn, true);
+        resetSilenceTimer(rec);
+      };
+
+      rec.onresult = (ev) => {
+        // results 배열 — 마지막 resultIndex 이후 처리
+        let finalChunk = '';
+        let interimChunk = '';
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const res = ev.results[i];
+          const t = (res[0] && res[0].transcript) || '';
+          if (res.isFinal) {
+            finalChunk += t;
+          } else {
+            interimChunk += t;
+          }
+        }
+        if (finalChunk) {
+          // textarea 끝에 append (구분자: 기존 끝 글자가 공백/줄바꿈 아니면 공백 한 칸)
+          const cur = textarea.value || '';
+          const sep = (cur.length === 0 || /[\s\n]$/.test(cur)) ? '' : ' ';
+          textarea.value = cur + sep + finalChunk.trim();
+          // input 이벤트 트리거 → 기존 autoSave + chars 갱신 핸들러 작동
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        // interim 미리보기
+        if (interim) {
+          if (interimChunk) {
+            interim.textContent = interimChunk;
+            interim.style.display = '';
+          } else if (!finalChunk) {
+            interim.textContent = (I18N[currentLang] && I18N[currentLang].voice_listening) || '🎤 Listening…';
+          }
+        }
+        // 발화 감지 → 무음 타이머 리셋
+        resetSilenceTimer(rec);
+      };
+
+      rec.onerror = (ev) => {
+        // no-speech / audio-capture / not-allowed / network 등
+        const code = (ev && ev.error) || 'unknown';
+        let msgKey = 'voice_err_unknown';
+        if (code === 'no-speech') msgKey = 'voice_err_no_speech';
+        else if (code === 'audio-capture') msgKey = 'voice_err_audio_capture';
+        else if (code === 'not-allowed' || code === 'service-not-allowed') msgKey = 'voice_err_not_allowed';
+        else if (code === 'network') msgKey = 'voice_err_network';
+        const msg = (I18N[currentLang] && I18N[currentLang][msgKey])
+          || `Voice input error: ${code}`;
+        // no-speech 는 onend 흐름과 함께 — 토스트 한 번만
+        if (code !== 'no-speech') {
+          showToast(msg, 'error');
+        }
+        // 강제 정리는 onend 에서 (브라우저가 보통 onend 도 발생시킴)
+      };
+
+      rec.onend = () => {
+        if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+        if (interim) {
+          interim.style.display = 'none';
+          interim.textContent = '';
+        }
+        setMicUi(btn, false);
+        activeRec = null;
+        activeBtn = null;
+      };
+
+      try {
+        rec.start();
+      } catch (e) {
+        console.warn('SpeechRecognition.start failed:', e);
+        showToast(
+          (I18N[currentLang] && I18N[currentLang].voice_err_start) || 'Failed to start voice input',
+          'error',
+        );
+        setMicUi(btn, false);
+      }
+    }
+
+    // mic 버튼 클릭 — 시작/정지 토글
+    document.querySelectorAll('.btn.mic').forEach(m => {
+      m.title = (I18N[currentLang] && I18N[currentLang].voice_tooltip) || 'Click to start / stop voice input';
+      m.addEventListener('click', () => {
+        // 이미 다른 mic 가 active 면 정지
+        if (activeRec) {
+          stopAll();
+          return;
+        }
+        startRec(m);
+      });
     });
-  });
+
+    // 페이지 떠나기 직전 정리 (브라우저 누수 방지)
+    window.addEventListener('beforeunload', stopAll);
+  })();
 
   // ─── 슬라이더 값 표시 ───────────────────────────
   document.querySelectorAll('input[type=range]').forEach(r => {
@@ -2006,12 +2236,15 @@
       const r = await fetch(`${API_BASE}/api/settings`, { headers: { 'Accept': 'application/json' } });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const d = await r.json();
+      // Step 11 — STT 에서 voice.lang / voice.silence_sec 참조하므로 캐시 노출
+      window.SETTINGS_CACHE = d;
       if (d.weights) applyWeightsToUI(d.weights);
       if (d.bias)    applyBiasToUI(d.bias);
       if (d.voice)   applyVoiceToUI(d.voice);
     } catch (err) {
       console.error('fetchSettings failed:', err);
-      showToast('Settings 로드 실패: ' + (err.message || err), 'error');
+      const tmpl = (I18N[currentLang] && I18N[currentLang].toast_settings_load_failed) || 'Failed to load settings: {msg}';
+      showToast(tmpl.replace('{msg}', err.message || err), 'error');
     }
   }
 
@@ -2020,7 +2253,8 @@
     const weights = readWeightsFromUI();
     const sum = Object.values(weights).reduce((a, b) => a + b, 0);
     if (sum !== 100) {
-      showToast(`Weights 합계가 ${sum} 입니다. 100 이 되도록 조정하세요.`, 'error');
+      const tmpl = (I18N[currentLang] && I18N[currentLang].toast_weights_sum_bad) || 'Weights sum is {n}. Adjust so total = 100.';
+      showToast(tmpl.replace('{n}', sum), 'error');
       return;
     }
     const payload = {
@@ -2039,13 +2273,16 @@
         throw new Error(d.message || ('HTTP ' + r.status));
       }
       // 서버 응답으로 동기화 (정규화된 값 반영)
+      // Step 11 — STT 캐시 갱신 (voice.lang / silence_sec 즉시 반영)
+      window.SETTINGS_CACHE = d;
       if (d.weights) applyWeightsToUI(d.weights);
       if (d.bias)    applyBiasToUI(d.bias);
       if (d.voice)   applyVoiceToUI(d.voice);
-      showToast('Settings 저장 완료', 'success');
+      showToast((I18N[currentLang] && I18N[currentLang].toast_settings_saved) || 'Settings saved', 'success');
     } catch (err) {
       console.error('saveSettings failed:', err);
-      showToast('Settings 저장 실패: ' + (err.message || err), 'error');
+      const tmpl = (I18N[currentLang] && I18N[currentLang].toast_settings_save_failed) || 'Failed to save settings: {msg}';
+      showToast(tmpl.replace('{msg}', err.message || err), 'error');
     }
   }
 
@@ -2127,7 +2364,8 @@
       // 롤백
       if (cached) cached.bookmarked = currentlyBookmarked;
       renderCaseList(CASES_CACHE);
-      showToast('Bookmark 토글 실패: ' + (err.message || err), 'error');
+      const tmpl = (I18N[currentLang] && I18N[currentLang].toast_bookmark_failed) || 'Bookmark toggle failed: {msg}';
+      showToast(tmpl.replace('{msg}', err.message || err), 'error');
     }
   }
 
@@ -3165,6 +3403,12 @@
 
   // ─── 초기 로드 ───
   reloadCases();
+  // Step 11 — STT 가 voice.lang / silence_sec 을 참조하므로 페이지 진입 시 settings prefetch.
+  // (Settings 탭 클릭 시 재호출되지만 이미 settingsLoadedOnce 플래그가 true 로 바뀌어 무중복.)
+  if (!settingsLoadedOnce) {
+    settingsLoadedOnce = true;
+    fetchSettings();
+  }
 </script>
 
 </body>
