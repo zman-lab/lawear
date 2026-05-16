@@ -839,6 +839,15 @@
           </div>
         </div>
 
+        <!-- Step 13 — manual 채점 대기 -->
+        <div id="ev-pending-grade" class="section-body" style="display:none; padding: 20px;">
+          <div class="info" data-i18n="ev_pending_grade">💬 저장 완료 — 메인 세션에서 "채점해줘" 호출 후 잠시 기다리세요.</div>
+          <div style="margin-top: 8px; color: var(--text-dim); font-size: 12px;" data-i18n="ev_pending_grade_hint">Claude Code 메인 Opus 가 채점 결과를 주입할 때까지 폴링 중 (10초 간격).</div>
+          <div style="margin-top: 8px; color: var(--text-dim); font-size: 11px;">
+            <span data-i18n="ev_pending_elapsed">Waiting</span>: <span id="ev-pending-elapsed">0.0s</span>
+          </div>
+        </div>
+
         <div id="ev-error" class="section-body" style="display:none; padding: 20px;">
           <div class="info" style="color: var(--danger);"><span data-i18n="ev_failed">Grading failed.</span></div>
           <div style="margin-top: 8px; color: var(--text-dim); font-size: 12px;">
@@ -1087,6 +1096,29 @@
         <div class="page-header">
           <div class="case-id-large" data-i18n="page_settings">Settings</div>
           <div class="case-subject"><span data-i18n="set_subject">Evaluation weights · Selection bias · Voice input · Data sync</span></div>
+        </div>
+
+        <!-- Grading Mode (Step 13) -->
+        <div class="settings-section" id="settings-grading-mode-section">
+          <h3 data-i18n="set_grading_mode">Grading Mode</h3>
+          <div class="sub" data-i18n="set_grading_mode_desc">채점 실행 위치. 키 미보유 시 manual 유지.</div>
+          <div style="display:flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+            <label style="display:flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+              <input type="radio" name="grading_mode" value="manual" style="margin-top: 3px;">
+              <span>
+                <b data-i18n="grading_mode_manual">Manual (Claude Code)</b>
+                <div class="sub" data-i18n="grading_mode_manual_desc">메인 세션 Opus 가 직접 채점 → 결과 주입.</div>
+              </span>
+            </label>
+            <label style="display:flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+              <input type="radio" name="grading_mode" value="auto" style="margin-top: 3px;">
+              <span>
+                <b data-i18n="grading_mode_auto">Auto (Anthropic API)</b>
+                <div class="sub" data-i18n="grading_mode_auto_desc">17896 서버가 Anthropic API 직접 호출 (ANTHROPIC_API_KEY 필요).</div>
+                <div class="sub" id="grading-mode-auto-warning" style="color: var(--danger); display: none;" data-i18n="grading_mode_auto_warning">Set ANTHROPIC_API_KEY in .env first; otherwise requests fall back to manual.</div>
+              </span>
+            </label>
+          </div>
         </div>
 
         <!-- Data Sync -->
@@ -1346,6 +1378,18 @@
       toast_settings_save_failed: 'Failed to save settings: {msg}',
       toast_weights_sum_bad: 'Weights sum is {n}. Adjust so total = 100.',
       toast_bookmark_failed: 'Bookmark toggle failed: {msg}',
+      // Step 13 — manual grading mode
+      set_grading_mode: 'Grading Mode',
+      set_grading_mode_desc: 'Where grading runs. Keep manual until ANTHROPIC_API_KEY is set.',
+      grading_mode_manual: 'Manual (Claude Code)',
+      grading_mode_manual_desc: 'Main Opus session grades manually and injects the result.',
+      grading_mode_auto: 'Auto (Anthropic API)',
+      grading_mode_auto_desc: '17896 server calls Anthropic API directly (requires ANTHROPIC_API_KEY).',
+      grading_mode_auto_warning: 'Set ANTHROPIC_API_KEY in .env first; otherwise requests fall back to manual.',
+      ev_pending_grade: '💬 Saved — call "채점해줘" in the main Opus session, then wait a bit.',
+      ev_pending_grade_hint: 'Polling every 10s until Claude Code injects the grade.',
+      ev_pending_elapsed: 'Waiting',
+      toast_pending_warning: 'API key missing — fell back to manual grading.',
     },
     ko: {
       mock_label: '시안',
@@ -1467,6 +1511,18 @@
       toast_settings_save_failed: 'Settings 저장 실패: {msg}',
       toast_weights_sum_bad: 'Weights 합계가 {n} 입니다. 100 이 되도록 조정하세요.',
       toast_bookmark_failed: 'Bookmark 토글 실패: {msg}',
+      // Step 13 — manual 채점 모드
+      set_grading_mode: '채점 모드',
+      set_grading_mode_desc: '채점 실행 위치. ANTHROPIC_API_KEY 미보유 시 manual 유지.',
+      grading_mode_manual: 'Manual (Claude Code)',
+      grading_mode_manual_desc: '메인 세션 Opus 가 직접 채점 → 결과 주입.',
+      grading_mode_auto: 'Auto (Anthropic API)',
+      grading_mode_auto_desc: '17896 서버가 Anthropic API 를 직접 호출 (ANTHROPIC_API_KEY 필요).',
+      grading_mode_auto_warning: '.env 에 ANTHROPIC_API_KEY 부터 설정하세요. 미설정 시 manual 로 강등됩니다.',
+      ev_pending_grade: '💬 저장 완료 — 메인 세션에서 "채점해줘" 호출 후 잠시 기다리세요.',
+      ev_pending_grade_hint: 'Claude Code 메인 Opus 가 채점 결과를 주입할 때까지 폴링 중 (10초 간격).',
+      ev_pending_elapsed: '대기',
+      toast_pending_warning: 'API 키 미설정 — manual 모드로 강등됨.',
     },
   };
 
@@ -2127,6 +2183,7 @@
     weights: { mnem: 20, color: 15, under: 10, outline: 15, sem: 15, rich: 10, miss: 15 },
     bias:    { err_weight: 60, stale_weight: 40, err_threshold: 3, stale_threshold_days: 14 },
     voice:   { lang: 'ko-KR', silence_sec: 3 },
+    grading_mode: 'manual',  // Step 13 — Claude Code 외부 채점이 기본
   };
   const VOICE_LANG_OPTIONS = ['ko-KR', 'en-US'];
 
@@ -2176,6 +2233,24 @@
     if (key === 'err_threshold') return '≥' + val;
     if (key === 'stale_threshold_days') return val + 'd';
     return String(val);
+  }
+
+  // Step 13 — grading_mode 라디오 (manual/auto)
+  function applyGradingModeToUI(mode) {
+    const normalized = (mode === 'auto') ? 'auto' : 'manual';
+    document.querySelectorAll('input[name="grading_mode"]').forEach(inp => {
+      inp.checked = (inp.value === normalized);
+    });
+    const warnEl = document.getElementById('grading-mode-auto-warning');
+    if (warnEl) {
+      // auto 선택 + (브라우저는 키 보유 여부 모르므로) 항상 안내 노출
+      warnEl.style.display = (normalized === 'auto') ? '' : 'none';
+    }
+  }
+
+  function readGradingModeFromUI() {
+    const checked = document.querySelector('input[name="grading_mode"]:checked');
+    return checked ? checked.value : 'manual';
   }
 
   function applyVoiceToUI(voice) {
@@ -2241,6 +2316,7 @@
       if (d.weights) applyWeightsToUI(d.weights);
       if (d.bias)    applyBiasToUI(d.bias);
       if (d.voice)   applyVoiceToUI(d.voice);
+      applyGradingModeToUI(d.grading_mode || 'manual');  // Step 13
     } catch (err) {
       console.error('fetchSettings failed:', err);
       const tmpl = (I18N[currentLang] && I18N[currentLang].toast_settings_load_failed) || 'Failed to load settings: {msg}';
@@ -2261,6 +2337,7 @@
       weights: weights,
       bias: readBiasFromUI(),
       voice: readVoiceFromUI(),
+      grading_mode: readGradingModeFromUI(),  // Step 13
     };
     try {
       const r = await fetch(`${API_BASE}/api/settings`, {
@@ -2274,10 +2351,12 @@
       }
       // 서버 응답으로 동기화 (정규화된 값 반영)
       // Step 11 — STT 캐시 갱신 (voice.lang / silence_sec 즉시 반영)
+      // Step 13 — grading_mode 캐시 갱신 (submitAttempt 분기에 사용)
       window.SETTINGS_CACHE = d;
       if (d.weights) applyWeightsToUI(d.weights);
       if (d.bias)    applyBiasToUI(d.bias);
       if (d.voice)   applyVoiceToUI(d.voice);
+      applyGradingModeToUI(d.grading_mode || 'manual');
       showToast((I18N[currentLang] && I18N[currentLang].toast_settings_saved) || 'Settings saved', 'success');
     } catch (err) {
       console.error('saveSettings failed:', err);
@@ -2291,6 +2370,7 @@
     applyWeightsToUI(SETTINGS_DEFAULTS.weights);
     applyBiasToUI(SETTINGS_DEFAULTS.bias);
     applyVoiceToUI(SETTINGS_DEFAULTS.voice);
+    applyGradingModeToUI(SETTINGS_DEFAULTS.grading_mode);  // Step 13
     await saveSettings();
   }
 
@@ -2332,6 +2412,13 @@
   const btnSettingsReset = document.getElementById('btn-settings-reset');
   if (btnSettingsReset) btnSettingsReset.addEventListener('click', resetSettings);
 
+  // Step 13 — grading_mode 라디오 즉시 반응 (저장 전 시각 피드백)
+  document.querySelectorAll('input[name="grading_mode"]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      applyGradingModeToUI(inp.value);
+    });
+  });
+
   // ════════════════════════════════════════════════
   // Step 9 — Bookmarks API wire (POST/DELETE /api/bookmarks/{id})
   // ════════════════════════════════════════════════
@@ -2371,10 +2458,12 @@
 
   // ════════════════════════════════════════════════
   // Step 7 — Attempts API wire (Review 제출 → Evaluation 폴링)
+  // Step 13 — manual 채점 대기 시 폴링 간격 10초로 연장.
   // ════════════════════════════════════════════════
   let CURRENT_ATTEMPT_ID = null;
   let POLL_TIMER = null;
-  const POLL_INTERVAL_MS = 1000;
+  const POLL_INTERVAL_MS = 1000;            // auto 모드 (status=grading) — 1초
+  const POLL_INTERVAL_PENDING_MS = 10000;   // manual 모드 (status=pending_grade) — 10초
 
   // ─── Reviewer Notes textarea: chars 카운트 + 자동저장 (localStorage) ───
   const notesEl = document.getElementById('rv-notes');
@@ -2467,14 +2556,15 @@
     };
   })();
 
-  // ─── Evaluation 탭 — empty / grading / error / result 4상태 토글 ───
+  // ─── Evaluation 탭 — empty / grading / pending_grade / error / result 5상태 토글 ───
   function setEvSection(state) {
-    // state: 'empty' | 'grading' | 'error' | 'result'
+    // state: 'empty' | 'grading' | 'pending_grade' | 'error' | 'result'
     const map = {
-      'empty':   'ev-empty',
-      'grading': 'ev-grading',
-      'error':   'ev-error',
-      'result':  'ev-result',
+      'empty':         'ev-empty',
+      'grading':       'ev-grading',
+      'pending_grade': 'ev-pending-grade',
+      'error':         'ev-error',
+      'result':        'ev-result',
     };
     Object.entries(map).forEach(([s, id]) => {
       const el = document.getElementById(id);
@@ -2643,6 +2733,17 @@
     setEvSection('grading');
   }
 
+  // Step 13 — manual 채점 대기 렌더
+  function renderEvaluationPendingGrade(att) {
+    const elapsed = Number(att.elapsed_sec) || 0;
+    setEvHeader(att.case_short_id || att.case_id || '—',
+                (I18N[currentLang].ev_pending_grade || 'Pending main-session grading…'),
+                'status_in_review');
+    const eEl = document.getElementById('ev-pending-elapsed');
+    if (eEl) eEl.textContent = elapsed.toFixed(1) + 's';
+    setEvSection('pending_grade');
+  }
+
   // ─── 폴링 ───
   function stopPolling() {
     if (POLL_TIMER) {
@@ -2663,6 +2764,10 @@
       if (att.status === 'grading') {
         renderEvaluationGrading(att);
         POLL_TIMER = setTimeout(() => pollAttempt(attemptId), POLL_INTERVAL_MS);
+      } else if (att.status === 'pending_grade' || att.db_status === 'pending_grade') {
+        // Step 13 — Claude Code 메인 Opus 채점 대기. 10초 간격 폴링.
+        renderEvaluationPendingGrade(att);
+        POLL_TIMER = setTimeout(() => pollAttempt(attemptId), POLL_INTERVAL_PENDING_MS);
       } else if (att.status === 'completed' || att.db_status === 'done') {
         renderEvaluationDone(att);
       } else if (att.status === 'failed' || att.db_status === 'error') {
@@ -2714,11 +2819,19 @@
     // 즉시 Evaluation 탭 전환
     const evTab = document.querySelector('.tab-btn[data-tab="evaluation"]');
     if (evTab) evTab.click();
-    // 일단 grading 상태 표시 (attempt_id 받기 전)
+
+    // Step 13 — 캐시된 grading_mode 로 초기 상태 결정 (manual=pending, auto=grading)
+    const cachedMode = (window.SETTINGS_CACHE && window.SETTINGS_CACHE.grading_mode) || 'manual';
+    const initialState = (cachedMode === 'auto') ? 'grading' : 'pending_grade';
     setEvHeader(CURRENT_CASE_ID, I18N[currentLang].info_submitted || 'Grading…', 'status_in_review');
-    const eEl = document.getElementById('ev-elapsed');
-    if (eEl) eEl.textContent = '0.0s';
-    setEvSection('grading');
+    if (initialState === 'grading') {
+      const eEl = document.getElementById('ev-elapsed');
+      if (eEl) eEl.textContent = '0.0s';
+    } else {
+      const eEl = document.getElementById('ev-pending-elapsed');
+      if (eEl) eEl.textContent = '0.0s';
+    }
+    setEvSection(initialState);
 
     // 폴링 정지 (이전 attempt 가 있으면)
     stopPolling();
@@ -2744,6 +2857,11 @@
           error_message: msg,
         });
         return;
+      }
+      // Step 13 — 응답의 grading_mode/warning 반영 (auto fallback 안내)
+      if (body.warning) {
+        const tmpl = I18N[currentLang].toast_pending_warning || 'API key missing — fell back to manual grading.';
+        showToast(tmpl, 'error');
       }
       CURRENT_ATTEMPT_ID = body.attempt_id;
       // 즉시 1회 폴링
