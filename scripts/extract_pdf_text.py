@@ -32,7 +32,7 @@ except ImportError:
 # 설정
 # ---------------------------------------------------------------------------
 
-PDF_BASE = os.path.expanduser("~/Downloads/2026_USB/2026_박문각_피뎁")
+PDF_BASE = os.path.expanduser("~/myftp/2026_USB/2026_박문각_피뎁")
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 OUTPUT_DIR = PROJECT_ROOT / "pipeline" / "raw_texts"
 PROGRESS_FILE = PROJECT_ROOT / "pipeline" / "progress.json"
