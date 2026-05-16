@@ -6,9 +6,10 @@ launchd com.lawear.examconsole 호출 (포트 17896, 127.0.0.1 바인드).
 Step 1 (commit d08b0cd): 정적 + 헬스 + placeholder.
 Step 2 (commit 3c6e73e): SQLite 5 테이블 마이그레이션 v1.
 Step 3 (본 커밋): 17895 → 17896 동기화 (`/api/sync/preview`, `/api/sync`).
+Step 4 (본 커밋): 케이스 API (`/api/cases`, `/api/cases/{id}` + .md 파싱).
 
 dev-design archive #48 §3-1 endpoint matrix + §3-3 ErrorCode 1:1.
-dev-impl-plan #51 Step 3 표 1:1.
+dev-impl-plan #51 Step 3 + Step 4 표 1:1.
 """
 from __future__ import annotations
 
@@ -20,6 +21,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 
+import cases as cases_mod
 import db as db_mod
 import syncer as syncer_mod
 
@@ -29,7 +31,7 @@ BIND: str = os.environ.get("LAWEAR_EXAM_BIND", "127.0.0.1")
 ROOT: Path = Path(__file__).parent.resolve()
 DB_PATH: str = os.environ.get("LAWEAR_EXAM_DB", str(ROOT / "exam.db"))
 SERVER_NAME: str = "lawear-examconsole"
-SERVER_VERSION: str = "0.2.0-sync"
+SERVER_VERSION: str = "0.3.0-cases-sync"
 
 
 class ExamHandler(SimpleHTTPRequestHandler):
@@ -52,7 +54,7 @@ class ExamHandler(SimpleHTTPRequestHandler):
                 "status": "ok",
                 "server": SERVER_NAME,
                 "version": SERVER_VERSION,
-                "phase": "sync",
+                "phase": "cases-sync",
             })
             return
 
@@ -61,12 +63,29 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._handle_sync_preview()
             return
 
-        # 미구현 API (Step 4+ placeholder)
+        # 케이스 단건: /api/cases/{id}
+        if path.startswith("/api/cases/"):
+            case_id = path[len("/api/cases/"):]
+            # trailing slash 제거 + 빈 id 거부
+            case_id = case_id.rstrip("/")
+            if not case_id or "/" in case_id:
+                self._send_error(400, "bad_request", "invalid case_id")
+                return
+            self._handle_case_get(case_id)
+            return
+
+        # 케이스 목록: /api/cases?filter=...
+        if path == "/api/cases":
+            qs = urllib.parse.parse_qs(parsed.query)
+            self._handle_cases_list(qs)
+            return
+
+        # 미구현 API (Step 5+ placeholder)
         if path.startswith("/api/"):
             self._send_error(
                 501,
                 "not_implemented",
-                f"Step 4+ API placeholder ({path})",
+                f"Step 5+ API placeholder ({path})",
             )
             return
 
@@ -82,12 +101,12 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._handle_sync_apply()
             return
 
-        # 미구현 POST (Step 4+ placeholder)
+        # 미구현 POST (Step 5+ placeholder)
         if path.startswith("/api/"):
             self._send_error(
                 501,
                 "not_implemented",
-                f"Step 4+ API placeholder ({path})",
+                f"Step 5+ API placeholder ({path})",
             )
             return
 
@@ -119,6 +138,40 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._send_json(200, result)
         except syncer_mod.SyncError as e:
             self._send_error(502, "remote_unreachable", str(e))
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", str(e))
+
+    def _handle_cases_list(self, qs: dict[str, list[str]]) -> None:
+        """`GET /api/cases?filter=...&subject=...&category=...&file=...&search=...`."""
+        filter_name = (qs.get("filter") or ["all"])[0]
+        subject = (qs.get("subject") or [None])[0]
+        category = (qs.get("category") or [None])[0]
+        file_name = (qs.get("file") or [None])[0]
+        search = (qs.get("search") or [None])[0]
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                items = cases_mod.list_cases(
+                    conn,
+                    filter_name=filter_name,
+                    subject=subject,
+                    category=category,
+                    file_name=file_name,
+                    search=search,
+                )
+            self._send_json(200, {"cases": items, "total": len(items)})
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", str(e))
+
+    def _handle_case_get(self, case_id: str) -> None:
+        """`GET /api/cases/{id}` — 메타 + .md 파싱 origin/lv1/lv4."""
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                case = cases_mod.get_case(conn, case_id)
+            self._send_json(200, case)
+        except cases_mod.CaseNotFoundError:
+            self._send_error(404, "case_not_found", f"case_id={case_id}")
+        except cases_mod.CaseFileMissingError as e:
+            self._send_error(500, "md_file_missing", str(e))
         except Exception as e:  # noqa: BLE001
             self._send_error(500, "internal_error", str(e))
 
