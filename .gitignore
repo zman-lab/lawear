@@ -39,3 +39,5 @@ web/dist/
 *.apk
 *.apk.bin
 web/public/lawear-debug.apk.bin
+*.md.bak
+.claude/scheduled_tasks.lock

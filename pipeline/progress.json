@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-05-15T14:31:51.144635+00:00",
+  "lastUpdated": "2026-05-15T16:36:37.477855+00:00",
   "subjects": {
     "minbeop": {
       "files": {
@@ -12,15 +12,25 @@
           "status": "extracted",
           "cases": 13,
           "label": "미케01"
+        },
+        "yebi_mike02": {
+          "status": "extracted",
+          "cases": 10,
+          "label": "미케02"
+        },
+        "immun_mike02": {
+          "status": "extracted",
+          "cases": 11,
+          "label": "미케02"
         }
       }
     }
   },
   "stats": {
-    "totalFiles": 2,
-    "extractedFiles": 2,
+    "totalFiles": 4,
+    "extractedFiles": 4,
     "ttsDoneFiles": 0,
-    "totalCases": 21,
-    "extractedCases": 21
+    "totalCases": 42,
+    "extractedCases": 42
   }
 }
