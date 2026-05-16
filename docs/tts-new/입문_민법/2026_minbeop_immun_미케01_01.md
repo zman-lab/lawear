@@ -1,7 +1,7 @@
 # 2026_minbeop_immun_미케01_01
 
 ## 메타
-- PDF: /Users/nhn/Downloads/2026_USB/2026_박문각_피뎁/입문_민법/민법_입문_미케_01.pdf
+- PDF: /Users/nhn/myftp/2026_USB/2026_박문각_피뎁/입문_민법/민법_입문_미케_01.pdf
 - Case: 01
 - 점수: 17점
 - 주제: 비법인사단 · 대표권 제한

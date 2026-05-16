@@ -1,7 +1,7 @@
 # 2026_minbeop_yebi_미케01_02
 
 ## 메타
-- PDF: /Users/nhn/Downloads/2026_USB/예비_민법/민법_예비_미케_01.pdf
+- PDF: /Users/nhn/myftp/2026_USB/예비_민법/민법_예비_미케_01.pdf
 - Case: 02
 - 점수: 15점
 - 주제: 변제자대위 · 제3취득자와 보증인/물상보증인 관계

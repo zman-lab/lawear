@@ -1,7 +1,7 @@
 # 2026_minbeop_immun_미케01_02
 
 ## 메타
-- PDF: /Users/nhn/Downloads/2026_USB/2026_박문각_피뎁/입문_민법/민법_입문_미케_01.pdf
+- PDF: /Users/nhn/myftp/2026_USB/2026_박문각_피뎁/입문_민법/민법_입문_미케_01.pdf
 - Case: 02
 - 점수: 6점
 - 주제: 이중매매 무효 (배임행위 적극 가담)

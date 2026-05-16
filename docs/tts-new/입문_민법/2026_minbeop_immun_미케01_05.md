@@ -1,7 +1,7 @@
 # 2026_minbeop_immun_미케01_05
 
 ## 메타
-- PDF: /Users/nhn/Downloads/2026_USB/2026_박문각_피뎁/입문_민법/민법_입문_미케_01.pdf
+- PDF: /Users/nhn/myftp/2026_USB/2026_박문각_피뎁/입문_민법/민법_입문_미케_01.pdf
 - Case: 05
 - 점수: 15점
 - 주제: 착오 + 일부취소

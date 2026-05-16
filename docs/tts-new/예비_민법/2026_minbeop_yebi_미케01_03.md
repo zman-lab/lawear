@@ -1,7 +1,7 @@
 # 2026_minbeop_yebi_미케01_03
 
 ## 메타
-- PDF: /Users/nhn/Downloads/2026_USB/예비_민법/민법_예비_미케_01.pdf
+- PDF: /Users/nhn/myftp/2026_USB/예비_민법/민법_예비_미케_01.pdf
 - Case: 03
 - 점수: 10점
 - 주제: 의류대금 소멸시효 · 단기시효 3년 · 재판상 청구 후 10년 연장 · 보증인 효력

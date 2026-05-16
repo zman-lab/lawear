@@ -1,7 +1,7 @@
 # 2026_minbeop_yebi_미케02_16
 
 ## 메타
-- PDF: /Users/nhn/Downloads/2026_USB/2026_박문각_피뎁/예비_민법/민법_예비_미케_02.pdf
+- PDF: /Users/nhn/myftp/2026_USB/2026_박문각_피뎁/예비_민법/민법_예비_미케_02.pdf
 - Case: 16
 - 점수: 17점 (PDF metadata.points 누락, 본문 명시)
 - 주제: 매매계약 해제 조치 — 계약금에 의한 해제(배액 제공) · 이행지체 해제(자기채무 이행제공 + 최고)

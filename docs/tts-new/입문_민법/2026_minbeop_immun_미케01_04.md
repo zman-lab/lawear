@@ -1,7 +1,7 @@
 # 2026_minbeop_immun_미케01_04
 
 ## 메타
-- PDF: /Users/nhn/Downloads/2026_USB/2026_박문각_피뎁/입문_민법/민법_입문_미케_01.pdf
+- PDF: /Users/nhn/myftp/2026_USB/2026_박문각_피뎁/입문_민법/민법_입문_미케_01.pdf
 - Case: 04
 - 점수: 15점
 - 주제: 통정허위표시 + 파산관재인
