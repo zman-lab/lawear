@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-05-15T16:36:37.477855+00:00",
+  "lastUpdated": "2026-05-16T07:14:31.385016+00:00",
   "subjects": {
     "minbeop": {
       "files": {
@@ -22,15 +22,45 @@
           "status": "extracted",
           "cases": 11,
           "label": "미케02"
+        },
+        "yebi_mike03": {
+          "status": "extracted",
+          "cases": 14,
+          "label": "미케03"
+        },
+        "immun_mike03": {
+          "status": "extracted",
+          "cases": 10,
+          "label": "미케03"
+        },
+        "yebi_mike04": {
+          "status": "extracted",
+          "cases": 19,
+          "label": "미케04"
+        },
+        "immun_mike04": {
+          "status": "extracted",
+          "cases": 26,
+          "label": "미케04"
+        },
+        "yebi_mogo01": {
+          "status": "extracted",
+          "cases": 2,
+          "label": "모고01"
+        },
+        "yebi_mogo02": {
+          "status": "extracted",
+          "cases": 2,
+          "label": "모고02"
         }
       }
     }
   },
   "stats": {
-    "totalFiles": 4,
-    "extractedFiles": 4,
+    "totalFiles": 10,
+    "extractedFiles": 10,
     "ttsDoneFiles": 0,
-    "totalCases": 42,
-    "extractedCases": 42
+    "totalCases": 115,
+    "extractedCases": 115
   }
 }
