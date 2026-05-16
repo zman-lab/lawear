@@ -201,6 +201,10 @@
   .case-item .case-meta .pill.warn { color: var(--warn); border-color: var(--warn); }
   .case-item .case-meta .pill.stale { color: var(--text-dim); }
   .case-item .case-meta .pill.bookmarked { color: var(--accent); }
+  /* Step 9: 토글 가능한 ★ — 미활성 흐릿, hover 시 밝게 */
+  .case-item .case-meta .pill.bookmark-star { color: var(--text-dim); opacity: 0.4; }
+  .case-item .case-meta .pill.bookmark-star.bookmarked { color: var(--accent); opacity: 1; }
+  .case-item .case-meta .pill.bookmark-star:hover { opacity: 1; }
 
   /* Content */
   .content { flex: 1; overflow-y: auto; padding: 0; background: var(--bg); min-width: 0; }
@@ -1258,90 +1262,90 @@
           </div>
         </div>
 
-        <div class="settings-section">
+        <div class="settings-section" id="settings-weights-section">
           <h3 data-i18n="set_weights">Evaluation Criteria Weights</h3>
           <div class="sub" data-i18n="set_weights_desc">채점 항목별 가중치 (합계 100). 항목별 점수에 가중치 적용 → 최종 점수.</div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_mnem">Lv.4 Mnemonics</span> <span class="sub">[blank2]</span></div>
-            <input type="range" min="0" max="40" value="20">
-            <div class="s-val">20</div>
+            <input type="range" min="0" max="40" value="20" data-weight-key="mnem">
+            <div class="s-val" data-weight-val="mnem">20</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_color">Color Emphasis</span> <span class="sub">red/blue/bold/blank</span></div>
-            <input type="range" min="0" max="40" value="15">
-            <div class="s-val">15</div>
+            <input type="range" min="0" max="40" value="15" data-weight-key="color">
+            <div class="s-val" data-weight-val="color">15</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_under">Underline Coverage</span> <span class="sub">[u]</span></div>
-            <input type="range" min="0" max="40" value="10">
-            <div class="s-val">10</div>
+            <input type="range" min="0" max="40" value="10" data-weight-key="under">
+            <div class="s-val" data-weight-val="under">10</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_outline">Lv.1 Outline Match</span></div>
-            <input type="range" min="0" max="40" value="15">
-            <div class="s-val">15</div>
+            <input type="range" min="0" max="40" value="15" data-weight-key="outline">
+            <div class="s-val" data-weight-val="outline">15</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_sem">Semantic Match</span></div>
-            <input type="range" min="0" max="40" value="15">
-            <div class="s-val">15</div>
+            <input type="range" min="0" max="40" value="15" data-weight-key="sem">
+            <div class="s-val" data-weight-val="sem">15</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_rich">Richness</span> <span class="sub">Lv.4 / Lv.1 / Origin</span></div>
-            <input type="range" min="0" max="40" value="10">
-            <div class="s-val">10</div>
+            <input type="range" min="0" max="40" value="10" data-weight-key="rich">
+            <div class="s-val" data-weight-val="rich">10</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_miss">Missing Arguments</span></div>
-            <input type="range" min="0" max="40" value="15">
-            <div class="s-val">15</div>
+            <input type="range" min="0" max="40" value="15" data-weight-key="miss">
+            <div class="s-val" data-weight-val="miss">15</div>
           </div>
-          <div class="total-warn"><span data-i18n="total_ok">Total: 100 / 100 ✓</span></div>
+          <div class="total-warn" id="weights-total-warn"><span id="weights-total-text" data-i18n="total_ok">Total: 100 / 100 ✓</span></div>
         </div>
 
-        <div class="settings-section">
+        <div class="settings-section" id="settings-bias-section">
           <h3 data-i18n="set_bias">Case Selection Bias</h3>
           <div class="sub" data-i18n="set_bias_desc">"많이 틀린 / 오래된" 모드의 Top-K 선택 가중치.</div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="bias_err">High Error Weight</span></div>
-            <input type="range" min="0" max="100" value="60">
-            <div class="s-val">60</div>
+            <input type="range" min="0" max="100" value="60" data-bias-key="err_weight">
+            <div class="s-val" data-bias-val="err_weight">60</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="bias_stale">Stale Weight</span></div>
-            <input type="range" min="0" max="100" value="40">
-            <div class="s-val">40</div>
+            <input type="range" min="0" max="100" value="40" data-bias-key="stale_weight">
+            <div class="s-val" data-bias-val="stale_weight">40</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="bias_err_th">High Error Threshold</span> <span class="sub">err count</span></div>
-            <input type="range" min="1" max="10" value="3">
-            <div class="s-val">≥3</div>
+            <input type="range" min="1" max="10" value="3" data-bias-key="err_threshold">
+            <div class="s-val" data-bias-val="err_threshold">≥3</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="bias_stale_th">Stale Threshold</span> <span class="sub">days</span></div>
-            <input type="range" min="1" max="60" value="14">
-            <div class="s-val">14d</div>
+            <input type="range" min="1" max="60" value="14" data-bias-key="stale_threshold_days">
+            <div class="s-val" data-bias-val="stale_threshold_days">14d</div>
           </div>
         </div>
 
-        <div class="settings-section">
+        <div class="settings-section" id="settings-voice-section">
           <h3 data-i18n="set_voice">Voice Input</h3>
           <div class="sub" data-i18n="set_voice_desc">Web Speech API · 브라우저/OS 내장 STT.</div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="voice_lang">Language</span></div>
-            <input type="range" min="0" max="1" value="0">
-            <div class="s-val">ko-KR</div>
+            <input type="range" min="0" max="1" value="0" data-voice-key="lang">
+            <div class="s-val" data-voice-val="lang">ko-KR</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="voice_silence">Auto-stop (silence sec)</span></div>
-            <input type="range" min="1" max="10" value="3">
-            <div class="s-val">3s</div>
+            <input type="range" min="1" max="10" value="3" data-voice-key="silence_sec">
+            <div class="s-val" data-voice-val="silence_sec">3s</div>
           </div>
         </div>
 
         <div class="save-row" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
-          <button class="btn" data-i18n="btn_reset">Reset to Default</button>
-          <button class="btn primary" data-i18n="btn_save">Save Settings</button>
+          <button class="btn" id="btn-settings-reset" data-i18n="btn_reset">Reset to Default</button>
+          <button class="btn primary" id="btn-settings-save" data-i18n="btn_save">Save Settings</button>
         </div>
       </div>
 
@@ -1771,7 +1775,10 @@
         pills.push(`<span class="pill"><span data-i18n-fmt="pill_pt">${c.points} pt</span></span>`);
         if (c.has_error) pills.push(`<span class="pill warn"><span data-i18n-fmt="pill_err">err ${c.attempt_count || ''}</span></span>`);
         if (c.has_stale) pills.push(`<span class="pill stale"><span data-i18n-fmt="pill_d">stale</span></span>`);
-        if (c.bookmarked) pills.push(`<span class="pill bookmarked">★</span>`);
+        // Step 9: ★ 항상 표시 (bookmarked 상태에 따라 active 클래스 토글). 클릭 토글 가능.
+        const starCls = c.bookmarked ? 'pill bookmark-star bookmarked' : 'pill bookmark-star';
+        const starTitle = c.bookmarked ? 'Remove bookmark' : 'Add bookmark';
+        pills.push(`<span class="${starCls}" data-bookmark-toggle="${escapeHtml(c.id)}" title="${starTitle}" style="cursor:pointer;user-select:none;">★</span>`);
         const active = c.id === CURRENT_CASE_ID ? ' active' : '';
         html += `<div class="case-item${active}" data-case-id="${escapeHtml(c.id)}">
           <div class="case-id">${escapeHtml(shortId)}</div>
@@ -1781,9 +1788,15 @@
       }
     }
     root.innerHTML = html;
-    // 클릭 wire
+    // 클릭 wire — 케이스 본체 클릭은 loadCase, ★ 클릭은 토글 (이벤트 분리)
     root.querySelectorAll('.case-item').forEach(item => {
-      item.addEventListener('click', () => {
+      item.addEventListener('click', (ev) => {
+        // ★ 클릭은 토글로 (loadCase 막음)
+        if (ev.target && ev.target.dataset && ev.target.dataset.bookmarkToggle) {
+          ev.stopPropagation();
+          toggleBookmark(ev.target.dataset.bookmarkToggle);
+          return;
+        }
         const id = item.dataset.caseId;
         loadCase(id);
       });
@@ -1949,13 +1962,20 @@
   const btnResync = document.getElementById('btn-resync');
   if (btnResync) btnResync.addEventListener('click', doResync);
 
-  // Settings 탭 진입 시 sync preview 자동 로드 (한 번만)
+  // Settings 탭 진입 시 sync preview + settings 자동 로드 (한 번만)
   let syncPreviewLoadedOnce = false;
+  let settingsLoadedOnce = false;
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      if (btn.dataset.tab === 'settings' && !syncPreviewLoadedOnce) {
-        syncPreviewLoadedOnce = true;
-        fetchSyncPreview();
+      if (btn.dataset.tab === 'settings') {
+        if (!syncPreviewLoadedOnce) {
+          syncPreviewLoadedOnce = true;
+          fetchSyncPreview();
+        }
+        if (!settingsLoadedOnce) {
+          settingsLoadedOnce = true;
+          fetchSettings();
+        }
       }
     });
   });
@@ -1969,6 +1989,248 @@
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  // ════════════════════════════════════════════════
+  // Step 8 — Settings API wire (GET /PUT /api/settings)
+  // ════════════════════════════════════════════════
+  // 디폴트 (서버 default 와 동기화 — 마이그 v1 INSERT 와 1:1)
+  const SETTINGS_DEFAULTS = {
+    weights: { mnem: 20, color: 15, under: 10, outline: 15, sem: 15, rich: 10, miss: 15 },
+    bias:    { err_weight: 60, stale_weight: 40, err_threshold: 3, stale_threshold_days: 14 },
+    voice:   { lang: 'ko-KR', silence_sec: 3 },
+  };
+  const VOICE_LANG_OPTIONS = ['ko-KR', 'en-US'];
+
+  // 토스트 (300자 미만, 간단 fade)
+  function showToast(msg, kind) {
+    const existing = document.getElementById('lawear-toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.id = 'lawear-toast';
+    const bg = kind === 'error' ? 'var(--danger, #c33)' : 'var(--accent, #2a7)';
+    t.style.cssText = `
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: ${bg}; color: #fff; padding: 10px 16px; border-radius: 6px;
+      font-size: 13px; z-index: 9999; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      max-width: 80vw;
+    `;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.transition = 'opacity 0.3s'; t.style.opacity = '0'; }, 2400);
+    setTimeout(() => { t.remove(); }, 2800);
+  }
+
+  function applyWeightsToUI(weights) {
+    document.querySelectorAll('input[data-weight-key]').forEach(inp => {
+      const k = inp.dataset.weightKey;
+      if (weights[k] != null) {
+        inp.value = weights[k];
+        const valEl = document.querySelector(`[data-weight-val="${k}"]`);
+        if (valEl) valEl.textContent = weights[k];
+      }
+    });
+    updateWeightsTotal();
+  }
+
+  function applyBiasToUI(bias) {
+    document.querySelectorAll('input[data-bias-key]').forEach(inp => {
+      const k = inp.dataset.biasKey;
+      if (bias[k] != null) {
+        inp.value = bias[k];
+        const valEl = document.querySelector(`[data-bias-val="${k}"]`);
+        if (valEl) valEl.textContent = formatBiasVal(k, bias[k]);
+      }
+    });
+  }
+
+  function formatBiasVal(key, val) {
+    if (key === 'err_threshold') return '≥' + val;
+    if (key === 'stale_threshold_days') return val + 'd';
+    return String(val);
+  }
+
+  function applyVoiceToUI(voice) {
+    // lang: range 0/1 ↔ ko-KR/en-US
+    const langInp = document.querySelector('input[data-voice-key="lang"]');
+    const langVal = document.querySelector('[data-voice-val="lang"]');
+    if (langInp) {
+      const idx = VOICE_LANG_OPTIONS.indexOf(voice.lang);
+      langInp.value = idx >= 0 ? idx : 0;
+    }
+    if (langVal) langVal.textContent = voice.lang || 'ko-KR';
+
+    const silInp = document.querySelector('input[data-voice-key="silence_sec"]');
+    const silVal = document.querySelector('[data-voice-val="silence_sec"]');
+    if (silInp && voice.silence_sec != null) silInp.value = voice.silence_sec;
+    if (silVal && voice.silence_sec != null) silVal.textContent = voice.silence_sec + 's';
+  }
+
+  function updateWeightsTotal() {
+    let total = 0;
+    document.querySelectorAll('input[data-weight-key]').forEach(inp => {
+      total += parseInt(inp.value || '0', 10);
+    });
+    const warn = document.getElementById('weights-total-warn');
+    const txt = document.getElementById('weights-total-text');
+    if (txt) txt.textContent = `Total: ${total} / 100 ${total === 100 ? '✓' : '✗'}`;
+    if (warn) warn.style.color = total === 100 ? '' : 'var(--danger, #c33)';
+  }
+
+  function readWeightsFromUI() {
+    const w = {};
+    document.querySelectorAll('input[data-weight-key]').forEach(inp => {
+      w[inp.dataset.weightKey] = parseInt(inp.value || '0', 10);
+    });
+    return w;
+  }
+
+  function readBiasFromUI() {
+    const b = {};
+    document.querySelectorAll('input[data-bias-key]').forEach(inp => {
+      b[inp.dataset.biasKey] = parseInt(inp.value || '0', 10);
+    });
+    return b;
+  }
+
+  function readVoiceFromUI() {
+    const langInp = document.querySelector('input[data-voice-key="lang"]');
+    const silInp = document.querySelector('input[data-voice-key="silence_sec"]');
+    const idx = langInp ? parseInt(langInp.value || '0', 10) : 0;
+    return {
+      lang: VOICE_LANG_OPTIONS[idx] || 'ko-KR',
+      silence_sec: silInp ? parseInt(silInp.value || '3', 10) : 3,
+    };
+  }
+
+  async function fetchSettings() {
+    try {
+      const r = await fetch(`${API_BASE}/api/settings`, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      if (d.weights) applyWeightsToUI(d.weights);
+      if (d.bias)    applyBiasToUI(d.bias);
+      if (d.voice)   applyVoiceToUI(d.voice);
+    } catch (err) {
+      console.error('fetchSettings failed:', err);
+      showToast('Settings 로드 실패: ' + (err.message || err), 'error');
+    }
+  }
+
+  async function saveSettings() {
+    // weights sum=100 클라이언트 가드 (서버도 검증하지만 UX 개선)
+    const weights = readWeightsFromUI();
+    const sum = Object.values(weights).reduce((a, b) => a + b, 0);
+    if (sum !== 100) {
+      showToast(`Weights 합계가 ${sum} 입니다. 100 이 되도록 조정하세요.`, 'error');
+      return;
+    }
+    const payload = {
+      weights: weights,
+      bias: readBiasFromUI(),
+      voice: readVoiceFromUI(),
+    };
+    try {
+      const r = await fetch(`${API_BASE}/api/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        throw new Error(d.message || ('HTTP ' + r.status));
+      }
+      // 서버 응답으로 동기화 (정규화된 값 반영)
+      if (d.weights) applyWeightsToUI(d.weights);
+      if (d.bias)    applyBiasToUI(d.bias);
+      if (d.voice)   applyVoiceToUI(d.voice);
+      showToast('Settings 저장 완료', 'success');
+    } catch (err) {
+      console.error('saveSettings failed:', err);
+      showToast('Settings 저장 실패: ' + (err.message || err), 'error');
+    }
+  }
+
+  async function resetSettings() {
+    // 디폴트 값을 UI 에 먼저 반영 후 저장
+    applyWeightsToUI(SETTINGS_DEFAULTS.weights);
+    applyBiasToUI(SETTINGS_DEFAULTS.bias);
+    applyVoiceToUI(SETTINGS_DEFAULTS.voice);
+    await saveSettings();
+  }
+
+  // 슬라이더 input 이벤트 → 값 표시 (즉시 저장 X, sum 갱신만)
+  document.querySelectorAll('input[data-weight-key]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const k = inp.dataset.weightKey;
+      const valEl = document.querySelector(`[data-weight-val="${k}"]`);
+      if (valEl) valEl.textContent = inp.value;
+      updateWeightsTotal();
+    });
+  });
+  document.querySelectorAll('input[data-bias-key]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const k = inp.dataset.biasKey;
+      const valEl = document.querySelector(`[data-bias-val="${k}"]`);
+      if (valEl) valEl.textContent = formatBiasVal(k, inp.value);
+    });
+  });
+  document.querySelectorAll('input[data-voice-key]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const k = inp.dataset.voiceKey;
+      const valEl = document.querySelector(`[data-voice-val="${k}"]`);
+      if (valEl) {
+        if (k === 'lang') {
+          const idx = parseInt(inp.value || '0', 10);
+          valEl.textContent = VOICE_LANG_OPTIONS[idx] || 'ko-KR';
+        } else if (k === 'silence_sec') {
+          valEl.textContent = inp.value + 's';
+        } else {
+          valEl.textContent = inp.value;
+        }
+      }
+    });
+  });
+
+  const btnSettingsSave = document.getElementById('btn-settings-save');
+  if (btnSettingsSave) btnSettingsSave.addEventListener('click', saveSettings);
+  const btnSettingsReset = document.getElementById('btn-settings-reset');
+  if (btnSettingsReset) btnSettingsReset.addEventListener('click', resetSettings);
+
+  // ════════════════════════════════════════════════
+  // Step 9 — Bookmarks API wire (POST/DELETE /api/bookmarks/{id})
+  // ════════════════════════════════════════════════
+  async function toggleBookmark(caseId) {
+    if (!caseId) return;
+    // optimistic update: cache 에서 현 상태 토글 → 즉시 렌더
+    const cached = (CASES_CACHE || []).find(c => c.id === caseId);
+    const currentlyBookmarked = !!(cached && cached.bookmarked);
+    const newState = !currentlyBookmarked;
+    if (cached) cached.bookmarked = newState;
+    renderCaseList(CASES_CACHE);
+
+    const method = newState ? 'POST' : 'DELETE';
+    try {
+      const r = await fetch(`${API_BASE}/api/bookmarks/${encodeURIComponent(caseId)}`, {
+        method: method,
+        headers: { 'Accept': 'application/json' },
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.message || ('HTTP ' + r.status));
+      // 서버 응답으로 동기화 (혹시 다를 경우)
+      if (cached) cached.bookmarked = !!d.bookmarked;
+      renderCaseList(CASES_CACHE);
+      // filter=bookmarked 모드에서 해제 시 리스트에서 사라지도록 reload
+      if (CURRENT_FILTER === 'book' || CURRENT_FILTER === 'bookmarked') {
+        reloadCases();
+      }
+    } catch (err) {
+      console.error('toggleBookmark failed:', err);
+      // 롤백
+      if (cached) cached.bookmarked = currentlyBookmarked;
+      renderCaseList(CASES_CACHE);
+      showToast('Bookmark 토글 실패: ' + (err.message || err), 'error');
+    }
   }
 
   // ════════════════════════════════════════════════

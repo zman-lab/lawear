@@ -35,7 +35,13 @@ BASE_PATH: Path = Path(
 ).resolve()
 
 # 필터 enum (dev-design #48 §3-1)
-ALLOWED_FILTERS = {"all", "err", "stale", "book"}
+# 'book' = dev-design 정본, 'bookmarked' = 사용자 사양 alias (Step 9 wire)
+ALLOWED_FILTERS = {"all", "err", "stale", "book", "bookmarked"}
+
+# alias 정규화: 클라이언트가 보낸 값 → 내부 정규형
+_FILTER_ALIASES = {
+    "bookmarked": "book",
+}
 
 
 class CaseNotFoundError(Exception):
@@ -219,6 +225,8 @@ def list_cases(
     """
     if filter_name not in ALLOWED_FILTERS:
         filter_name = "all"
+    # alias 정규화 (bookmarked → book)
+    filter_name = _FILTER_ALIASES.get(filter_name, filter_name)
 
     # 기본 쿼리 + 동적 WHERE
     where: list[str] = []

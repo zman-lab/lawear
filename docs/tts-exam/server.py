@@ -9,10 +9,12 @@ Step 3 (commit 1ddb8a7): 17895 → 17896 동기화 (`/api/sync/preview`, `/api/s
 Step 4 (commit d3fed1b): 케이스 API (`/api/cases`, `/api/cases/{id}` + .md 파싱).
 Step 5 (commit f4155f3): 시안 HTML 이식 + 케이스/동기화 API wire.
 Step 6 (commit e2af4e6): Grader (Anthropic API + 7기준 채점 + mock + env 로더).
-Step 7 (본 커밋): Attempts API (POST/GET /api/attempts + background 채점 + 폴링).
+Step 7 (commit 0207a5c): Attempts API (POST/GET /api/attempts + background 채점 + 폴링).
+Step 8 (본 커밋): Settings API (GET/PUT /api/settings + weights/bias/voice 검증).
+Step 9 (본 커밋): Bookmarks API (POST/DELETE /api/bookmarks/{case_id}).
 
 dev-design archive #48 §3-1 endpoint matrix + §3-3 ErrorCode 1:1.
-dev-impl-plan #51 Step 3~7 표 1:1.
+dev-impl-plan #51 Step 3~9 표 1:1.
 """
 from __future__ import annotations
 
@@ -25,10 +27,12 @@ from pathlib import Path
 from typing import Any
 
 import attempts as attempts_mod
+import bookmarks as bookmarks_mod
 import cases as cases_mod
 import db as db_mod
 import env_loader  # noqa: F401 — side-effect: .env → os.environ 주입 (Step 6)
 import grader as grader_mod
+import settings as settings_mod
 import syncer as syncer_mod
 
 # .env 자동 로드 (있으면) — ANTHROPIC_API_KEY 등 환경변수 주입
@@ -41,7 +45,7 @@ BIND: str = os.environ.get("LAWEAR_EXAM_BIND", "127.0.0.1")
 ROOT: Path = Path(__file__).parent.resolve()
 DB_PATH: str = os.environ.get("LAWEAR_EXAM_DB", str(ROOT / "exam.db"))
 SERVER_NAME: str = "lawear-examconsole"
-SERVER_VERSION: str = "0.5.0-attempts"
+SERVER_VERSION: str = "0.6.0-settings-bookmarks"
 
 
 class ExamHandler(SimpleHTTPRequestHandler):
@@ -110,12 +114,22 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._handle_attempts_list(qs)
             return
 
-        # 미구현 API (Step 8+ placeholder)
+        # Settings: GET /api/settings
+        if path == "/api/settings":
+            self._handle_settings_get()
+            return
+
+        # Bookmarks 리스트 (옵션): GET /api/bookmarks
+        if path == "/api/bookmarks":
+            self._handle_bookmarks_list()
+            return
+
+        # 미구현 API (Step 10+ placeholder)
         if path.startswith("/api/"):
             self._send_error(
                 501,
                 "not_implemented",
-                f"Step 8+ API placeholder ({path})",
+                f"Step 10+ API placeholder ({path})",
             )
             return
 
@@ -136,16 +150,69 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._handle_attempts_post()
             return
 
-        # 미구현 POST (Step 8+ placeholder)
+        # Bookmarks 추가: POST /api/bookmarks/{case_id}
+        if path.startswith("/api/bookmarks/"):
+            case_id = path[len("/api/bookmarks/"):].rstrip("/")
+            if not case_id or "/" in case_id:
+                self._send_error(400, "bad_request", "invalid case_id")
+                return
+            self._handle_bookmark_add(urllib.parse.unquote(case_id))
+            return
+
+        # 미구현 POST (Step 10+ placeholder)
         if path.startswith("/api/"):
             self._send_error(
                 501,
                 "not_implemented",
-                f"Step 8+ API placeholder ({path})",
+                f"Step 10+ API placeholder ({path})",
             )
             return
 
         # 정적 자원에 POST 는 405
+        self.send_error(405, "Method Not Allowed")
+
+    def do_PUT(self) -> None:  # noqa: N802
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        # Settings 저장: PUT /api/settings
+        if path == "/api/settings":
+            self._handle_settings_put()
+            return
+
+        # 미구현 PUT (Step 10+ placeholder)
+        if path.startswith("/api/"):
+            self._send_error(
+                501,
+                "not_implemented",
+                f"Step 10+ API placeholder ({path})",
+            )
+            return
+
+        self.send_error(405, "Method Not Allowed")
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+
+        # Bookmarks 제거: DELETE /api/bookmarks/{case_id}
+        if path.startswith("/api/bookmarks/"):
+            case_id = path[len("/api/bookmarks/"):].rstrip("/")
+            if not case_id or "/" in case_id:
+                self._send_error(400, "bad_request", "invalid case_id")
+                return
+            self._handle_bookmark_remove(urllib.parse.unquote(case_id))
+            return
+
+        # 미구현 DELETE
+        if path.startswith("/api/"):
+            self._send_error(
+                501,
+                "not_implemented",
+                f"Step 10+ API placeholder ({path})",
+            )
+            return
+
         self.send_error(405, "Method Not Allowed")
 
     def do_OPTIONS(self) -> None:  # noqa: N802
@@ -342,6 +409,89 @@ class ExamHandler(SimpleHTTPRequestHandler):
                     offset=offset,
                 )
             self._send_json(200, result)
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    # ─── Settings API (Step 8) ──────────────────────────────────
+
+    def _handle_settings_get(self) -> None:
+        """`GET /api/settings` — weights/bias/voice 전체 반환."""
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                data = settings_mod.load_all(conn)
+            self._send_json(200, data)
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    def _handle_settings_put(self) -> None:
+        """`PUT /api/settings` — 부분 갱신 + 검증 + 저장 후 전체 반환.
+
+        에러:
+          400 bad_request    — JSON 파싱 / bias / voice 검증
+          409 weights_invalid— weights 합계≠100 또는 키 누락
+          500 internal_error — 기타
+        """
+        try:
+            body = self._read_json_body()
+        except ValueError as e:
+            self._send_error(400, "bad_request", str(e))
+            return
+
+        weights = body.get("weights")
+        bias = body.get("bias")
+        voice = body.get("voice")
+
+        # 최소 하나는 제공되어야 함 (옵션 — 빈 PUT 도 허용해 현 상태 반환)
+        # dev-design #48 PUT 명세 상 부분 갱신 가능 → 빈 객체는 NOOP.
+
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                data = settings_mod.save_settings(
+                    conn,
+                    weights=weights if isinstance(weights, dict) else None,
+                    bias=bias if isinstance(bias, dict) else None,
+                    voice=voice if isinstance(voice, dict) else None,
+                )
+            self._send_json(200, data)
+        except settings_mod.SettingsValidationError as e:
+            # error_code 별 HTTP status 매핑 (dev-design §3-3)
+            if e.error_code == "weights_invalid":
+                self._send_error(409, e.error_code, str(e))
+            else:
+                self._send_error(400, e.error_code, str(e))
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    # ─── Bookmarks API (Step 9) ─────────────────────────────────
+
+    def _handle_bookmark_add(self, case_id: str) -> None:
+        """`POST /api/bookmarks/{case_id}` — 즐겨찾기 추가."""
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                result = bookmarks_mod.toggle_add(conn, case_id)
+            self._send_json(200, result)
+        except bookmarks_mod.BookmarkCaseNotFoundError as e:
+            self._send_error(404, "case_not_found", str(e))
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    def _handle_bookmark_remove(self, case_id: str) -> None:
+        """`DELETE /api/bookmarks/{case_id}` — 즐겨찾기 해제."""
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                result = bookmarks_mod.toggle_remove(conn, case_id)
+            self._send_json(200, result)
+        except bookmarks_mod.BookmarkCaseNotFoundError as e:
+            self._send_error(404, "case_not_found", str(e))
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    def _handle_bookmarks_list(self) -> None:
+        """`GET /api/bookmarks` (옵션) — 즐겨찾기 case_id 리스트."""
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                data = bookmarks_mod.list_bookmarks(conn)
+            self._send_json(200, data)
         except Exception as e:  # noqa: BLE001
             self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
 
