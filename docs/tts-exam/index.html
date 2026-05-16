@@ -1245,9 +1245,11 @@
               <div class="score-label" data-i18n="final_score">Final Score</div>
               <div class="score-value"><span id="ev-score-total">—</span><span class="total"> / <span id="ev-score-max">—</span></span></div>
               <div class="score-meta"><span class="grade b" id="ev-grade">—</span> · <span id="ev-pct">—</span>%</div>
-              <!-- Step 17 — 재채점 버튼 -->
+              <!-- Step 17 — 재채점 버튼 / Step 18 — UI 유지 + 영구 disabled
+                   (사용자 결정 2026-05-16: 답안 재작성으로 다시 Submit 권장.
+                    requestRegrade 함수/endpoint 는 유지 — curl/API 호출 가능). -->
               <div style="margin-top: 10px;">
-                <button class="btn" id="btn-regrade-eval" data-i18n="btn_regrade" data-attempt-id="">🔄 Regrade</button>
+                <button class="btn" id="btn-regrade-eval" data-i18n="btn_regrade" data-i18n-title="btn_regrade_disabled_tooltip" data-attempt-id="" disabled style="cursor: not-allowed; opacity: 0.55;">🔄 Regrade</button>
               </div>
             </div>
             <div class="criteria-grid" id="ev-criteria-grid">
@@ -1651,8 +1653,9 @@
     <div class="modal-head">
       <span class="modal-title" id="attempt-modal-title">—</span>
       <span class="modal-sub" id="attempt-modal-sub">—</span>
-      <!-- Step 17 — 재채점 버튼 (status='completed' 일 때만 표시) -->
-      <button class="btn" id="btn-regrade-modal" data-i18n="btn_regrade" data-attempt-id="" style="display:none; margin-right: 8px;">🔄 Regrade</button>
+      <!-- Step 17 — 재채점 버튼 (status='completed' 일 때만 표시)
+           Step 18 — 표시는 유지하되 영구 disabled (답안 재작성 권장). -->
+      <button class="btn" id="btn-regrade-modal" data-i18n="btn_regrade" data-i18n-title="btn_regrade_disabled_tooltip" data-attempt-id="" disabled style="display:none; margin-right: 8px; cursor: not-allowed; opacity: 0.55;">🔄 Regrade</button>
       <button class="modal-close" id="attempt-modal-close" aria-label="Close">✕ <span data-i18n="btn_close">Close</span></button>
     </div>
     <div class="modal-tabs" id="attempt-modal-tabs">
@@ -1847,6 +1850,8 @@
       regrade_toast: 'Regrade requested. Call "채점해줘" in the Claude Code main session.',
       regrade_failed: 'Regrade failed: {msg}',
       regrade_in_progress: 'Grading still in progress — please wait.',
+      // Step 18 — Regrade 버튼 영구 비활성화 (사용자 결정: 답안 재작성으로 다시 Submit 권장)
+      btn_regrade_disabled_tooltip: 'Disabled — Resubmit a new answer instead; attempts accumulate in score graph',
     },
     ko: {
       mock_label: '시안',
@@ -2009,6 +2014,8 @@
       regrade_toast: '재채점 요청 완료. Claude Code 메인 세션에서 "채점해줘" 호출하세요.',
       regrade_failed: '재채점 요청 실패: {msg}',
       regrade_in_progress: '아직 채점 진행 중입니다 — 잠시 후 다시 시도하세요.',
+      // Step 18 — 재채점 버튼 영구 비활성화 (사용자 결정: 답안 재작성으로 다시 Submit 권장)
+      btn_regrade_disabled_tooltip: '비활성화 — 답안 재작성으로 다시 Submit하세요. 시도가 누적되어 점수 그래프에 표시됩니다',
     },
   };
 
@@ -2025,6 +2032,11 @@
     document.querySelectorAll('[data-i18n-ph]').forEach(el => {
       const k = el.dataset.iI18nPh || el.dataset.i18nPh;
       if (dict[k] !== undefined) el.placeholder = dict[k];
+    });
+    // Step 18 — data-i18n-title 속성 → title 툴팁 (disabled 버튼 안내용)
+    document.querySelectorAll('[data-i18n-title]').forEach(el => {
+      const k = el.dataset.i18nTitle;
+      if (dict[k] !== undefined) el.title = dict[k];
     });
     // Formatted pills (pill_pt, pill_err, pill_d, etc.) — replace the suffix/prefix only
     document.querySelectorAll('[data-i18n-fmt]').forEach(el => {
@@ -3461,10 +3473,12 @@
     setEvHeader(att.case_short_id || att.case_id || '—', subjLine, 'status_evaluated');
 
     // Step 17 — 재채점 버튼에 attempt_id 바인딩 (실제 click은 wireRegradeButtons 에서)
+    // Step 18 — UI 유지 + 영구 disabled (사용자 결정: 답안 재작성 권장).
+    //   attempt_id 는 dataset 에 계속 바인딩 (curl/devtools 에서 직접 호출 가능).
     const rgBtn = document.getElementById('btn-regrade-eval');
     if (rgBtn) {
       rgBtn.dataset.attemptId = String(att.id || att.attempt_id || '');
-      rgBtn.disabled = false;
+      rgBtn.disabled = true;  // Step 18 — 영구 disabled
     }
 
     // 점수
@@ -3655,8 +3669,10 @@
       const tmpl = dict.regrade_failed || 'Regrade failed: {msg}';
       showToast(tmpl.replace('{msg}', err.message || err), 'error');
     } finally {
-      if (evBtn) evBtn.disabled = false;
-      if (mdBtn) mdBtn.disabled = false;
+      // Step 18 — 영구 disabled 유지 (UI 클릭 X / curl·devtools 강제 호출 시에도 풀지 않음).
+      //   requestRegrade 함수 자체는 보존 (curl/API 호출 경로 살려둠).
+      if (evBtn) evBtn.disabled = true;
+      if (mdBtn) mdBtn.disabled = true;
     }
   }
 
@@ -4666,13 +4682,15 @@
     }
 
     // Step 17 — 재채점 버튼: completed 일 때만 표시
+    // Step 18 — UI 유지 + 영구 disabled (사용자 결정: 답안 재작성 권장).
+    //   disabled 라도 표시 자체는 status=completed 한정 (기존 로직 유지).
     const rgBtn = document.getElementById('btn-regrade-modal');
     if (rgBtn) {
       const isDone = (att.status === 'completed' || att.db_status === 'done');
       if (isDone) {
         rgBtn.dataset.attemptId = String(att.id || att.attempt_id || '');
         rgBtn.style.display = '';
-        rgBtn.disabled = false;
+        rgBtn.disabled = true;  // Step 18 — 영구 disabled
       } else {
         rgBtn.dataset.attemptId = '';
         rgBtn.style.display = 'none';
