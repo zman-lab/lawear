@@ -857,6 +857,12 @@ def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         out["score_pct"] = row["score_pct"]
         out["grade"] = row["grade"]
         out["model"] = row["model"]
+        # Step 14 — 시안 Reference Diff 2열 분할(내 답안 vs Lv.1)을 위해 done 응답에도 answer_text 포함.
+        # pending_grade 와 대칭. R-09 — 원문 그대로 (가공 X).
+        try:
+            out["answer_text"] = row["answer_text"]
+        except (IndexError, KeyError):
+            out["answer_text"] = None
         # eval_notes_json / diff_json 파싱
         try:
             out["eval_notes"] = json.loads(row["eval_notes_json"]) if row["eval_notes_json"] else {}

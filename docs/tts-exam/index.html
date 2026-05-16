@@ -460,6 +460,77 @@
   .diff-area .miss { background: rgba(209, 105, 105, 0.15); color: var(--danger); padding: 0 3px; }
   .diff-area .partial { background: rgba(206, 145, 120, 0.15); color: var(--warn); padding: 0 3px; }
 
+  /* Step 14 — Reference Diff 2열 분할 (내 답안 vs Lv.1) */
+  .diff-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .diff-col {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    min-height: 120px;
+  }
+  .diff-col .diff-col-header {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    font-family: inherit;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .diff-col .diff-col-header .diff-col-sub {
+    font-size: 9px;
+    color: var(--text-dim);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .diff-col .diff-col-body {
+    padding: 10px 12px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .diff-col .diff-col-body .miss {
+    background: rgba(209, 105, 105, 0.18);
+    color: var(--danger);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .diff-col .diff-col-body .partial {
+    background: rgba(206, 145, 120, 0.18);
+    color: var(--warn);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .diff-col .diff-col-body .dim {
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+  /* Lv.4 강조 태그 인라인 (R-28 [red][blue][bold][u][blank][blank2]) */
+  .diff-col .diff-col-body .em-red    { background: #d16969; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .diff-col .diff-col-body .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .diff-col .diff-col-body .em-bold   { font-weight: 700; color: var(--text-bright); }
+  .diff-col .diff-col-body .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
+  .diff-col .diff-col-body .em-blank  { background: #ffe066; color: #222; padding: 0 4px; border-radius: 2px; }
+  .diff-col .diff-col-body .em-blank2 { background: #d16969; color: #ffe066; padding: 0 4px; border-radius: 2px; }
+  @media (max-width: 720px) {
+    .diff-split { grid-template-columns: 1fr; }
+  }
+
   /* Sub-tabs (Reports) */
   .sub-tabs {
     display: flex;
@@ -901,6 +972,24 @@
               <span class="toggle-icon">▼</span>
             </div>
             <div class="section-body">
+              <!-- Step 14 — 2열 분할: 좌측 내 답안 / 우측 Lv.1 레퍼런스 (디폴트, 데이터 있을 때) -->
+              <div class="diff-split" id="ev-diff-split" style="display:none;">
+                <div class="diff-col">
+                  <div class="diff-col-header">
+                    <span data-i18n="diff_col_mine">My Answer</span>
+                    <span class="diff-col-sub" id="ev-diff-mine-sub"></span>
+                  </div>
+                  <div class="diff-col-body" id="ev-diff-mine"></div>
+                </div>
+                <div class="diff-col">
+                  <div class="diff-col-header">
+                    <span data-i18n="diff_col_ref">Reference (Lv.1)</span>
+                    <span class="diff-col-sub" id="ev-diff-ref-sub"></span>
+                  </div>
+                  <div class="diff-col-body" id="ev-diff-ref"></div>
+                </div>
+              </div>
+              <!-- Fallback: diff_segments 만 있을 때 (구버전 호환) -->
               <div class="diff-area" id="ev-diff-area">
                 <span style="color: var(--text-dim);" data-i18n="ev_diff_empty">No diff available.</span>
               </div>
@@ -1335,6 +1424,12 @@
       ev_error_code: 'Error',
       btn_retry: 'Retry',
       ev_diff_empty: 'No diff available.',
+      // Step 14 — Reference Diff 2열 분할
+      diff_col_mine: 'My Answer',
+      diff_col_ref: 'Reference (Lv.1)',
+      diff_col_mine_sub_fmt: '{n} chars',
+      diff_col_ref_sub_fmt: '{n} chars',
+      diff_col_ref_missing: 'No Lv.1 reference available.',
       err_submit_empty: 'Please enter reviewer notes before submitting.',
       err_submit_failed: 'Failed to submit for evaluation.',
       err_poll_failed: 'Failed to retrieve evaluation status.',
@@ -1468,6 +1563,12 @@
       ev_error_code: '에러',
       btn_retry: '다시 시도',
       ev_diff_empty: '비교 데이터 없음.',
+      // Step 14 — Reference Diff 2열 분할
+      diff_col_mine: '내 답안',
+      diff_col_ref: '레퍼런스 (Lv.1)',
+      diff_col_mine_sub_fmt: '{n}자',
+      diff_col_ref_sub_fmt: '{n}자',
+      diff_col_ref_missing: 'Lv.1 레퍼런스 없음.',
       err_submit_empty: '검토 의견을 입력한 뒤 제출하세요.',
       err_submit_failed: '평가 제출 실패.',
       err_poll_failed: '평가 상태 조회 실패.',
@@ -1904,6 +2005,7 @@
   const API_BASE = '';  // same origin (17896 자체)
   let CASES_CACHE = [];  // /api/cases 마지막 응답
   let CURRENT_CASE_ID = null;
+  let CURRENT_CASE_DATA = null;  // Step 14 — /api/cases/{id} 마지막 응답 (lv1 등) — Reference Diff 2열 렌더 자료
   let CURRENT_FILTER = 'all';
   let SEARCH_TERM = '';
 
@@ -2022,6 +2124,8 @@
       const r = await fetch(`${API_BASE}/api/cases/${encodeURIComponent(caseId)}`, { headers: { 'Accept': 'application/json' } });
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const c = await r.json();
+      // Step 14 — case 데이터 캐시 (Reference Diff 2열 렌더 시 lv1 활용)
+      CURRENT_CASE_DATA = c;
       // 헤더
       const shortId = `${c.file}-${c.case_no}`;
       if (idEl) idEl.textContent = shortId;
@@ -2036,6 +2140,7 @@
       if (inqEl) inqEl.textContent = question || (I18N[currentLang].err_load);
     } catch (err) {
       console.error('loadCase failed:', err);
+      CURRENT_CASE_DATA = null;
       if (bgEl) bgEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
       if (inqEl) inqEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
     }
@@ -2518,21 +2623,28 @@
     }
   }
 
+  // Step 14 — autoSaveTimer 를 외부 스코프로 hoist (submitAttempt 성공 시 클리어 필요)
+  let __notesAutoSaveTimer = null;
   if (notesEl) {
-    let autoSaveTimer = null;
     notesEl.addEventListener('input', () => {
       // chars 즉시 갱신
       updateNotesInfo(null);
       // 1초 debounce → localStorage 저장
-      clearTimeout(autoSaveTimer);
-      autoSaveTimer = setTimeout(() => {
+      clearTimeout(__notesAutoSaveTimer);
+      __notesAutoSaveTimer = setTimeout(() => {
         const t = saveDraft(CURRENT_CASE_ID, notesEl.value);
         if (t) updateNotesInfo(t);
       }, 1000);
     });
   }
+  function clearNotesAutoSaveTimer() {
+    if (__notesAutoSaveTimer) {
+      clearTimeout(__notesAutoSaveTimer);
+      __notesAutoSaveTimer = null;
+    }
+  }
 
-  // 케이스 전환 시 draft 복원 + chars 라벨 reset
+  // 케이스 전환 시 draft 복원 + chars 라벨 reset + Step 14 마지막 채점 자동 로드
   (function hookCaseChange() {
     const origLoadCase = loadCase;
     window.__origLoadCase = origLoadCase;  // 디버그용
@@ -2553,6 +2665,10 @@
       }
       // Evaluation 탭은 빈 상태로 리셋 (새 attempt 시작 전)
       resetEvaluationView();
+      // Step 14-3 — 마지막 채점(completed) 자동 로드. 있으면 Evaluation 즉시 표시, 없으면 empty 유지.
+      loadLastCompletedAttempt(caseId).catch((err) => {
+        console.warn('loadLastCompletedAttempt failed:', err);
+      });
     };
   })();
 
@@ -2585,6 +2701,14 @@
       stEl.style.color = '';
       stEl.style.borderColor = '';
       stEl.style.background = '';
+    }
+    // Step 14 — Diff 2열/fallback 모두 reset (이전 케이스 데이터 잔존 방지)
+    const splitEl = document.getElementById('ev-diff-split');
+    const fallbackEl = document.getElementById('ev-diff-area');
+    if (splitEl) splitEl.style.display = 'none';
+    if (fallbackEl) {
+      fallbackEl.style.display = '';
+      fallbackEl.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].ev_diff_empty}</span>`;
     }
   }
 
@@ -2672,6 +2796,114 @@
     }
   }
 
+  // ─── Step 14 — Reference Diff 2열 분할 렌더 헬퍼 ───
+  // Lv.4 강조 태그 인라인 렌더링 (R-28 [red][blue][bold][u][blank][blank2])
+  // 입력은 plain text — 먼저 HTML escape 한 뒤 태그를 span 으로 치환.
+  function renderEmphasisInline(text) {
+    if (text == null) return '';
+    let html = escapeHtml(String(text));
+    // 강조 태그는 escape 후 형태로 매칭: [red]…[/red] etc.
+    // [/x] 가 ]/x로 escape 되지 않으므로 안전.
+    const tagMap = [
+      ['red', 'em-red'],
+      ['blue', 'em-blue'],
+      ['bold', 'em-bold'],
+      ['u', 'em-u'],
+      ['blank2', 'em-blank2'],
+      ['blank', 'em-blank'],
+    ];
+    for (const [tag, cls] of tagMap) {
+      // 비탐욕 매칭, 다중 줄 허용
+      const re = new RegExp('\\[' + tag + '\\]([\\s\\S]*?)\\[\\/' + tag + '\\]', 'g');
+      html = html.replace(re, '<span class="' + cls + '">$1</span>');
+    }
+    return html;
+  }
+
+  // miss 키워드 배열로 본문 내 누락 단어를 .miss 로 마킹
+  function highlightMissKeywords(html, missKeywords) {
+    if (!Array.isArray(missKeywords) || missKeywords.length === 0) return html;
+    let out = html;
+    for (const kw of missKeywords) {
+      const safe = escapeHtml(String(kw || '')).trim();
+      if (!safe || safe.length < 2) continue;  // 1자 키워드는 false-positive 너무 많음
+      // 정규식 escape
+      const re = new RegExp(safe.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+      out = out.replace(re, '<span class="miss">' + safe + '</span>');
+    }
+    return out;
+  }
+
+  // diff_segments 에서 type='miss' 텍스트만 추출 (레퍼런스에서 강조)
+  function extractMissTokens(segments) {
+    if (!Array.isArray(segments)) return [];
+    const tokens = [];
+    for (const s of segments) {
+      if (s && (s.type === 'miss' || s.type === 'partial')) {
+        const t = String(s.text || '').trim();
+        if (t.length >= 2) tokens.push(t);
+      }
+    }
+    return tokens;
+  }
+
+  // 2열 분할 렌더 — 내 답안(att.answer_text) + Lv.1 레퍼런스(case_data.lv1)
+  // 케이스 데이터가 없으면 false 반환 → 호출자가 fallback (.diff-area) 표시.
+  function renderDiffColumns(att, caseData) {
+    const splitEl = document.getElementById('ev-diff-split');
+    const fallbackEl = document.getElementById('ev-diff-area');
+    const mineEl = document.getElementById('ev-diff-mine');
+    const refEl  = document.getElementById('ev-diff-ref');
+    const mineSubEl = document.getElementById('ev-diff-mine-sub');
+    const refSubEl  = document.getElementById('ev-diff-ref-sub');
+    if (!splitEl || !mineEl || !refEl) return false;
+
+    const myText = (att && typeof att.answer_text === 'string') ? att.answer_text : null;
+    const refText = (caseData && typeof caseData.lv1 === 'string') ? caseData.lv1 : null;
+
+    // 둘 다 없으면 2열 hidden, fallback 표시
+    if (!myText && !refText) {
+      splitEl.style.display = 'none';
+      if (fallbackEl) fallbackEl.style.display = '';
+      return false;
+    }
+
+    // miss 토큰: diff_segments 기반 (있으면)
+    const missTokens = extractMissTokens(att.diff_segments);
+
+    // 좌측 — 내 답안 (강조 태그 X, escape + miss 키워드만 마킹)
+    if (myText) {
+      const escaped = escapeHtml(myText);
+      mineEl.innerHTML = highlightMissKeywords(escaped, missTokens) ||
+        '<span class="dim">' + escapeHtml(I18N[currentLang].ev_diff_empty) + '</span>';
+      if (mineSubEl) {
+        const tmpl = I18N[currentLang].diff_col_mine_sub_fmt || '{n} chars';
+        mineSubEl.textContent = tmpl.replace('{n}', myText.length);
+      }
+    } else {
+      mineEl.innerHTML = '<span class="dim">' + escapeHtml(I18N[currentLang].ev_diff_empty) + '</span>';
+      if (mineSubEl) mineSubEl.textContent = '';
+    }
+
+    // 우측 — Lv.1 레퍼런스 (강조 태그 보존 + miss 키워드 강조)
+    if (refText) {
+      const emphasised = renderEmphasisInline(refText);
+      refEl.innerHTML = highlightMissKeywords(emphasised, missTokens);
+      if (refSubEl) {
+        const tmpl = I18N[currentLang].diff_col_ref_sub_fmt || '{n} chars';
+        refSubEl.textContent = tmpl.replace('{n}', refText.length);
+      }
+    } else {
+      refEl.innerHTML = '<span class="dim">' +
+        escapeHtml(I18N[currentLang].diff_col_ref_missing || 'No Lv.1 reference available.') + '</span>';
+      if (refSubEl) refSubEl.textContent = '';
+    }
+
+    splitEl.style.display = '';
+    if (fallbackEl) fallbackEl.style.display = 'none';
+    return true;
+  }
+
   function renderEvaluationDone(att) {
     // 헤더
     const submitted = (att.submitted_at || '').replace('T', ' ').replace('Z', '');
@@ -2702,14 +2934,18 @@
     setText('ev-note-caution',  notes.caution  || '—');
     setText('ev-note-missing',  notes.missing  || '—');
 
-    // diff_html
-    const diffEl = document.getElementById('ev-diff-area');
-    if (diffEl) {
-      const html = att.diff_html || '';
-      if (html.trim()) {
-        diffEl.innerHTML = html;
-      } else {
-        diffEl.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].ev_diff_empty}</span>`;
+    // Step 14 — Reference Diff 2열 분할 우선 시도. 데이터 없으면 fallback diff_html.
+    const splitOk = renderDiffColumns(att, CURRENT_CASE_DATA);
+    if (!splitOk) {
+      const diffEl = document.getElementById('ev-diff-area');
+      if (diffEl) {
+        const html = att.diff_html || '';
+        if (html.trim()) {
+          diffEl.innerHTML = html;
+        } else {
+          diffEl.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].ev_diff_empty}</span>`;
+        }
+        diffEl.style.display = '';
       }
     }
 
@@ -2791,6 +3027,50 @@
     }
   }
 
+  // ─── Step 14-3 — 케이스 선택 시 마지막 채점 자동 로드 ───
+  // GET /api/attempts?case_id=X&status=completed&limit=1 → 최신 completed 1건 id 획득.
+  // 있으면 GET /api/attempts/{id} 로 풀 데이터(criteria/eval_notes/diff_segments) 가져와 렌더.
+  // 없으면 Evaluation 탭은 empty 유지 (resetEvaluationView 가 이미 처리).
+  async function loadLastCompletedAttempt(caseId) {
+    if (!caseId) return;
+    const targetCase = caseId;
+    try {
+      const listUrl = `${API_BASE}/api/attempts?case_id=${encodeURIComponent(caseId)}&status=completed&limit=1`;
+      const lr = await fetch(listUrl, { headers: { 'Accept': 'application/json' } });
+      if (!lr.ok) throw new Error('HTTP ' + lr.status);
+      const ld = await lr.json();
+      const items = (ld && Array.isArray(ld.attempts)) ? ld.attempts : [];
+      if (items.length === 0) return;  // 채점 이력 없음 — empty 유지
+
+      // 케이스 전환됐으면 중단 (race)
+      if (CURRENT_CASE_ID !== targetCase) return;
+
+      const lastId = items[0].id || items[0].attempt_id;
+      if (!lastId) return;
+
+      const ar = await fetch(`${API_BASE}/api/attempts/${encodeURIComponent(lastId)}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!ar.ok) throw new Error('HTTP ' + ar.status);
+      const att = await ar.json();
+
+      // 다시 race 체크 — fetch 동안 케이스가 바뀌었을 수 있음
+      if (CURRENT_CASE_ID !== targetCase) return;
+      // 다른 attempt 가 진행 중이면 (예: Submit 직후 폴링) 덮어쓰지 않음
+      if (CURRENT_ATTEMPT_ID && CURRENT_ATTEMPT_ID !== lastId) return;
+
+      CURRENT_ATTEMPT_ID = lastId;
+      if (att.status === 'completed' || att.db_status === 'done') {
+        renderEvaluationDone(att);
+      }
+      // 마지막이 grading/pending/error 이면 일반적으로 status='completed' 필터에 안 잡힘.
+      // 안전상 무시 — 사용자가 submit 하면 정상 폴링이 다시 시작됨.
+    } catch (err) {
+      // 자동 로드 실패는 silent — empty 유지
+      console.warn('loadLastCompletedAttempt:', err);
+    }
+  }
+
   // ─── Submit / Save Draft 버튼 ───
   const submitBtn = document.getElementById('btn-submit');
   const saveDraftBtn = document.getElementById('btn-save-draft');
@@ -2864,6 +3144,18 @@
         showToast(tmpl, 'error');
       }
       CURRENT_ATTEMPT_ID = body.attempt_id;
+      // Step 14-1 — Submit 성공 시 textarea/draft/timer 클리어 (다음 답안 입력 가능 상태로).
+      // 사용자가 Evaluation 탭에서 채점 결과 보는 동안 Review 탭 textarea 는 비워둠.
+      // 이전 답안은 attempt(=CURRENT_ATTEMPT_ID) 에 영구 저장되어 GET 으로 조회 가능.
+      try {
+        const draftKeyToRemove = draftKey(CURRENT_CASE_ID);
+        localStorage.removeItem(draftKeyToRemove);
+      } catch (e) { /* ignore */ }
+      clearNotesAutoSaveTimer();
+      if (notesEl) {
+        notesEl.value = '';
+        updateNotesInfo(null);
+      }
       // 즉시 1회 폴링
       pollAttempt(CURRENT_ATTEMPT_ID);
     } catch (err) {
