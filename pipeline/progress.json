@@ -1,5 +1,5 @@
 {
-  "lastUpdated": "2026-05-16T07:14:31.385016+00:00",
+  "lastUpdated": "2026-05-16T11:53:05.720626+00:00",
   "subjects": {
     "minbeop": {
       "files": {
@@ -54,13 +54,72 @@
           "label": "모고02"
         }
       }
+    },
+    "minso": {
+      "files": {
+        "yebi_mike01": {
+          "status": "extracted",
+          "cases": 5,
+          "label": "미케01"
+        },
+        "yebi_mike02": {
+          "status": "extracted",
+          "cases": 9,
+          "label": "미케02"
+        },
+        "yebi_mike03": {
+          "status": "extracted",
+          "cases": 11,
+          "label": "미케03"
+        },
+        "yebi_mike04": {
+          "status": "extracted",
+          "cases": 9,
+          "label": "미케04"
+        },
+        "yebi_mike05": {
+          "status": "extracted",
+          "cases": 14,
+          "label": "미케05"
+        },
+        "yebi_mogo01": {
+          "status": "extracted",
+          "cases": 2,
+          "label": "모고01"
+        },
+        "yebi_mogo02": {
+          "status": "extracted",
+          "cases": 2,
+          "label": "모고02"
+        },
+        "immun_mike01": {
+          "status": "extracted",
+          "cases": 8,
+          "label": "미케01"
+        },
+        "immun_mike02": {
+          "status": "extracted",
+          "cases": 12,
+          "label": "미케02"
+        },
+        "immun_mike03": {
+          "status": "extracted",
+          "cases": 6,
+          "label": "미케03"
+        },
+        "immun_mike04": {
+          "status": "extracted",
+          "cases": 8,
+          "label": "미케04"
+        }
+      }
     }
   },
   "stats": {
-    "totalFiles": 10,
-    "extractedFiles": 10,
+    "totalFiles": 21,
+    "extractedFiles": 21,
     "ttsDoneFiles": 0,
-    "totalCases": 115,
-    "extractedCases": 115
+    "totalCases": 201,
+    "extractedCases": 201
   }
 }
