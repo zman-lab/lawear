@@ -68,20 +68,21 @@ def _build_db(db_path: str) -> None:
 
 
 def _full_grade_payload(**overrides: object) -> dict:
-    """PUT /grade 입력 — 7기준 + total/max/pct + grade + eval_notes."""
+    """PUT /grade 입력 — 8기준 + total/max/pct + grade + eval_notes (Step 20 v4)."""
     base: dict = {
         "criteria": [
-            {"key": "mnemonics", "score": 3, "weight_applied": 20, "comment": "두문자"},
-            {"key": "color", "score": 11, "weight_applied": 15, "comment": "색강조"},
-            {"key": "underline", "score": 2, "weight_applied": 10, "comment": "밑줄"},
-            {"key": "outline", "score": 3, "weight_applied": 15, "comment": "목차"},
-            {"key": "semantic", "score": 8, "weight_applied": 15, "comment": "의미"},
-            {"key": "richness", "score": 1, "weight_applied": 10, "comment": "Lv.1"},
-            {"key": "missing", "score": -2, "weight_applied": 15, "comment": "누락"},
+            {"key": "mnemonics", "score": 3, "weight_applied": 16, "comment": "두문자"},
+            {"key": "color", "score": 11, "weight_applied": 13, "comment": "색강조"},
+            {"key": "underline", "score": 2, "weight_applied": 8, "comment": "밑줄"},
+            {"key": "outline", "score": 3, "weight_applied": 10, "comment": "목차"},
+            {"key": "semantic", "score": 8, "weight_applied": 12, "comment": "의미"},
+            {"key": "richness", "score": 15, "weight_applied": 20, "comment": "사안의 경우"},
+            {"key": "missing", "score": -2, "weight_applied": 11, "comment": "누락"},
+            {"key": "articles", "score": 8, "weight_applied": 10, "comment": "조문"},
         ],
-        "total_score": 14.0,
+        "total_score": 14.78,
         "max_score": 17.0,
-        "score_pct": 82.4,
+        "score_pct": 82.47,
         "grade": "B",
         "eval_notes": {"strength": "S", "caution": "C", "missing": "M"},
         "diff_segments": [{"type": "match", "text": "재건축조합"}],

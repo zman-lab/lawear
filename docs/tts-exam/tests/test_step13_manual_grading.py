@@ -77,20 +77,21 @@ def _build_db(db_path: str) -> None:
 
 
 def _full_grade_payload(**overrides) -> dict:
-    """PUT /grade 입력 — 7기준 + total/max/pct + grade + eval_notes."""
+    """PUT /grade 입력 — 8기준 + total/max/pct + grade + eval_notes (Step 20 v4)."""
     base = {
         "criteria": [
-            {"key": "mnemonics", "score": 3, "weight_applied": 20, "comment": "두문자 일부 반영"},
-            {"key": "color", "score": 11, "weight_applied": 15, "comment": "색강조 OK"},
-            {"key": "underline", "score": 2, "weight_applied": 10, "comment": "밑줄 OK"},
-            {"key": "outline", "score": 3, "weight_applied": 15, "comment": "목차 일치"},
-            {"key": "semantic", "score": 8, "weight_applied": 15, "comment": "의미 일치"},
-            {"key": "richness", "score": 1, "weight_applied": 10, "comment": "Lv.1 수준"},
-            {"key": "missing", "score": -2, "weight_applied": 15, "comment": "증명책임 누락"},
+            {"key": "mnemonics", "score": 3, "weight_applied": 16, "comment": "두문자 일부 반영"},
+            {"key": "color", "score": 11, "weight_applied": 13, "comment": "색강조 OK"},
+            {"key": "underline", "score": 2, "weight_applied": 8, "comment": "밑줄 OK"},
+            {"key": "outline", "score": 3, "weight_applied": 10, "comment": "목차 일치"},
+            {"key": "semantic", "score": 8, "weight_applied": 12, "comment": "의미 일치"},
+            {"key": "richness", "score": 15, "weight_applied": 20, "comment": "사안의 경우 적용"},
+            {"key": "missing", "score": -2, "weight_applied": 11, "comment": "증명책임 누락"},
+            {"key": "articles", "score": 8, "weight_applied": 10, "comment": "제397조 명시"},
         ],
-        "total_score": 14.0,
+        "total_score": 14.78,
         "max_score": 17.0,
-        "score_pct": 82.4,
+        "score_pct": 82.47,
         "grade": "B",
         "eval_notes": {
             "strength": "목차 OK",
@@ -292,21 +293,22 @@ class InjectGradeTest(unittest.TestCase):
         os.unlink(self.tmp.name)
 
     def test_inject_grade_marks_attempt_completed(self) -> None:
-        """정상 입력 → status='done' (client 라벨 'completed')."""
+        """정상 입력 → status='done' (client 라벨 'completed', Step 20 v4 8기준)."""
         with db_mod.get_conn(self.tmp.name) as conn:
             out = attempts_mod.inject_grade(conn, self.attempt_id, _full_grade_payload())
             self.assertEqual(out["status"], "completed")
             self.assertEqual(out["grade"], "B")
-            self.assertAlmostEqual(out["score_total"], 14.0, places=3)
-            self.assertEqual(len(out["criteria"]), 7)
+            # Step 20 v4: 소수점 2자리 (실제 시험 형식)
+            self.assertAlmostEqual(out["score_total"], 14.78, places=2)
+            self.assertEqual(len(out["criteria"]), 8)
 
-            # 7기준 모두 DB 에 row 존재
+            # 8기준 모두 DB 에 row 존재 (Step 20 v4 — articles 신설)
             rows = conn.execute(
                 "SELECT criterion_key FROM attempt_criteria WHERE attempt_id = ?",
                 (self.attempt_id,),
             ).fetchall()
         keys = sorted(r["criterion_key"] for r in rows)
-        self.assertEqual(keys, sorted(["mnem", "color", "under", "outline", "sem", "rich", "miss"]))
+        self.assertEqual(keys, sorted(["mnem", "color", "under", "outline", "sem", "rich", "miss", "articles"]))
 
     def test_inject_grade_404_for_unknown_attempt(self) -> None:
         with db_mod.get_conn(self.tmp.name) as conn:
@@ -321,13 +323,22 @@ class InjectGradeTest(unittest.TestCase):
                 attempts_mod.inject_grade(conn, self.attempt_id, _full_grade_payload())
 
     def test_inject_grade_400_missing_criteria_key(self) -> None:
-        """7기준 중 'missing' 누락 → GradeInjectionError."""
+        """8기준 중 'missing' 누락 → GradeInjectionError (Step 20 v4)."""
         payload = _full_grade_payload()
         payload["criteria"] = [c for c in payload["criteria"] if c["key"] != "missing"]
         with db_mod.get_conn(self.tmp.name) as conn:
             with self.assertRaises(attempts_mod.GradeInjectionError) as ctx:
                 attempts_mod.inject_grade(conn, self.attempt_id, payload)
         self.assertIn("missing keys", str(ctx.exception))
+
+    def test_inject_grade_400_missing_articles_key(self) -> None:
+        """Step 20 v4: 'articles' 누락 → GradeInjectionError (v3 호환 데이터 거부)."""
+        payload = _full_grade_payload()
+        payload["criteria"] = [c for c in payload["criteria"] if c["key"] != "articles"]
+        with db_mod.get_conn(self.tmp.name) as conn:
+            with self.assertRaises(attempts_mod.GradeInjectionError) as ctx:
+                attempts_mod.inject_grade(conn, self.attempt_id, payload)
+        self.assertIn("articles", str(ctx.exception))
 
     def test_inject_grade_400_unknown_criteria_alias(self) -> None:
         """잘못된 key (예: 'foo') → GradeInjectionError."""
@@ -338,13 +349,14 @@ class InjectGradeTest(unittest.TestCase):
                 attempts_mod.inject_grade(conn, self.attempt_id, payload)
 
     def test_inject_grade_accepts_short_aliases(self) -> None:
-        """grader.CRITERION_KEYS 짧은 이름 직접 입력도 OK."""
+        """grader.CRITERION_KEYS 짧은 이름 직접 입력도 OK (Step 20 v4 — articles 추가)."""
         payload = _full_grade_payload()
         # 모든 키를 짧은 이름으로 치환
         long_to_short = {
             "mnemonics": "mnem", "color": "color", "underline": "under",
             "outline": "outline", "semantic": "sem", "richness": "rich",
             "missing": "miss",
+            "articles": "articles",  # Step 20 v4 — long/short 동일
         }
         for c in payload["criteria"]:
             c["key"] = long_to_short[c["key"]]
@@ -459,8 +471,9 @@ class MigrationV3Test(unittest.TestCase):
         os.unlink(self.tmp.name)
 
     def test_init_db_reaches_v3(self) -> None:
+        """Step 20 v4 (2026-05-16): TARGET_SCHEMA_VERSION=4 (이름은 호환 유지)."""
         version = db_mod.init_db(self.tmp.name)
-        self.assertEqual(version, 3)
+        self.assertEqual(version, 4)
 
     def test_status_check_constraint_accepts_pending_grade(self) -> None:
         """attempts.status='pending_grade' INSERT 가능."""

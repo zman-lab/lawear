@@ -70,20 +70,21 @@ def _build_db(db_path: str) -> None:
 
 
 def _full_grade_payload() -> dict:
-    """inject_grade 페이로드 — done 상태 만들기용."""
+    """inject_grade 페이로드 — done 상태 만들기용 (Step 20 v4 8기준)."""
     return {
         "criteria": [
-            {"key": "mnemonics", "score": 3, "weight_applied": 20, "comment": ""},
-            {"key": "color", "score": 11, "weight_applied": 15, "comment": ""},
-            {"key": "underline", "score": 2, "weight_applied": 10, "comment": ""},
-            {"key": "outline", "score": 3, "weight_applied": 15, "comment": ""},
-            {"key": "semantic", "score": 8, "weight_applied": 15, "comment": ""},
-            {"key": "richness", "score": 1, "weight_applied": 10, "comment": ""},
-            {"key": "missing", "score": -2, "weight_applied": 15, "comment": ""},
+            {"key": "mnemonics", "score": 3, "weight_applied": 16, "comment": ""},
+            {"key": "color", "score": 11, "weight_applied": 13, "comment": ""},
+            {"key": "underline", "score": 2, "weight_applied": 8, "comment": ""},
+            {"key": "outline", "score": 3, "weight_applied": 10, "comment": ""},
+            {"key": "semantic", "score": 8, "weight_applied": 12, "comment": ""},
+            {"key": "richness", "score": 15, "weight_applied": 20, "comment": ""},
+            {"key": "missing", "score": -2, "weight_applied": 11, "comment": ""},
+            {"key": "articles", "score": 8, "weight_applied": 10, "comment": ""},
         ],
-        "total_score": 14.0,
+        "total_score": 14.78,
         "max_score": 17.0,
-        "score_pct": 82.4,
+        "score_pct": 82.47,
         "grade": "B",
         "eval_notes": {"strength": "S", "caution": "C", "missing": "M"},
         "diff_segments": [{"type": "match", "text": "재건축조합"}],
@@ -130,7 +131,8 @@ class ResetGradeTest(unittest.TestCase):
                 (self.attempt_id,),
             ).fetchone()
             self.assertEqual(pre["status"], "done")
-            self.assertAlmostEqual(pre["score_total"], 14.0, places=3)
+            # Step 20 v4 (2026-05-16): 페이로드 갱신 — total_score=14.78 (8기준)
+            self.assertAlmostEqual(pre["score_total"], 14.78, places=2)
 
             # reset
             out = attempts_mod.reset_grade(conn, self.attempt_id)
@@ -165,15 +167,15 @@ class ResetGradeTest(unittest.TestCase):
         self.assertEqual(post["answer_text"], "검토 의견 본문 — Step 17")
 
     def test_reset_done_attempt_deletes_attempt_criteria(self) -> None:
-        """done → reset → attempt_criteria 7행 모두 삭제."""
+        """done → reset → attempt_criteria 8행 모두 삭제 (Step 20 v4)."""
         with db_mod.get_conn(self.tmp.name) as conn:
             attempts_mod.inject_grade(conn, self.attempt_id, _full_grade_payload())
-            # 7행 있음 확인
+            # 8행 있음 확인 (Step 20 v4 — articles 신설)
             pre_n = conn.execute(
                 "SELECT count(*) AS n FROM attempt_criteria WHERE attempt_id = ?",
                 (self.attempt_id,),
             ).fetchone()["n"]
-            self.assertEqual(pre_n, 7)
+            self.assertEqual(pre_n, 8)
 
             attempts_mod.reset_grade(conn, self.attempt_id)
 
