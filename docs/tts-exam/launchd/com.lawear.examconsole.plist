@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.lawear.examconsole</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/python3</string>
+        <string>/Users/nhn/zman-lab/lawear/docs/tts-exam/server.py</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/nhn/zman-lab/lawear/docs/tts-exam</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>LAWEAR_EXAM_PORT</key>
+        <string>17896</string>
+        <key>LAWEAR_EXAM_BIND</key>
+        <string>127.0.0.1</string>
+    </dict>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>KeepAlive</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/tmp/lawear_examconsole.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/tmp/lawear_examconsole.err</string>
+</dict>
+</plist>

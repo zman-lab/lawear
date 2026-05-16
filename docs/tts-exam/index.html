@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lawear Exam Console — Bootstrapping</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #0f1115;
+      --fg: #e6e6e6;
+      --muted: #8a8f98;
+      --accent: #7aa2f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro", "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--fg);
+      padding: 24px;
+    }
+    .card {
+      max-width: 480px;
+      width: 100%;
+      padding: 32px;
+      border: 1px solid #1f2430;
+      border-radius: 12px;
+      background: #141821;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 20px;
+      letter-spacing: 0.5px;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      font-size: 11px;
+      color: var(--accent);
+      border: 1px solid var(--accent);
+      border-radius: 999px;
+      margin-bottom: 16px;
+    }
+    p { margin: 8px 0; color: var(--muted); line-height: 1.6; }
+    code { color: var(--accent); }
+    ul { padding-left: 20px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <span class="tag">Step 1 · Bootstrap</span>
+    <h1>Lawear Exam Console</h1>
+    <p>17896 시험 콘솔이 부트스트랩되었습니다. 시안 본체는 후속 Step에서 이식 예정.</p>
+    <ul>
+      <li>Port: <code>17896</code> (127.0.0.1)</li>
+      <li>Health: <code>GET /api/health</code></li>
+      <li>Spec archive: <code>#43 / #45 / #48 / #51</code></li>
+    </ul>
+  </main>
+</body>
+</html>
