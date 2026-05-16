@@ -379,6 +379,15 @@
   .btn.mic:hover { color: var(--warn); border-color: var(--warn); }
   .btn.mic.recording { background: rgba(209,105,105,0.15); color: var(--danger); border-color: var(--danger); }
 
+  /* Step 23 — exam start/timer btn */
+  #btn-exam-start { font-variant-numeric: tabular-nums; }
+  #btn-exam-start.running {
+    background: rgba(78,201,176,0.10);
+    color: #4ec9b0;
+    border-color: #4ec9b0;
+  }
+  #btn-exam-start.running:hover { border-color: #4ec9b0; color: #4ec9b0; }
+
   /* Evaluation */
   .score-overview {
     display: grid;
@@ -1192,6 +1201,7 @@
             <textarea id="rv-notes" placeholder="검토 의견을 입력하세요. 마이크 버튼으로 음성 입력 가능." data-i18n-ph="notes_ph"></textarea>
             <div class="answer-toolbar">
               <span class="info" id="rv-notes-info" data-i18n-fmt="info_chars">0 chars · auto-saved at —</span>
+              <button class="btn" id="btn-exam-start" data-i18n="exam_start" type="button">🟢 시작</button>
               <button class="btn mic">● <span data-i18n="btn_voice">Voice Input</span></button>
               <button class="btn" id="btn-save-draft" data-i18n="btn_save_draft">Save Draft</button>
               <button class="btn primary" id="btn-submit" data-i18n="btn_submit">Submit for Evaluation</button>
@@ -1364,10 +1374,11 @@
                   <th data-i18n="col_title">Title</th>
                   <th style="text-align:right;" data-i18n="col_score">Score</th>
                   <th style="text-align:right;" data-i18n="col_grade">Grade</th>
+                  <th style="text-align:right;" data-i18n="exam_col_elapsed">Elapsed</th>
                 </tr>
               </thead>
               <tbody id="rep-ov-recent-tbody">
-                <tr><td colspan="5" style="text-align:center; color: var(--text-dim);" data-i18n="loading">Loading…</td></tr>
+                <tr><td colspan="6" style="text-align:center; color: var(--text-dim);" data-i18n="loading">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -1480,11 +1491,12 @@
                   <th data-i18n="col_attempt">#</th>
                   <th data-i18n="col_date">Date</th>
                   <th style="text-align:right;" data-i18n="col_score">Score</th>
+                  <th style="text-align:right;" data-i18n="exam_col_elapsed">Elapsed</th>
                   <th data-i18n="col_main_miss">Main Miss</th>
                 </tr>
               </thead>
               <tbody id="rep-case-history-tbody">
-                <tr><td colspan="4" style="text-align:center; color: var(--text-dim);" data-i18n="loading">Loading…</td></tr>
+                <tr><td colspan="5" style="text-align:center; color: var(--text-dim);" data-i18n="loading">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -1814,6 +1826,12 @@
       info_saved_at: 'auto-saved at {t}',
       info_saved_never: 'auto-saved at —',
       draft_saved: 'Draft saved locally.',
+      // Step 23 — exam timer
+      exam_start: '🟢 Start',
+      exam_running_fmt: '▶ Solving ({t})',
+      exam_started_label: 'Started',
+      exam_elapsed_label: 'Elapsed',
+      exam_col_elapsed: 'Elapsed',
       // wire (Step 10 — Reports)
       rep_loading: 'Loading…',
       rep_empty: 'No data yet. Submit at least one evaluation to see reports.',
@@ -1985,6 +2003,12 @@
       info_saved_at: '자동저장 {t}',
       info_saved_never: '자동저장 —',
       draft_saved: '임시저장 완료 (로컬).',
+      // Step 23 — exam timer
+      exam_start: '🟢 시작',
+      exam_running_fmt: '▶ 풀이 중 ({t})',
+      exam_started_label: '시작',
+      exam_elapsed_label: '풀이시간',
+      exam_col_elapsed: '풀이시간',
       // wire (Step 10 — 리포트)
       rep_loading: '불러오는 중…',
       rep_empty: '데이터 없음. 평가를 한 건 이상 제출해야 리포트 표시.',
@@ -2661,28 +2685,108 @@
         bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> ${escapeHtml(c.subject_kor)} <a href="#">/</a> ${escapeHtml(c.category)} <a href="#">/</a> ${escapeHtml(c.file)} <a href="#">/</a> ${escapeHtml(c.case_no)}`;
       }
       if (ptsEl) ptsEl.textContent = `${c.points} pt`;
-      // Background / Inquiry: 원본 섹션을 사실관계 / 문제 로 split
+      // Background / Inquiry: 원본 섹션을 사실관계 / 문제 로 split (Step 22 — 다중 설문 통합)
       const { facts, question } = splitOriginFactsQuestion(c.origin || '');
-      if (bgEl) bgEl.textContent = facts || (I18N[currentLang].err_load);
-      if (inqEl) inqEl.textContent = question || (I18N[currentLang].err_load);
+      if (bgEl) {
+        if (facts) {
+          bgEl.innerHTML = renderOriginText(facts);
+        } else {
+          bgEl.textContent = I18N[currentLang].err_load;
+        }
+      }
+      if (inqEl) {
+        if (question) {
+          inqEl.innerHTML = renderOriginText(question);
+        } else {
+          inqEl.textContent = I18N[currentLang].err_load;
+        }
+      }
     } catch (err) {
       console.error('loadCase failed:', err);
       CURRENT_CASE_DATA = null;
       if (bgEl) bgEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
       if (inqEl) inqEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
     }
+
+    // Step 23 — 케이스 진입 시 자동 시작 + 시작 버튼 상태 갱신
+    autoStartExamIfNeeded(caseId);
   }
 
-  // 원본 섹션 .md 본문에서 ### 사실관계 / ### 문제 추출
+  // 원본 섹션 .md 본문에서 사실관계 / 문제 추출 (Step 22 — 다중 설문 통합 강화)
+  // 지원 헤더 패턴:
+  //   ### 사실관계 / ### 공통된 사실관계 / ### 기본적 사실관계 / ### 변형된 사실관계
+  //   ### 문제 / ### 설문 N / ### 설문 N (점수) / ### 설문 N 가, ### 설문 N 나 ...
+  //
+  // 다중 설문 케이스: 공통 사실관계 + 설문 1/2/N 본문을 한 케이스로 통합 (사용자 명시 2026-05-17).
+  // 답안 헤더(### 설문 N 답안)는 question 에서 제외.
   function splitOriginFactsQuestion(originRaw) {
     if (!originRaw) return { facts: '', question: '' };
-    // 정규식으로 ### 사실관계 ... ### 문제 / 또는 ### 문제 ... 끝
-    const factsMatch = originRaw.match(/###\s*사실관계\s*([\s\S]*?)(?=###\s|$)/);
-    const questionMatch = originRaw.match(/###\s*문제\s*([\s\S]*?)(?=###\s|$)/);
+
+    // 1) facts 추출: 우선 ### 사실관계 (단일) → 없으면 ### *사실관계* (공통된/기본적/변형된 등)
+    const factsRe = /###\s*(?:공통된\s*|기본적\s*|변형된\s*|기본\s*|공통\s*|변형\s*)?사실관계[^\n]*\n([\s\S]*?)(?=###\s|$)/;
+    const factsMatch = originRaw.match(factsRe);
+
+    // 2) question 추출: ### 문제 단일 매칭
+    const singleQRe = /###\s*문제[^\n]*\n([\s\S]*?)(?=###\s|$)/;
+    const singleQMatch = originRaw.match(singleQRe);
+
+    // 3) 다중 설문 매칭 — "### 설문 N ..." 헤더 (단, "### 설문 N 답안" / "### 설문 N 가 답안" 류 제외)
+    //    헤더 라인 자체는 출력에서 보존 (사용자가 점수 등 확인 가능)
+    const multiInquiries = [];
+    const inquiryHeaderRe = /^###\s*설문\s*\S[^\n]*$/gm;  // "### 설문 1 (20점)" / "### 설문 1 가 (12점)"
+    let m;
+    while ((m = inquiryHeaderRe.exec(originRaw)) !== null) {
+      const header = m[0];
+      // 답안 헤더 스킵 — 마지막 단어가 '답안' 으로 끝나거나 ' 답안 ' 토큰 포함
+      if (/답안\s*$/.test(header) || /\s답안(\s|$)/.test(header)) continue;
+      // 본문: 헤더 뒤 ~ 다음 ### 헤더 또는 EOF
+      const bodyStart = m.index + m[0].length;
+      const rest = originRaw.slice(bodyStart);
+      const nextHeader = rest.search(/^###\s/m);
+      const body = nextHeader === -1 ? rest : rest.slice(0, nextHeader);
+      // 헤더 라벨 ('### ' 제거 + 점수 괄호는 그대로 유지 → "설문 1 (20점)") + 본문
+      const label = header.replace(/^###\s*/, '').trim();
+      const text = body.trim();
+      if (text) {
+        multiInquiries.push({ label, text });
+      }
+    }
+
+    let question = '';
+    if (multiInquiries.length > 0) {
+      // 다중 설문 통합 — bold label + 본문, 빈줄로 구분 (사용자 명시: 한 케이스에 통합)
+      question = multiInquiries
+        .map((q) => `**${q.label}**\n\n${q.text}`)
+        .join('\n\n');
+    } else if (singleQMatch) {
+      question = singleQMatch[1].trim();
+    }
+
+    // 4) fallback — facts 도 question 도 없으면 origin 전체를 facts 로
+    if (!factsMatch && !question) {
+      return { facts: originRaw.trim(), question: '' };
+    }
+
     return {
       facts: factsMatch ? factsMatch[1].trim() : '',
-      question: questionMatch ? questionMatch[1].trim() : '',
+      question: question,
     };
+  }
+
+  // 원본 텍스트 → 안전한 HTML (escape + 줄바꿈 + **bold** 만 인식)
+  // R-09 — 원문 그대로 보존 (Markdown 풀파싱 X, bold 헤더만 가독성 강조).
+  function renderOriginText(raw) {
+    if (!raw) return '';
+    const escaped = String(raw)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    // **bold** → <strong>bold</strong> (마크다운 bold만 인식, 다른 마크다운은 raw 유지)
+    const withBold = escaped.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+    // 줄바꿈 보존
+    return withBold.replace(/\n/g, '<br>');
   }
 
   // ─── 필터 클릭 → reloadCases (active 토글은 시안 핸들러가 담당) ───
@@ -3138,6 +3242,127 @@
   // 현재 시각 (auto-saved 등) — 항상 Seoul TZ
   function nowSeoul(style) {
     return fmtSeoul(new Date().toISOString(), { style: style || 'time' });
+  }
+
+  // ════════════════════════════════════════════════
+  // Step 23 — 풀이 시간 추적 (사용자 명시 2026-05-17)
+  // ════════════════════════════════════════════════
+  // localStorage:
+  //   key   : lawear_exam_started_{case_id}
+  //   value : ISO-8601 시작 시각 (UTC)
+  //
+  // 케이스 진입(loadCase) 시 자동 시작 (값 없으면 now 기록).
+  // "🟢 시작" 버튼 클릭 시 강제 갱신.
+  // Submit 시 body 에 started_at 포함, localStorage 클리어.
+  function examStartKey(caseId) {
+    return `lawear_exam_started_${caseId || 'unknown'}`;
+  }
+
+  function getExamStarted(caseId) {
+    if (!caseId) return null;
+    try {
+      return localStorage.getItem(examStartKey(caseId));
+    } catch (e) { return null; }
+  }
+
+  function setExamStarted(caseId, isoOrNull) {
+    if (!caseId) return null;
+    try {
+      if (isoOrNull == null) {
+        localStorage.removeItem(examStartKey(caseId));
+        return null;
+      }
+      localStorage.setItem(examStartKey(caseId), isoOrNull);
+      return isoOrNull;
+    } catch (e) { return null; }
+  }
+
+  function clearExamStarted(caseId) {
+    return setExamStarted(caseId, null);
+  }
+
+  // sec → "0s" / "12s" / "1m 23s" / "5m" / "1h 12m" 형식
+  // (사용자 명시: 1.5m 식 분단위 짧은 표기 + 시간단위 분 동반)
+  function fmtElapsed(sec) {
+    const s = Number(sec);
+    if (!isFinite(s) || s < 0) return '—';
+    if (s < 60) return Math.round(s) + 's';
+    const totalMin = Math.floor(s / 60);
+    const remSec = Math.round(s - totalMin * 60);
+    if (totalMin < 60) {
+      // 분 + 초
+      return remSec > 0 ? `${totalMin}m ${remSec}s` : `${totalMin}m`;
+    }
+    const hours = Math.floor(totalMin / 60);
+    const remMin = totalMin - hours * 60;
+    return remMin > 0 ? `${hours}h ${remMin}m` : `${hours}h`;
+  }
+
+  // 활성 풀이 카운터 타이머 (Review 탭 시작 버튼)
+  let EXAM_TIMER = null;
+  function stopExamTimer() {
+    if (EXAM_TIMER) {
+      clearInterval(EXAM_TIMER);
+      EXAM_TIMER = null;
+    }
+  }
+
+  // 시작 버튼 + 라벨 갱신 (Review 탭)
+  // - 시작 시점 없으면 "🟢 시작" 표시 (클릭 시 now 기록 + 타이머)
+  // - 시작 시점 있으면 "▶ 풀이 중 (HH:MM:SS)" 표시 (1초 갱신)
+  function updateExamStartBtn() {
+    const btn = document.getElementById('btn-exam-start');
+    if (!btn) return;
+    const caseId = CURRENT_CASE_ID;
+    if (!caseId) {
+      btn.disabled = true;
+      btn.textContent = (I18N[currentLang] && I18N[currentLang].exam_start) || '🟢 시작';
+      stopExamTimer();
+      return;
+    }
+    btn.disabled = false;
+    const startedIso = getExamStarted(caseId);
+    if (!startedIso) {
+      stopExamTimer();
+      btn.classList.remove('running');
+      btn.textContent = (I18N[currentLang] && I18N[currentLang].exam_start) || '🟢 시작';
+      return;
+    }
+    // 실시간 카운터
+    const tickLabel = () => {
+      const started = new Date(startedIso);
+      const now = new Date();
+      const sec = Math.max(0, Math.floor((now - started) / 1000));
+      const h = Math.floor(sec / 3600);
+      const m = Math.floor((sec % 3600) / 60);
+      const s = sec % 60;
+      const ts = h > 0
+        ? `${h}:${pad2(m)}:${pad2(s)}`
+        : `${pad2(m)}:${pad2(s)}`;
+      const runTmpl = (I18N[currentLang] && I18N[currentLang].exam_running_fmt) || '▶ 풀이 중 ({t})';
+      btn.textContent = runTmpl.replace('{t}', ts);
+    };
+    tickLabel();
+    btn.classList.add('running');
+    stopExamTimer();
+    EXAM_TIMER = setInterval(() => {
+      // 다른 케이스로 전환되면 중단
+      if (CURRENT_CASE_ID !== caseId) {
+        stopExamTimer();
+        return;
+      }
+      tickLabel();
+    }, 1000);
+  }
+
+  // 케이스 진입 시 자동 시작 (없을 때만 기록 — 기존 시작 시점 보존)
+  function autoStartExamIfNeeded(caseId) {
+    if (!caseId) return;
+    const existing = getExamStarted(caseId);
+    if (!existing) {
+      setExamStarted(caseId, new Date().toISOString());
+    }
+    updateExamStartBtn();
   }
 
   function fmtChars(n) {
@@ -3601,7 +3826,12 @@
   function renderEvaluationDone(att) {
     // 헤더 (Step 19-1: fmtSeoul KST 변환)
     const submitted = fmtSeoul(att.submitted_at, { style: 'full' });
-    const subjLine = `${I18N[currentLang].eval_submitted_at} ${submitted} · model: ${att.model || '—'}`;
+    // Step 23 — 풀이 시간 표시 (있을 때만)
+    const solveSec = Number(att.solve_elapsed_sec);
+    const elapsedPart = isFinite(solveSec) && solveSec > 0
+      ? ` · ⏱ ${fmtElapsed(solveSec)}`
+      : '';
+    const subjLine = `${I18N[currentLang].eval_submitted_at} ${submitted}${elapsedPart} · model: ${att.model || '—'}`;
     setEvHeader(att.case_short_id || att.case_id || '—', subjLine, 'status_evaluated');
 
     // Step 17 — 재채점 버튼에 attempt_id 바인딩 (실제 click은 wireRegradeButtons 에서)
@@ -3877,6 +4107,7 @@
   // ─── Submit / Save Draft 버튼 ───
   const submitBtn = document.getElementById('btn-submit');
   const saveDraftBtn = document.getElementById('btn-save-draft');
+  const examStartBtn = document.getElementById('btn-exam-start');
 
   if (saveDraftBtn) {
     saveDraftBtn.addEventListener('click', () => {
@@ -3889,6 +4120,15 @@
         notesInfoEl.textContent = I18N[currentLang].draft_saved;
         setTimeout(() => { notesInfoEl.textContent = prev; }, 1500);
       }
+    });
+  }
+
+  // Step 23 — "🟢 시작" 버튼 클릭: 시작 시점 갱신 + 실시간 카운터 시작
+  if (examStartBtn) {
+    examStartBtn.addEventListener('click', () => {
+      if (!CURRENT_CASE_ID) return;
+      setExamStarted(CURRENT_CASE_ID, new Date().toISOString());
+      updateExamStartBtn();
     });
   }
 
@@ -3921,14 +4161,19 @@
 
     try {
       if (submitBtn) submitBtn.disabled = true;
+      // Step 23 — body 에 started_at 첨부 (localStorage 시작 시점)
+      const startedIso = getExamStarted(CURRENT_CASE_ID);
+      const submittedIso = new Date().toISOString();
+      const payload = {
+        case_id: CURRENT_CASE_ID,
+        answer_text: notesEl.value,
+        submitted_at: submittedIso,
+      };
+      if (startedIso) payload.started_at = startedIso;
       const r = await fetch(`${API_BASE}/api/attempts`, {
         method: 'POST',
         headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          case_id: CURRENT_CASE_ID,
-          answer_text: notesEl.value,
-          submitted_at: new Date().toISOString(),
-        }),
+        body: JSON.stringify(payload),
       });
       const body = await r.json().catch(() => ({}));
       if (!r.ok) {
@@ -3954,6 +4199,9 @@
         const draftKeyToRemove = draftKey(CURRENT_CASE_ID);
         localStorage.removeItem(draftKeyToRemove);
       } catch (e) { /* ignore */ }
+      // Step 23 — 시작 시점 클리어 (다음 풀이 사이클 위해)
+      clearExamStarted(CURRENT_CASE_ID);
+      updateExamStartBtn();
       clearNotesAutoSaveTimer();
       if (notesEl) {
         notesEl.value = '';
@@ -4184,7 +4432,7 @@
     const tb = document.getElementById('rep-ov-recent-tbody');
     if (!tb) return;
     if (!recent || recent.length === 0) {
-      tb.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-dim);">${escapeHtml(I18N[currentLang].rep_empty)}</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-dim);">${escapeHtml(I18N[currentLang].rep_empty)}</td></tr>`;
       return;
     }
     const rows = recent.map(r => {
@@ -4197,6 +4445,9 @@
       const titleCell = escapeHtml(r.case_title || '—');
       const mockBadge = r.is_mock ? ' <span class="pill" style="font-size:9px;">mock</span>' : '';
       const staleBadge = r.is_stale ? ' <span class="pill stale" style="font-size:9px;">stale</span>' : '';
+      // Step 23 — 풀이 시간 컬럼
+      const solveSec = Number(r.solve_elapsed_sec);
+      const elapsedCell = isFinite(solveSec) && solveSec > 0 ? fmtElapsed(solveSec) : '—';
       // Step 15-6 — 행에 case_id/attempt_id 부여 (모달 클릭 진입점)
       return `<tr data-case-id="${escapeHtml(r.case_id || '')}" data-attempt-id="${escapeHtml(r.attempt_id || '')}">
         <td>${escapeHtml(fmtDate(r.submitted_at))}</td>
@@ -4204,6 +4455,7 @@
         <td>${titleCell}${mockBadge}${staleBadge}</td>
         <td class="score">${scoreCell}</td>
         <td class="score">${gradeCell}</td>
+        <td class="score">${escapeHtml(elapsedCell)}</td>
       </tr>`;
     }).join('');
     tb.innerHTML = rows;
@@ -4580,7 +4832,7 @@
     const tb = document.getElementById('rep-case-history-tbody');
     if (!tb) return;
     if (!history || history.length === 0) {
-      tb.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--text-dim);">${escapeHtml(I18N[currentLang].rep_case_empty)}</td></tr>`;
+      tb.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-dim);">${escapeHtml(I18N[currentLang].rep_case_empty)}</td></tr>`;
       return;
     }
     const rows = history.map(h => {
@@ -4588,12 +4840,16 @@
         ? `<span class="score" style="color: ${pctColor(h.score_pct)};">${escapeHtml(fmtScoreFraction(h.score_total, h.score_max))}</span>`
         : `<span class="score" style="color: var(--danger);">${escapeHtml(h.error_code || 'error')}</span>`;
       const miss = h.main_miss || '—';
+      // Step 23 — 풀이 시간 컬럼
+      const solveSec = Number(h.solve_elapsed_sec);
+      const elapsedCell = isFinite(solveSec) && solveSec > 0 ? fmtElapsed(solveSec) : '—';
       // Step 15-6 — 행 클릭 시 해당 attempt 의 답안+평가 모달
       const caseId = REPORTS_STATE.currentCaseId || '';
       return `<tr data-attempt-id="${escapeHtml(h.attempt_id || '')}" data-case-id="${escapeHtml(caseId)}">
         <td>${h.attempt_num}</td>
         <td>${escapeHtml(fmtDate(h.submitted_at))}</td>
         <td class="score">${scoreCell}</td>
+        <td class="score">${escapeHtml(elapsedCell)}</td>
         <td>${escapeHtml(miss)}</td>
       </tr>`;
     }).join('');
@@ -4687,7 +4943,12 @@
       const aid = a.id || a.attempt_id;
       const ts = fmtTimestampBadge(a.submitted_at);
       const active = (MODAL_STATE.currentAttemptId === aid) ? ' active' : '';
-      return `<span class="ts-badge${active}" data-attempt-id="${escapeHtml(aid)}" title="${escapeHtml(a.submitted_at || '')}">📅 ${escapeHtml(ts)}</span>`;
+      // Step 23 — 시도 배지 옆에 풀이 시간 (있을 때만)
+      const solveSec = Number(a.solve_elapsed_sec);
+      const elapsedSuffix = isFinite(solveSec) && solveSec > 0
+        ? ` <span style="color: var(--text-dim); font-size: 10px;">⏱ ${escapeHtml(fmtElapsed(solveSec))}</span>`
+        : '';
+      return `<span class="ts-badge${active}" data-attempt-id="${escapeHtml(aid)}" title="${escapeHtml(a.submitted_at || '')}">📅 ${escapeHtml(ts)}${elapsedSuffix}</span>`;
     }).join('');
     // 탭 클릭
     tabsEl.querySelectorAll('.ts-badge[data-attempt-id]').forEach(t => {
@@ -4814,7 +5075,10 @@
     if (subEl) {
       const ts = att.submitted_at ? fmtDate(att.submitted_at) : '—';
       const title = att.case_title ? ' · ' + att.case_title : '';
-      subEl.textContent = `${ts}${title}`;
+      // Step 23 — sub 헤더에 풀이 시간 표시 (있을 때만)
+      const solveSec = Number(att.solve_elapsed_sec);
+      const elapsedPart = isFinite(solveSec) && solveSec > 0 ? ` · ⏱ ${fmtElapsed(solveSec)}` : '';
+      subEl.textContent = `${ts}${elapsedPart}${title}`;
     }
 
     // Step 17 — 재채점 버튼: completed 일 때만 표시

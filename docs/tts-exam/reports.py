@@ -37,6 +37,21 @@ DB_STATUS_GRADING: str = "grading"
 DB_STATUS_DONE: str = "done"
 DB_STATUS_ERROR: str = "error"
 
+
+# Step 23 — 사용자 풀이 시간 (submitted_at - started_at).
+# attempts._solve_elapsed_sec 와 동일 로직 — Reports 는 attempts 모듈에 직접 의존하지 않으므로 복제.
+def _solve_elapsed_sec(started_at: str | None, submitted_at: str | None) -> float | None:
+    if not started_at or not submitted_at:
+        return None
+    try:
+        s = str(started_at).replace("Z", "+00:00")
+        e = str(submitted_at).replace("Z", "+00:00")
+        sd = _dt.datetime.fromisoformat(s)
+        ed = _dt.datetime.fromisoformat(e)
+        return max(0.0, (ed - sd).total_seconds())
+    except (ValueError, TypeError):
+        return None
+
 # Reports 에서 "submitted" 로 카운트하는 status (grading 제외)
 SUBMITTED_STATUSES: tuple[str, ...] = (DB_STATUS_DONE, DB_STATUS_ERROR)
 
@@ -301,7 +316,7 @@ def overall(
 
     # Recent submissions (limit)
     recent_sql = """
-        SELECT a.id AS attempt_id, a.case_id, a.submitted_at, a.completed_at,
+        SELECT a.id AS attempt_id, a.case_id, a.started_at, a.submitted_at, a.completed_at,
                a.status, a.score_total, a.score_max, a.score_pct, a.grade,
                a.is_stale, a.is_mock, a.error_code,
                c.title AS case_title, c.subject AS case_subject,
@@ -328,6 +343,7 @@ def overall(
                 "case_short_id": (
                     f"{r['case_file']}-{r['case_no']}" if r["case_file"] else None
                 ),
+                "started_at": r["started_at"],
                 "submitted_at": r["submitted_at"],
                 "completed_at": r["completed_at"],
                 "status": r["status"],  # 'done' or 'error'
@@ -338,6 +354,9 @@ def overall(
                 "is_stale": bool(r["is_stale"]),
                 "is_mock": bool(r["is_mock"]),
                 "error_code": r["error_code"],
+                "solve_elapsed_sec": _solve_elapsed_sec(
+                    r["started_at"], r["submitted_at"]
+                ),
             }
         )
 
@@ -704,7 +723,7 @@ def _case_attempts_history(
     main_miss: eval_notes_json.missing 첫 문장 또는 attempt_criteria 의 최저 코멘트.
     """
     sql = """
-        SELECT id, submitted_at, completed_at, status, score_total, score_max,
+        SELECT id, started_at, submitted_at, completed_at, status, score_total, score_max,
                score_pct, grade, eval_notes_json, error_code, error_message,
                is_stale, is_mock
           FROM attempts
@@ -741,6 +760,7 @@ def _case_attempts_history(
             {
                 "attempt_id": r["id"],
                 "attempt_num": idx,
+                "started_at": r["started_at"],
                 "submitted_at": r["submitted_at"],
                 "completed_at": r["completed_at"],
                 "status": r["status"],
@@ -752,6 +772,9 @@ def _case_attempts_history(
                 "is_stale": bool(r["is_stale"]),
                 "is_mock": bool(r["is_mock"]),
                 "error_code": r["error_code"],
+                "solve_elapsed_sec": _solve_elapsed_sec(
+                    r["started_at"], r["submitted_at"]
+                ),
             }
         )
     return history

@@ -148,6 +148,26 @@ def _elapsed_since(submitted_at: str) -> float:
         return 0.0
 
 
+def _solve_elapsed_sec(
+    started_at: str | None, submitted_at: str | None
+) -> float | None:
+    """Step 23 — 사용자 풀이 시간 (submitted_at - started_at, 초).
+
+    started_at 또는 submitted_at 누락 / 파싱 실패 시 None.
+    음수(시계 역행 등)는 0.0 으로 clamp.
+    """
+    if not started_at or not submitted_at:
+        return None
+    try:
+        s = str(started_at).replace("Z", "+00:00")
+        e = str(submitted_at).replace("Z", "+00:00")
+        sd = _dt.datetime.fromisoformat(s)
+        ed = _dt.datetime.fromisoformat(e)
+        return max(0.0, (ed - sd).total_seconds())
+    except (ValueError, TypeError):
+        return None
+
+
 def _client_status(db_status: str) -> str:
     return CLIENT_STATUS_MAP.get(db_status, db_status)
 
@@ -946,7 +966,11 @@ def reset_grade(conn: sqlite3.Connection, attempt_id: int) -> dict[str, Any]:
 
 
 def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
-    """attempts row → API 응답 dict (criteria 제외, 호출자가 join 추가)."""
+    """attempts row → API 응답 dict (criteria 제외, 호출자가 join 추가).
+
+    Step 23 — solve_elapsed_sec: 사용자 풀이 시간 (submitted_at - started_at).
+    기존 elapsed_sec 는 grader 채점 elapsed (의미 다름) — 둘 다 노출.
+    """
     db_status = row["status"]
     out: dict[str, Any] = {
         "id": row["id"],
@@ -958,6 +982,9 @@ def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "started_at": row["started_at"],
         "completed_at": row["completed_at"],
         "elapsed_sec": row["elapsed_sec"],
+        "solve_elapsed_sec": _solve_elapsed_sec(
+            row["started_at"], row["submitted_at"]
+        ),
         "is_stale": bool(row["is_stale"]),
         "is_mock": bool(row["is_mock"]),
     }
@@ -1165,8 +1192,9 @@ def list_attempts(
     # 페이지
     # Step 13 — pending_grade 필터 시 answer_text 도 반환 (외부 채점 자료).
     # 다른 status 에서도 응답에 포함 (메인 Opus 가 'pending 채점' 명령으로 본 endpoint 호출).
+    # Step 23 — started_at + solve_elapsed_sec (= submitted - started) 노출.
     page_sql = f"""
-        SELECT a.id, a.case_id, a.submitted_at, a.completed_at, a.status,
+        SELECT a.id, a.case_id, a.started_at, a.submitted_at, a.completed_at, a.status,
                a.answer_text,
                a.score_total, a.score_max, a.score_pct, a.grade,
                a.is_stale, a.is_mock, a.error_code,
@@ -1194,6 +1222,7 @@ def list_attempts(
                 else None,
                 "case_subject": r["case_subject"],
                 "case_subject_kor": r["case_subject_kor"],
+                "started_at": r["started_at"],
                 "submitted_at": r["submitted_at"],
                 "completed_at": r["completed_at"],
                 "status": _client_status(r["status"]),
@@ -1205,6 +1234,9 @@ def list_attempts(
                 "is_stale": bool(r["is_stale"]),
                 "is_mock": bool(r["is_mock"]),
                 "error_code": r["error_code"],
+                "solve_elapsed_sec": _solve_elapsed_sec(
+                    r["started_at"], r["submitted_at"]
+                ),
             }
         )
 
