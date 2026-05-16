@@ -1245,6 +1245,10 @@
               <div class="score-label" data-i18n="final_score">Final Score</div>
               <div class="score-value"><span id="ev-score-total">—</span><span class="total"> / <span id="ev-score-max">—</span></span></div>
               <div class="score-meta"><span class="grade b" id="ev-grade">—</span> · <span id="ev-pct">—</span>%</div>
+              <!-- Step 17 — 재채점 버튼 -->
+              <div style="margin-top: 10px;">
+                <button class="btn" id="btn-regrade-eval" data-i18n="btn_regrade" data-attempt-id="">🔄 Regrade</button>
+              </div>
             </div>
             <div class="criteria-grid" id="ev-criteria-grid">
               <!-- criteria rows injected by JS -->
@@ -1647,6 +1651,8 @@
     <div class="modal-head">
       <span class="modal-title" id="attempt-modal-title">—</span>
       <span class="modal-sub" id="attempt-modal-sub">—</span>
+      <!-- Step 17 — 재채점 버튼 (status='completed' 일 때만 표시) -->
+      <button class="btn" id="btn-regrade-modal" data-i18n="btn_regrade" data-attempt-id="" style="display:none; margin-right: 8px;">🔄 Regrade</button>
       <button class="modal-close" id="attempt-modal-close" aria-label="Close">✕ <span data-i18n="btn_close">Close</span></button>
     </div>
     <div class="modal-tabs" id="attempt-modal-tabs">
@@ -1835,6 +1841,12 @@
       ev_pending_grade_hint: 'Polling every 10s until Claude Code injects the grade.',
       ev_pending_elapsed: 'Waiting',
       toast_pending_warning: 'API key missing — fell back to manual grading.',
+      // Step 17 — Regrade (DELETE /api/attempts/{id}/grade)
+      btn_regrade: '🔄 Regrade',
+      regrade_confirm: 'Delete the existing grade and request a regrade?',
+      regrade_toast: 'Regrade requested. Call "채점해줘" in the Claude Code main session.',
+      regrade_failed: 'Regrade failed: {msg}',
+      regrade_in_progress: 'Grading still in progress — please wait.',
     },
     ko: {
       mock_label: '시안',
@@ -1991,6 +2003,12 @@
       ev_pending_grade_hint: 'Claude Code 메인 Opus 가 채점 결과를 주입할 때까지 폴링 중 (10초 간격).',
       ev_pending_elapsed: '대기',
       toast_pending_warning: 'API 키 미설정 — manual 모드로 강등됨.',
+      // Step 17 — 재채점 (DELETE /api/attempts/{id}/grade)
+      btn_regrade: '🔄 재채점',
+      regrade_confirm: '기존 채점 결과를 삭제하고 재채점을 요청하시겠어요?',
+      regrade_toast: '재채점 요청 완료. Claude Code 메인 세션에서 "채점해줘" 호출하세요.',
+      regrade_failed: '재채점 요청 실패: {msg}',
+      regrade_in_progress: '아직 채점 진행 중입니다 — 잠시 후 다시 시도하세요.',
     },
   };
 
@@ -3442,6 +3460,13 @@
     const subjLine = `${I18N[currentLang].eval_submitted_at} ${submitted} · model: ${att.model || '—'}`;
     setEvHeader(att.case_short_id || att.case_id || '—', subjLine, 'status_evaluated');
 
+    // Step 17 — 재채점 버튼에 attempt_id 바인딩 (실제 click은 wireRegradeButtons 에서)
+    const rgBtn = document.getElementById('btn-regrade-eval');
+    if (rgBtn) {
+      rgBtn.dataset.attemptId = String(att.id || att.attempt_id || '');
+      rgBtn.disabled = false;
+    }
+
     // 점수
     const total = Number(att.score_total);
     const max   = Number(att.score_max);
@@ -3558,6 +3583,98 @@
       });
     }
   }
+
+  // ─── Step 17 — 재채점 (DELETE /api/attempts/{id}/grade) ─────────────
+  // Evaluation 탭 점수 카드 + Reports 모달 head 의 "재채점" 버튼 진입점.
+  //   1) confirm 다이얼로그
+  //   2) DELETE 호출
+  //   3) 응답 200 → 토스트 + Evaluation 탭 pending_grade 상태로 전환 + 폴링 재시작
+  //
+  // origin: 'eval'  → Evaluation 탭에서 호출 (현재 CURRENT_CASE_ID/ATTEMPT_ID 갱신, 폴링 시작)
+  // origin: 'modal' → Reports 모달에서 호출 (모달 내부 갱신, Evaluation 탭은 같은 attempt 면 동기화)
+  async function requestRegrade(attemptId, origin) {
+    if (!attemptId) return;
+    const aid = parseInt(attemptId, 10);
+    if (!aid) return;
+    const dict = I18N[currentLang] || {};
+    if (!window.confirm(dict.regrade_confirm || 'Delete the existing grade and request a regrade?')) {
+      return;
+    }
+
+    // 버튼 잠금 (이중 클릭 방지)
+    const evBtn = document.getElementById('btn-regrade-eval');
+    const mdBtn = document.getElementById('btn-regrade-modal');
+    if (evBtn) evBtn.disabled = true;
+    if (mdBtn) mdBtn.disabled = true;
+
+    try {
+      const r = await fetch(`${API_BASE}/api/attempts/${encodeURIComponent(aid)}/grade`, {
+        method: 'DELETE',
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!r.ok) {
+        let msg = 'HTTP ' + r.status;
+        try {
+          const j = await r.json();
+          msg = j.message || j.error_code || msg;
+        } catch (_) { /* ignore */ }
+        throw new Error(msg);
+      }
+      const data = await r.json();
+
+      // noop (grading 진행 중) → 다른 토스트
+      if (data.message && data.message.indexOf('Grading in progress') >= 0) {
+        showToast(dict.regrade_in_progress || 'Grading still in progress — please wait.', 'error');
+        return;
+      }
+
+      // 정상 reset (또는 이미 pending_grade noop) → 토스트 + Evaluation 탭 동기화
+      showToast(dict.regrade_toast || 'Regrade requested.', 'success');
+
+      // Evaluation 탭이 이 attempt 를 보고 있으면 pending_grade 로 전환 + 폴링 시작
+      if (CURRENT_ATTEMPT_ID === aid) {
+        // 풀 상태 fetch (case_short_id, answer_text, elapsed_sec 등 갱신용)
+        try {
+          const ar = await fetch(`${API_BASE}/api/attempts/${encodeURIComponent(aid)}`, {
+            headers: { 'Accept': 'application/json' },
+          });
+          if (ar.ok) {
+            const att = await ar.json();
+            renderEvaluationPendingGrade(att);
+          }
+        } catch (_) { /* fetch 실패해도 폴링이 다음 tick 에서 처리 */ }
+        stopPolling();
+        POLL_TIMER = setTimeout(() => pollAttempt(aid), POLL_INTERVAL_PENDING_MS);
+      } else if (origin === 'modal') {
+        // Evaluation 탭이 다른 케이스를 보고 있으면 — 모달에서만 호출. 사용자에게 토스트로 안내됨.
+        // 모달 내부 attempt 도 재로드해서 헤더 버튼 숨김 갱신
+        try { await loadAndShowAttemptInModal(aid); } catch (_) { /* ignore */ }
+      }
+    } catch (err) {
+      console.error('requestRegrade failed:', err);
+      const tmpl = dict.regrade_failed || 'Regrade failed: {msg}';
+      showToast(tmpl.replace('{msg}', err.message || err), 'error');
+    } finally {
+      if (evBtn) evBtn.disabled = false;
+      if (mdBtn) mdBtn.disabled = false;
+    }
+  }
+
+  // 클릭 핸들러 wire (한번만)
+  (function bindRegradeButtons() {
+    const evBtn = document.getElementById('btn-regrade-eval');
+    if (evBtn) {
+      evBtn.addEventListener('click', () => {
+        requestRegrade(evBtn.dataset.attemptId, 'eval');
+      });
+    }
+    const mdBtn = document.getElementById('btn-regrade-modal');
+    if (mdBtn) {
+      mdBtn.addEventListener('click', () => {
+        requestRegrade(mdBtn.dataset.attemptId, 'modal');
+      });
+    }
+  })();
 
   // ─── Step 14-3 / 15-4 / 16-1 — 케이스 선택 시 마지막 채점 자동 로드 (race 보강) ───
   // GET /api/attempts?case_id=X&status=completed&limit=1 → 최신 completed 1건 id 획득.
@@ -4546,6 +4663,20 @@
       const ts = att.submitted_at ? fmtDate(att.submitted_at) : '—';
       const title = att.case_title ? ' · ' + att.case_title : '';
       subEl.textContent = `${ts}${title}`;
+    }
+
+    // Step 17 — 재채점 버튼: completed 일 때만 표시
+    const rgBtn = document.getElementById('btn-regrade-modal');
+    if (rgBtn) {
+      const isDone = (att.status === 'completed' || att.db_status === 'done');
+      if (isDone) {
+        rgBtn.dataset.attemptId = String(att.id || att.attempt_id || '');
+        rgBtn.style.display = '';
+        rgBtn.disabled = false;
+      } else {
+        rgBtn.dataset.attemptId = '';
+        rgBtn.style.display = 'none';
+      }
     }
   }
 
