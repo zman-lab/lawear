@@ -374,7 +374,19 @@ function renderEmphasis(html) {
 }
 
 function renderMd(md) {
-  return renderEmphasis(marked.parse(md));
+  // 강조 태그를 placeholder로 치환한 뒤 marked.parse (marked가 [u] 등 HTML 태그로 변환하는 문제 방지)
+  const placeholders = [];
+  const escaped = md.replace(/\[(red|blue|bold|u|blank)\]([\s\S]+?)\[\/\1\]/g, (m, tag, content) => {
+    placeholders.push({ tag, content });
+    return `@@EMP${placeholders.length - 1}@@`;
+  });
+  let html = marked.parse(escaped);
+  html = html.replace(/@@EMP(\d+)@@/g, (m, i) => {
+    const { tag, content } = placeholders[parseInt(i, 10)];
+    const cls = tag === 'u' ? 'tts-underline' : 'tts-' + tag;
+    return `<span class="${cls}">${content}</span>`;
+  });
+  return html;
 }
 
 let fileMetadata = {}; // path → metadata (새 인덱스 형식 풍부 메타)
@@ -491,7 +503,7 @@ function toggleSidebar() {
 async function loadFile(dir, filename, el) {
   document.querySelectorAll('.file-list li').forEach(li => li.classList.remove('active'));
   el.classList.add('active');
-  const res = await fetch(`${dir}/${filename}`);
+  const res = await fetch(`${dir}/${filename}`, { cache: 'no-store' });
   fullContent = await res.text();
   currentFile = filename;
   renderContent();
