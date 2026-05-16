@@ -563,9 +563,11 @@ function showSection(section, event) {
     const lv4 = extractSection(md, 'Lv.4 암기노트');
     const k = stealthMode ? 'fake' : 'real';
     const labels = stealthUI.tabs[k];
+    // 원본 헤더의 점수 부가 정보 표시 (stealth 모드에선 labels[0] 사용)
+    const originalLabel = stealthMode ? labels[0] : extractSectionHeader(md, '원본');
     target.innerHTML = `
       <table class="compare-table">
-        <thead><tr><th>${labels[0]}</th><th>Lv.1</th><th>Lv.4</th></tr></thead>
+        <thead><tr><th>${originalLabel}</th><th>Lv.1</th><th>Lv.4</th></tr></thead>
         <tbody><tr>
           <td>${renderMd(original || '(없음)')}</td>
           <td>${renderMd(lv1 || '(없음)')}</td>
@@ -576,12 +578,12 @@ function showSection(section, event) {
     return;
   }
 
-  let sectionHeader;
-  if (section === '원본') sectionHeader = '원본';
-  else if (section === 'Lv.1') sectionHeader = 'Lv.1 빠른복습';
-  else if (section === 'Lv.4') sectionHeader = 'Lv.4 암기노트';
+  let sectionKey, sectionHeader;
+  if (section === '원본') { sectionKey = '원본'; sectionHeader = stealthMode ? '원본' : extractSectionHeader(md, '원본'); }
+  else if (section === 'Lv.1') { sectionKey = 'Lv.1 빠른복습'; sectionHeader = 'Lv.1 빠른복습'; }
+  else if (section === 'Lv.4') { sectionKey = 'Lv.4 암기노트'; sectionHeader = 'Lv.4 암기노트'; }
 
-  const c = extractSection(md, sectionHeader);
+  const c = extractSection(md, sectionKey);
   target.innerHTML = c ? renderMd(`## ${sectionHeader}\n\n${c}`) : '<p style="color:#484f58;">해당 섹션을 찾을 수 없습니다.</p>';
 }
 
@@ -595,6 +597,16 @@ function extractSection(md, sectionName) {
     if (capture) result.push(line);
   }
   return result.join('\n').trim();
+}
+
+// 섹션 헤더 전체 텍스트 반환 (점수 등 부가 정보 포함) — `## 원본 (20점)` → `원본 (20점)`
+function extractSectionHeader(md, sectionName) {
+  for (const line of md.split('\n')) {
+    if (line.startsWith('## ') && line.includes(sectionName)) {
+      return line.replace(/^##\s+/, '').trim();
+    }
+  }
+  return sectionName;
 }
 
 function parseSubsections(section) {
