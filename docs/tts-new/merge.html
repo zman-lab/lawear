@@ -375,18 +375,34 @@ function renderEmphasis(html) {
 
 function renderMd(md) {
   // 강조 태그를 placeholder로 치환한 뒤 marked.parse (marked가 [u] 등 HTML 태그로 변환하는 문제 방지)
+  // innermost-first 반복 매칭으로 중첩 강조([red]...[blank]X[/blank]...[/red]) 지원
   const placeholders = [];
-  const escaped = md.replace(/\[(red|blue|bold|u|blank)\]([\s\S]+?)\[\/\1\]/g, (m, tag, content) => {
-    placeholders.push({ tag, content });
-    return `@@EMP${placeholders.length - 1}@@`;
-  });
+  // content 안에 다른 강조 시작 태그가 없는 경우만 매칭 = innermost
+  const tagRe = /\[(red|blue|bold|u|blank)\]((?:(?!\[(?:red|blue|bold|u|blank)\])[\s\S])*?)\[\/\1\]/g;
+  let escaped = md;
+  let prev;
+  let iter = 0;
+  do {
+    prev = escaped;
+    escaped = escaped.replace(tagRe, (m, tag, content) => {
+      placeholders.push({ tag, content });
+      return `@@EMP${placeholders.length - 1}@@`;
+    });
+    iter++;
+  } while (escaped !== prev && iter < 20);
+
   let html = marked.parse(escaped);
-  html = html.replace(/@@EMP(\d+)@@/g, (m, i) => {
-    const { tag, content } = placeholders[parseInt(i, 10)];
-    const cls = tag === 'u' ? 'tts-underline' : 'tts-' + tag;
-    return `<span class="${cls}">${content}</span>`;
-  });
-  return html;
+
+  // placeholder 복원 (재귀 — content 안에 다른 placeholder 있을 수 있음)
+  function recover(s) {
+    return s.replace(/@@EMP(\d+)@@/g, (m, i) => {
+      const { tag, content } = placeholders[parseInt(i, 10)];
+      const cls = tag === 'u' ? 'tts-underline' : 'tts-' + tag;
+      const inner = recover(content);
+      return `<span class="${cls}">${inner}</span>`;
+    });
+  }
+  return recover(html);
 }
 
 let fileMetadata = {}; // path → metadata (새 인덱스 형식 풍부 메타)
