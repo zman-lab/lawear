@@ -20,13 +20,14 @@ from pathlib import Path
 DB_DIR: Path = Path(__file__).parent.resolve()
 MIGRATIONS_DIR: Path = DB_DIR / "migrations"
 DEFAULT_DB_FILENAME: str = "exam.db"
-TARGET_SCHEMA_VERSION: int = 1
+TARGET_SCHEMA_VERSION: int = 2
 BUSY_TIMEOUT_MS: int = 5000  # archive #51 H2 7 ChE7 명시
 
 # 마이그레이션 매트릭스 — 버전: SQL 파일명
 # 새 버전 추가 시 이 dict + migrations/ 파일만 갱신.
 MIGRATIONS: dict[int, str] = {
     1: "001_initial.sql",
+    2: "002_attempts_extras.sql",  # Step 7 — attempts 컬럼 4개 추가
 }
 
 
