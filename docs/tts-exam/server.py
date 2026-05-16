@@ -23,7 +23,12 @@ from typing import Any
 
 import cases as cases_mod
 import db as db_mod
+import env_loader  # noqa: F401 — side-effect: .env → os.environ 주입 (Step 6)
 import syncer as syncer_mod
+
+# .env 자동 로드 (있으면) — ANTHROPIC_API_KEY 등 환경변수 주입
+# 시스템 env 가 우선 (override=False) — 부팅 시점 1회.
+env_loader.load_env()
 
 # ─── 설정 (env 우선, 하드코딩 금지) ────────────────────────────────
 PORT: int = int(os.environ.get("LAWEAR_EXAM_PORT", "17896"))
@@ -31,7 +36,7 @@ BIND: str = os.environ.get("LAWEAR_EXAM_BIND", "127.0.0.1")
 ROOT: Path = Path(__file__).parent.resolve()
 DB_PATH: str = os.environ.get("LAWEAR_EXAM_DB", str(ROOT / "exam.db"))
 SERVER_NAME: str = "lawear-examconsole"
-SERVER_VERSION: str = "0.3.0-cases-sync"
+SERVER_VERSION: str = "0.4.0-grader"
 
 
 class ExamHandler(SimpleHTTPRequestHandler):

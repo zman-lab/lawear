@@ -5,3 +5,6 @@
 *.db.bak.*
 __pycache__/
 .env
+
+# negate — .env.example 은 가이드용 (실 키 X), 추적함
+!.env.example
