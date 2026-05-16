@@ -499,6 +499,7 @@ async function loadFile(dir, filename, el) {
 
 function renderContent() {
   const content = document.getElementById('content');
+  const editorWrap = document.getElementById('editor-wrap');
   const k = stealthMode ? 'fake' : 'real';
   const tabLabels = stealthUI.tabs[k];
   const tabKeys = ['원본', '전체', 'Lv.1', 'Lv.4'];
@@ -508,6 +509,7 @@ function renderContent() {
   });
   tabs += '</div>';
   content.innerHTML = tabs + '<div id="mdContent"></div>';
+  if (editorWrap) content.appendChild(editorWrap);
   showSection('전체');
 }
 
@@ -702,15 +704,12 @@ let originalContent = '';
 
 function toggleEditor() {
   if (!editMode && !currentFile) {
-    setSaveStatus('파일을 먼저 선택하세요', 'error');
-    document.body.classList.add('editing');
-    document.getElementById('editor-toggle').classList.add('active');
-    editMode = true;
+    alert('파일을 먼저 선택하세요');
     return;
   }
   if (editMode) {
     const ta = document.getElementById('editor-textarea');
-    if (ta.value && ta.value !== originalContent) {
+    if (ta && ta.value && ta.value !== originalContent) {
       if (!confirm('저장하지 않은 변경 사항이 있습니다. 버리시겠습니까?')) return;
     }
   }
