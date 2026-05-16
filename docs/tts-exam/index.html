@@ -3382,11 +3382,14 @@
     return html;
   }
 
-  // Step 15-3 — diff_segments → 형광펜 강조 (특정 클래스로 표시)
+  // Step 15-3 + 19-2 — diff_segments → 형광펜 강조 (특정 클래스로 표시)
   //   * type='match'   → .diff-match  (옅은 녹색)
   //   * type='partial' → .diff-partial (옅은 황)
   //   * type='miss'    → .diff-miss   (옅은 적)
-  //   - 본문 내 해당 텍스트를 찾아 span 으로 감싼다 (case-insensitive, escape 후)
+  //   - 3단 매칭 전략 (Step 19-2 사용자 피드백):
+  //     1) 직접 phrase 매칭 — seg.text 의 핵심 phrase (괄호/메타 제외) 가 본문에 substring 으로 있으면 그대로 매칭
+  //     2) N-gram 매칭 — 인접 토큰 2~3개 결합 (예 "관련적 병합") 매칭
+  //     3) 단일 토큰 매칭 — 마지막 fallback (잡음 제거된 토큰만)
   //   - 짧은 토큰(1자) 은 false-positive 위험 → skip
   function highlightDiffSegments(html, segments) {
     if (!Array.isArray(segments) || segments.length === 0) return html;
@@ -3400,11 +3403,11 @@
       if (!type || (type !== 'match' && type !== 'partial' && type !== 'miss')) continue;
       const raw = String(seg.text || '').trim();
       if (!raw || raw.length < 2) continue;
-      // diff_segments 의 텍스트는 사람이 적은 요약(예: "원금 채권과 ... → 객관적 병합 (정확)")
-      // 원본 본문에 그대로 매칭 안 됨. 핵심 키워드만 추출해서 매칭.
-      const tokens = extractKeyTokens(raw);
       const cls = `diff-${type}`;
-      for (const tok of tokens) {
+      // Step 19-2 — 핵심 매칭 후보 (직접 phrase + N-gram + 토큰)
+      // 긴 후보부터 시도 → 매칭되면 짧은 후보가 그 안에 중첩 안 됨 (재귀 가드)
+      const candidates = buildMatchCandidates(raw);
+      for (const tok of candidates) {
         const safe = escapeHtml(tok);
         if (!safe || safe.length < 2) continue;
         const re = new RegExp(safe.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
@@ -3420,24 +3423,81 @@
     return out;
   }
 
-  // diff_segments 의 사람 작성 요약에서 핵심 키워드 추출
-  //   * "원금 채권과 지연손해금 채권은 별개 소송물 → 객관적 병합 (정확)"
-  //     → ["원금 채권", "지연손해금 채권", "별개 소송물", "객관적 병합"]
-  //   - '→', '·', '/', '(', ')', '+', ':', '"', '\'', '-', '—' 등으로 split
-  function extractKeyTokens(text) {
+  // Step 19-2 — diff_segments 의 사람 작성 요약에서 매칭 후보 생성 (긴 → 짧은 순)
+  //   입력 예: "청구의 병합 (객관적+관련적) — 정확"
+  //   1) phrase 분리: 괄호/연결자 제거 → ["청구의 병합", "객관적", "관련적"]
+  //   2) 각 phrase 의 토큰: ["청구의", "병합"] 등 1칸 공백 split
+  //   3) N-gram (2/3): 인접 토큰 결합 → ["청구의 병합"]
+  //   4) 단일 토큰: STOP 제외 (조사/메타 단어)
+  //   반환: 긴 길이 우선 정렬, 중복 제거. 매칭은 호출자가 substring 으로 시도.
+  function buildMatchCandidates(text) {
     if (!text) return [];
+    // STOP set (Step 19-2 확장) — 메타/일반어 (forward declare for paren heuristic)
+    const STOP_META_HINT = ['정확', '누락', '핵심', '관련 없음', '미흡', '부족', '서술', '논점',
+                            '사용자 답안', '레퍼런스', '원본', '매칭', '하이라이트', '띄어쓰기', '표현 차이'];
+    // 1) 메타 괄호 처리 — 괄호 안에 메타 힌트가 있으면 통째 제거, 없으면 괄호만 제거 (내용 살림)
+    //    예 BAD remove all: "(객관적+관련적)" → " " (정보 손실)
+    //    예 GOOD keep content: "(객관적+관련적)" → " 객관적+관련적 "
+    //    예 BAD keep meta: "(정확)" → " 정확 " (잡음 증가)
     let s = String(text)
-      .replace(/\([^)]{1,20}\)/g, ' ')  // 짧은 괄호 메타 (정확/누락 등) 제거
-      .replace(/[→·:"'\-—+/,]/g, ' ');
-    const parts = s.split(/\s{2,}|[|]/);
-    // 잡음 제거: 너무 짧거나, 단일 일반어
-    const STOP = new Set(['정확', '누락', '핵심', '관련', '논점', '서술', '미흡', '부족', '결론', '근거', '필요']);
+      .replace(/\(([^)]{1,60})\)/g, (m, inner) => {
+        // 괄호 안에 메타 힌트가 있으면 통째 제거, 아니면 내용 살림
+        for (const hint of STOP_META_HINT) {
+          if (inner.indexOf(hint) >= 0) return ' ';
+        }
+        return ' ' + inner + ' ';
+      })
+      .replace(/\[[^\]]{1,40}\]/g, ' ')                   // [red] [blue] 같은 태그 메타 제거
+      .replace(/[→·:"'\-—+/]/g, ' ');                    // 연결자 → 공백
+    // 2) phrase 분리: 2칸+ 공백 OR | OR , OR ;
+    const phrases = s.split(/\s{2,}|[|,;]/)
+      .map(p => p.trim())
+      .filter(p => p.length >= 2 && p.length <= 40);
+    // 3) STOP set (Step 19-2 확장) — 메타/일반어/조사 시작 단어
+    //    한 글자 토큰은 length<2 가드로 자동 제외, 여기는 2자+ 일반어만
+    const STOP = new Set([
+      // 기존 메타
+      '정확', '누락', '핵심', '관련', '논점', '서술', '미흡', '부족', '결론', '근거', '필요',
+      // 추가 메타 (Step 19-2)
+      '내용', '사항', '부분', '기재', '표현', '차이', '무시', '양호', '충분', '다소', '정도', '수준',
+      '사용자', '답안', '원본', '레퍼런스', '참고', '본문', '매칭', '하이라이트',
+      // 추가 일반어 (의미 모호)
+      '경우', '있음', '없음', '이상', '이하', '이런', '저런', '그런', '같음', '다름',
+      '그리고', '그러나', '그래서', '따라서', '하지만', '또한', '또는',
+    ]);
+    // 4) phrase 별: 직접 phrase + 2/3-gram + 단일 토큰
     const out = [];
-    for (let p of parts) {
-      p = p.trim();
-      if (p.length >= 2 && p.length <= 40 && !STOP.has(p)) out.push(p);
+    const seen = new Set();
+    function addCand(c) {
+      const t = c && c.trim();
+      if (!t || t.length < 2 || t.length > 40) return;
+      if (seen.has(t)) return;
+      seen.add(t);
+      out.push(t);
     }
+    for (const ph of phrases) {
+      // 4a) phrase 자체 (직접 매칭 후보 — substring 가능성)
+      if (!STOP.has(ph)) addCand(ph);
+      // 4b) phrase 안 토큰 (1칸 공백 split)
+      const toks = ph.split(/\s+/).map(t => t.trim()).filter(t => t.length >= 2 && !STOP.has(t));
+      // 4c) 3-gram → 2-gram → 1-gram (긴 것 먼저)
+      for (let n = Math.min(3, toks.length); n >= 1; n--) {
+        for (let i = 0; i + n <= toks.length; i++) {
+          const gram = toks.slice(i, i + n).join(' ');
+          // n=1 (단일 토큰) 은 STOP/길이 가드 이미 적용. n>=2 는 phrase 와 동일하면 skip
+          if (n >= 2 && gram === ph) continue;
+          addCand(gram);
+        }
+      }
+    }
+    // 긴 길이 우선 정렬 — 호출자는 이 순서로 substring 매칭 → 중첩 가드 정확
+    out.sort((a, b) => b.length - a.length);
     return out;
+  }
+
+  // 호환용 thin wrapper (구 호출처 있을 시 대응 — 현재 호출 없음, 단위 테스트용)
+  function extractKeyTokens(text) {
+    return buildMatchCandidates(text);
   }
 
   // 2열 분할 렌더 — 좌(내 답안) + 우(원본 답안 본문, 강조 태그 보존)
