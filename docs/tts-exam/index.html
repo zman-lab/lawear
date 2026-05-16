@@ -805,12 +805,12 @@
             <span class="toggle-icon">▼</span>
           </div>
           <div class="section-body answer-area">
-            <textarea placeholder="검토 의견을 입력하세요. 마이크 버튼으로 음성 입력 가능." data-i18n-ph="notes_ph"></textarea>
+            <textarea id="rv-notes" placeholder="검토 의견을 입력하세요. 마이크 버튼으로 음성 입력 가능." data-i18n-ph="notes_ph"></textarea>
             <div class="answer-toolbar">
-              <span class="info" data-i18n-fmt="info_chars">0 chars · auto-saved at —</span>
+              <span class="info" id="rv-notes-info" data-i18n-fmt="info_chars">0 chars · auto-saved at —</span>
               <button class="btn mic">● <span data-i18n="btn_voice">Voice Input</span></button>
-              <button class="btn" data-i18n="btn_save_draft">Save Draft</button>
-              <button class="btn primary" data-i18n="btn_submit">Submit for Evaluation</button>
+              <button class="btn" id="btn-save-draft" data-i18n="btn_save_draft">Save Draft</button>
+              <button class="btn primary" id="btn-submit" data-i18n="btn_submit">Submit for Evaluation</button>
             </div>
           </div>
         </div>
@@ -818,108 +818,83 @@
 
       <!-- Evaluation Tab -->
       <div class="content-tab" data-tab="evaluation">
-        <div class="page-header">
-          <div class="case-id-large">IMK01-01</div>
-          <div class="case-status" style="color: var(--success); border-color: var(--success); background: rgba(78,201,176,0.08);" data-i18n="status_evaluated">Evaluated</div>
-          <div class="case-subject"><span data-i18n="eval_submitted_at">Submitted at</span> 2026-05-16 14:23 · model: claude-opus-4-7</div>
+        <div class="page-header" id="ev-header">
+          <div class="case-id-large" id="ev-case-id">—</div>
+          <div class="case-status" id="ev-status" data-i18n="status_in_review">In Review</div>
+          <div class="case-subject" id="ev-subject">—</div>
         </div>
 
-        <div class="score-overview">
-          <div class="score-card">
-            <div class="score-label" data-i18n="final_score">Final Score</div>
-            <div class="score-value">14<span class="total"> / 17</span></div>
-            <div class="score-meta"><span class="grade b" data-i18n="grade_b">Grade B</span> · 82%</div>
-          </div>
-          <div class="criteria-grid">
-            <div class="criteria-row">
-              <div class="label"><span data-i18n="crit_mnem">Lv.4 Mnemonics</span> <span class="sub">[blank2]</span></div>
-              <div class="bar-wrap"><div class="bar-fill partial" style="width:75%"></div></div>
-              <div class="num">3 / 4</div>
-            </div>
-            <div class="criteria-row">
-              <div class="label"><span data-i18n="crit_color">Color Emphasis</span> <span class="sub">red/blue/bold/blank</span></div>
-              <div class="bar-wrap"><div class="bar-fill full" style="width:92%"></div></div>
-              <div class="num">11 / 12</div>
-            </div>
-            <div class="criteria-row">
-              <div class="label"><span data-i18n="crit_under">Underline Coverage</span> <span class="sub">[u]</span></div>
-              <div class="bar-wrap"><div class="bar-fill full" style="width:100%"></div></div>
-              <div class="num">2 / 2</div>
-            </div>
-            <div class="criteria-row">
-              <div class="label"><span data-i18n="crit_outline">Lv.1 Outline Match</span> <span class="sub" data-i18n="crit_outline_sub">목차 의미</span></div>
-              <div class="bar-wrap"><div class="bar-fill full" style="width:100%"></div></div>
-              <div class="num">3 / 3</div>
-            </div>
-            <div class="criteria-row">
-              <div class="label"><span data-i18n="crit_sem">Semantic Match</span> <span class="sub" data-i18n="crit_sem_sub">태그 의미</span></div>
-              <div class="bar-wrap"><div class="bar-fill partial" style="width:80%"></div></div>
-              <div class="num">8 / 10</div>
-            </div>
-            <div class="criteria-row">
-              <div class="label"><span data-i18n="crit_rich">Richness</span> <span class="sub">Lv.4 / Lv.1 / Origin</span></div>
-              <div class="bar-wrap"><div class="bar-fill" style="width:60%"></div></div>
-              <div class="num">Lv.1</div>
-            </div>
-            <div class="criteria-row">
-              <div class="label"><span data-i18n="crit_miss">Missing Arguments</span> <span class="sub" data-i18n="crit_miss_sub">vs reference</span></div>
-              <div class="bar-wrap"><div class="bar-fill low" style="width:33%"></div></div>
-              <div class="num">−2</div>
-            </div>
+        <div id="ev-empty" class="section-body" style="padding: 20px; color: var(--text-dim);">
+          <div data-i18n="ev_empty">No evaluation yet. Submit your notes from the Review tab to start grading.</div>
+        </div>
+
+        <div id="ev-grading" class="section-body" style="display:none; padding: 20px;">
+          <div class="info" id="ev-grading-line" data-i18n="ev_grading">Grading…</div>
+          <div style="margin-top: 8px; color: var(--text-dim); font-size: 11px;">
+            <span data-i18n="ev_elapsed">Elapsed</span>: <span id="ev-elapsed">0.0s</span>
           </div>
         </div>
 
-        <div class="section" data-collapsible>
-          <div class="section-header">
-            <span data-i18n="sec_eval_notes">Evaluation Notes</span>
-            <span class="toggle-icon">▼</span>
+        <div id="ev-error" class="section-body" style="display:none; padding: 20px;">
+          <div class="info" style="color: var(--danger);"><span data-i18n="ev_failed">Grading failed.</span></div>
+          <div style="margin-top: 8px; color: var(--text-dim); font-size: 12px;">
+            <span data-i18n="ev_error_code">Error</span>: <code id="ev-error-code">—</code>
           </div>
-          <div class="section-body">
-            <div class="feedback-section">
-              <div class="feedback-block">
-                <div class="ftag" data-i18n="fb_strength">Strength</div>
-                목차 구성이 Lv.1 기준과 일치합니다 (1. A조합의 법적 성격 → 2. 계약의 효력 → 3. 사안의 경우).
-                "비법인사단" 인정 근거, "총유물 관리 처분행위" 판례 인용까지 정확.
-              </div>
-              <div class="feedback-block warn">
-                <div class="ftag" data-i18n="fb_caution">Caution</div>
-                두문자 표시 "법-등-내" 중 "내(내부적 의사결정)" 풀이형 키워드 누락. Lv.4 만점 대비 1점 감점.
-                밑줄 표시는 모두 포함되었으나 색 강조 중 "blue 단체/존속" 1건 누락.
-              </div>
-              <div class="feedback-block danger">
-                <div class="ftag" data-i18n="fb_missing">Missing</div>
-                "거래상대방이 대표권 제한 및 위반사실을 알았거나 알 수 있었음은 비법인사단측이 주장 증명" — 증명책임 분배 논점이 답안에 명시되지 않았습니다.
-                레퍼런스 대비 누락 논점 2개.
-              </div>
-            </div>
+          <div id="ev-error-msg" style="margin-top: 8px; color: var(--text-dim);"></div>
+          <div style="margin-top: 12px;">
+            <button class="btn primary" id="btn-retry" data-i18n="btn_retry">Retry</button>
           </div>
         </div>
 
-        <div class="section" data-collapsible>
-          <div class="section-header">
-            <span data-i18n="sec_diff">Reference Diff</span>
-            <span class="badge" data-i18n="badge_vs_lv1">vs Lv.1</span>
-            <span class="toggle-icon">▼</span>
-          </div>
-          <div class="section-body">
-            <div class="diff-area">
-              <span class="match">재건축조합은 단체 고유의 목적을 가지고 활동하며 규약 및 단체로서의 </span>
-              <span class="match">조직을 갖추고, 의결이나 업무집행방법이 총회의 </span>
-              <span class="match">다수결 원칙에 따라 행해지며, 구성원의 가입 탈퇴에 따른 변경에 관계없이 </span>
-              <span class="miss">단체</span>
-              <span class="match"> 그 자체가 </span>
-              <span class="miss">존속</span>
-              <span class="match">하며, 단체로서의 </span>
-              <span class="match">주요사항이 확정되어 있으므로 조합이라는 명칭에 불구하고 </span>
-              <span class="match">비법인사단에 해당한다. </span>
-              <span class="partial">[색 강조 누락]</span>
-              <span class="match"> 비법인사단 재산은 총유이므로, 총유물의 관리 처분에 관하여 </span>
-              <span class="miss">정관이나 규약에 정함이 없으면 사원총회의 결의를 거치지 않은 총유물의 관리 및 처분행위는 무효</span>
-              <span class="match"> 판례 …</span>
+        <div id="ev-result" style="display:none;">
+          <div class="score-overview">
+            <div class="score-card">
+              <div class="score-label" data-i18n="final_score">Final Score</div>
+              <div class="score-value"><span id="ev-score-total">—</span><span class="total"> / <span id="ev-score-max">—</span></span></div>
+              <div class="score-meta"><span class="grade b" id="ev-grade">—</span> · <span id="ev-pct">—</span>%</div>
+            </div>
+            <div class="criteria-grid" id="ev-criteria-grid">
+              <!-- criteria rows injected by JS -->
             </div>
           </div>
-        </div>
-      </div>
+
+          <div class="section" data-collapsible>
+            <div class="section-header">
+              <span data-i18n="sec_eval_notes">Evaluation Notes</span>
+              <span class="toggle-icon">▼</span>
+            </div>
+            <div class="section-body">
+              <div class="feedback-section" id="ev-notes-section">
+                <div class="feedback-block">
+                  <div class="ftag" data-i18n="fb_strength">Strength</div>
+                  <div id="ev-note-strength">—</div>
+                </div>
+                <div class="feedback-block warn">
+                  <div class="ftag" data-i18n="fb_caution">Caution</div>
+                  <div id="ev-note-caution">—</div>
+                </div>
+                <div class="feedback-block danger">
+                  <div class="ftag" data-i18n="fb_missing">Missing</div>
+                  <div id="ev-note-missing">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section" data-collapsible>
+            <div class="section-header">
+              <span data-i18n="sec_diff">Reference Diff</span>
+              <span class="badge" data-i18n="badge_vs_lv1">vs Lv.1</span>
+              <span class="toggle-icon">▼</span>
+            </div>
+            <div class="section-body">
+              <div class="diff-area" id="ev-diff-area">
+                <span style="color: var(--text-dim);" data-i18n="ev_diff_empty">No diff available.</span>
+              </div>
+            </div>
+          </div>
+        </div><!-- /ev-result -->
+      </div><!-- /content-tab evaluation -->
 
       <!-- Reports Tab -->
       <div class="content-tab" data-tab="reports">
@@ -1454,6 +1429,22 @@
       err_load: 'Failed to load.',
       err_sync_offline: '17895 viewer is offline. Sync skipped.',
       empty_cases: 'No cases. Run "Resync from 17895" in Settings.',
+      // wire (Step 7 — Attempts API + Evaluation tab)
+      ev_empty: 'No evaluation yet. Submit your notes from the Review tab to start grading.',
+      ev_grading: 'Grading…',
+      ev_elapsed: 'Elapsed',
+      ev_failed: 'Grading failed.',
+      ev_error_code: 'Error',
+      btn_retry: 'Retry',
+      ev_diff_empty: 'No diff available.',
+      err_submit_empty: 'Please enter reviewer notes before submitting.',
+      err_submit_failed: 'Failed to submit for evaluation.',
+      err_poll_failed: 'Failed to retrieve evaluation status.',
+      info_submitted: 'Submitted, grading in progress…',
+      info_chars_fmt: '{n} chars',
+      info_saved_at: 'auto-saved at {t}',
+      info_saved_never: 'auto-saved at —',
+      draft_saved: 'Draft saved locally.',
     },
     ko: {
       mock_label: '시안',
@@ -1524,6 +1515,22 @@
       err_load: '불러오기 실패.',
       err_sync_offline: '17895 뷰어가 꺼져있어 동기화 불가.',
       empty_cases: '케이스 없음. 설정에서 "17895에서 다시 가져오기" 실행.',
+      // wire (Step 7 — Attempts API + 평가 탭)
+      ev_empty: '아직 평가가 없습니다. 검토 탭에서 검토 의견을 제출해 채점을 시작하세요.',
+      ev_grading: '채점 중…',
+      ev_elapsed: '경과',
+      ev_failed: '채점 실패.',
+      ev_error_code: '에러',
+      btn_retry: '다시 시도',
+      ev_diff_empty: '비교 데이터 없음.',
+      err_submit_empty: '검토 의견을 입력한 뒤 제출하세요.',
+      err_submit_failed: '평가 제출 실패.',
+      err_poll_failed: '평가 상태 조회 실패.',
+      info_submitted: '제출됨, 채점 진행 중…',
+      info_chars_fmt: '{n}자',
+      info_saved_at: '자동저장 {t}',
+      info_saved_never: '자동저장 —',
+      draft_saved: '임시저장 완료 (로컬).',
     },
   };
 
@@ -1963,6 +1970,410 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
+
+  // ════════════════════════════════════════════════
+  // Step 7 — Attempts API wire (Review 제출 → Evaluation 폴링)
+  // ════════════════════════════════════════════════
+  let CURRENT_ATTEMPT_ID = null;
+  let POLL_TIMER = null;
+  const POLL_INTERVAL_MS = 1000;
+
+  // ─── Reviewer Notes textarea: chars 카운트 + 자동저장 (localStorage) ───
+  const notesEl = document.getElementById('rv-notes');
+  const notesInfoEl = document.getElementById('rv-notes-info');
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function nowHHMM() {
+    const d = new Date();
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+
+  function fmtChars(n) {
+    const tmpl = I18N[currentLang].info_chars_fmt;
+    return tmpl.replace('{n}', n);
+  }
+  function fmtSavedAt(t) {
+    return I18N[currentLang].info_saved_at.replace('{t}', t);
+  }
+
+  function updateNotesInfo(savedTime) {
+    if (!notesEl || !notesInfoEl) return;
+    const n = (notesEl.value || '').length;
+    const charsPart = fmtChars(n);
+    const savedPart = savedTime ? fmtSavedAt(savedTime) : I18N[currentLang].info_saved_never;
+    notesInfoEl.textContent = `${charsPart} · ${savedPart}`;
+  }
+
+  function draftKey(caseId) {
+    return `lawear_exam_draft_${caseId || 'unknown'}`;
+  }
+
+  function saveDraft(caseId, text) {
+    if (!caseId) return null;
+    try {
+      const t = nowHHMM();
+      localStorage.setItem(draftKey(caseId), JSON.stringify({ text: text, t: t }));
+      return t;
+    } catch (e) {
+      console.warn('saveDraft failed:', e);
+      return null;
+    }
+  }
+  function loadDraft(caseId) {
+    if (!caseId) return null;
+    try {
+      const raw = localStorage.getItem(draftKey(caseId));
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return (obj && typeof obj.text === 'string') ? obj : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  if (notesEl) {
+    let autoSaveTimer = null;
+    notesEl.addEventListener('input', () => {
+      // chars 즉시 갱신
+      updateNotesInfo(null);
+      // 1초 debounce → localStorage 저장
+      clearTimeout(autoSaveTimer);
+      autoSaveTimer = setTimeout(() => {
+        const t = saveDraft(CURRENT_CASE_ID, notesEl.value);
+        if (t) updateNotesInfo(t);
+      }, 1000);
+    });
+  }
+
+  // 케이스 전환 시 draft 복원 + chars 라벨 reset
+  (function hookCaseChange() {
+    const origLoadCase = loadCase;
+    window.__origLoadCase = origLoadCase;  // 디버그용
+    loadCase = async function patchedLoadCase(caseId) {
+      // 폴링 중이면 정지
+      stopPolling();
+      await origLoadCase(caseId);
+      // draft 복원
+      if (notesEl) {
+        const draft = loadDraft(caseId);
+        if (draft) {
+          notesEl.value = draft.text || '';
+          updateNotesInfo(draft.t || null);
+        } else {
+          notesEl.value = '';
+          updateNotesInfo(null);
+        }
+      }
+      // Evaluation 탭은 빈 상태로 리셋 (새 attempt 시작 전)
+      resetEvaluationView();
+    };
+  })();
+
+  // ─── Evaluation 탭 — empty / grading / error / result 4상태 토글 ───
+  function setEvSection(state) {
+    // state: 'empty' | 'grading' | 'error' | 'result'
+    const map = {
+      'empty':   'ev-empty',
+      'grading': 'ev-grading',
+      'error':   'ev-error',
+      'result':  'ev-result',
+    };
+    Object.entries(map).forEach(([s, id]) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = (s === state) ? '' : 'none';
+    });
+  }
+  function resetEvaluationView() {
+    CURRENT_ATTEMPT_ID = null;
+    setEvSection('empty');
+    // 헤더 reset
+    const idEl = document.getElementById('ev-case-id');
+    const sjEl = document.getElementById('ev-subject');
+    const stEl = document.getElementById('ev-status');
+    if (idEl) idEl.textContent = '—';
+    if (sjEl) sjEl.textContent = '—';
+    if (stEl) {
+      stEl.textContent = I18N[currentLang].status_in_review || 'In Review';
+      stEl.style.color = '';
+      stEl.style.borderColor = '';
+      stEl.style.background = '';
+    }
+  }
+
+  function setEvHeader(caseShortId, caseSubjectLine, statusKey) {
+    const idEl = document.getElementById('ev-case-id');
+    const sjEl = document.getElementById('ev-subject');
+    const stEl = document.getElementById('ev-status');
+    if (idEl) idEl.textContent = caseShortId || '—';
+    if (sjEl) sjEl.textContent = caseSubjectLine || '—';
+    if (stEl) {
+      const label = (I18N[currentLang] && I18N[currentLang][statusKey]) || statusKey;
+      stEl.textContent = label;
+      if (statusKey === 'status_evaluated') {
+        stEl.style.color = 'var(--success)';
+        stEl.style.borderColor = 'var(--success)';
+        stEl.style.background = 'rgba(78,201,176,0.08)';
+      } else {
+        stEl.style.color = '';
+        stEl.style.borderColor = '';
+        stEl.style.background = '';
+      }
+    }
+  }
+
+  // criteria 키별 라벨 + sub
+  const CRITERIA_META = {
+    'mnem':    { label: 'crit_mnem',    sub: '[blank2]' },
+    'color':   { label: 'crit_color',   sub: 'red/blue/bold/blank' },
+    'under':   { label: 'crit_under',   sub: '[u]' },
+    'outline': { label: 'crit_outline', sub: null /* dict crit_outline_sub */ },
+    'sem':     { label: 'crit_sem',     sub: null /* dict crit_sem_sub */ },
+    'rich':    { label: 'crit_rich',    sub: 'Lv.4 / Lv.1 / Origin' },
+    'miss':    { label: 'crit_miss',    sub: null /* dict crit_miss_sub */ },
+  };
+
+  function renderCriteriaGrid(criteria) {
+    const grid = document.getElementById('ev-criteria-grid');
+    if (!grid) return;
+    const dict = I18N[currentLang];
+    grid.innerHTML = '';
+    for (const c of criteria || []) {
+      const meta = CRITERIA_META[c.key];
+      if (!meta) continue;
+      const labelText = (dict[meta.label] !== undefined) ? dict[meta.label] : c.key;
+      let subText = meta.sub;
+      // dict-based sub
+      if (c.key === 'outline') subText = dict.crit_outline_sub || 'outline meaning';
+      if (c.key === 'sem')     subText = dict.crit_sem_sub     || 'tag meaning';
+      if (c.key === 'miss')    subText = dict.crit_miss_sub    || 'vs reference';
+
+      const max = Number(c.max) || 0;
+      const score = Number(c.score) || 0;
+      // bar width: score / max (0~100). miss(max=0)는 score 절대값/weight 비율 추정
+      let pct = 0;
+      let kind = '';  // full / partial / low / ''
+      let numText = '';
+      if (c.key === 'miss') {
+        // miss: max=0, score 음수 표시. weight 대비 절대값
+        const w = Number(c.weight) || 1;
+        const absRatio = Math.min(1, Math.abs(score) / w);
+        pct = Math.round(absRatio * 100);
+        kind = score < 0 ? 'low' : '';
+        numText = (score > 0 ? '+' : '') + score;
+      } else if (c.key === 'rich') {
+        // rich: score 0=Lv.4, 1=Lv.1, 2=Origin
+        pct = max > 0 ? Math.round((score / max) * 100) : 60;
+        const labels = ['Lv.4', 'Lv.1', 'Origin'];
+        numText = labels[Math.max(0, Math.min(2, Math.round(score)))] || String(score);
+      } else {
+        pct = max > 0 ? Math.round((score / max) * 100) : 0;
+        if (pct >= 90) kind = 'full';
+        else if (pct >= 60) kind = 'partial';
+        else kind = 'low';
+        numText = `${score} / ${max}`;
+      }
+
+      const row = document.createElement('div');
+      row.className = 'criteria-row';
+      row.innerHTML = `
+        <div class="label"><span>${escapeHtml(labelText)}</span> <span class="sub">${escapeHtml(subText || '')}</span></div>
+        <div class="bar-wrap"><div class="bar-fill ${kind}" style="width:${pct}%"></div></div>
+        <div class="num">${escapeHtml(numText)}</div>
+      `;
+      grid.appendChild(row);
+    }
+  }
+
+  function renderEvaluationDone(att) {
+    // 헤더
+    const submitted = (att.submitted_at || '').replace('T', ' ').replace('Z', '');
+    const subjLine = `${I18N[currentLang].eval_submitted_at} ${submitted} · model: ${att.model || '—'}`;
+    setEvHeader(att.case_short_id || att.case_id || '—', subjLine, 'status_evaluated');
+
+    // 점수
+    const total = Number(att.score_total);
+    const max   = Number(att.score_max);
+    const pct   = Number(att.score_pct);
+    const grade = att.grade || '—';
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setText('ev-score-total', isFinite(total) ? total.toFixed(1) : '—');
+    setText('ev-score-max',   isFinite(max)   ? max.toFixed(1)   : '—');
+    setText('ev-pct',         isFinite(pct)   ? pct.toFixed(0)   : '—');
+    const gradeEl = document.getElementById('ev-grade');
+    if (gradeEl) {
+      gradeEl.textContent = `${I18N[currentLang].grade_b ? 'Grade ' : ''}${grade}`.trim() || grade;
+      gradeEl.className = 'grade ' + (grade || '').toLowerCase();
+    }
+
+    // criteria
+    renderCriteriaGrid(att.criteria || []);
+
+    // notes
+    const notes = att.eval_notes || {};
+    setText('ev-note-strength', notes.strength || '—');
+    setText('ev-note-caution',  notes.caution  || '—');
+    setText('ev-note-missing',  notes.missing  || '—');
+
+    // diff_html
+    const diffEl = document.getElementById('ev-diff-area');
+    if (diffEl) {
+      const html = att.diff_html || '';
+      if (html.trim()) {
+        diffEl.innerHTML = html;
+      } else {
+        diffEl.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].ev_diff_empty}</span>`;
+      }
+    }
+
+    setEvSection('result');
+  }
+
+  function renderEvaluationError(att) {
+    setEvHeader(att.case_short_id || att.case_id || '—', '—', 'status_in_review');
+    const codeEl = document.getElementById('ev-error-code');
+    const msgEl  = document.getElementById('ev-error-msg');
+    if (codeEl) codeEl.textContent = att.error_code || '—';
+    if (msgEl)  msgEl.textContent  = att.error_message || '';
+    setEvSection('error');
+  }
+
+  function renderEvaluationGrading(att) {
+    const elapsed = Number(att.elapsed_sec) || 0;
+    setEvHeader(att.case_short_id || att.case_id || '—', I18N[currentLang].info_submitted || 'Grading…', 'status_in_review');
+    const eEl = document.getElementById('ev-elapsed');
+    if (eEl) eEl.textContent = elapsed.toFixed(1) + 's';
+    setEvSection('grading');
+  }
+
+  // ─── 폴링 ───
+  function stopPolling() {
+    if (POLL_TIMER) {
+      clearTimeout(POLL_TIMER);
+      POLL_TIMER = null;
+    }
+  }
+
+  async function pollAttempt(attemptId) {
+    if (CURRENT_ATTEMPT_ID !== attemptId) return;  // 케이스 전환되면 중단
+    try {
+      const r = await fetch(`${API_BASE}/api/attempts/${encodeURIComponent(attemptId)}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const att = await r.json();
+      // 상태별 분기
+      if (att.status === 'grading') {
+        renderEvaluationGrading(att);
+        POLL_TIMER = setTimeout(() => pollAttempt(attemptId), POLL_INTERVAL_MS);
+      } else if (att.status === 'completed' || att.db_status === 'done') {
+        renderEvaluationDone(att);
+      } else if (att.status === 'failed' || att.db_status === 'error') {
+        renderEvaluationError(att);
+      } else {
+        // 알 수 없는 상태 — error 처리
+        renderEvaluationError({
+          case_id: att.case_id,
+          case_short_id: att.case_short_id,
+          error_code: 'unknown_status',
+          error_message: 'Unexpected status: ' + (att.status || att.db_status || ''),
+        });
+      }
+    } catch (err) {
+      console.error('pollAttempt failed:', err);
+      renderEvaluationError({
+        case_id: CURRENT_CASE_ID,
+        error_code: 'poll_failed',
+        error_message: err.message || I18N[currentLang].err_poll_failed,
+      });
+    }
+  }
+
+  // ─── Submit / Save Draft 버튼 ───
+  const submitBtn = document.getElementById('btn-submit');
+  const saveDraftBtn = document.getElementById('btn-save-draft');
+
+  if (saveDraftBtn) {
+    saveDraftBtn.addEventListener('click', () => {
+      if (!CURRENT_CASE_ID || !notesEl) return;
+      const t = saveDraft(CURRENT_CASE_ID, notesEl.value);
+      if (t) {
+        updateNotesInfo(t);
+        // 작은 토스트 대용 — 정보 라인을 잠깐 변경 후 복귀
+        const prev = notesInfoEl.textContent;
+        notesInfoEl.textContent = I18N[currentLang].draft_saved;
+        setTimeout(() => { notesInfoEl.textContent = prev; }, 1500);
+      }
+    });
+  }
+
+  async function submitAttempt() {
+    if (!CURRENT_CASE_ID) return;
+    const text = (notesEl && notesEl.value || '').trim();
+    if (!text) {
+      alert(I18N[currentLang].err_submit_empty);
+      return;
+    }
+    // 즉시 Evaluation 탭 전환
+    const evTab = document.querySelector('.tab-btn[data-tab="evaluation"]');
+    if (evTab) evTab.click();
+    // 일단 grading 상태 표시 (attempt_id 받기 전)
+    setEvHeader(CURRENT_CASE_ID, I18N[currentLang].info_submitted || 'Grading…', 'status_in_review');
+    const eEl = document.getElementById('ev-elapsed');
+    if (eEl) eEl.textContent = '0.0s';
+    setEvSection('grading');
+
+    // 폴링 정지 (이전 attempt 가 있으면)
+    stopPolling();
+
+    try {
+      if (submitBtn) submitBtn.disabled = true;
+      const r = await fetch(`${API_BASE}/api/attempts`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          case_id: CURRENT_CASE_ID,
+          answer_text: notesEl.value,
+          submitted_at: new Date().toISOString(),
+        }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const code = body.error_code || ('http_' + r.status);
+        const msg  = body.message || I18N[currentLang].err_submit_failed;
+        renderEvaluationError({
+          case_id: CURRENT_CASE_ID,
+          error_code: code,
+          error_message: msg,
+        });
+        return;
+      }
+      CURRENT_ATTEMPT_ID = body.attempt_id;
+      // 즉시 1회 폴링
+      pollAttempt(CURRENT_ATTEMPT_ID);
+    } catch (err) {
+      console.error('submitAttempt failed:', err);
+      renderEvaluationError({
+        case_id: CURRENT_CASE_ID,
+        error_code: 'submit_failed',
+        error_message: err.message || I18N[currentLang].err_submit_failed,
+      });
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  }
+
+  if (submitBtn) submitBtn.addEventListener('click', submitAttempt);
+
+  // 재시도 버튼 — 동일 답안 재제출
+  const retryBtn = document.getElementById('btn-retry');
+  if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+      submitAttempt();
+    });
+  }
+
+  // 초기 Evaluation 탭 상태
+  resetEvaluationView();
 
   // ─── 초기 로드 ───
   reloadCases();
