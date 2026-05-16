@@ -2661,10 +2661,22 @@
         bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> ${escapeHtml(c.subject_kor)} <a href="#">/</a> ${escapeHtml(c.category)} <a href="#">/</a> ${escapeHtml(c.file)} <a href="#">/</a> ${escapeHtml(c.case_no)}`;
       }
       if (ptsEl) ptsEl.textContent = `${c.points} pt`;
-      // Background / Inquiry: 원본 섹션을 사실관계 / 문제 로 split
+      // Background / Inquiry: 원본 섹션을 사실관계 / 문제 로 split (Step 22 — 다중 설문 통합)
       const { facts, question } = splitOriginFactsQuestion(c.origin || '');
-      if (bgEl) bgEl.textContent = facts || (I18N[currentLang].err_load);
-      if (inqEl) inqEl.textContent = question || (I18N[currentLang].err_load);
+      if (bgEl) {
+        if (facts) {
+          bgEl.innerHTML = renderOriginText(facts);
+        } else {
+          bgEl.textContent = I18N[currentLang].err_load;
+        }
+      }
+      if (inqEl) {
+        if (question) {
+          inqEl.innerHTML = renderOriginText(question);
+        } else {
+          inqEl.textContent = I18N[currentLang].err_load;
+        }
+      }
     } catch (err) {
       console.error('loadCase failed:', err);
       CURRENT_CASE_DATA = null;
@@ -2673,16 +2685,81 @@
     }
   }
 
-  // 원본 섹션 .md 본문에서 ### 사실관계 / ### 문제 추출
+  // 원본 섹션 .md 본문에서 사실관계 / 문제 추출 (Step 22 — 다중 설문 통합 강화)
+  // 지원 헤더 패턴:
+  //   ### 사실관계 / ### 공통된 사실관계 / ### 기본적 사실관계 / ### 변형된 사실관계
+  //   ### 문제 / ### 설문 N / ### 설문 N (점수) / ### 설문 N 가, ### 설문 N 나 ...
+  //
+  // 다중 설문 케이스: 공통 사실관계 + 설문 1/2/N 본문을 한 케이스로 통합 (사용자 명시 2026-05-17).
+  // 답안 헤더(### 설문 N 답안)는 question 에서 제외.
   function splitOriginFactsQuestion(originRaw) {
     if (!originRaw) return { facts: '', question: '' };
-    // 정규식으로 ### 사실관계 ... ### 문제 / 또는 ### 문제 ... 끝
-    const factsMatch = originRaw.match(/###\s*사실관계\s*([\s\S]*?)(?=###\s|$)/);
-    const questionMatch = originRaw.match(/###\s*문제\s*([\s\S]*?)(?=###\s|$)/);
+
+    // 1) facts 추출: 우선 ### 사실관계 (단일) → 없으면 ### *사실관계* (공통된/기본적/변형된 등)
+    const factsRe = /###\s*(?:공통된\s*|기본적\s*|변형된\s*|기본\s*|공통\s*|변형\s*)?사실관계[^\n]*\n([\s\S]*?)(?=###\s|$)/;
+    const factsMatch = originRaw.match(factsRe);
+
+    // 2) question 추출: ### 문제 단일 매칭
+    const singleQRe = /###\s*문제[^\n]*\n([\s\S]*?)(?=###\s|$)/;
+    const singleQMatch = originRaw.match(singleQRe);
+
+    // 3) 다중 설문 매칭 — "### 설문 N ..." 헤더 (단, "### 설문 N 답안" / "### 설문 N 가 답안" 류 제외)
+    //    헤더 라인 자체는 출력에서 보존 (사용자가 점수 등 확인 가능)
+    const multiInquiries = [];
+    const inquiryHeaderRe = /^###\s*설문\s*\S[^\n]*$/gm;  // "### 설문 1 (20점)" / "### 설문 1 가 (12점)"
+    let m;
+    while ((m = inquiryHeaderRe.exec(originRaw)) !== null) {
+      const header = m[0];
+      // 답안 헤더 스킵 — 마지막 단어가 '답안' 으로 끝나거나 ' 답안 ' 토큰 포함
+      if (/답안\s*$/.test(header) || /\s답안(\s|$)/.test(header)) continue;
+      // 본문: 헤더 뒤 ~ 다음 ### 헤더 또는 EOF
+      const bodyStart = m.index + m[0].length;
+      const rest = originRaw.slice(bodyStart);
+      const nextHeader = rest.search(/^###\s/m);
+      const body = nextHeader === -1 ? rest : rest.slice(0, nextHeader);
+      // 헤더 라벨 ('### ' 제거 + 점수 괄호는 그대로 유지 → "설문 1 (20점)") + 본문
+      const label = header.replace(/^###\s*/, '').trim();
+      const text = body.trim();
+      if (text) {
+        multiInquiries.push({ label, text });
+      }
+    }
+
+    let question = '';
+    if (multiInquiries.length > 0) {
+      // 다중 설문 통합 — bold label + 본문, 빈줄로 구분 (사용자 명시: 한 케이스에 통합)
+      question = multiInquiries
+        .map((q) => `**${q.label}**\n\n${q.text}`)
+        .join('\n\n');
+    } else if (singleQMatch) {
+      question = singleQMatch[1].trim();
+    }
+
+    // 4) fallback — facts 도 question 도 없으면 origin 전체를 facts 로
+    if (!factsMatch && !question) {
+      return { facts: originRaw.trim(), question: '' };
+    }
+
     return {
       facts: factsMatch ? factsMatch[1].trim() : '',
-      question: questionMatch ? questionMatch[1].trim() : '',
+      question: question,
     };
+  }
+
+  // 원본 텍스트 → 안전한 HTML (escape + 줄바꿈 + **bold** 만 인식)
+  // R-09 — 원문 그대로 보존 (Markdown 풀파싱 X, bold 헤더만 가독성 강조).
+  function renderOriginText(raw) {
+    if (!raw) return '';
+    const escaped = String(raw)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+    // **bold** → <strong>bold</strong> (마크다운 bold만 인식, 다른 마크다운은 raw 유지)
+    const withBold = escaped.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+    // 줄바꿈 보존
+    return withBold.replace(/\n/g, '<br>');
   }
 
   // ─── 필터 클릭 → reloadCases (active 토글은 시안 핸들러가 담당) ───
