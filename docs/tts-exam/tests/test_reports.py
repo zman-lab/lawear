@@ -165,7 +165,7 @@ def _seed_attempt(
             score_pct,
             grade,
             "mock",
-            '{"mnem":20,"color":15,"under":10,"outline":15,"sem":15,"rich":10,"miss":15}',
+            '{"mnem":16,"color":13,"under":8,"outline":10,"sem":12,"rich":20,"miss":11,"articles":10}',
             eval_notes_json,
             completed_at or submitted,
             error_code,
@@ -391,8 +391,8 @@ class TestByCase(unittest.TestCase):
         self.assertIsNone(result["kpi"]["best_pct"])
         self.assertEqual(result["trend"], [])
         self.assertEqual(result["history"], [])
-        # criteria 는 7기준 0/0 fill
-        self.assertEqual(len(result["criteria"]), 7)
+        # criteria 는 8기준 0/0 fill (Step 20 v4 — articles 신설)
+        self.assertEqual(len(result["criteria"]), 8)
         for c in result["criteria"]:
             self.assertEqual(c["n"], 0)
         self.assertTrue(result["empty"])
@@ -415,18 +415,19 @@ class TestByCase(unittest.TestCase):
                 completed_at=ts,
             )
             ids.append(aid)
-            # criteria 추가
+            # criteria 추가 (Step 20 v4 — articles 추가, 8기준)
             _seed_criteria(
                 conn,
                 aid,
                 {
-                    "mnem": (3.0, 4.0, 20),
-                    "color": (10.0, 12.0, 15),
-                    "under": (2.0, 2.0, 10),
-                    "outline": (2.5, 3.0, 15),
-                    "sem": (8.0, 10.0, 15),
-                    "rich": (1.0, 2.0, 10),
-                    "miss": (-1.0, 0.0, 15),
+                    "mnem": (3.0, 4.0, 16),
+                    "color": (10.0, 12.0, 13),
+                    "under": (2.0, 2.0, 8),
+                    "outline": (2.5, 3.0, 10),
+                    "sem": (8.0, 10.0, 12),
+                    "rich": (15.0, 20.0, 20),
+                    "miss": (-1.0, 0.0, 11),
+                    "articles": (4.0, 5.0, 10),
                 },
             )
 
@@ -442,8 +443,8 @@ class TestByCase(unittest.TestCase):
         self.assertEqual(len(result["trend"]), 3)
         self.assertEqual(result["trend"][0]["attempt_num"], 1)
         self.assertEqual(result["trend"][2]["attempt_num"], 3)
-        # criteria 7기준
-        self.assertEqual(len(result["criteria"]), 7)
+        # criteria 8기준 (Step 20 v4 — articles 신설)
+        self.assertEqual(len(result["criteria"]), 8)
         # mnem 평균 3.0/4.0
         mnem = next(c for c in result["criteria"] if c["criterion_key"] == "mnem")
         self.assertAlmostEqual(mnem["avg_score"], 3.0, places=1)

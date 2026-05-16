@@ -20,7 +20,7 @@ from pathlib import Path
 DB_DIR: Path = Path(__file__).parent.resolve()
 MIGRATIONS_DIR: Path = DB_DIR / "migrations"
 DEFAULT_DB_FILENAME: str = "exam.db"
-TARGET_SCHEMA_VERSION: int = 3
+TARGET_SCHEMA_VERSION: int = 4
 BUSY_TIMEOUT_MS: int = 5000  # archive #51 H2 7 ChE7 명시
 
 # 마이그레이션 매트릭스 — 버전: SQL 파일명
@@ -29,6 +29,7 @@ MIGRATIONS: dict[int, str] = {
     1: "001_initial.sql",
     2: "002_attempts_extras.sql",  # Step 7 — attempts 컬럼 4개 추가
     3: "003_manual_grading.sql",   # Step 13 — manual 채점 모드 + status='pending_grade'
+    4: "004_v4_weights.sql",       # Step 20 — 채점 기준 v4 (articles 신설, 8기준)
 }
 
 

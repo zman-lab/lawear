@@ -1561,38 +1561,43 @@
           <div class="sub" data-i18n="set_weights_desc">채점 항목별 가중치 (합계 100). 항목별 점수에 가중치 적용 → 최종 점수.</div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_mnem">Lv.4 Mnemonics</span> <span class="sub">[blank2]</span></div>
-            <input type="range" min="0" max="40" value="20" data-weight-key="mnem">
-            <div class="s-val" data-weight-val="mnem">20</div>
+            <input type="range" min="0" max="40" value="16" data-weight-key="mnem">
+            <div class="s-val" data-weight-val="mnem">16</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_color">Color Emphasis</span> <span class="sub">red/blue/bold/blank</span></div>
-            <input type="range" min="0" max="40" value="15" data-weight-key="color">
-            <div class="s-val" data-weight-val="color">15</div>
+            <input type="range" min="0" max="40" value="13" data-weight-key="color">
+            <div class="s-val" data-weight-val="color">13</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_under">Underline Coverage</span> <span class="sub">[u]</span></div>
-            <input type="range" min="0" max="40" value="10" data-weight-key="under">
-            <div class="s-val" data-weight-val="under">10</div>
+            <input type="range" min="0" max="40" value="8" data-weight-key="under">
+            <div class="s-val" data-weight-val="under">8</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_outline">Lv.1 Outline Match</span></div>
-            <input type="range" min="0" max="40" value="15" data-weight-key="outline">
-            <div class="s-val" data-weight-val="outline">15</div>
+            <input type="range" min="0" max="40" value="10" data-weight-key="outline">
+            <div class="s-val" data-weight-val="outline">10</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_sem">Semantic Match</span></div>
-            <input type="range" min="0" max="40" value="15" data-weight-key="sem">
-            <div class="s-val" data-weight-val="sem">15</div>
+            <input type="range" min="0" max="40" value="12" data-weight-key="sem">
+            <div class="s-val" data-weight-val="sem">12</div>
           </div>
           <div class="slider-row">
-            <div class="s-label"><span data-i18n="crit_rich">Richness</span> <span class="sub">Lv.4 / Lv.1 / Origin</span></div>
-            <input type="range" min="0" max="40" value="10" data-weight-key="rich">
-            <div class="s-val" data-weight-val="rich">10</div>
+            <div class="s-label"><span data-i18n="crit_articles">Article Match</span> <span class="sub" data-i18n="crit_articles_sub">제xxx조 명시</span></div>
+            <input type="range" min="0" max="40" value="10" data-weight-key="articles">
+            <div class="s-val" data-weight-val="articles">10</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="crit_rich">Richness</span> <span class="sub" data-i18n="crit_rich_sub">사안의 경우</span></div>
+            <input type="range" min="0" max="40" value="20" data-weight-key="rich">
+            <div class="s-val" data-weight-val="rich">20</div>
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="crit_miss">Missing Arguments</span></div>
-            <input type="range" min="0" max="40" value="15" data-weight-key="miss">
-            <div class="s-val" data-weight-val="miss">15</div>
+            <input type="range" min="0" max="40" value="11" data-weight-key="miss">
+            <div class="s-val" data-weight-val="miss">11</div>
           </div>
           <div class="total-warn" id="weights-total-warn"><span id="weights-total-text" data-i18n="total_ok">Total: 100 / 100 ✓</span></div>
         </div>
@@ -1712,7 +1717,10 @@
       crit_mnem: 'Lv.4 Mnemonics', crit_color: 'Color Emphasis', crit_under: 'Underline Coverage',
       crit_outline: 'Lv.1 Outline Match', crit_outline_sub: 'outline meaning',
       crit_sem: 'Semantic Match', crit_sem_sub: 'tag meaning',
-      crit_rich: 'Richness', crit_miss: 'Missing Arguments', crit_miss_sub: 'vs reference',
+      crit_rich: 'Richness', crit_rich_sub: 'case-of logic',
+      crit_miss: 'Missing Arguments', crit_miss_sub: 'vs reference',
+      // Step 20 v4 (2026-05-16): articles 신설 — 원본 조문 매칭
+      crit_articles: 'Article Match', crit_articles_sub: 'origin articles',
       fb_strength: 'Strength', fb_caution: 'Caution', fb_missing: 'Missing',
       // reports
       page_reports: 'Reports', rep_period: 'Performance metrics',
@@ -1787,8 +1795,9 @@
       crit_under_tip: '밑줄 ([u]) 매칭 (under)',
       crit_outline_tip: 'Lv.1 목차 의미 매칭 (outline)',
       crit_sem_tip: '태그 의미 일치도 (sem)',
-      crit_rich_tip: '깊이: Lv.4(0) → Lv.1(1) → Origin(2) (rich)',
-      crit_miss_tip: '누락 논점 — 음수일수록 누락 많음 (miss)',
+      crit_rich_tip: 'Case-of logic richness — Lv.4 keywords → origin-level (rich)',
+      crit_miss_tip: 'Missing arguments — more negative = more missing (miss)',
+      crit_articles_tip: 'Origin article references (e.g. 제397조) match ratio (articles)',
       err_submit_empty: 'Please enter reviewer notes before submitting.',
       err_submit_failed: 'Failed to submit for evaluation.',
       err_poll_failed: 'Failed to retrieve evaluation status.',
@@ -1878,7 +1887,10 @@
       crit_mnem: 'Lv.4 두문자', crit_color: '색 강조', crit_under: '밑줄',
       crit_outline: 'Lv.1 목차', crit_outline_sub: '목차 의미',
       crit_sem: '의미 일치', crit_sem_sub: '태그 의미',
-      crit_rich: '풍부함', crit_miss: '누락 논점', crit_miss_sub: '레퍼런스 대비',
+      crit_rich: '풍부함', crit_rich_sub: '사안의 경우',
+      crit_miss: '누락 논점', crit_miss_sub: '레퍼런스 대비',
+      // Step 20 v4 (2026-05-16): articles 신설 — 원본 조문 매칭
+      crit_articles: '조문 매칭', crit_articles_sub: '원본 조문',
       fb_strength: '강점', fb_caution: '주의', fb_missing: '누락',
       page_reports: '리포트', rep_period: '성과 지표',
       sub_overall: '전체', sub_subject: '과목별', sub_case: '케이스별',
@@ -1951,8 +1963,9 @@
       crit_under_tip: '밑줄 [u] 매칭 (under)',
       crit_outline_tip: 'Lv.1 목차 의미 일치 (outline)',
       crit_sem_tip: '태그 의미 정확도 (sem)',
-      crit_rich_tip: '풍부도: Lv.4(0) → Lv.1(1) → 원본(2) (rich)',
+      crit_rich_tip: '사안의 경우 풍부함 — Lv.4 키워드 → 원본 수준 (rich)',
       crit_miss_tip: '누락 논점 — 음수일수록 누락 많음 (miss)',
+      crit_articles_tip: '원본 언급 조문(예 제397조) 명시 비율 (articles)',
       err_submit_empty: '검토 의견을 입력한 뒤 제출하세요.',
       err_submit_failed: '평가 제출 실패.',
       err_poll_failed: '평가 상태 조회 실패.',
@@ -2788,7 +2801,8 @@
   // ════════════════════════════════════════════════
   // 디폴트 (서버 default 와 동기화 — 마이그 v1 INSERT 와 1:1)
   const SETTINGS_DEFAULTS = {
-    weights: { mnem: 20, color: 15, under: 10, outline: 15, sem: 15, rich: 10, miss: 15 },
+    // Step 20 (v4, 2026-05-16): articles 신설 — 8기준 합계 100
+    weights: { mnem: 16, color: 13, under: 8, outline: 10, sem: 12, rich: 20, miss: 11, articles: 10 },
     bias:    { err_weight: 60, stale_weight: 40, err_threshold: 3, stale_threshold_days: 14 },
     voice:   { lang: 'ko-KR', silence_sec: 3 },
     grading_mode: 'manual',  // Step 13 — Claude Code 외부 채점이 기본
@@ -3283,14 +3297,16 @@
   }
 
   // criteria 키별 라벨 + sub + Step 15-6 툴팁 키 (i18n)
+  // Step 20 (v4, 2026-05-16): articles 신설 — 8기준
   const CRITERIA_META = {
-    'mnem':    { label: 'crit_mnem',    sub: '[blank2]',              tip: 'crit_mnem_tip' },
-    'color':   { label: 'crit_color',   sub: 'red/blue/bold/blank',   tip: 'crit_color_tip' },
-    'under':   { label: 'crit_under',   sub: '[u]',                   tip: 'crit_under_tip' },
-    'outline': { label: 'crit_outline', sub: null /* crit_outline_sub */, tip: 'crit_outline_tip' },
-    'sem':     { label: 'crit_sem',     sub: null /* crit_sem_sub */,     tip: 'crit_sem_tip' },
-    'rich':    { label: 'crit_rich',    sub: 'Lv.4 / Lv.1 / Origin',  tip: 'crit_rich_tip' },
-    'miss':    { label: 'crit_miss',    sub: null /* crit_miss_sub */,    tip: 'crit_miss_tip' },
+    'mnem':     { label: 'crit_mnem',     sub: '[blank2]',              tip: 'crit_mnem_tip' },
+    'color':    { label: 'crit_color',    sub: 'red/blue/bold/blank',   tip: 'crit_color_tip' },
+    'under':    { label: 'crit_under',    sub: '[u]',                   tip: 'crit_under_tip' },
+    'outline':  { label: 'crit_outline',  sub: null /* crit_outline_sub */, tip: 'crit_outline_tip' },
+    'sem':      { label: 'crit_sem',      sub: null /* crit_sem_sub */,     tip: 'crit_sem_tip' },
+    'articles': { label: 'crit_articles', sub: null /* crit_articles_sub */, tip: 'crit_articles_tip' },
+    'rich':     { label: 'crit_rich',     sub: null /* crit_rich_sub */,    tip: 'crit_rich_tip' },
+    'miss':     { label: 'crit_miss',     sub: null /* crit_miss_sub */,    tip: 'crit_miss_tip' },
   };
   // 툴팁 텍스트 (현재 lang 적용)
   function critTipText(key) {
@@ -3317,12 +3333,20 @@
       const labelText = (dict[meta.label] !== undefined) ? dict[meta.label] : c.key;
       let subText = meta.sub;
       // dict-based sub
-      if (c.key === 'outline') subText = dict.crit_outline_sub || 'outline meaning';
-      if (c.key === 'sem')     subText = dict.crit_sem_sub     || 'tag meaning';
-      if (c.key === 'miss')    subText = dict.crit_miss_sub    || 'vs reference';
+      if (c.key === 'outline')  subText = dict.crit_outline_sub  || 'outline meaning';
+      if (c.key === 'sem')      subText = dict.crit_sem_sub      || 'tag meaning';
+      if (c.key === 'miss')     subText = dict.crit_miss_sub     || 'vs reference';
+      if (c.key === 'rich')     subText = dict.crit_rich_sub     || 'rich logic';
+      if (c.key === 'articles') subText = dict.crit_articles_sub || 'origin articles';
 
       const max = Number(c.max) || 0;
       const score = Number(c.score) || 0;
+      // Step 20 (v4, 2026-05-16): 점수 표시 소수점 2자리 (실제 시험 형식)
+      const fmt2 = (v) => {
+        const n = Number(v);
+        if (!isFinite(n)) return String(v);
+        return n.toFixed(2);
+      };
       // bar width: score / max (0~100). miss(max=0)는 score 절대값/weight 비율 추정
       let pct = 0;
       let kind = '';  // full / partial / low / ''
@@ -3333,18 +3357,20 @@
         const absRatio = Math.min(1, Math.abs(score) / w);
         pct = Math.round(absRatio * 100);
         kind = score < 0 ? 'low' : '';
-        numText = (score > 0 ? '+' : '') + score;
+        numText = (score > 0 ? '+' : '') + fmt2(score);
       } else if (c.key === 'rich') {
-        // rich: score 0=Lv.4, 1=Lv.1, 2=Origin
+        // rich: 사안의 경우 풍부함 (max 가변, Step 20 v4 이후 가중치 기반)
         pct = max > 0 ? Math.round((score / max) * 100) : 60;
-        const labels = ['Lv.4', 'Lv.1', 'Origin'];
-        numText = labels[Math.max(0, Math.min(2, Math.round(score)))] || String(score);
+        if (pct >= 90) kind = 'full';
+        else if (pct >= 60) kind = 'partial';
+        else kind = 'low';
+        numText = `${fmt2(score)} / ${fmt2(max)}`;
       } else {
         pct = max > 0 ? Math.round((score / max) * 100) : 0;
         if (pct >= 90) kind = 'full';
         else if (pct >= 60) kind = 'partial';
         else kind = 'low';
-        numText = `${score} / ${max}`;
+        numText = `${fmt2(score)} / ${fmt2(max)}`;
       }
 
       const row = document.createElement('div');
@@ -3573,15 +3599,15 @@
       rgBtn.disabled = true;  // Step 18 — 영구 disabled
     }
 
-    // 점수
+    // 점수 (Step 20 v4, 2026-05-16: 소수점 2자리 — 실제 시험 형식)
     const total = Number(att.score_total);
     const max   = Number(att.score_max);
     const pct   = Number(att.score_pct);
     const grade = att.grade || '—';
     const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
-    setText('ev-score-total', isFinite(total) ? total.toFixed(1) : '—');
-    setText('ev-score-max',   isFinite(max)   ? max.toFixed(1)   : '—');
-    setText('ev-pct',         isFinite(pct)   ? pct.toFixed(0)   : '—');
+    setText('ev-score-total', isFinite(total) ? total.toFixed(2) : '—');
+    setText('ev-score-max',   isFinite(max)   ? max.toFixed(2)   : '—');
+    setText('ev-pct',         isFinite(pct)   ? pct.toFixed(2)   : '—');
     const gradeEl = document.getElementById('ev-grade');
     if (gradeEl) {
       gradeEl.textContent = `${I18N[currentLang].grade_b ? 'Grade ' : ''}${grade}`.trim() || grade;
@@ -3960,9 +3986,10 @@
   };
 
   // ─── 공용 헬퍼 ────────────────────────────────────────────
+  // Step 20 (v4, 2026-05-16): 점수 표시 소수점 2자리 (실제 시험 형식)
   function fmtPct(v) {
     if (v == null || isNaN(v)) return '—';
-    return Number(v).toFixed(1) + '%';
+    return Number(v).toFixed(2) + '%';
   }
   function fmtNumOrDash(v) {
     if (v == null || isNaN(v)) return '—';
@@ -3970,13 +3997,11 @@
   }
   function fmtScoreFraction(total, max) {
     if (total == null || max == null) return '—';
-    // 소수점 자리 처리: 정수 가까우면 정수, 아니면 1자리
+    // Step 20 v4: 소수점 2자리 통일 (이전 1자리 반올림)
     const t = Number(total);
     const m = Number(max);
     if (isNaN(t) || isNaN(m)) return '—';
-    const ts = (Math.round(t * 10) / 10).toString();
-    const ms = (Math.round(m * 10) / 10).toString();
-    return `${ts} / ${ms}`;
+    return `${t.toFixed(2)} / ${m.toFixed(2)}`;
   }
   // Step 19-1 — fmtSeoul 단일 함수로 통합. 모든 시간 표시는 Asia/Seoul TZ.
   // 기존 fmtDate / fmtDateShort 는 호환용 thin wrapper (호출처는 유지).
@@ -4047,7 +4072,7 @@
     set('rep-ov-submitted-delta', delta);
     set('rep-ov-avg', fmtPct(kpi.avg_score_pct));
     const avgDelta = kpi.avg_score_pct_delta != null ? kpi.avg_score_pct_delta : 0;
-    set('rep-ov-avg-delta', (avgDelta >= 0 ? '+' : '') + applyTmpl(I18N[currentLang].delta_pp_fmt, { n: Number(avgDelta).toFixed(1) }));
+    set('rep-ov-avg-delta', (avgDelta >= 0 ? '+' : '') + applyTmpl(I18N[currentLang].delta_pp_fmt, { n: Number(avgDelta).toFixed(2) }));
     set('rep-ov-err', fmtNumOrDash(kpi.high_error_cases));
     set('rep-ov-err-delta', applyTmpl(I18N[currentLang].delta_cases_fmt, { n: kpi.high_error_delta != null ? kpi.high_error_delta : 0 }));
     set('rep-ov-stale', fmtNumOrDash(kpi.long_pending_cases));
@@ -4232,7 +4257,7 @@
     set('rep-subj-cases-sub', applyTmpl(I18N[currentLang].kpi_submitted_n_fmt, { n: kpi.submitted != null ? kpi.submitted : 0 }));
     set('rep-subj-avg', kpi.avg_score_pct != null ? fmtPct(kpi.avg_score_pct) : '—');
     const avgDelta = kpi.avg_score_pct_delta != null ? kpi.avg_score_pct_delta : 0;
-    set('rep-subj-avg-delta', (avgDelta >= 0 ? '+' : '') + applyTmpl(I18N[currentLang].delta_pp_fmt, { n: Number(avgDelta).toFixed(1) }));
+    set('rep-subj-avg-delta', (avgDelta >= 0 ? '+' : '') + applyTmpl(I18N[currentLang].delta_pp_fmt, { n: Number(avgDelta).toFixed(2) }));
     set('rep-subj-toperr', kpi.top_error_topic || (subjectExists ? '—' : I18N[currentLang].rep_subject_empty));
     if (kpi.top_error_pct != null) {
       set('rep-subj-toperr-sub', fmtPct(kpi.top_error_pct));
@@ -4498,7 +4523,9 @@
     }
     const labelMap = {
       mnem: 'crit_mnem', color: 'crit_color', under: 'crit_under',
-      outline: 'crit_outline', sem: 'crit_sem', rich: 'crit_rich', miss: 'crit_miss',
+      outline: 'crit_outline', sem: 'crit_sem',
+      articles: 'crit_articles',  // Step 20 v4 (2026-05-16): 신설
+      rich: 'crit_rich', miss: 'crit_miss',
     };
     const dict = I18N[currentLang];
     const rows = criteria.map(c => {
@@ -4510,7 +4537,8 @@
       let numTxt = '—';
       if (c.criterion_key === 'miss') {
         // miss: max=0 이라 pct null. score 음수 가능. 자체 표시.
-        numTxt = c.n > 0 ? `avg ${(Math.round(c.avg_score * 10) / 10)}` : '—';
+        // Step 20 v4: 소수점 2자리 표시 (이전 1자리 round)
+        numTxt = c.n > 0 ? `avg ${Number(c.avg_score || 0).toFixed(2)}` : '—';
         // 시각화: 절대값 / 5 비율 (대략)
         const abs = Math.abs(c.avg_score || 0);
         widthPct = Math.max(0, Math.min(100, abs * 20));  // |score| 5 → 100%
@@ -4681,9 +4709,10 @@
     let html = '';
     // 메타: 점수/등급/상태
     if (att.status === 'completed' || att.db_status === 'done') {
-      const total = isFinite(Number(att.score_total)) ? Number(att.score_total).toFixed(1) : '—';
-      const max = isFinite(Number(att.score_max)) ? Number(att.score_max).toFixed(1) : '—';
-      const pct = isFinite(Number(att.score_pct)) ? Number(att.score_pct).toFixed(0) : '—';
+      // Step 20 v4 (2026-05-16): 점수 표시 소수점 2자리 (실제 시험 형식)
+      const total = isFinite(Number(att.score_total)) ? Number(att.score_total).toFixed(2) : '—';
+      const max = isFinite(Number(att.score_max)) ? Number(att.score_max).toFixed(2) : '—';
+      const pct = isFinite(Number(att.score_pct)) ? Number(att.score_pct).toFixed(2) : '—';
       const grade = att.grade || '—';
       html += `<div style="margin-bottom: 10px; font-size: 12px; color: var(--text); font-family: 'SF Mono', Consolas, monospace;">
         <span style="color: var(--text-bright); font-size: 14px; font-weight: 600;">${total} / ${max}</span>
@@ -4691,8 +4720,12 @@
         <span style="color: var(--text-dim); margin-left: 6px;">(${pct}%)</span>
       </div>`;
 
-      // 7기준 바
+      // Step 20 v4: 8기준 바 (articles 추가)
       const criteria = att.criteria || [];
+      const fmt2 = (v) => {
+        const n = Number(v);
+        return isFinite(n) ? n.toFixed(2) : String(v);
+      };
       if (criteria.length > 0) {
         for (const c of criteria) {
           const meta = CRITERIA_META[c.key];
@@ -4707,17 +4740,19 @@
             const w = Number(c.weight) || 1;
             widthPct = Math.min(100, Math.abs(score) / w * 100);
             fillCls = score < 0 ? 'low' : 'partial';
-            numTxt = (score > 0 ? '+' : '') + score;
+            numTxt = (score > 0 ? '+' : '') + fmt2(score);
           } else if (c.key === 'rich') {
             widthPct = max > 0 ? (score / max) * 100 : 60;
-            const labels = ['Lv.4', 'Lv.1', 'Origin'];
-            numTxt = labels[Math.max(0, Math.min(2, Math.round(score)))] || String(score);
+            if (widthPct >= 90) fillCls = 'full';
+            else if (widthPct >= 60) fillCls = 'partial';
+            else fillCls = 'low';
+            numTxt = `${fmt2(score)} / ${fmt2(max)}`;
           } else {
             widthPct = max > 0 ? (score / max) * 100 : 0;
             if (widthPct >= 90) fillCls = 'full';
             else if (widthPct >= 60) fillCls = 'partial';
             else fillCls = 'low';
-            numTxt = `${score} / ${max}`;
+            numTxt = `${fmt2(score)} / ${fmt2(max)}`;
           }
           html += `<div class="crit-row">
             <div>${escapeHtml(labelTxt)}${critInfoHtml(c.key)}</div>

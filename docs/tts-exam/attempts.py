@@ -502,6 +502,7 @@ def create_attempt(
 
 # 입력 alias → DB criterion_key (grader.CRITERION_KEYS) 매핑.
 # 사용자 워크플로우 (reference_grading_workflow.md) 의 긴 이름 + grader.py 의 짧은 키 둘 다 허용.
+# Step 20 (사용자 2026-05-16): articles 신설 — 원본 조문 매칭.
 CRITERIA_KEY_ALIASES: dict[str, str] = {
     # 긴 이름 (사용자 워크플로우)
     "mnemonics": "mnem",
@@ -511,6 +512,9 @@ CRITERIA_KEY_ALIASES: dict[str, str] = {
     "semantic": "sem",
     "richness": "rich",
     "missing": "miss",
+    "articles": "articles",
+    "article": "articles",
+    "article_match": "articles",
     # 짧은 이름 (grader.py / DB CHECK)
     "mnem": "mnem",
     "under": "under",
@@ -726,10 +730,11 @@ def inject_grade(
     diff_segments_normalized = _normalize_diff_segments(payload.get("diff_segments"))
 
     # total/max/pct 숫자 검증
+    # Step 20 (v4, 2026-05-16): 소수점 2자리 round — 실제 시험 형식.
     try:
-        total_score = float(payload["total_score"])
-        max_score = float(payload["max_score"])
-        score_pct = float(payload["score_pct"])
+        total_score = round(float(payload["total_score"]), 2)
+        max_score = round(float(payload["max_score"]), 2)
+        score_pct = round(float(payload["score_pct"]), 2)
     except (TypeError, ValueError) as e:
         raise GradeInjectionError(
             f"total_score/max_score/score_pct must be numbers: {e}"
