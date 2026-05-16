@@ -3085,9 +3085,11 @@
     }
   }
 
-  // Step 15-4 — 케이스 전환 시 (draft 복원 + 마지막 채점 자동 로드) race condition 보강
+  // Step 15-4 / 16-1 — 케이스 전환 시 (draft 복원 + 마지막 채점 자동 로드) race condition 보강
   //   * 빠른 케이스 클릭 시 이전 fetch 결과가 늦게 도착해 다른 케이스의 attempt 를 표시하는 버그 방지
   //   * loadCase 진입 시 LOAD_TOKEN 증가 → 모든 비동기 갱신은 자신의 토큰과 현재 토큰을 비교
+  //   * Step 16-1 — 같은 caseId 재클릭 시에도 evaluation 자동 로드 보장 (early return 제거)
+  //                 origLoadCase 가 throw 해도 auto-load 는 계속 실행 (try/finally).
   let LOAD_TOKEN = 0;
   (function hookCaseChange() {
     const origLoadCase = loadCase;
@@ -3098,8 +3100,12 @@
       stopPolling();
       // Evaluation 탭은 빈 상태로 즉시 리셋 (이전 케이스 데이터 잔존 방지)
       resetEvaluationView();
-      // 원본 loadCase (case fetch + Background/Inquiry 갱신)
-      await origLoadCase(caseId);
+      // 원본 loadCase (case fetch + Background/Inquiry 갱신) — 실패해도 auto-load 는 계속.
+      try {
+        await origLoadCase(caseId);
+      } catch (err) {
+        console.warn('[Step 16-1] origLoadCase threw:', err);
+      }
       // race 체크 — origLoadCase 동안 다른 케이스 클릭됐으면 이후 작업 skip
       if (LOAD_TOKEN !== myToken || CURRENT_CASE_ID !== caseId) return;
 
@@ -3114,7 +3120,7 @@
           updateNotesInfo(null);
         }
       }
-      // 마지막 채점 자동 로드 — 토큰 동기화
+      // 마지막 채점 자동 로드 — 토큰 동기화. 같은 caseId 재클릭에도 매번 실행.
       loadLastCompletedAttempt(caseId, myToken).catch((err) => {
         console.warn('loadLastCompletedAttempt failed:', err);
       });
@@ -3521,26 +3527,30 @@
     }
   }
 
-  // ─── Step 14-3 / 15-4 — 케이스 선택 시 마지막 채점 자동 로드 (race 보강) ───
+  // ─── Step 14-3 / 15-4 / 16-1 — 케이스 선택 시 마지막 채점 자동 로드 (race 보강) ───
   // GET /api/attempts?case_id=X&status=completed&limit=1 → 최신 completed 1건 id 획득.
   // 있으면 GET /api/attempts/{id} 로 풀 데이터(criteria/eval_notes/diff_segments) 가져와 렌더.
   // 없으면 Evaluation 탭은 empty 유지 (resetEvaluationView 가 이미 처리).
   // myToken 인자: 호출 시점의 LOAD_TOKEN. fetch 동안 다른 케이스로 전환되었으면 결과 무시.
+  //
+  // Step 16-1 — 같은 케이스 재클릭 시 평가 자동 로드 보장:
+  //   * 기존 `if (CURRENT_ATTEMPT_ID && CURRENT_ATTEMPT_ID !== lastId) return;` 가드 제거.
+  //     - LOAD_TOKEN + caseId race 체크가 이미 동일 보호를 제공.
+  //     - CURRENT_ATTEMPT_ID 가 (이전 비동기 호출로) 비정상 값이면 정상 재로드를 막아버림.
+  //   * att.case_id !== caseId 가드만 유지 (서버 응답 검증).
   async function loadLastCompletedAttempt(caseId, myToken) {
     if (!caseId) return;
     const targetToken = (myToken === undefined) ? LOAD_TOKEN : myToken;
+    const raceOk = () => (LOAD_TOKEN === targetToken && CURRENT_CASE_ID === caseId);
     try {
       const listUrl = `${API_BASE}/api/attempts?case_id=${encodeURIComponent(caseId)}&status=completed&limit=1`;
       const lr = await fetch(listUrl, { headers: { 'Accept': 'application/json' } });
-      // race 체크
-      if (LOAD_TOKEN !== targetToken || CURRENT_CASE_ID !== caseId) return;
+      if (!raceOk()) return;
       if (!lr.ok) throw new Error('HTTP ' + lr.status);
       const ld = await lr.json();
       const items = (ld && Array.isArray(ld.attempts)) ? ld.attempts : [];
       if (items.length === 0) return;  // 채점 이력 없음 — empty 유지
-
-      // 다시 race 체크
-      if (LOAD_TOKEN !== targetToken || CURRENT_CASE_ID !== caseId) return;
+      if (!raceOk()) return;
 
       const lastId = items[0].id || items[0].attempt_id;
       if (!lastId) return;
@@ -3548,18 +3558,15 @@
       const ar = await fetch(`${API_BASE}/api/attempts/${encodeURIComponent(lastId)}`, {
         headers: { 'Accept': 'application/json' },
       });
-      // 또 race 체크
-      if (LOAD_TOKEN !== targetToken || CURRENT_CASE_ID !== caseId) return;
+      if (!raceOk()) return;
       if (!ar.ok) throw new Error('HTTP ' + ar.status);
       const att = await ar.json();
 
-      // 케이스 전환됐으면 무시
-      if (LOAD_TOKEN !== targetToken || CURRENT_CASE_ID !== caseId) return;
-      // 다른 attempt 가 진행 중이면 (예: Submit 직후 폴링) 덮어쓰지 않음
-      if (CURRENT_ATTEMPT_ID && CURRENT_ATTEMPT_ID !== lastId) return;
-      // attempt 의 case_id 가 현재 케이스와 일치하는지 마지막 확인 (서버 응답 검증)
+      if (!raceOk()) return;
+      // attempt 의 case_id 가 현재 케이스와 일치하는지 확인 (서버 응답 검증)
       if (att.case_id && att.case_id !== caseId) return;
 
+      // 무조건 갱신 — 재클릭/재로드 시 항상 최신 attempt 표시.
       CURRENT_ATTEMPT_ID = lastId;
       if (att.status === 'completed' || att.db_status === 'done') {
         renderEvaluationDone(att);
