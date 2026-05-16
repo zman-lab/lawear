@@ -747,6 +747,11 @@
   .modal-grid .modal-answer .diff-match { background: rgba(78, 201, 176, 0.15); padding: 0 2px; border-radius: 2px; }
   .modal-grid .modal-answer .diff-partial { background: rgba(206, 145, 120, 0.18); color: var(--warn); padding: 0 3px; border-radius: 2px; }
   .modal-grid .modal-answer .diff-miss { background: rgba(209, 105, 105, 0.18); color: var(--danger); padding: 0 3px; border-radius: 2px; }
+  /* Step 16-2 — 우측 컬럼 컨테이너 (Eval 상단 + Origin 하단) */
+  .modal-grid .modal-right { display: flex; flex-direction: column; min-height: 0; max-height: 60vh; }
+  .modal-grid .modal-right h5 { flex: none; }
+  .modal-grid .modal-right .modal-eval { flex: 0 0 auto; max-height: 32vh; }
+  .modal-grid .modal-right .modal-origin { flex: 1 1 auto; min-height: 0; }
   .modal-grid .modal-eval {
     background: var(--bg);
     border: 1px solid var(--border);
@@ -757,6 +762,31 @@
     max-height: 60vh;
     overflow-y: auto;
   }
+  /* Step 16-2 — 강사 원본 답안 본문 (모달 우측 하단) */
+  .modal-grid .modal-origin {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 28vh;
+    overflow-y: auto;
+  }
+  /* 강조 태그 (em-*) — 시안 Eval Diff 와 동일 스타일 */
+  .modal-grid .modal-origin .em-red    { background: #d16969; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .modal-grid .modal-origin .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .modal-grid .modal-origin .em-bold   { font-weight: 700; color: var(--text-bright); }
+  .modal-grid .modal-origin .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
+  .modal-grid .modal-origin .em-blank  { background: #ffe066; color: #222; padding: 0 4px; border-radius: 2px; }
+  .modal-grid .modal-origin .em-blank2 { background: #d16969; color: #ffe066; padding: 0 4px; border-radius: 2px; }
+  /* 매칭/누락 형광펜 — 좌측 답안과 동일 색 */
+  .modal-grid .modal-origin .diff-match { background: rgba(78, 201, 176, 0.15); padding: 0 2px; border-radius: 2px; }
+  .modal-grid .modal-origin .diff-partial { background: rgba(206, 145, 120, 0.18); color: var(--warn); padding: 0 3px; border-radius: 2px; }
+  .modal-grid .modal-origin .diff-miss { background: rgba(209, 105, 105, 0.18); color: var(--danger); padding: 0 3px; border-radius: 2px; }
   .modal-grid .modal-eval .crit-row {
     display: grid;
     grid-template-columns: 100px 1fr 60px;
@@ -1628,9 +1658,11 @@
           <h5 data-i18n="diff_col_mine">My Answer</h5>
           <div class="modal-answer" id="attempt-modal-answer">—</div>
         </div>
-        <div>
+        <div class="modal-right">
           <h5 data-i18n="modal_eval_panel">Evaluation</h5>
           <div class="modal-eval" id="attempt-modal-eval">—</div>
+          <h5 data-i18n="diff_col_ref" style="margin-top: 12px;">Reference (Origin)</h5>
+          <div class="modal-origin" id="attempt-modal-origin">—</div>
         </div>
       </div>
     </div>
@@ -4319,14 +4351,16 @@
   })();
 
   // ════════════════════════════════════════════════
-  // Step 15-6 — Reports 행 클릭 → 답안+평가 팝업 모달
+  // Step 15-6 / 16-2 — Reports 행 클릭 → 답안+평가+원본 팝업 모달
   // ════════════════════════════════════════════════
   // 모달 상태: 현재 표시 중인 attempts (같은 케이스의 시도 여러 건 가능)
+  // Step 16-2 — caseData (origin 포함) 캐싱. 시도 탭 전환 시 재fetch 회피.
   const MODAL_STATE = {
     open: false,
     caseId: null,
     attempts: [],   // list_attempts 응답 (id 오름차순 또는 시간 정렬)
     currentAttemptId: null,
+    caseData: null, // GET /api/cases/{id} 응답 (origin, lv1, lv4, points 등)
   };
 
   // yyyyMMdd_HHmm 포맷 (사용자 명시)
@@ -4355,6 +4389,7 @@
     MODAL_STATE.caseId = null;
     MODAL_STATE.attempts = [];
     MODAL_STATE.currentAttemptId = null;
+    MODAL_STATE.caseData = null;
     document.removeEventListener('keydown', onModalKeyDown);
   }
   function onModalKeyDown(ev) {
@@ -4403,10 +4438,14 @@
     });
   }
 
-  // 답안 + 평가 본문 렌더 (모달 우측은 7기준 + 평 카드)
+  // 답안 + 평가 + 원본 본문 렌더 (Step 16-2)
+  //   * 좌: 내 답안 (escape + 매칭 형광펜)
+  //   * 우 상단: 평가지 (7기준 바 + 평 카드 + 메타)
+  //   * 우 하단: 강사 원본 답안 본문 (강조 태그 색 보존 + 매칭 형광펜)
   function renderModalAttemptBody(att) {
     const ansEl = document.getElementById('attempt-modal-answer');
     const evEl  = document.getElementById('attempt-modal-eval');
+    const originEl = document.getElementById('attempt-modal-origin');
     const dict = I18N[currentLang] || {};
     if (!ansEl || !evEl) return;
 
@@ -4484,6 +4523,21 @@
     }
     evEl.innerHTML = html;
 
+    // Step 16-2 — 우측 하단: 강사 원본 답안 본문
+    //   * 캐시된 MODAL_STATE.caseData.origin 사용 (loadCaseDataForModal 가 준비)
+    //   * 강조 태그 색 보존 (renderEmphasisInline) + 매칭 형광펜 (highlightDiffSegments)
+    if (originEl) {
+      const caseData = MODAL_STATE.caseData || {};
+      const refText = (typeof caseData.origin === 'string') ? caseData.origin : null;
+      if (refText) {
+        const emphasised = renderEmphasisInline(refText);
+        const segments = Array.isArray(att.diff_segments) ? att.diff_segments : [];
+        originEl.innerHTML = highlightDiffSegments(emphasised, segments);
+      } else {
+        originEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.diff_col_ref_missing || 'No origin reference available.')}</span>`;
+      }
+    }
+
     // 헤더 갱신
     const titleEl = document.getElementById('attempt-modal-title');
     const subEl = document.getElementById('attempt-modal-sub');
@@ -4495,13 +4549,36 @@
     }
   }
 
+  // Step 16-2 — 모달 케이스 데이터 (origin 등) fetch + 캐시.
+  // 모달 열기 시 1회만 호출 — 시도 탭 전환에서는 재fetch 안 함.
+  async function loadCaseDataForModal(caseId) {
+    if (!caseId) return null;
+    if (MODAL_STATE.caseData && MODAL_STATE.caseData.id === caseId) return MODAL_STATE.caseData;
+    try {
+      const r = await fetch(`${API_BASE}/api/cases/${encodeURIComponent(caseId)}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      MODAL_STATE.caseData = data;
+      return data;
+    } catch (err) {
+      console.warn('loadCaseDataForModal failed:', err);
+      MODAL_STATE.caseData = null;
+      return null;
+    }
+  }
+
   // attempt 단건 fetch + 모달 표시
   async function loadAndShowAttemptInModal(attemptId) {
     const ansEl = document.getElementById('attempt-modal-answer');
     const evEl  = document.getElementById('attempt-modal-eval');
+    const originEl = document.getElementById('attempt-modal-origin');
     const dict = I18N[currentLang] || {};
-    if (ansEl) ansEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_loading || 'Loading…')}</span>`;
-    if (evEl) evEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_loading || 'Loading…')}</span>`;
+    const loadingHtml = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_loading || 'Loading…')}</span>`;
+    if (ansEl) ansEl.innerHTML = loadingHtml;
+    if (evEl) evEl.innerHTML = loadingHtml;
+    if (originEl) originEl.innerHTML = loadingHtml;
     try {
       const r = await fetch(`${API_BASE}/api/attempts/${encodeURIComponent(attemptId)}`, {
         headers: { 'Accept': 'application/json' },
@@ -4509,6 +4586,8 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const att = await r.json();
       MODAL_STATE.currentAttemptId = att.id || att.attempt_id;
+      // Step 16-2 — origin 표시를 위해 caseData 필요. attempt.case_id 기준 로드.
+      await loadCaseDataForModal(att.case_id);
       renderModalTabs();
       renderModalAttemptBody(att);
     } catch (err) {
@@ -4524,12 +4603,16 @@
     MODAL_STATE.caseId = caseId;
     MODAL_STATE.attempts = [];
     MODAL_STATE.currentAttemptId = focusAttemptId || null;
+    MODAL_STATE.caseData = null;  // Step 16-2 — 케이스 바뀌면 caseData 캐시 무효화
     openAttemptModal();
     const ansEl = document.getElementById('attempt-modal-answer');
     const evEl  = document.getElementById('attempt-modal-eval');
+    const originEl = document.getElementById('attempt-modal-origin');
     const dict = I18N[currentLang] || {};
-    if (ansEl) ansEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_loading || 'Loading…')}</span>`;
-    if (evEl) evEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_loading || 'Loading…')}</span>`;
+    const loadingHtml = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_loading || 'Loading…')}</span>`;
+    if (ansEl) ansEl.innerHTML = loadingHtml;
+    if (evEl) evEl.innerHTML = loadingHtml;
+    if (originEl) originEl.innerHTML = loadingHtml;
 
     try {
       // 같은 케이스의 모든 시도 리스트 (limit 충분히 크게)
@@ -4542,6 +4625,7 @@
       if (items.length === 0) {
         if (ansEl) ansEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_attempts || 'No attempts.')}</span>`;
         if (evEl) evEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_attempts || 'No attempts.')}</span>`;
+        if (originEl) originEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_attempts || 'No attempts.')}</span>`;
         return;
       }
       // 최신순(DESC)으로 표시
