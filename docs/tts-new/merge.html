@@ -7,93 +7,225 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, 'Pretendard', sans-serif; display: flex; height: 100vh; background: #0d1117; color: #c9d1d9; }
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --panel-2: #21262d;
+    --border: #30363d;
+    --text: #c9d1d9;
+    --text-dim: #8b949e;
+    --text-bright: #e6edf3;
+    --text-mute: #484f58;
+    --accent: #58a6ff;
+    --accent-dim: rgba(31, 111, 235, 0.2);
+    --accent-strong: #1f6feb;
+    --success: #2ea043;
+    --success-strong: #238636;
+    --warn: #d29922;
+    --danger: #f85149;
+  }
+  body { font-family: -apple-system, 'Pretendard', sans-serif; display: flex; height: 100vh; background: var(--bg); color: var(--text); font-size: 13px; overflow: hidden; }
 
-  #sidebar { width: 340px; min-width: 340px; background: #161b22; border-right: 1px solid #30363d; overflow-y: auto; padding: 16px; transition: width 0.2s, min-width 0.2s, padding 0.2s; }
-  #sidebar.collapsed { width: 0; min-width: 0; padding: 16px 0; border-right: none; overflow: hidden; }
-  #sidebar h2 { font-size: 14px; color: #58a6ff; margin-bottom: 12px; white-space: nowrap; }
-  .dir-group { margin-bottom: 8px; }
-  .dir-group h3 { font-size: 13px; color: #8b949e; margin-bottom: 6px; cursor: pointer; padding: 6px 8px; border-radius: 4px; display: flex; align-items: center; gap: 6px; user-select: none; }
-  .dir-group h3:hover { background: #21262d; }
-  .dir-group h3 .arrow { display: inline-block; width: 12px; font-size: 10px; color: #8b949e; transition: transform 0.15s; }
-  .dir-group.collapsed h3 .arrow { transform: rotate(-90deg); }
-  .dir-group.collapsed .file-list { display: none; }
-  .dir-group h3 .count { color: #484f58; font-weight: normal; margin-left: auto; }
-  .dir-group h3 .dir-checkbox { cursor: pointer; accent-color: #58a6ff; }
-  .file-list { list-style: none; }
-  .file-list li { font-size: 12px; padding: 4px 8px 4px 22px; cursor: pointer; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; gap: 6px; }
-  .file-list li:hover { background: #21262d; }
-  .file-list li.active { background: #1f6feb33; color: #58a6ff; }
-  .file-list li input[type="checkbox"] { flex-shrink: 0; cursor: pointer; accent-color: #58a6ff; }
-  .file-list li .filename { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+  /* ─────────── Sidebar ─────────── */
+  #sidebar {
+    width: 320px; min-width: 320px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+    transition: width 0.2s, min-width 0.2s;
+    overflow: hidden;
+  }
+  #sidebar.collapsed { width: 0; min-width: 0; border-right: none; }
 
+  .sidebar-header { padding: 14px 14px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .sidebar-header h2 { font-size: 13px; color: var(--accent); margin-bottom: 4px; white-space: nowrap; }
+  .stats { font-size: 11px; color: var(--text-mute); }
+
+  .sidebar-toolbar { padding: 10px 14px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .search-box {
+    width: 100%; padding: 7px 10px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
+    color: var(--text); font-size: 12px; font-family: inherit;
+    margin-bottom: 8px;
+  }
+  .search-box:focus { border-color: var(--accent); outline: none; }
+  .sidebar-actions { display: flex; gap: 4px; margin-bottom: 6px; }
+  .sidebar-actions button {
+    flex: 1; padding: 5px 8px; font-size: 11px;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 3px;
+    cursor: pointer; font-family: inherit;
+  }
+  .sidebar-actions button:hover { background: var(--panel-2); border-color: var(--accent); color: var(--accent); }
+  .sidebar-actions button.primary { background: var(--success-strong); color: #fff; border-color: var(--success); }
+  .sidebar-actions button.primary:hover { background: var(--success); }
+  .selected-count {
+    font-size: 11px; color: var(--accent);
+    padding: 5px 8px; background: var(--accent-dim);
+    border-radius: 3px; text-align: center;
+  }
+
+  /* ─────────── Tree (L1 과목 > L2 카테고리 > L3 파일 > L4 Case) ─────────── */
+  #fileTree { flex: 1; overflow-y: auto; padding: 4px 0 12px; }
+  .tree-node { user-select: none; }
+  .tree-header {
+    display: flex; align-items: center;
+    gap: 6px; padding: 5px 8px;
+    cursor: pointer;
+    color: var(--text); font-family: inherit;
+  }
+  .tree-header:hover { background: var(--panel-2); }
+  .tree-header .arrow {
+    display: inline-block; width: 10px;
+    font-size: 9px; color: var(--text-dim);
+    transition: transform 0.15s;
+    flex-shrink: 0;
+  }
+  .tree-node.collapsed > .tree-header .arrow { transform: rotate(-90deg); }
+  .tree-node.collapsed > .tree-body { display: none; }
+  .tree-header .tree-label {
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .tree-header .tree-count {
+    color: var(--text-mute); font-size: 10px;
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  .tree-header .dir-checkbox { cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
+
+  /* 레벨별 들여쓰기 + 폰트 사이즈 */
+  .tree-l1 > .tree-header { font-size: 12px; font-weight: 600; color: var(--text-bright); padding-left: 12px; }
+  .tree-l2 > .tree-header { font-size: 11px; color: var(--text); padding-left: 24px; }
+  .tree-l3 > .tree-header { font-size: 11px; color: var(--text-dim); padding-left: 36px; }
+  .tree-l3 > .tree-header:hover { color: var(--text); }
+
+  /* Case 항목 (L4) */
+  .case-item {
+    padding: 6px 12px 6px 48px;
+    border-left: 2px solid transparent;
+    cursor: pointer;
+    display: flex; flex-direction: column;
+    gap: 2px;
+  }
+  .case-item:hover { background: var(--panel-2); }
+  .case-item.active {
+    background: var(--panel-2);
+    border-left-color: var(--accent);
+    color: var(--text-bright);
+  }
+  .case-item-row {
+    display: flex; align-items: center; gap: 6px;
+  }
+  .case-item-row input[type="checkbox"] {
+    flex-shrink: 0; cursor: pointer; accent-color: var(--accent);
+  }
+  .case-item .case-id {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .case-item .case-title {
+    font-size: 12px; color: var(--text);
+    flex: 1; min-width: 0;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .case-item .case-meta {
+    font-size: 10px; color: var(--text-dim);
+    display: flex; gap: 6px;
+    padding-left: 22px;
+  }
+  .case-item .case-meta .pill {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  .case-item .case-meta .pill.points { color: var(--warn); border-color: var(--warn); }
+
+  /* ─────────── Sidebar Toggle ─────────── */
   #sidebar-toggle {
-    position: fixed; top: 10px; left: 340px; z-index: 100;
+    position: fixed; top: 10px; left: 320px; z-index: 100;
     width: 22px; height: 36px;
-    border: 1px solid #30363d; border-left: none;
-    background: #161b22; color: #8b949e;
+    border: 1px solid var(--border); border-left: none;
+    background: var(--panel); color: var(--text-dim);
     border-radius: 0 6px 6px 0;
     cursor: pointer; font-size: 12px;
     display: flex; align-items: center; justify-content: center;
     transition: left 0.2s;
   }
-  #sidebar-toggle:hover { background: #21262d; color: #58a6ff; }
+  #sidebar-toggle:hover { background: var(--panel-2); color: var(--accent); }
   #sidebar.collapsed ~ #sidebar-toggle { left: 0; }
 
-  #stealth-toggle {
-    position: fixed; top: 10px; right: 14px; z-index: 100;
+  /* Right Toggle Buttons */
+  .right-toggles { position: fixed; top: 10px; right: 14px; z-index: 100; display: flex; gap: 6px; }
+  .right-toggles button {
     width: 36px; height: 36px;
-    border: 1px solid #30363d;
-    background: #161b22; color: #8b949e;
+    border: 1px solid var(--border);
+    background: var(--panel); color: var(--text-dim);
     border-radius: 6px;
     cursor: pointer; font-size: 16px;
     display: flex; align-items: center; justify-content: center;
   }
-  #stealth-toggle:hover { background: #21262d; color: #58a6ff; }
-  #stealth-toggle.active { background: #1f6feb; color: #fff; border-color: #1f6feb; }
+  .right-toggles button:hover { background: var(--panel-2); color: var(--accent); }
+  #stealth-toggle.active { background: var(--accent-strong); color: #fff; border-color: var(--accent-strong); }
+  #editor-toggle.active { background: #d97706; color: #fff; border-color: #d97706; }
 
-  #content { flex: 1; overflow-y: auto; padding: 32px 48px; }
-  #content h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 8px; margin-bottom: 16px; }
-  #content h2 { color: #e6edf3; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #21262d; padding-bottom: 4px; }
-  #content h3 { color: #c9d1d9; margin-top: 16px; margin-bottom: 8px; }
+  /* ─────────── Content ─────────── */
+  #content { flex: 1; overflow-y: auto; padding: 32px 48px; min-width: 0; }
+  #content h1 { color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 16px; }
+  #content h2 { color: var(--text-bright); margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid var(--panel-2); padding-bottom: 4px; }
+  #content h3 { color: var(--text); margin-top: 16px; margin-bottom: 8px; }
   #content p { line-height: 1.7; margin-bottom: 8px; }
-  #content pre { background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 16px; overflow-x: auto; margin: 8px 0; font-size: 13px; }
+  #content pre { background: var(--panel); border: 1px solid var(--border); border-radius: 6px; padding: 16px; overflow-x: auto; margin: 8px 0; font-size: 13px; }
   #content code { font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px; }
   #content table { width: 100%; border-collapse: collapse; margin: 8px 0; }
-  #content th, #content td { border: 1px solid #30363d; padding: 8px 12px; text-align: left; font-size: 13px; vertical-align: top; }
-  #content th { background: #161b22; color: #58a6ff; }
+  #content th, #content td { border: 1px solid var(--border); padding: 8px 12px; text-align: left; font-size: 13px; vertical-align: top; }
+  #content th { background: var(--panel); color: var(--accent); }
   #content ul, #content ol { padding-left: 24px; margin-bottom: 8px; }
   #content li { line-height: 1.6; margin-bottom: 4px; }
-  #content blockquote { border-left: 3px solid #58a6ff; padding-left: 16px; color: #8b949e; margin: 8px 0; }
+  #content blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: var(--text-dim); margin: 8px 0; }
 
   .compare-table { table-layout: fixed; width: 100%; }
   .compare-table th { width: 33.33%; text-align: center; }
   .compare-table td { font-size: 12px; line-height: 1.5; }
   .compare-table td h3, .compare-table td h4 { font-size: 13px; margin-top: 12px; }
 
-  .lv-tabs { display: flex; gap: 8px; margin-bottom: 16px; position: sticky; top: 0; background: #0d1117; padding: 8px 0; z-index: 10; }
-  .lv-tab { padding: 6px 16px; border-radius: 20px; font-size: 13px; cursor: pointer; border: 1px solid #30363d; background: #161b22; color: #8b949e; }
-  .lv-tab:hover { border-color: #58a6ff; color: #58a6ff; }
-  .lv-tab.active { background: #1f6feb; color: #fff; border-color: #1f6feb; }
-
-  .search-box { width: 100%; padding: 8px 12px; background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; font-size: 13px; margin-bottom: 12px; }
-  .search-box:focus { border-color: #58a6ff; outline: none; }
-
-  .sidebar-actions { display: flex; gap: 4px; margin-bottom: 8px; }
-  .sidebar-actions button {
-    flex: 1; padding: 6px 8px; font-size: 12px;
-    background: #161b22; color: #c9d1d9;
-    border: 1px solid #30363d; border-radius: 4px;
-    cursor: pointer;
+  /* Page Header (Case 메타 표시) */
+  .page-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+    display: flex; align-items: baseline;
+    gap: 12px; flex-wrap: wrap;
   }
-  .sidebar-actions button:hover { background: #21262d; color: #58a6ff; border-color: #58a6ff; }
-  .sidebar-actions button.primary { background: #238636; color: #fff; border-color: #2ea043; }
-  .sidebar-actions button.primary:hover { background: #2ea043; }
+  .page-header .case-id-large {
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--accent); font-size: 14px;
+  }
+  .page-header .case-subject {
+    font-size: 11px; color: var(--text-dim);
+  }
+  .page-header .breadcrumb {
+    font-size: 11px; color: var(--text-dim); flex-basis: 100%;
+  }
+  .page-header .breadcrumb span.crumb-sep { margin: 0 6px; color: var(--text-mute); }
 
-  .selected-count { font-size: 11px; color: #58a6ff; padding: 4px 8px; background: #1f6feb1a; border-radius: 4px; margin-bottom: 8px; text-align: center; }
+  .lv-tabs {
+    display: flex; gap: 8px; margin-bottom: 16px;
+    position: sticky; top: 0; background: var(--bg);
+    padding: 8px 0; z-index: 10;
+  }
+  .lv-tab {
+    padding: 6px 16px; border-radius: 20px; font-size: 13px;
+    cursor: pointer; border: 1px solid var(--border);
+    background: var(--panel); color: var(--text-dim);
+  }
+  .lv-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .lv-tab.active { background: var(--accent-strong); color: #fff; border-color: var(--accent-strong); }
 
-  .empty { color: #484f58; text-align: center; margin-top: 40vh; font-size: 14px; }
-  .stats { font-size: 12px; color: #484f58; margin-bottom: 16px; padding: 8px; background: #161b22; border-radius: 6px; }
+  .empty { color: var(--text-mute); text-align: center; margin-top: 40vh; font-size: 14px; }
 
   /* 강조 표시 (P-12 R-28) */
   .tts-red    { color: #ff6b6b; font-weight: 500; }
@@ -125,58 +257,47 @@
   }
   .modal-overlay.show { display: flex; }
   .modal {
-    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
     padding: 24px; min-width: 360px; max-width: 480px;
   }
-  .modal h3 { color: #58a6ff; margin-bottom: 8px; font-size: 16px; }
-  .modal .modal-info { color: #8b949e; font-size: 13px; margin-bottom: 16px; }
+  .modal h3 { color: var(--accent); margin-bottom: 8px; font-size: 16px; }
+  .modal .modal-info { color: var(--text-dim); font-size: 13px; margin-bottom: 16px; }
   .modal label {
     display: block; padding: 8px 12px; margin-bottom: 6px;
-    background: #0d1117; border: 1px solid #30363d; border-radius: 4px; cursor: pointer;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 4px; cursor: pointer;
     font-size: 14px;
   }
-  .modal label:hover { border-color: #58a6ff; }
-  .modal label input[type="radio"] { margin-right: 8px; accent-color: #58a6ff; }
+  .modal label:hover { border-color: var(--accent); }
+  .modal label input[type="radio"] { margin-right: 8px; accent-color: var(--accent); }
   .modal-buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px; }
   .modal-buttons button {
     padding: 8px 18px; font-size: 13px; border-radius: 4px; cursor: pointer;
-    border: 1px solid #30363d; background: #21262d; color: #c9d1d9;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
   }
-  .modal-buttons button.primary { background: #238636; color: #fff; border-color: #2ea043; }
-  .modal-buttons button.primary:hover { background: #2ea043; }
-  .modal-buttons button:hover { background: #30363d; }
+  .modal-buttons button.primary { background: var(--success-strong); color: #fff; border-color: var(--success); }
+  .modal-buttons button.primary:hover { background: var(--success); }
+  .modal-buttons button:hover { background: var(--border); }
 
-  /* 편집 모드 */
-  #editor-toggle {
-    position: fixed; top: 10px; right: 60px; z-index: 100;
-    width: 36px; height: 36px;
-    border: 1px solid #30363d;
-    background: #161b22; color: #8b949e;
-    border-radius: 6px;
-    cursor: pointer; font-size: 16px;
-    display: flex; align-items: center; justify-content: center;
-  }
-  #editor-toggle:hover { background: #21262d; color: #58a6ff; }
-  #editor-toggle.active { background: #d97706; color: #fff; border-color: #d97706; }
-
+  /* ─────────── Editor ─────────── */
   #editor-wrap { display: none; height: calc(100vh - 64px); flex-direction: column; }
   body.editing #content { padding: 32px 24px 16px; display: flex; flex-direction: column; }
   body.editing #content > .lv-tabs,
   body.editing #content > #mdContent,
+  body.editing #content > .page-header,
   body.editing #content > #empty-msg { display: none !important; }
   body.editing #editor-wrap { display: flex; }
 
   .editor-toolbar {
     display: flex; gap: 6px; padding: 8px 0;
-    border-bottom: 1px solid #30363d; margin-bottom: 12px;
+    border-bottom: 1px solid var(--border); margin-bottom: 12px;
     align-items: center; flex-wrap: wrap;
   }
-  .editor-toolbar .label { font-size: 12px; color: #8b949e; margin-right: 4px; }
+  .editor-toolbar .label { font-size: 12px; color: var(--text-dim); margin-right: 4px; }
   .editor-toolbar button {
     padding: 5px 12px; font-size: 13px; border-radius: 4px; cursor: pointer;
-    border: 1px solid #30363d; background: #161b22; color: #c9d1d9;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
   }
-  .editor-toolbar button:hover { background: #21262d; border-color: #58a6ff; }
+  .editor-toolbar button:hover { background: var(--panel-2); border-color: var(--accent); }
   .em-btn { font-weight: 600; min-width: 56px; }
   .em-btn.em-red { color: #ff6b6b; }
   .em-btn.em-blue { color: #4dabf7; }
@@ -184,52 +305,62 @@
   .em-btn.em-underline { color: #adb5bd; text-decoration: underline; }
   .em-btn.em-blank { background: #ffd43b; color: #1971c2; border-color: #fab005; }
   .em-btn.em-blank2 { background: #c92a2a; color: #ffd43b; border-color: #a51e1e; }
-  .em-btn.em-clear { color: #ef4444; }
-  .save-btn { background: #238636 !important; color: #fff !important; border-color: #2ea043 !important; margin-left: auto; padding: 6px 18px !important; }
-  .save-btn:hover { background: #2ea043 !important; }
-  .save-btn:disabled { background: #484f58 !important; cursor: not-allowed; }
-  .save-status { font-size: 12px; color: #8b949e; min-width: 160px; text-align: right; }
-  .save-status.success { color: #2ea043; }
-  .save-status.error { color: #ef4444; }
+  .em-btn.em-clear { color: var(--danger); }
+  .save-btn {
+    background: var(--success-strong) !important; color: #fff !important;
+    border-color: var(--success) !important; margin-left: auto;
+    padding: 6px 18px !important;
+  }
+  .save-btn:hover { background: var(--success) !important; }
+  .save-btn:disabled { background: var(--text-mute) !important; cursor: not-allowed; }
+  .save-status { font-size: 12px; color: var(--text-dim); min-width: 160px; text-align: right; }
+  .save-status.success { color: var(--success); }
+  .save-status.error { color: var(--danger); }
 
   .editor-split { display: flex; gap: 16px; flex: 1; min-height: 0; }
   .editor-split textarea {
     flex: 1; min-width: 0; padding: 16px;
     font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px;
-    background: #0d1117; color: #c9d1d9;
-    border: 1px solid #30363d; border-radius: 6px;
+    background: var(--bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
     resize: none; line-height: 1.6; tab-size: 2;
   }
-  .editor-split textarea:focus { border-color: #58a6ff; outline: none; }
+  .editor-split textarea:focus { border-color: var(--accent); outline: none; }
   .editor-split .editor-preview {
     flex: 1; min-width: 0; padding: 16px; overflow-y: auto;
-    background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+    background: var(--panel); border: 1px solid var(--border); border-radius: 6px;
     font-size: 14px; line-height: 1.7;
   }
   .editor-preview h1, .editor-preview h2, .editor-preview h3 {
-    color: #e6edf3; margin: 12px 0 8px;
+    color: var(--text-bright); margin: 12px 0 8px;
   }
   .editor-preview p { margin-bottom: 8px; }
 </style>
 </head>
 <body>
 <div id="sidebar">
-  <h2 id="sidebar-title">TTS 머지 뷰어 (17895)</h2>
-  <div class="stats" id="stats"></div>
-  <input class="search-box" id="search" placeholder="검색" />
-  <div class="sidebar-actions">
-    <button onclick="openDownloadModal()" class="primary" id="btn-download">다운로드</button>
+  <div class="sidebar-header">
+    <h2 id="sidebar-title">TTS 머지 뷰어 (17895)</h2>
+    <div class="stats" id="stats"></div>
   </div>
-  <div class="sidebar-actions">
-    <button onclick="expandAll()" id="btn-expand">모두 펼치기</button>
-    <button onclick="collapseAll()" id="btn-collapse">모두 접기</button>
+  <div class="sidebar-toolbar">
+    <input class="search-box" id="search" placeholder="검색" />
+    <div class="sidebar-actions">
+      <button onclick="openDownloadModal()" class="primary" id="btn-download">다운로드</button>
+    </div>
+    <div class="sidebar-actions">
+      <button onclick="expandAll()" id="btn-expand">모두 펼치기</button>
+      <button onclick="collapseAll()" id="btn-collapse">모두 접기</button>
+    </div>
+    <div class="selected-count" id="selected-count">선택: 0개</div>
   </div>
-  <div class="selected-count" id="selected-count">선택: 0개</div>
   <div id="fileTree"></div>
 </div>
 <button id="sidebar-toggle" onclick="toggleSidebar()" title="사이드바 토글 (B)">◀</button>
-<button id="stealth-toggle" onclick="toggleStealth()" title="위장 모드 토글 (Z)">👀</button>
-<button id="editor-toggle" onclick="toggleEditor()" title="편집 모드 토글 (E)">✏️</button>
+<div class="right-toggles">
+  <button id="editor-toggle" onclick="toggleEditor()" title="편집 모드 토글 (E)">✏️</button>
+  <button id="stealth-toggle" onclick="toggleStealth()" title="위장 모드 토글 (Z)">👀</button>
+</div>
 <div id="content">
   <div class="empty" id="empty-msg">좌측에서 파일을 선택하세요</div>
   <div id="editor-wrap">
@@ -267,42 +398,72 @@
 </div>
 
 <script>
-let fileIndex = {};
+// ─────────── 상태 ───────────
+let fileIndex = {};       // {dir: [filename, ...]} — 구 형식 호환용
+let fileMetadata = {};    // path → 풍부 메타 (id, subject, subjectKor, category, file, fileKor, case, title, points, userCase, ...)
 let currentFile = null;
+let currentPath = null;   // dir/filename
 let fullContent = '';
 let selectedFiles = new Set();
 let stealthMode = localStorage.getItem('stealth') === 'true';
 
-// 위장 모드 사이드바 매핑 (사용자 정의)
-// 과목: min(민법) mso(민소) hyung(형법) hso(형소) bu(부등) bso(부등서류) msso(민사서류)
-// 단계: 001_(예비) 002_(입문) 010_(1순환) 020_(2순환) 030_(3순환)
-// 시험: sub_(미케) mo_(모고) quiz_(쪽지시험)
-const stealthDirMap = {
-  '입문_민법': '002_min',
-  '입문_민소': '002_mso',
-  '입문_형법': '002_hyung',
-  '입문_부등': '002_bu',
-  '예비_민법': '001_min',
-  '예비_민소': '001_mso',
-  '예비_형법': '001_hyung',
-  '예비_형소': '001_hso',
-  '1순환_민법': '010_min',
-  '1순환_민소': '010_mso',
-  '1순환_형법': '010_hyung',
-  '1순환_형소': '010_hso',
-  '2순환_민법': '020_min',
-  '2순환_민소': '020_mso',
-  '2순환_형법': '020_hyung',
-  '2순환_형소': '020_hso',
-  '3순환_민법': '030_min',
-  '3순환_민소': '030_mso',
-  '3순환_형법': '030_hyung',
-  '3순환_형소': '030_hso',
-  '입문_부등서류': '002_bso',
-  '입문_민사서류': '002_msso',
-};
+// Tree 상태 (localStorage 영속)
+const TREE_STATE_KEY = 'lawear_merge_tree_state';
+function loadTreeState() {
+  try {
+    const raw = localStorage.getItem(TREE_STATE_KEY);
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    return (obj && typeof obj === 'object') ? obj : {};
+  } catch (e) { return {}; }
+}
+function saveTreeState(state) {
+  try { localStorage.setItem(TREE_STATE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+}
+function treeNodeKey(level, ...parts) {
+  return `${level}:${parts.join('|')}`;
+}
 
-// 위장 모드 UI 텍스트
+// 카테고리 표시 순서 (사용자 학습 우선순위)
+const CATEGORY_ORDER = ['입문', '예비', '1순환', '2순환', '3순환', '모의고사', '모고'];
+function categoryRank(cat) {
+  const idx = CATEGORY_ORDER.indexOf(cat || '');
+  return idx >= 0 ? idx : 999;
+}
+
+// 과목 표시 순서
+const SUBJECT_ORDER = ['민법', '민소법', '민소', '민사소송법', '형법', '형소법', '형소', '형사소송법', '부등법', '부등', '민사서류', '부등서류'];
+function subjectRank(s) {
+  const idx = SUBJECT_ORDER.indexOf(s || '');
+  return idx >= 0 ? idx : 999;
+}
+
+// ─────────── 위장 모드 매핑 ───────────
+const stealthSubjectMap = {
+  '민법': 'Civil', '민소법': 'CivilProc', '민소': 'CivilProc',
+  '형법': 'Criminal', '형소법': 'CrimProc', '형소': 'CrimProc',
+  '부등법': 'RealEstate', '부등': 'RealEstate',
+  '민사서류': 'CivilDocs', '부등서류': 'REDocs',
+};
+const stealthCategoryMap = {
+  '입문': 'Intro', '예비': 'Prelim',
+  '1순환': 'Cycle1', '2순환': 'Cycle2', '3순환': 'Cycle3',
+  '모의고사': 'Mock', '모고': 'Mock',
+};
+// 디렉토리 → 위장 (구 형식 호환)
+const stealthDirMap = {
+  '입문_민법': '002_min', '입문_민소': '002_mso',
+  '입문_형법': '002_hyung', '입문_부등': '002_bu',
+  '예비_민법': '001_min', '예비_민소': '001_mso',
+  '예비_형법': '001_hyung', '예비_형소': '001_hso',
+  '1순환_민법': '010_min', '1순환_민소': '010_mso',
+  '1순환_형법': '010_hyung', '1순환_형소': '010_hso',
+  '2순환_민법': '020_min', '2순환_민소': '020_mso',
+  '2순환_형법': '020_hyung', '2순환_형소': '020_hso',
+  '3순환_민법': '030_min', '3순환_민소': '030_mso',
+  '3순환_형법': '030_hyung', '3순환_형소': '030_hso',
+  '입문_부등서류': '002_bso', '입문_민사서류': '002_msso',
+};
 const stealthUI = {
   pageTitle: { real: 'TTS 머지 뷰어 (17895)', fake: 'Document Viewer' },
   sidebarTitle: { real: 'TTS 머지 뷰어 (17895)', fake: 'Documents' },
@@ -315,33 +476,69 @@ const stealthUI = {
   tabs: { real: ['원본', '전체', 'Lv.1', 'Lv.4'], fake: ['Source', 'All', 'V1', 'V4'] },
 };
 
+function displaySubject(s) {
+  return stealthMode ? (stealthSubjectMap[s] || s) : s;
+}
+function displayCategory(c) {
+  return stealthMode ? (stealthCategoryMap[c] || c) : c;
+}
 function displayDir(dir) {
   return stealthMode ? (stealthDirMap[dir] || dir) : dir;
 }
-
 function displayFile(filename) {
+  // 풍부 메타 사용: filename → file (예: 미케01)
   const base = filename.replace('.md', '');
   if (stealthMode) {
-    // 미케NN_MM → sub_NN_MM
     const mike = base.match(/미케(\d+)_(\d+)/);
     if (mike) return `sub_${mike[1]}_${mike[2]}`;
-    // 모고NN_MM → mo_NN_MM
     const mogoSub = base.match(/모고(\d+)_(\d+)/);
     if (mogoSub) return `mo_${mogoSub[1]}_${mogoSub[2]}`;
-    // 모고NN → mo_NN
     const mogo = base.match(/모고(\d+)/);
     if (mogo) return `mo_${mogo[1]}`;
-    // 쪽지시험NN_MM → quiz_NN_MM
-    const quizSub = base.match(/쪽지시험_?(\d+)_(\d+)/);
-    if (quizSub) return `quiz_${quizSub[1]}_${quizSub[2]}`;
-    // 쪽지시험NN → quiz_NN
-    const quiz = base.match(/쪽지시험_?(\d+)/);
-    if (quiz) return `quiz_${quiz[1]}`;
-    return base.replace(/2026_(minbeop|minso)_(yebi|immun)_/, '');
+    return base.replace(/2026_(minbeop|minso|hyungbeop|hyungso|budeung)_(yebi|immun)_/, '');
   }
-  return base.replace(/2026_(minbeop|minso)_(yebi|immun)_/, '');
+  return base.replace(/2026_(minbeop|minso|hyungbeop|hyungso|budeung)_(yebi|immun)_/, '');
+}
+// fileKor 위장 (예: '민법_입문_미케_01' → 'sub_01_NN')
+function displayFileKor(fileKor, fileCode) {
+  if (!stealthMode) return fileKor;
+  const m = (fileCode || '').match(/^미케(\d+)$/);
+  if (m) return `sub_${m[1]}`;
+  const mg = (fileCode || '').match(/^모고(\d+)$/);
+  if (mg) return `mo_${mg[1]}`;
+  return fileCode || fileKor;
 }
 
+// ─────────── 강조 렌더링 ───────────
+function renderMd(md) {
+  const placeholders = [];
+  const tagRe = /\[(red|blue|bold|u|blank2|blank)\]((?:(?!\[(?:red|blue|bold|u|blank2|blank)\])[\s\S])*?)\[\/\1\]/g;
+  let escaped = md;
+  let prev;
+  let iter = 0;
+  do {
+    prev = escaped;
+    escaped = escaped.replace(tagRe, (m, tag, content) => {
+      placeholders.push({ tag, content });
+      return `@@EMP${placeholders.length - 1}@@`;
+    });
+    iter++;
+  } while (escaped !== prev && iter < 20);
+
+  let html = marked.parse(escaped);
+
+  function recover(s) {
+    return s.replace(/@@EMP(\d+)@@/g, (m, i) => {
+      const { tag, content } = placeholders[parseInt(i, 10)];
+      const cls = tag === 'u' ? 'tts-underline' : 'tts-' + tag;
+      const inner = recover(content);
+      return `<span class="${cls}">${inner}</span>`;
+    });
+  }
+  return recover(html);
+}
+
+// ─────────── 위장 UI 적용 ───────────
 function applyStealthUI() {
   const t = stealthUI;
   const k = stealthMode ? 'fake' : 'real';
@@ -368,55 +565,10 @@ function toggleStealth() {
   if (currentFile) renderContent();
 }
 
-function renderEmphasis(html) {
-  return html
-    .replace(/\[red\]([\s\S]+?)\[\/red\]/g, '<span class="tts-red">$1</span>')
-    .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '<span class="tts-blue">$1</span>')
-    .replace(/\[bold\]([\s\S]+?)\[\/bold\]/g, '<span class="tts-bold">$1</span>')
-    .replace(/\[u\]([\s\S]+?)\[\/u\]/g, '<span class="tts-underline">$1</span>')
-    .replace(/\[blank2\]([\s\S]+?)\[\/blank2\]/g, '<span class="tts-blank2">$1</span>')
-    .replace(/\[blank\]([\s\S]+?)\[\/blank\]/g, '<span class="tts-blank">$1</span>');
-}
-
-function renderMd(md) {
-  // 강조 태그를 placeholder로 치환한 뒤 marked.parse (marked가 [u] 등 HTML 태그로 변환하는 문제 방지)
-  // innermost-first 반복 매칭으로 중첩 강조([red]...[blank]X[/blank]...[/red]) 지원
-  const placeholders = [];
-  // content 안에 다른 강조 시작 태그가 없는 경우만 매칭 = innermost
-  // blank2가 blank보다 먼저 (정규식 alternation leftmost — 긴 거 우선)
-  const tagRe = /\[(red|blue|bold|u|blank2|blank)\]((?:(?!\[(?:red|blue|bold|u|blank2|blank)\])[\s\S])*?)\[\/\1\]/g;
-  let escaped = md;
-  let prev;
-  let iter = 0;
-  do {
-    prev = escaped;
-    escaped = escaped.replace(tagRe, (m, tag, content) => {
-      placeholders.push({ tag, content });
-      return `@@EMP${placeholders.length - 1}@@`;
-    });
-    iter++;
-  } while (escaped !== prev && iter < 20);
-
-  let html = marked.parse(escaped);
-
-  // placeholder 복원 (재귀 — content 안에 다른 placeholder 있을 수 있음)
-  function recover(s) {
-    return s.replace(/@@EMP(\d+)@@/g, (m, i) => {
-      const { tag, content } = placeholders[parseInt(i, 10)];
-      const cls = tag === 'u' ? 'tts-underline' : 'tts-' + tag;
-      const inner = recover(content);
-      return `<span class="${cls}">${inner}</span>`;
-    });
-  }
-  return recover(html);
-}
-
-let fileMetadata = {}; // path → metadata (새 인덱스 형식 풍부 메타)
-
+// ─────────── 초기화 ───────────
 async function init() {
   const res = await fetch('_file_index.json');
   const raw = await res.json();
-  // 새 형식 ({files: [...], meta: {...}}) vs 구 형식 ({dir: [...]}) 호환
   if (raw.files && Array.isArray(raw.files)) {
     fileIndex = {};
     fileMetadata = {};
@@ -433,7 +585,7 @@ async function init() {
     fileMetadata = {};
   }
   const total = Object.values(fileIndex).reduce((s, v) => s + v.length, 0);
-  document.getElementById('stats').textContent = `${Object.keys(fileIndex).length}과목 / ${total}파일`;
+  document.getElementById('stats').textContent = `${Object.keys(fileIndex).length}디렉토리 / ${total}파일`;
   document.body.classList.toggle('stealth', stealthMode);
   applyStealthUI();
   renderTree();
@@ -441,79 +593,316 @@ async function init() {
 
 function updateSelectedCount() {
   const k = stealthMode ? 'fake' : 'real';
-  document.getElementById('selected-count').textContent = `${stealthUI.selectedCount[k]}: ${selectedFiles.size}`;
+  document.getElementById('selected-count').textContent = `${stealthUI.selectedCount[k]}: ${selectedFiles.size}개`;
 }
 
-function updateDirCheckboxStates() {
-  document.querySelectorAll('.dir-checkbox').forEach(cb => {
-    const dir = cb.dataset.dir;
-    const files = fileIndex[dir] || [];
-    const selectedInDir = files.filter(f => selectedFiles.has(`${dir}/${f}`)).length;
-    if (selectedInDir === 0) { cb.checked = false; cb.indeterminate = false; }
-    else if (selectedInDir === files.length) { cb.checked = true; cb.indeterminate = false; }
-    else { cb.checked = false; cb.indeterminate = true; }
-  });
-}
-
+// ─────────── 트리 빌드 (L1 과목 > L2 카테고리 > L3 파일 > L4 Case) ───────────
+//
+// 데이터 소스:
+//   1. 풍부 메타 있는 파일 (fileMetadata[path]) → subjectKor + category + fileKor + case + points + title 활용
+//   2. 풍부 메타 없는 파일 → dir 그대로 L1=dir, L3=filename 단일 트리로 fallback
 function renderTree(filter = '') {
   const tree = document.getElementById('fileTree');
   tree.innerHTML = '';
-  const lowerFilter = filter.toLowerCase();
+  const lowerFilter = (filter || '').toLowerCase();
+  const searching = lowerFilter.length > 0;
+
+  // 트리 구조 빌드
+  //   tree4 = Map<subjectKor, {subject, subjectKor, categories: Map<category, {category, files: Map<fileCode, {fileCode, fileKor, items: [meta], dir}>}>}
+  //   noMeta = Map<dir, [{filename, path}]>  ← 메타 없는 파일들
+  const tree4 = new Map();
+  const noMeta = new Map();
 
   for (const [dir, files] of Object.entries(fileIndex)) {
-    const filtered = filter ? files.filter(f => f.toLowerCase().includes(lowerFilter) || displayFile(f).toLowerCase().includes(lowerFilter)) : files;
-    if (filtered.length === 0) continue;
-
-    const group = document.createElement('div');
-    group.className = 'dir-group' + (filter ? '' : ' collapsed');
-
-    const h3 = document.createElement('h3');
-    const dirCb = document.createElement('input');
-    dirCb.type = 'checkbox';
-    dirCb.className = 'dir-checkbox';
-    dirCb.dataset.dir = dir;
-    dirCb.onclick = (e) => { e.stopPropagation(); toggleDirSelection(dir, dirCb.checked); };
-    const arrow = document.createElement('span'); arrow.className = 'arrow'; arrow.textContent = '▾';
-    const dirName = document.createElement('span'); dirName.textContent = displayDir(dir);
-    const count = document.createElement('span'); count.className = 'count'; count.textContent = filtered.length;
-    h3.appendChild(dirCb); h3.appendChild(arrow); h3.appendChild(dirName); h3.appendChild(count);
-    h3.onclick = (e) => { if (e.target === dirCb) return; group.classList.toggle('collapsed'); };
-    group.appendChild(h3);
-
-    const ul = document.createElement('ul'); ul.className = 'file-list';
-    filtered.forEach(f => {
+    for (const f of files) {
       const path = `${dir}/${f}`;
-      const li = document.createElement('li');
-      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = selectedFiles.has(path);
-      cb.onclick = (e) => {
-        e.stopPropagation();
-        if (cb.checked) selectedFiles.add(path); else selectedFiles.delete(path);
-        updateSelectedCount(); updateDirCheckboxStates();
-      };
-      const span = document.createElement('span'); span.className = 'filename';
-      span.textContent = displayFile(f); span.title = f;
-      span.onclick = () => loadFile(dir, f, li);
-      li.appendChild(cb); li.appendChild(span);
-      ul.appendChild(li);
-    });
-    group.appendChild(ul);
-    tree.appendChild(group);
+      const meta = fileMetadata[path];
+      // 필터링: search term 매칭
+      if (searching) {
+        const hay = [
+          f, path, dir,
+          meta && meta.subjectKor, meta && meta.category, meta && meta.fileKor,
+          meta && meta.file, meta && meta.title, meta && meta.id,
+          displayFile(f), displayDir(dir),
+          meta && displaySubject(meta.subjectKor),
+        ].filter(Boolean).join(' ').toLowerCase();
+        if (!hay.includes(lowerFilter)) continue;
+      }
+      if (meta && meta.subjectKor && meta.category && meta.fileKor) {
+        const sk = meta.subjectKor;
+        const cat = meta.category;
+        const fileCode = meta.file || meta.fileKor;
+        if (!tree4.has(sk)) tree4.set(sk, { subject: meta.subject, subjectKor: sk, categories: new Map() });
+        const subjNode = tree4.get(sk);
+        if (!subjNode.categories.has(cat)) subjNode.categories.set(cat, { category: cat, files: new Map() });
+        const catNode = subjNode.categories.get(cat);
+        if (!catNode.files.has(fileCode)) catNode.files.set(fileCode, { fileCode, fileKor: meta.fileKor, items: [], dir });
+        catNode.files.get(fileCode).items.push({ meta, filename: f, path, dir });
+      } else {
+        if (!noMeta.has(dir)) noMeta.set(dir, []);
+        noMeta.get(dir).push({ filename: f, path });
+      }
+    }
   }
+
+  // 빈 결과 처리
+  if (tree4.size === 0 && noMeta.size === 0) {
+    tree.innerHTML = '<div style="padding:16px;color:#484f58;font-size:12px;text-align:center;">매칭 결과 없음</div>';
+    updateSelectedCount();
+    return;
+  }
+
+  const state = loadTreeState();
+  let html = '';
+
+  // ─── 풍부 메타 트리 (L1~L4) ───
+  const sortedSubjects = Array.from(tree4.entries()).sort((a, b) => subjectRank(a[0]) - subjectRank(b[0]));
+  for (const [sk, subjNode] of sortedSubjects) {
+    const l1Key = treeNodeKey('s', sk);
+    const l1Collapsed = !searching && state[l1Key] === false;
+    let l1TotalCases = 0;
+    for (const cat of subjNode.categories.values()) {
+      for (const fileNode of cat.files.values()) l1TotalCases += fileNode.items.length;
+    }
+
+    html += `<div class="tree-node tree-l1${l1Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l1Key)}">`;
+    html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l1Key)}">`;
+    html += `<input type="checkbox" class="dir-checkbox" data-subject="${escapeAttr(sk)}" onclick="event.stopPropagation(); toggleSubjectSelection('${escapeAttr(sk)}', this.checked);">`;
+    html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(displaySubject(sk))}</span>`;
+    html += `<span class="tree-count">${l1TotalCases}</span></div>`;
+    html += `<div class="tree-body">`;
+
+    const sortedCats = Array.from(subjNode.categories.entries()).sort((a, b) => categoryRank(a[0]) - categoryRank(b[0]));
+    for (const [cat, catNode] of sortedCats) {
+      const l2Key = treeNodeKey('c', sk, cat);
+      const l2Collapsed = !searching && state[l2Key] === false;
+      let l2TotalCases = 0;
+      for (const fileNode of catNode.files.values()) l2TotalCases += fileNode.items.length;
+
+      html += `<div class="tree-node tree-l2${l2Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l2Key)}">`;
+      html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l2Key)}">`;
+      html += `<input type="checkbox" class="dir-checkbox" data-cat="${escapeAttr(sk + '|' + cat)}" onclick="event.stopPropagation(); toggleCategorySelection('${escapeAttr(sk)}', '${escapeAttr(cat)}', this.checked);">`;
+      html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(displayCategory(cat))}</span>`;
+      html += `<span class="tree-count">${l2TotalCases}</span></div>`;
+      html += `<div class="tree-body">`;
+
+      const sortedFiles = Array.from(catNode.files.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+      for (const [fileCode, fileNode] of sortedFiles) {
+        const l3Key = treeNodeKey('f', sk, cat, fileCode);
+        // L3 디폴트: 검색 중이거나 펼침 저장된 경우만 펼침
+        const l3Collapsed = !searching && state[l3Key] !== true;
+        // 파일명 표시: fileKor에서 과목/카테고리 빼고 단순화
+        let fileLabel = fileNode.fileKor || fileCode;
+        // 예: '민법_입문_미케_01' → '미케_01' (과목, 카테고리 prefix 제거)
+        fileLabel = fileLabel.replace(new RegExp(`^${sk}_${cat}_`), '').replace(new RegExp(`^${sk}_`), '');
+        if (stealthMode) fileLabel = displayFileKor(fileNode.fileKor, fileCode);
+
+        html += `<div class="tree-node tree-l3${l3Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l3Key)}">`;
+        html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l3Key)}">`;
+        html += `<input type="checkbox" class="dir-checkbox" data-file="${escapeAttr(sk + '|' + cat + '|' + fileCode)}" onclick="event.stopPropagation(); toggleFileSelection('${escapeAttr(sk)}', '${escapeAttr(cat)}', '${escapeAttr(fileCode)}', this.checked);">`;
+        html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(fileLabel)}</span>`;
+        html += `<span class="tree-count">${fileNode.items.length}</span></div>`;
+        html += `<div class="tree-body">`;
+
+        // L4: Case 항목
+        const items = fileNode.items.slice().sort((a, b) => (a.meta.case || '').localeCompare(b.meta.case || ''));
+        for (const it of items) {
+          const m = it.meta;
+          const checked = selectedFiles.has(it.path) ? ' checked' : '';
+          const active = (currentPath === it.path) ? ' active' : '';
+          const caseLabel = `Case ${m.case}`;
+          const title = (m.title || '').trim();
+          const points = m.points ? `${m.points}pt` : '';
+          const userCase = m.userCase ? `U${m.userCase}` : '';
+
+          html += `<div class="case-item${active}" data-path="${escapeAttr(it.path)}">`;
+          html += `<div class="case-item-row">`;
+          html += `<input type="checkbox" data-path="${escapeAttr(it.path)}"${checked} onclick="event.stopPropagation(); toggleFile(this);">`;
+          html += `<span class="case-id">${escapeHtml(caseLabel)}</span>`;
+          html += `<span class="case-title" title="${escapeAttr(title)}">${escapeHtml(title)}</span>`;
+          html += `</div>`;
+          if (points || userCase) {
+            html += `<div class="case-meta">`;
+            if (points) html += `<span class="pill points">${escapeHtml(points)}</span>`;
+            if (userCase) html += `<span class="pill">${escapeHtml(userCase)}</span>`;
+            html += `</div>`;
+          }
+          html += `</div>`;
+        }
+        html += `</div></div>`; // /tree-l3 body + node
+      }
+      html += `</div></div>`; // /tree-l2 body + node
+    }
+    html += `</div></div>`; // /tree-l1 body + node
+  }
+
+  // ─── 풍부 메타 없는 파일들 (fallback: 디렉토리만 표시) ───
+  for (const [dir, files] of noMeta.entries()) {
+    const l1Key = treeNodeKey('d', dir);
+    const l1Collapsed = !searching && state[l1Key] === false;
+    html += `<div class="tree-node tree-l1${l1Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l1Key)}">`;
+    html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l1Key)}">`;
+    html += `<input type="checkbox" class="dir-checkbox" data-dir="${escapeAttr(dir)}" onclick="event.stopPropagation(); toggleDirSelection('${escapeAttr(dir)}', this.checked);">`;
+    html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(displayDir(dir))}</span>`;
+    html += `<span class="tree-count">${files.length}</span></div>`;
+    html += `<div class="tree-body">`;
+    for (const item of files) {
+      const checked = selectedFiles.has(item.path) ? ' checked' : '';
+      const active = (currentPath === item.path) ? ' active' : '';
+      html += `<div class="case-item${active}" data-path="${escapeAttr(item.path)}">`;
+      html += `<div class="case-item-row">`;
+      html += `<input type="checkbox" data-path="${escapeAttr(item.path)}"${checked} onclick="event.stopPropagation(); toggleFile(this);">`;
+      html += `<span class="case-title">${escapeHtml(displayFile(item.filename))}</span>`;
+      html += `</div></div>`;
+    }
+    html += `</div></div>`;
+  }
+
+  tree.innerHTML = html;
+
+  // 트리 toggle 이벤트
+  tree.querySelectorAll('.tree-header[data-tree-toggle]').forEach(h => {
+    h.addEventListener('click', (ev) => {
+      // 체크박스 클릭은 무시
+      if (ev.target.tagName === 'INPUT') return;
+      const node = h.closest('.tree-node');
+      if (!node) return;
+      node.classList.toggle('collapsed');
+      const key = h.dataset.treeToggle;
+      const s = loadTreeState();
+      if (node.classList.contains('collapsed')) s[key] = node.classList.contains('tree-l3') ? false : false;
+      else s[key] = node.classList.contains('tree-l3') ? true : true;
+      saveTreeState(s);
+      ev.stopPropagation();
+    });
+  });
+
+  // Case 클릭 → 파일 로드
+  tree.querySelectorAll('.case-item').forEach(item => {
+    item.addEventListener('click', (ev) => {
+      if (ev.target.tagName === 'INPUT') return;
+      const path = item.dataset.path;
+      if (path) loadFileByPath(path);
+    });
+  });
+
   updateSelectedCount();
   updateDirCheckboxStates();
 }
 
+function escapeHtml(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+function escapeAttr(s) { return escapeHtml(s).replace(/"/g, '&quot;'); }
+
+// ─────────── 체크박스 선택 ───────────
+function toggleFile(cb) {
+  const path = cb.dataset.path;
+  if (cb.checked) selectedFiles.add(path);
+  else selectedFiles.delete(path);
+  updateSelectedCount();
+  updateDirCheckboxStates();
+}
+
+function toggleSubjectSelection(sk, checked) {
+  for (const [path, meta] of Object.entries(fileMetadata)) {
+    if (meta.subjectKor === sk) {
+      if (checked) selectedFiles.add(path);
+      else selectedFiles.delete(path);
+    }
+  }
+  renderTree(document.getElementById('search').value);
+}
+function toggleCategorySelection(sk, cat, checked) {
+  for (const [path, meta] of Object.entries(fileMetadata)) {
+    if (meta.subjectKor === sk && meta.category === cat) {
+      if (checked) selectedFiles.add(path);
+      else selectedFiles.delete(path);
+    }
+  }
+  renderTree(document.getElementById('search').value);
+}
+function toggleFileSelection(sk, cat, fileCode, checked) {
+  for (const [path, meta] of Object.entries(fileMetadata)) {
+    if (meta.subjectKor === sk && meta.category === cat && meta.file === fileCode) {
+      if (checked) selectedFiles.add(path);
+      else selectedFiles.delete(path);
+    }
+  }
+  renderTree(document.getElementById('search').value);
+}
 function toggleDirSelection(dir, checked) {
   const files = fileIndex[dir] || [];
   files.forEach(f => {
     const path = `${dir}/${f}`;
-    if (checked) selectedFiles.add(path); else selectedFiles.delete(path);
+    if (checked) selectedFiles.add(path);
+    else selectedFiles.delete(path);
   });
   renderTree(document.getElementById('search').value);
 }
 
-function expandAll() { document.querySelectorAll('.dir-group').forEach(g => g.classList.remove('collapsed')); }
-function collapseAll() { document.querySelectorAll('.dir-group').forEach(g => g.classList.add('collapsed')); }
+function updateDirCheckboxStates() {
+  // Subject
+  document.querySelectorAll('.dir-checkbox[data-subject]').forEach(cb => {
+    const sk = cb.dataset.subject;
+    let total = 0, sel = 0;
+    for (const [path, meta] of Object.entries(fileMetadata)) {
+      if (meta.subjectKor === sk) { total++; if (selectedFiles.has(path)) sel++; }
+    }
+    if (sel === 0) { cb.checked = false; cb.indeterminate = false; }
+    else if (sel === total) { cb.checked = true; cb.indeterminate = false; }
+    else { cb.checked = false; cb.indeterminate = true; }
+  });
+  // Category
+  document.querySelectorAll('.dir-checkbox[data-cat]').forEach(cb => {
+    const [sk, cat] = cb.dataset.cat.split('|');
+    let total = 0, sel = 0;
+    for (const [path, meta] of Object.entries(fileMetadata)) {
+      if (meta.subjectKor === sk && meta.category === cat) { total++; if (selectedFiles.has(path)) sel++; }
+    }
+    if (sel === 0) { cb.checked = false; cb.indeterminate = false; }
+    else if (sel === total) { cb.checked = true; cb.indeterminate = false; }
+    else { cb.checked = false; cb.indeterminate = true; }
+  });
+  // File
+  document.querySelectorAll('.dir-checkbox[data-file]').forEach(cb => {
+    const [sk, cat, fc] = cb.dataset.file.split('|');
+    let total = 0, sel = 0;
+    for (const [path, meta] of Object.entries(fileMetadata)) {
+      if (meta.subjectKor === sk && meta.category === cat && meta.file === fc) { total++; if (selectedFiles.has(path)) sel++; }
+    }
+    if (sel === 0) { cb.checked = false; cb.indeterminate = false; }
+    else if (sel === total) { cb.checked = true; cb.indeterminate = false; }
+    else { cb.checked = false; cb.indeterminate = true; }
+  });
+  // Dir (fallback)
+  document.querySelectorAll('.dir-checkbox[data-dir]').forEach(cb => {
+    const dir = cb.dataset.dir;
+    const files = fileIndex[dir] || [];
+    const sel = files.filter(f => selectedFiles.has(`${dir}/${f}`)).length;
+    if (sel === 0) { cb.checked = false; cb.indeterminate = false; }
+    else if (sel === files.length) { cb.checked = true; cb.indeterminate = false; }
+    else { cb.checked = false; cb.indeterminate = true; }
+  });
+}
+
+function expandAll() {
+  document.querySelectorAll('.tree-node').forEach(g => g.classList.remove('collapsed'));
+  // 상태 저장: 모든 노드 펼침
+  const s = loadTreeState();
+  document.querySelectorAll('.tree-node[data-tree-key]').forEach(n => {
+    s[n.dataset.treeKey] = true;
+  });
+  saveTreeState(s);
+}
+function collapseAll() {
+  document.querySelectorAll('.tree-node').forEach(g => g.classList.add('collapsed'));
+  const s = loadTreeState();
+  document.querySelectorAll('.tree-node[data-tree-key]').forEach(n => {
+    s[n.dataset.treeKey] = false;
+  });
+  saveTreeState(s);
+}
 
 function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
@@ -522,12 +911,16 @@ function toggleSidebar() {
   btn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
 }
 
-async function loadFile(dir, filename, el) {
-  document.querySelectorAll('.file-list li').forEach(li => li.classList.remove('active'));
-  el.classList.add('active');
-  const res = await fetch(`${dir}/${filename}`, { cache: 'no-store' });
+// ─────────── 파일 로드 ───────────
+async function loadFileByPath(path) {
+  const slash = path.indexOf('/');
+  const dir = path.slice(0, slash);
+  const filename = path.slice(slash + 1);
+  document.querySelectorAll('.case-item').forEach(i => i.classList.toggle('active', i.dataset.path === path));
+  const res = await fetch(path, { cache: 'no-store' });
   fullContent = await res.text();
   currentFile = filename;
+  currentPath = path;
   renderContent();
 }
 
@@ -537,12 +930,28 @@ function renderContent() {
   const k = stealthMode ? 'fake' : 'real';
   const tabLabels = stealthUI.tabs[k];
   const tabKeys = ['원본', '전체', 'Lv.1', 'Lv.4'];
+
+  // Case 메타 헤더 (풍부 메타가 있는 경우)
+  const meta = fileMetadata[currentPath];
+  let headerHtml = '';
+  if (meta) {
+    const shortId = `${meta.file}-${meta.case}`;
+    const subjLine = stealthMode
+      ? `${displaySubject(meta.subjectKor)} · ${displayCategory(meta.category)}${meta.points ? ' · ' + meta.points + ' pt' : ''}`
+      : `${meta.subjectKor} · ${meta.category} · ${meta.title || ''}${meta.points ? ' · ' + meta.points + '점' : ''}${meta.userCase ? ' · User#' + meta.userCase : ''}`;
+    headerHtml = `<div class="page-header">
+      <span class="case-id-large">${escapeHtml(shortId)}</span>
+      <span class="case-subject">${escapeHtml(subjLine)}</span>
+      <div class="breadcrumb">${escapeHtml(displaySubject(meta.subjectKor))}<span class="crumb-sep">/</span>${escapeHtml(displayCategory(meta.category))}<span class="crumb-sep">/</span>${escapeHtml(displayFileKor(meta.fileKor, meta.file).replace(meta.subjectKor + '_', '').replace(meta.category + '_', ''))}<span class="crumb-sep">/</span>Case ${escapeHtml(meta.case)}</div>
+    </div>`;
+  }
+
   let tabs = '<div class="lv-tabs">';
   tabKeys.forEach((s, i) => {
     tabs += `<div class="lv-tab${i===1?' active':''}" data-key="${s}" onclick="showSection('${s}', event)">${tabLabels[i]}</div>`;
   });
   tabs += '</div>';
-  content.innerHTML = tabs + '<div id="mdContent"></div>';
+  content.innerHTML = headerHtml + tabs + '<div id="mdContent"></div>';
   if (editorWrap) content.appendChild(editorWrap);
   showSection('전체');
 }
@@ -563,7 +972,6 @@ function showSection(section, event) {
     const lv4 = extractSection(md, 'Lv.4 암기노트');
     const k = stealthMode ? 'fake' : 'real';
     const labels = stealthUI.tabs[k];
-    // 원본 헤더의 점수 부가 정보 표시 (stealth 모드에선 labels[0] 사용)
     const originalLabel = stealthMode ? labels[0] : extractSectionHeader(md, '원본');
     target.innerHTML = `
       <table class="compare-table">
@@ -599,7 +1007,6 @@ function extractSection(md, sectionName) {
   return result.join('\n').trim();
 }
 
-// 섹션 헤더 전체 텍스트 반환 (점수 등 부가 정보 포함) — `## 원본 (20점)` → `원본 (20점)`
 function extractSectionHeader(md, sectionName) {
   for (const line of md.split('\n')) {
     if (line.startsWith('## ') && line.includes(sectionName)) {
@@ -627,7 +1034,6 @@ function parseSubsections(section) {
 }
 
 function stripEmphasis(text) {
-  // 머지 다운로드 시 강조 태그 제거 (TTS용 plain)
   return text
     .replace(/\[red\]([\s\S]+?)\[\/red\]/g, '$1')
     .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '$1')
@@ -696,7 +1102,6 @@ function openDownloadModal() {
   document.getElementById('modal-info').textContent = `${selectedFiles.size}개 파일 머지`;
   document.getElementById('download-modal').classList.add('show');
 }
-
 function closeModal() { document.getElementById('download-modal').classList.remove('show'); }
 
 async function doDownload() {
@@ -729,7 +1134,6 @@ async function doDownload() {
 
 document.getElementById('search').addEventListener('input', e => renderTree(e.target.value));
 document.addEventListener('keydown', e => {
-  // Ctrl+S / Cmd+S — 편집 모드에서 저장
   if ((e.ctrlKey || e.metaKey) && e.key === 's' && editMode) {
     e.preventDefault();
     saveFile();
@@ -745,7 +1149,7 @@ document.addEventListener('keydown', e => {
   }
 });
 
-// === 편집 모드 ===
+// ─────────── 편집 모드 ───────────
 let editMode = false;
 let originalContent = '';
 
@@ -798,24 +1202,18 @@ function wrapEmphasis(tag) {
 
 async function saveFile() {
   if (!editMode) return;
-  if (!currentFile) { setSaveStatus('파일이 선택되지 않음', 'error'); return; }
+  if (!currentPath) { setSaveStatus('파일이 선택되지 않음', 'error'); return; }
   const ta = document.getElementById('editor-textarea');
   const newContent = ta.value;
   if (newContent === originalContent) {
     setSaveStatus('변경 사항 없음', 'success');
     return;
   }
-  let dirPath = null;
-  for (const [dir, files] of Object.entries(fileIndex)) {
-    if (files.includes(currentFile)) { dirPath = dir; break; }
-  }
-  if (!dirPath) { setSaveStatus('파일 경로 찾기 실패', 'error'); return; }
-  const fullPath = `${dirPath}/${currentFile}`;
   const saveBtn = document.getElementById('save-btn');
   saveBtn.disabled = true;
   setSaveStatus('저장 중...', '');
   try {
-    const res = await fetch(`/api/save/${encodeURI(fullPath)}`, {
+    const res = await fetch(`/api/save/${encodeURI(currentPath)}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'text/plain; charset=utf-8' },
       body: newContent
