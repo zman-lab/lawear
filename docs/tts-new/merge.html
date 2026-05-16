@@ -7,115 +7,174 @@
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  /* 17896 좌측 패널 톤 (Internal Review Console 정본) + merge.html 우측 톤 보존 */
   :root {
-    --bg: #0d1117;
-    --panel: #161b22;
-    --panel-2: #21262d;
-    --border: #30363d;
-    --text: #c9d1d9;
-    --text-dim: #8b949e;
-    --text-bright: #e6edf3;
-    --text-mute: #484f58;
-    --accent: #58a6ff;
-    --accent-dim: rgba(31, 111, 235, 0.2);
-    --accent-strong: #1f6feb;
-    --success: #2ea043;
-    --success-strong: #238636;
-    --warn: #d29922;
-    --danger: #f85149;
+    --bg: #1e1e1e;
+    --panel: #252526;
+    --panel-2: #2d2d30;
+    --border: #3e3e42;
+    --border-light: #464647;
+    --text: #cccccc;
+    --text-dim: #858585;
+    --text-bright: #e8e8e8;
+    --accent: #569cd6;
+    --accent-dim: #4a7ba8;
+    --success: #4ec9b0;
+    --success-strong: #2ea043;
+    --warn: #ce9178;
+    --danger: #d16969;
+    --link: #9cdcfe;
+    --text-mute: #5a5a5a;
+    --accent-strong: #569cd6;
+    --success: #4ec9b0;
   }
-  body { font-family: -apple-system, 'Pretendard', sans-serif; display: flex; height: 100vh; background: var(--bg); color: var(--text); font-size: 13px; overflow: hidden; }
+  html, body { height: 100%; }
+  body { font-family: -apple-system, 'Segoe UI', 'Pretendard', sans-serif; display: flex; background: var(--bg); color: var(--text); font-size: 13px; overflow: hidden; position: relative; }
 
-  /* ─────────── Sidebar ─────────── */
+  /* ─────────── Sidebar (17896 정본) ─────────── */
   #sidebar {
-    width: 320px; min-width: 320px;
+    width: 280px;
+    min-width: 280px;
     background: var(--panel);
     border-right: 1px solid var(--border);
-    display: flex; flex-direction: column;
-    transition: width 0.2s, min-width 0.2s;
+    display: flex;
+    flex-direction: column;
+    transition: width 0.18s, min-width 0.18s, border-right 0.18s;
     overflow: hidden;
   }
-  #sidebar.collapsed { width: 0; min-width: 0; border-right: none; }
-
-  .sidebar-header { padding: 14px 14px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .sidebar-header h2 { font-size: 13px; color: var(--accent); margin-bottom: 4px; white-space: nowrap; }
-  .stats { font-size: 11px; color: var(--text-mute); }
-
-  .sidebar-toolbar { padding: 10px 14px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
-  .search-box {
-    width: 100%; padding: 7px 10px;
-    background: var(--bg); border: 1px solid var(--border); border-radius: 4px;
-    color: var(--text); font-size: 12px; font-family: inherit;
-    margin-bottom: 8px;
+  #sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    border-right: none;
   }
-  .search-box:focus { border-color: var(--accent); outline: none; }
-  .sidebar-actions { display: flex; gap: 4px; margin-bottom: 6px; }
+
+  /* Sidebar 헤더 (Internal Review Console 톤) */
+  .sidebar-header { padding: 10px 12px 8px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+  .sidebar-header h2 {
+    font-size: 12px; font-weight: 600;
+    color: var(--text-bright);
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .sidebar-header h2 .sub { color: var(--text-dim); font-weight: 400; margin-left: 4px; }
+  .stats { font-size: 10px; color: var(--text-dim); margin-top: 4px; font-family: 'SF Mono', Consolas, monospace; }
+
+  /* filters: 17896 정본 */
+  #sidebar .filters {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  #sidebar .filter-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  #sidebar .filter-row button {
+    background: var(--bg);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 5px 6px;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    padding-left: 8px;
+  }
+  #sidebar .filter-row button:hover { border-color: var(--accent-dim); color: var(--text); }
+  #sidebar .filter-row button.active { background: var(--accent-dim); color: #fff; border-color: var(--accent); }
+  #sidebar .search {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 8px;
+    font-size: 12px;
+    border-radius: 3px;
+    font-family: inherit;
+  }
+  #sidebar .search:focus { outline: none; border-color: var(--accent); }
+
+  /* merge.html 전용 액션 (다운로드 / 펼치기 / 접기 / 선택카운트) — 17896 톤 적용 */
+  .sidebar-actions { padding: 8px 10px 0; display: flex; gap: 4px; }
   .sidebar-actions button {
-    flex: 1; padding: 5px 8px; font-size: 11px;
-    background: var(--bg); color: var(--text);
+    flex: 1; padding: 5px 6px; font-size: 11px;
+    background: var(--bg); color: var(--text-dim);
     border: 1px solid var(--border); border-radius: 3px;
     cursor: pointer; font-family: inherit;
   }
-  .sidebar-actions button:hover { background: var(--panel-2); border-color: var(--accent); color: var(--accent); }
-  .sidebar-actions button.primary { background: var(--success-strong); color: #fff; border-color: var(--success); }
-  .sidebar-actions button.primary:hover { background: var(--success); }
+  .sidebar-actions button:hover { background: var(--panel-2); border-color: var(--accent-dim); color: var(--text); }
+  .sidebar-actions button.primary { background: var(--accent-dim); color: #fff; border-color: var(--accent); }
+  .sidebar-actions button.primary:hover { background: var(--accent); }
   .selected-count {
+    margin: 8px 10px 0;
     font-size: 11px; color: var(--accent);
-    padding: 5px 8px; background: var(--accent-dim);
+    padding: 4px 8px; background: rgba(86,156,214,0.12);
     border-radius: 3px; text-align: center;
+    border: 1px solid var(--accent-dim);
   }
 
-  /* ─────────── Tree (L1 과목 > L2 카테고리 > L3 파일 > L4 Case) ─────────── */
-  #fileTree { flex: 1; overflow-y: auto; padding: 4px 0 12px; }
+  /* ─────────── Tree (17896 정본: 4-레벨 과목 > 카테고리 > 파일 > 케이스) ─────────── */
+  .case-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .case-group-label {
+    padding: 8px 12px 4px;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
   .tree-node { user-select: none; }
   .tree-header {
-    display: flex; align-items: center;
-    gap: 6px; padding: 5px 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
     cursor: pointer;
-    color: var(--text); font-family: inherit;
+    color: var(--text);
+    font-family: inherit;
   }
   .tree-header:hover { background: var(--panel-2); }
   .tree-header .arrow {
-    display: inline-block; width: 10px;
-    font-size: 9px; color: var(--text-dim);
+    display: inline-block;
+    width: 10px;
+    font-size: 9px;
+    color: var(--text-dim);
     transition: transform 0.15s;
     flex-shrink: 0;
   }
   .tree-node.collapsed > .tree-header .arrow { transform: rotate(-90deg); }
   .tree-node.collapsed > .tree-body { display: none; }
-  .tree-header .tree-label {
-    flex: 1; min-width: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .tree-header .tree-count {
-    color: var(--text-mute); font-size: 10px;
-    font-family: 'SF Mono', Consolas, monospace;
-  }
+  .tree-header .tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tree-header .tree-count { color: var(--text-dim); font-size: 10px; font-family: 'SF Mono', Consolas, monospace; }
   .tree-header .dir-checkbox { cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
 
-  /* 레벨별 들여쓰기 + 폰트 사이즈 */
-  .tree-l1 > .tree-header { font-size: 12px; font-weight: 600; color: var(--text-bright); padding-left: 12px; }
-  .tree-l2 > .tree-header { font-size: 11px; color: var(--text); padding-left: 24px; }
-  .tree-l3 > .tree-header { font-size: 11px; color: var(--text-dim); padding-left: 36px; }
+  /* 레벨별 들여쓰기 + 폰트 사이즈 (17896 정본) */
+  .tree-l1 > .tree-header { font-size: 12px; font-weight: 600; color: var(--text-bright); padding-left: 10px; }
+  .tree-l2 > .tree-header { font-size: 11px; color: var(--text); padding-left: 22px; }
+  .tree-l3 > .tree-header { font-size: 11px; color: var(--text-dim); padding-left: 34px; }
   .tree-l3 > .tree-header:hover { color: var(--text); }
+  .tree-l1 > .tree-body { /* 자체 패딩 X — children 가 자기 padding 결정 */ }
+  /* 케이스 항목 들여쓰기 (17896 정본 46px) */
+  .tree-l3 .case-item { padding-left: 46px; }
 
-  /* Case 항목 (L4) */
+  /* Case 항목 (17896 정본 + 체크박스 행 추가) */
   .case-item {
-    padding: 6px 12px 6px 48px;
+    padding: 6px 12px 6px 12px;
     border-left: 2px solid transparent;
     cursor: pointer;
-    display: flex; flex-direction: column;
+    display: flex;
+    flex-direction: column;
     gap: 2px;
   }
   .case-item:hover { background: var(--panel-2); }
-  .case-item.active {
-    background: var(--panel-2);
-    border-left-color: var(--accent);
-    color: var(--text-bright);
-  }
-  .case-item-row {
-    display: flex; align-items: center; gap: 6px;
-  }
+  .case-item.active { background: var(--panel-2); border-left-color: var(--accent); color: var(--text-bright); }
+  .case-item-row { display: flex; align-items: center; gap: 6px; }
   .case-item-row input[type="checkbox"] {
     flex-shrink: 0; cursor: pointer; accent-color: var(--accent);
   }
@@ -123,37 +182,47 @@
     font-family: 'SF Mono', Consolas, monospace;
     font-size: 11px;
     color: var(--accent);
-    flex-shrink: 0;
   }
-  .case-item .case-title {
-    font-size: 12px; color: var(--text);
-    flex: 1; min-width: 0;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
+  .case-item .case-title { font-size: 12px; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .case-item .case-meta {
-    font-size: 10px; color: var(--text-dim);
-    display: flex; gap: 6px;
-    padding-left: 22px;
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 8px;
+    margin-top: 2px;
   }
   .case-item .case-meta .pill {
     background: var(--bg);
     border: 1px solid var(--border);
-    padding: 1px 5px;
+    padding: 1px 6px;
     border-radius: 2px;
-    font-family: 'SF Mono', Consolas, monospace;
   }
-  .case-item .case-meta .pill.points { color: var(--warn); border-color: var(--warn); }
+  .case-item .case-meta .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .case-item .case-meta .pill.stale { color: var(--text-dim); }
+  .case-item .case-meta .pill.bookmarked { color: var(--accent); }
+  .case-item .case-meta .pill.bookmark-star { color: var(--text-dim); opacity: 0.4; cursor: pointer; user-select: none; }
+  .case-item .case-meta .pill.bookmark-star.bookmarked { color: var(--accent); opacity: 1; }
+  .case-item .case-meta .pill.bookmark-star:hover { opacity: 1; }
 
-  /* ─────────── Sidebar Toggle ─────────── */
+  /* ─────────── Sidebar Toggle (17896 정본) ─────────── */
   #sidebar-toggle {
-    position: fixed; top: 10px; left: 320px; z-index: 100;
-    width: 22px; height: 36px;
-    border: 1px solid var(--border); border-left: none;
-    background: var(--panel); color: var(--text-dim);
-    border-radius: 0 6px 6px 0;
-    cursor: pointer; font-size: 12px;
-    display: flex; align-items: center; justify-content: center;
-    transition: left 0.2s;
+    position: absolute;
+    top: 10px;
+    left: 280px;
+    z-index: 50;
+    width: 18px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-left: none;
+    background: var(--panel);
+    color: var(--text-dim);
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: left 0.18s;
   }
   #sidebar-toggle:hover { background: var(--panel-2); color: var(--accent); }
   #sidebar.collapsed ~ #sidebar-toggle { left: 0; }
@@ -340,23 +409,29 @@
 <body>
 <div id="sidebar">
   <div class="sidebar-header">
-    <h2 id="sidebar-title">TTS 머지 뷰어 (17895)</h2>
+    <h2 id="sidebar-title">Internal Review Console <span class="sub">/ TTS Merge</span></h2>
     <div class="stats" id="stats"></div>
   </div>
-  <div class="sidebar-toolbar">
-    <input class="search-box" id="search" placeholder="검색" />
-    <div class="sidebar-actions">
-      <button onclick="openDownloadModal()" class="primary" id="btn-download">다운로드</button>
+  <div class="filters">
+    <div class="filter-row">
+      <button class="active" data-filter="all" id="filter-all">All Cases</button>
+      <button data-filter="err" id="filter-err">High Error</button>
+      <button data-filter="stale" id="filter-stale">Long Pending</button>
+      <button data-filter="book" id="filter-book">Bookmarked</button>
     </div>
-    <div class="sidebar-actions">
-      <button onclick="expandAll()" id="btn-expand">모두 펼치기</button>
-      <button onclick="collapseAll()" id="btn-collapse">모두 접기</button>
-    </div>
-    <div class="selected-count" id="selected-count">선택: 0개</div>
+    <input type="text" class="search" id="search" placeholder="Search by ID or keyword…">
   </div>
-  <div id="fileTree"></div>
+  <div class="sidebar-actions">
+    <button onclick="openDownloadModal()" class="primary" id="btn-download">Download</button>
+    <button onclick="expandAll()" id="btn-expand">Expand all</button>
+    <button onclick="collapseAll()" id="btn-collapse">Collapse all</button>
+  </div>
+  <div class="selected-count" id="selected-count">Selected: 0</div>
+  <div class="case-list" id="fileTree">
+    <div class="case-group-label" style="padding: 12px;">Loading…</div>
+  </div>
 </div>
-<button id="sidebar-toggle" onclick="toggleSidebar()" title="사이드바 토글 (B)">◀</button>
+<button id="sidebar-toggle" onclick="toggleSidebar()" title="Sidebar Toggle (B)">‹</button>
 <div class="right-toggles">
   <button id="editor-toggle" onclick="toggleEditor()" title="편집 모드 토글 (E)">✏️</button>
   <button id="stealth-toggle" onclick="toggleStealth()" title="위장 모드 토글 (Z)">👀</button>
@@ -464,14 +539,19 @@ const stealthDirMap = {
   '3순환_형법': '030_hyung', '3순환_형소': '030_hso',
   '입문_부등서류': '002_bso', '입문_민사서류': '002_msso',
 };
+// 17896 동일 톤: 사이드바는 영문 위주, real 모드에서 한글 라벨 일부만 사용
 const stealthUI = {
-  pageTitle: { real: 'TTS 머지 뷰어 (17895)', fake: 'Document Viewer' },
-  sidebarTitle: { real: 'TTS 머지 뷰어 (17895)', fake: 'Documents' },
-  search: { real: '검색 (예: Case 15, 상계)', fake: 'Search' },
-  download: { real: '다운로드', fake: 'Download' },
-  expand: { real: '모두 펼치기', fake: 'Expand all' },
-  collapse: { real: '모두 접기', fake: 'Collapse all' },
-  selectedCount: { real: '선택', fake: 'Selected' },
+  pageTitle: { real: 'Internal Review Console', fake: 'Internal Review Console' },
+  sidebarTitle: { real: 'Internal Review Console <span class="sub">/ TTS Merge</span>', fake: 'Internal Review Console <span class="sub">/ Documents</span>' },
+  search: { real: 'Search by ID or keyword…', fake: 'Search by ID or keyword…' },
+  filterAll: { real: 'All Cases', fake: 'All Cases' },
+  filterErr: { real: 'High Error', fake: 'High Error' },
+  filterStale: { real: 'Long Pending', fake: 'Long Pending' },
+  filterBook: { real: 'Bookmarked', fake: 'Bookmarked' },
+  download: { real: 'Download', fake: 'Download' },
+  expand: { real: 'Expand all', fake: 'Expand all' },
+  collapse: { real: 'Collapse all', fake: 'Collapse all' },
+  selectedCount: { real: 'Selected', fake: 'Selected' },
   emptyMsg: { real: '좌측에서 파일을 선택하세요', fake: 'Select a document from the left' },
   tabs: { real: ['원본', '전체', 'Lv.1', 'Lv.4'], fake: ['Source', 'All', 'V1', 'V4'] },
 };
@@ -544,8 +624,12 @@ function applyStealthUI() {
   const k = stealthMode ? 'fake' : 'real';
   document.getElementById('page-title').textContent = t.pageTitle[k];
   document.title = t.pageTitle[k];
-  document.getElementById('sidebar-title').textContent = t.sidebarTitle[k];
+  document.getElementById('sidebar-title').innerHTML = t.sidebarTitle[k];
   document.getElementById('search').placeholder = t.search[k];
+  document.getElementById('filter-all').textContent = t.filterAll[k];
+  document.getElementById('filter-err').textContent = t.filterErr[k];
+  document.getElementById('filter-stale').textContent = t.filterStale[k];
+  document.getElementById('filter-book').textContent = t.filterBook[k];
   document.getElementById('btn-download').textContent = t.download[k];
   document.getElementById('btn-expand').textContent = t.expand[k];
   document.getElementById('btn-collapse').textContent = t.collapse[k];
@@ -585,7 +669,8 @@ async function init() {
     fileMetadata = {};
   }
   const total = Object.values(fileIndex).reduce((s, v) => s + v.length, 0);
-  document.getElementById('stats').textContent = `${Object.keys(fileIndex).length}디렉토리 / ${total}파일`;
+  const ndir = Object.keys(fileIndex).length;
+  document.getElementById('stats').textContent = `${ndir} dirs · ${total} cases`;
   document.body.classList.toggle('stealth', stealthMode);
   applyStealthUI();
   renderTree();
@@ -593,7 +678,7 @@ async function init() {
 
 function updateSelectedCount() {
   const k = stealthMode ? 'fake' : 'real';
-  document.getElementById('selected-count').textContent = `${stealthUI.selectedCount[k]}: ${selectedFiles.size}개`;
+  document.getElementById('selected-count').textContent = `${stealthUI.selectedCount[k]}: ${selectedFiles.size}`;
 }
 
 // ─────────── 트리 빌드 (L1 과목 > L2 카테고리 > L3 파일 > L4 Case) ───────────
@@ -617,6 +702,8 @@ function renderTree(filter = '') {
     for (const f of files) {
       const path = `${dir}/${f}`;
       const meta = fileMetadata[path];
+      // 17896 정본 필터 (all/err/stale/book)
+      if (!filterMatch(meta || {}, path)) continue;
       // 필터링: search term 매칭
       if (searching) {
         const hay = [
@@ -704,29 +791,34 @@ function renderTree(filter = '') {
         html += `<span class="tree-count">${fileNode.items.length}</span></div>`;
         html += `<div class="tree-body">`;
 
-        // L4: Case 항목
+        // L4: Case 항목 (17896 정본: case-id 한 줄, case-title 한 줄, case-meta 한 줄 pills)
         const items = fileNode.items.slice().sort((a, b) => (a.meta.case || '').localeCompare(b.meta.case || ''));
         for (const it of items) {
           const m = it.meta;
           const checked = selectedFiles.has(it.path) ? ' checked' : '';
           const active = (currentPath === it.path) ? ' active' : '';
-          const caseLabel = `Case ${m.case}`;
+          // 17896 정본 short ID: <file>-<case_no>  (예: 미케01-01) / stealth: sub_01-01
+          const fileShort = stealthMode ? displayFileKor(m.fileKor, m.file) : m.file;
+          const shortId = `${fileShort}-${m.case}`;
           const title = (m.title || '').trim();
-          const points = m.points ? `${m.points}pt` : '';
-          const userCase = m.userCase ? `U${m.userCase}` : '';
+
+          // 17896 pills (points 항상, userCase 있을 때, bookmark star)
+          const pills = [];
+          if (m.points != null) pills.push(`<span class="pill">${m.points} pt</span>`);
+          // err / stale 데이터 미지원 → skip (17896 데이터에만 있음)
+          if (m.userCase != null && !stealthMode) pills.push(`<span class="pill stale">U${m.userCase}</span>`);
+          // bookmark — localStorage 기반 (간단)
+          const bm = isBookmarked(it.path);
+          const starCls = bm ? 'pill bookmark-star bookmarked' : 'pill bookmark-star';
+          pills.push(`<span class="${starCls}" data-bookmark-toggle="${escapeAttr(it.path)}" title="${bm ? 'Remove bookmark' : 'Add bookmark'}">★</span>`);
 
           html += `<div class="case-item${active}" data-path="${escapeAttr(it.path)}">`;
           html += `<div class="case-item-row">`;
           html += `<input type="checkbox" data-path="${escapeAttr(it.path)}"${checked} onclick="event.stopPropagation(); toggleFile(this);">`;
-          html += `<span class="case-id">${escapeHtml(caseLabel)}</span>`;
-          html += `<span class="case-title" title="${escapeAttr(title)}">${escapeHtml(title)}</span>`;
+          html += `<span class="case-id">${escapeHtml(shortId)}</span>`;
           html += `</div>`;
-          if (points || userCase) {
-            html += `<div class="case-meta">`;
-            if (points) html += `<span class="pill points">${escapeHtml(points)}</span>`;
-            if (userCase) html += `<span class="pill">${escapeHtml(userCase)}</span>`;
-            html += `</div>`;
-          }
+          html += `<div class="case-title" title="${escapeAttr(title)}">${escapeHtml(title)}</div>`;
+          html += `<div class="case-meta">${pills.join('')}</div>`;
           html += `</div>`;
         }
         html += `</div></div>`; // /tree-l3 body + node
@@ -777,9 +869,14 @@ function renderTree(filter = '') {
     });
   });
 
-  // Case 클릭 → 파일 로드
+  // Case 클릭 → 파일 로드 (단, ★ 북마크 클릭은 토글)
   tree.querySelectorAll('.case-item').forEach(item => {
     item.addEventListener('click', (ev) => {
+      if (ev.target && ev.target.dataset && ev.target.dataset.bookmarkToggle) {
+        ev.stopPropagation();
+        toggleBookmark(ev.target.dataset.bookmarkToggle);
+        return;
+      }
       if (ev.target.tagName === 'INPUT') return;
       const path = item.dataset.path;
       if (path) loadFileByPath(path);
@@ -788,6 +885,38 @@ function renderTree(filter = '') {
 
   updateSelectedCount();
   updateDirCheckboxStates();
+}
+
+// ─────────── 북마크 (localStorage 기반 — DB 없음) ───────────
+const BOOKMARK_KEY = 'lawear_merge_bookmarks';
+function loadBookmarks() {
+  try { return new Set(JSON.parse(localStorage.getItem(BOOKMARK_KEY) || '[]')); }
+  catch (e) { return new Set(); }
+}
+function saveBookmarks(set) {
+  try { localStorage.setItem(BOOKMARK_KEY, JSON.stringify(Array.from(set))); }
+  catch (e) { /* ignore */ }
+}
+function isBookmarked(path) {
+  if (!window.__bookmarks) window.__bookmarks = loadBookmarks();
+  return window.__bookmarks.has(path);
+}
+function toggleBookmark(path) {
+  if (!window.__bookmarks) window.__bookmarks = loadBookmarks();
+  if (window.__bookmarks.has(path)) window.__bookmarks.delete(path);
+  else window.__bookmarks.add(path);
+  saveBookmarks(window.__bookmarks);
+  renderTree(document.getElementById('search').value);
+}
+
+// ─────────── 필터 (17896 정본: all/err/stale/book) ───────────
+let CURRENT_FILTER = 'all';
+function filterMatch(meta, path) {
+  if (CURRENT_FILTER === 'all') return true;
+  if (CURRENT_FILTER === 'book') return isBookmarked(path);
+  // err / stale: 데이터 없음 → 항상 빈 결과
+  if (CURRENT_FILTER === 'err' || CURRENT_FILTER === 'stale') return false;
+  return true;
 }
 
 function escapeHtml(s) {
@@ -908,7 +1037,7 @@ function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const btn = document.getElementById('sidebar-toggle');
   sidebar.classList.toggle('collapsed');
-  btn.textContent = sidebar.classList.contains('collapsed') ? '▶' : '◀';
+  btn.textContent = sidebar.classList.contains('collapsed') ? '›' : '‹';
 }
 
 // ─────────── 파일 로드 ───────────
@@ -1133,6 +1262,16 @@ async function doDownload() {
 }
 
 document.getElementById('search').addEventListener('input', e => renderTree(e.target.value));
+
+// ─────────── 필터 버튼 wiring (17896 정본) ───────────
+document.querySelectorAll('#sidebar .filter-row button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('#sidebar .filter-row button').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    CURRENT_FILTER = b.dataset.filter || 'all';
+    renderTree(document.getElementById('search').value);
+  });
+});
 document.addEventListener('keydown', e => {
   if ((e.ctrlKey || e.metaKey) && e.key === 's' && editMode) {
     e.preventDefault();
