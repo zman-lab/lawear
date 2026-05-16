@@ -835,6 +835,107 @@ def inject_grade(
     return get_attempt(conn, attempt_id)
 
 
+def reset_grade(conn: sqlite3.Connection, attempt_id: int) -> dict[str, Any]:
+    """DELETE /api/attempts/{id}/grade — 채점 결과 reset (답안 보존).
+
+    Step 17 (사용자 명시 2026-05-16):
+      Evaluation 탭/Reports 모달의 "재채점" 버튼 진입점.
+      attempt 의 answer_text/started_at/submitted_at/weights_json 는 그대로 두고,
+      채점 산출물만 NULL 로 비운 뒤 status='pending_grade' 로 되돌림.
+
+    동작 매트릭스:
+      - status='done'           → UPDATE + attempt_criteria DELETE (재채점 진입)
+      - status='pending_grade'  → noop (이미 미채점 상태)
+      - status='grading'        → noop (백그라운드 채점 진행 중 — 강제 reset 위험)
+      - status='error'          → reset (error 도 다시 채점 받을 수 있어야 함 — 사용자 명시)
+
+    단일 트랜잭션. attempt_criteria 는 done/error 시도에만 존재 가능.
+
+    Raises:
+        AttemptNotFoundError: attempt_id 미존재 (HTTP 404).
+
+    Returns:
+        {"attempt_id", "status": "pending_grade", "message": str}
+        - reset 수행 시: message="Grade reset OK"
+        - noop 시:      message="No grade to reset (status=...)"
+    """
+    cur = conn.execute(
+        "SELECT id, status FROM attempts WHERE id = ?", (int(attempt_id),)
+    )
+    row = cur.fetchone()
+    if row is None:
+        raise AttemptNotFoundError(f"attempt_id={attempt_id}")
+
+    current_status = row["status"]
+
+    # noop — 이미 채점 결과가 없는 상태
+    if current_status == DB_STATUS_PENDING_GRADE:
+        return {
+            "attempt_id": int(attempt_id),
+            "status": _client_status(DB_STATUS_PENDING_GRADE),
+            "message": f"No grade to reset (status='{current_status}')",
+        }
+    if current_status == DB_STATUS_GRADING:
+        # 백그라운드 채점 진행 중일 가능성 — 강제 reset 시 race condition.
+        # 사용자 명시: grading 도 noop (진행 중인 자동 채점 중단 권한은 별도 endpoint 필요).
+        return {
+            "attempt_id": int(attempt_id),
+            "status": _client_status(DB_STATUS_GRADING),
+            "message": f"Grading in progress — reset skipped (status='{current_status}')",
+        }
+
+    # done / error → reset
+    try:
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+        except sqlite3.OperationalError:
+            conn.execute("BEGIN")
+
+        conn.execute(
+            """
+            UPDATE attempts
+               SET status          = ?,
+                   score_total     = NULL,
+                   score_max       = NULL,
+                   score_pct       = NULL,
+                   grade           = NULL,
+                   eval_notes_json = NULL,
+                   diff_json       = NULL,
+                   raw_response    = NULL,
+                   completed_at    = NULL,
+                   elapsed_sec     = NULL,
+                   model           = NULL,
+                   is_mock         = 0,
+                   error_code      = NULL,
+                   error_message   = NULL
+             WHERE id = ?
+            """,
+            (DB_STATUS_PENDING_GRADE, int(attempt_id)),
+        )
+        conn.execute(
+            "DELETE FROM attempt_criteria WHERE attempt_id = ?", (int(attempt_id),)
+        )
+        conn.commit()
+    except Exception:
+        try:
+            conn.rollback()
+        except sqlite3.DatabaseError:
+            pass
+        raise
+
+    print(
+        f"[Attempts] reset_grade attempt_id={attempt_id} "
+        f"prev_status={current_status!r} → 'pending_grade'",
+        file=sys.stderr,
+    )
+
+    return {
+        "attempt_id": int(attempt_id),
+        "status": _client_status(DB_STATUS_PENDING_GRADE),
+        "message": "Grade reset OK",
+    }
+
+
 def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
     """attempts row → API 응답 dict (criteria 제외, 호출자가 join 추가)."""
     db_status = row["status"]

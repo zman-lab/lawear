@@ -247,6 +247,23 @@ class ExamHandler(SimpleHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
 
+        # Step 17 — 재채점 endpoint: DELETE /api/attempts/{id}/grade
+        # 채점 결과 reset (답안 보존) → status='pending_grade' 복귀.
+        if path.startswith("/api/attempts/") and path.endswith("/grade"):
+            tail = path[len("/api/attempts/"):-len("/grade")].strip("/")
+            if not tail or "/" in tail:
+                self._send_error(400, "bad_request", "invalid attempt_id in grade reset path")
+                return
+            try:
+                attempt_id = int(tail)
+            except ValueError:
+                self._send_error(
+                    400, "bad_request", f"attempt_id must be int, got {tail!r}"
+                )
+                return
+            self._handle_attempt_grade_delete(attempt_id)
+            return
+
         # Bookmarks 제거: DELETE /api/bookmarks/{case_id}
         if path.startswith("/api/bookmarks/"):
             case_id = path[len("/api/bookmarks/"):].rstrip("/")
@@ -466,6 +483,29 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._send_error(409, "already_graded", str(e))
         except attempts_mod.GradeInjectionError as e:
             self._send_error(400, e.error_code, str(e))
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    def _handle_attempt_grade_delete(self, attempt_id: int) -> None:
+        """`DELETE /api/attempts/{id}/grade` — 재채점 (Step 17).
+
+        채점 결과 reset → status='pending_grade' 로 복귀, 답안은 보존.
+
+        응답:
+          200 {attempt_id, status: 'pending_grade', message: str}
+            - done/error reset 성공: message='Grade reset OK'
+            - pending_grade/grading noop: message='No grade to reset ...' 또는
+                                          'Grading in progress — reset skipped ...'
+        에러:
+          404 attempt_not_found    — attempt_id 미존재
+          500 internal_error       — 기타
+        """
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                result = attempts_mod.reset_grade(conn, attempt_id)
+            self._send_json(200, result)
+        except attempts_mod.AttemptNotFoundError as e:
+            self._send_error(404, "attempt_not_found", str(e))
         except Exception as e:  # noqa: BLE001
             self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
 
