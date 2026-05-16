@@ -8,7 +8,7 @@ dev-impl-plan #51 Step 8 표 — weights/bias/voice 조회/저장 + 합계 100 �
 - `load_all(conn)`            : GET /api/settings  → {weights, bias, voice}
 - `save_settings(conn, ...)`  : PUT /api/settings  → 부분 갱신 + 검증 + COMMIT
 - `validate_bias(bias)`       : 4키 + 범위 검증
-- `validate_voice(voice)`     : lang in ('ko-KR','en-US'), silence_sec 1~10
+- `validate_voice(voice)`     : lang in ('ko-KR','en-US'), silence_sec 1~60
 
 설계 결정:
 - weights 검증은 grader.validate_weights 재사용 (단일 진리원).
@@ -56,7 +56,9 @@ DEFAULT_GRADING_MODE: str = "manual"
 # ─── voice 허용값 ────────────────────────────────────────────────────
 ALLOWED_VOICE_LANGS: tuple[str, ...] = ("ko-KR", "en-US")
 VOICE_SILENCE_MIN: int = 1
-VOICE_SILENCE_MAX: int = 10
+# Step 18 — 사용자 명시 (2026-05-16): "잘 생각 안 나면 고민할 수도 있단 말야"
+#   기존 max 10초 → 60초로 확장. 1초 단위 그대로.
+VOICE_SILENCE_MAX: int = 60
 
 # ─── grading_mode 허용값 ─────────────────────────────────────────────
 GRADING_MODE_MANUAL: str = "manual"
