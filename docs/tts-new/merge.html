@@ -143,6 +143,70 @@
   .modal-buttons button.primary { background: #238636; color: #fff; border-color: #2ea043; }
   .modal-buttons button.primary:hover { background: #2ea043; }
   .modal-buttons button:hover { background: #30363d; }
+
+  /* 편집 모드 */
+  #editor-toggle {
+    position: fixed; top: 10px; right: 60px; z-index: 100;
+    width: 36px; height: 36px;
+    border: 1px solid #30363d;
+    background: #161b22; color: #8b949e;
+    border-radius: 6px;
+    cursor: pointer; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  #editor-toggle:hover { background: #21262d; color: #58a6ff; }
+  #editor-toggle.active { background: #d97706; color: #fff; border-color: #d97706; }
+
+  #editor-wrap { display: none; height: calc(100vh - 64px); flex-direction: column; }
+  body.editing #content { padding: 32px 24px 16px; display: flex; flex-direction: column; }
+  body.editing #content > .lv-tabs,
+  body.editing #content > #mdContent,
+  body.editing #content > #empty-msg { display: none !important; }
+  body.editing #editor-wrap { display: flex; }
+
+  .editor-toolbar {
+    display: flex; gap: 6px; padding: 8px 0;
+    border-bottom: 1px solid #30363d; margin-bottom: 12px;
+    align-items: center; flex-wrap: wrap;
+  }
+  .editor-toolbar .label { font-size: 12px; color: #8b949e; margin-right: 4px; }
+  .editor-toolbar button {
+    padding: 5px 12px; font-size: 13px; border-radius: 4px; cursor: pointer;
+    border: 1px solid #30363d; background: #161b22; color: #c9d1d9;
+  }
+  .editor-toolbar button:hover { background: #21262d; border-color: #58a6ff; }
+  .em-btn { font-weight: 600; min-width: 56px; }
+  .em-btn.em-red { color: #ff6b6b; }
+  .em-btn.em-blue { color: #4dabf7; }
+  .em-btn.em-bold { color: #ffd43b; font-weight: 700; }
+  .em-btn.em-underline { color: #adb5bd; text-decoration: underline; }
+  .em-btn.em-blank { background: #ffd43b; color: #1971c2; border-color: #fab005; }
+  .em-btn.em-clear { color: #ef4444; }
+  .save-btn { background: #238636 !important; color: #fff !important; border-color: #2ea043 !important; margin-left: auto; padding: 6px 18px !important; }
+  .save-btn:hover { background: #2ea043 !important; }
+  .save-btn:disabled { background: #484f58 !important; cursor: not-allowed; }
+  .save-status { font-size: 12px; color: #8b949e; min-width: 160px; text-align: right; }
+  .save-status.success { color: #2ea043; }
+  .save-status.error { color: #ef4444; }
+
+  .editor-split { display: flex; gap: 16px; flex: 1; min-height: 0; }
+  .editor-split textarea {
+    flex: 1; min-width: 0; padding: 16px;
+    font-family: 'SF Mono', 'Fira Code', monospace; font-size: 13px;
+    background: #0d1117; color: #c9d1d9;
+    border: 1px solid #30363d; border-radius: 6px;
+    resize: none; line-height: 1.6; tab-size: 2;
+  }
+  .editor-split textarea:focus { border-color: #58a6ff; outline: none; }
+  .editor-split .editor-preview {
+    flex: 1; min-width: 0; padding: 16px; overflow-y: auto;
+    background: #161b22; border: 1px solid #30363d; border-radius: 6px;
+    font-size: 14px; line-height: 1.7;
+  }
+  .editor-preview h1, .editor-preview h2, .editor-preview h3 {
+    color: #e6edf3; margin: 12px 0 8px;
+  }
+  .editor-preview p { margin-bottom: 8px; }
 </style>
 </head>
 <body>
@@ -162,8 +226,26 @@
 </div>
 <button id="sidebar-toggle" onclick="toggleSidebar()" title="사이드바 토글 (B)">◀</button>
 <button id="stealth-toggle" onclick="toggleStealth()" title="위장 모드 토글 (Z)">👀</button>
+<button id="editor-toggle" onclick="toggleEditor()" title="편집 모드 토글 (E)">✏️</button>
 <div id="content">
   <div class="empty" id="empty-msg">좌측에서 파일을 선택하세요</div>
+  <div id="editor-wrap">
+    <div class="editor-toolbar">
+      <span class="label">강조:</span>
+      <button class="em-btn em-red" onclick="wrapEmphasis('red')" title="빨강 [red]">red</button>
+      <button class="em-btn em-blue" onclick="wrapEmphasis('blue')" title="파랑 [blue]">blue</button>
+      <button class="em-btn em-bold" onclick="wrapEmphasis('bold')" title="굵게 [bold]">bold</button>
+      <button class="em-btn em-underline" onclick="wrapEmphasis('u')" title="밑줄 [u]">underline</button>
+      <button class="em-btn em-blank" onclick="wrapEmphasis('blank')" title="빈칸 [blank]">blank</button>
+      <button class="em-btn em-clear" onclick="wrapEmphasis('clear')" title="강조 제거">제거</button>
+      <button class="save-btn" id="save-btn" onclick="saveFile()" title="저장 (Ctrl+S / Cmd+S)">💾 저장</button>
+      <span class="save-status" id="save-status"></span>
+    </div>
+    <div class="editor-split">
+      <textarea id="editor-textarea" oninput="updateEditorPreview()" spellcheck="false" placeholder="파일을 선택하고 ✏️ 버튼을 누르세요"></textarea>
+      <div class="editor-preview" id="editor-preview"></div>
+    </div>
+  </div>
 </div>
 
 <div id="download-modal" class="modal-overlay" onclick="if(event.target===this) closeModal()">
@@ -598,11 +680,123 @@ async function doDownload() {
 
 document.getElementById('search').addEventListener('input', e => renderTree(e.target.value));
 document.addEventListener('keydown', e => {
+  // Ctrl+S / Cmd+S — 편집 모드에서 저장
+  if ((e.ctrlKey || e.metaKey) && e.key === 's' && editMode) {
+    e.preventDefault();
+    saveFile();
+    return;
+  }
   if (e.target.matches('input, textarea')) return;
   if (e.key === 'b') toggleSidebar();
   if (e.key === 'z') toggleStealth();
-  if (e.key === 'Escape') closeModal();
+  if (e.key === 'e') toggleEditor();
+  if (e.key === 'Escape') {
+    closeModal();
+    if (editMode) toggleEditor();
+  }
 });
+
+// === 편집 모드 ===
+let editMode = false;
+let originalContent = '';
+
+function toggleEditor() {
+  if (!editMode && !currentFile) {
+    setSaveStatus('파일을 먼저 선택하세요', 'error');
+    document.body.classList.add('editing');
+    document.getElementById('editor-toggle').classList.add('active');
+    editMode = true;
+    return;
+  }
+  if (editMode) {
+    const ta = document.getElementById('editor-textarea');
+    if (ta.value && ta.value !== originalContent) {
+      if (!confirm('저장하지 않은 변경 사항이 있습니다. 버리시겠습니까?')) return;
+    }
+  }
+  editMode = !editMode;
+  document.body.classList.toggle('editing', editMode);
+  document.getElementById('editor-toggle').classList.toggle('active', editMode);
+  if (editMode) {
+    originalContent = fullContent || '';
+    document.getElementById('editor-textarea').value = originalContent;
+    updateEditorPreview();
+    setSaveStatus('', '');
+  }
+}
+
+function updateEditorPreview() {
+  const ta = document.getElementById('editor-textarea');
+  const preview = document.getElementById('editor-preview');
+  preview.innerHTML = renderMd(ta.value);
+}
+
+function wrapEmphasis(tag) {
+  const ta = document.getElementById('editor-textarea');
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  if (start === end) { setSaveStatus('텍스트를 먼저 선택하세요', 'error'); return; }
+  const selected = ta.value.substring(start, end);
+  const allTags = ['red', 'blue', 'bold', 'u', 'blank'];
+  let cleaned = selected;
+  for (const t of allTags) {
+    const re = new RegExp(`\\[${t}\\]([\\s\\S]+?)\\[\\/${t}\\]`, 'g');
+    cleaned = cleaned.replace(re, '$1');
+  }
+  const wrapped = tag === 'clear' ? cleaned : `[${tag}]${cleaned}[/${tag}]`;
+  ta.setRangeText(wrapped, start, end, 'select');
+  ta.focus();
+  updateEditorPreview();
+  setSaveStatus(tag === 'clear' ? '강조 제거' : `[${tag}] 적용`, 'success');
+}
+
+async function saveFile() {
+  if (!editMode) return;
+  if (!currentFile) { setSaveStatus('파일이 선택되지 않음', 'error'); return; }
+  const ta = document.getElementById('editor-textarea');
+  const newContent = ta.value;
+  if (newContent === originalContent) {
+    setSaveStatus('변경 사항 없음', 'success');
+    return;
+  }
+  let dirPath = null;
+  for (const [dir, files] of Object.entries(fileIndex)) {
+    if (files.includes(currentFile)) { dirPath = dir; break; }
+  }
+  if (!dirPath) { setSaveStatus('파일 경로 찾기 실패', 'error'); return; }
+  const fullPath = `${dirPath}/${currentFile}`;
+  const saveBtn = document.getElementById('save-btn');
+  saveBtn.disabled = true;
+  setSaveStatus('저장 중...', '');
+  try {
+    const res = await fetch(`/api/save/${encodeURI(fullPath)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      body: newContent
+    });
+    if (res.ok) {
+      const data = await res.json();
+      setSaveStatus(`✓ 저장 완료 (${data.bytes} bytes)`, 'success');
+      originalContent = newContent;
+      fullContent = newContent;
+    } else {
+      const errText = await res.text().catch(() => '');
+      setSaveStatus(`✗ 저장 실패 (${res.status}): ${errText.slice(0, 80)}`, 'error');
+    }
+  } catch (e) {
+    setSaveStatus(`✗ 네트워크 오류: ${e.message}`, 'error');
+  } finally {
+    saveBtn.disabled = false;
+  }
+}
+
+function setSaveStatus(msg, kind) {
+  const el = document.getElementById('save-status');
+  if (!el) return;
+  el.textContent = msg;
+  el.className = 'save-status ' + (kind || '');
+}
+
 init();
 </script>
 </body>
