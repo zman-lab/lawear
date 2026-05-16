@@ -10,11 +10,12 @@ Step 4 (commit d3fed1b): 케이스 API (`/api/cases`, `/api/cases/{id}` + .md �
 Step 5 (commit f4155f3): 시안 HTML 이식 + 케이스/동기화 API wire.
 Step 6 (commit e2af4e6): Grader (Anthropic API + 7기준 채점 + mock + env 로더).
 Step 7 (commit 0207a5c): Attempts API (POST/GET /api/attempts + background 채점 + 폴링).
-Step 8 (본 커밋): Settings API (GET/PUT /api/settings + weights/bias/voice 검증).
-Step 9 (본 커밋): Bookmarks API (POST/DELETE /api/bookmarks/{case_id}).
+Step 8 (commit e38294e): Settings API (GET/PUT /api/settings + weights/bias/voice 검증).
+Step 9 (commit e38294e): Bookmarks API (POST/DELETE /api/bookmarks/{case_id}).
+Step 10 (본 커밋): Reports 집계 API (overall/by-subject/by-case + subjects/cases picker).
 
 dev-design archive #48 §3-1 endpoint matrix + §3-3 ErrorCode 1:1.
-dev-impl-plan #51 Step 3~9 표 1:1.
+dev-impl-plan #51 Step 3~10 표 1:1.
 """
 from __future__ import annotations
 
@@ -32,6 +33,7 @@ import cases as cases_mod
 import db as db_mod
 import env_loader  # noqa: F401 — side-effect: .env → os.environ 주입 (Step 6)
 import grader as grader_mod
+import reports as reports_mod
 import settings as settings_mod
 import syncer as syncer_mod
 
@@ -45,7 +47,7 @@ BIND: str = os.environ.get("LAWEAR_EXAM_BIND", "127.0.0.1")
 ROOT: Path = Path(__file__).parent.resolve()
 DB_PATH: str = os.environ.get("LAWEAR_EXAM_DB", str(ROOT / "exam.db"))
 SERVER_NAME: str = "lawear-examconsole"
-SERVER_VERSION: str = "0.6.0-settings-bookmarks"
+SERVER_VERSION: str = "0.7.0-reports"
 
 
 class ExamHandler(SimpleHTTPRequestHandler):
@@ -124,12 +126,33 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._handle_bookmarks_list()
             return
 
-        # 미구현 API (Step 10+ placeholder)
+        # Reports — Step 10
+        if path == "/api/reports/overall":
+            qs = urllib.parse.parse_qs(parsed.query)
+            self._handle_reports_overall(qs)
+            return
+        if path == "/api/reports/by-subject":
+            qs = urllib.parse.parse_qs(parsed.query)
+            self._handle_reports_by_subject(qs)
+            return
+        if path == "/api/reports/by-case":
+            qs = urllib.parse.parse_qs(parsed.query)
+            self._handle_reports_by_case(qs)
+            return
+        if path == "/api/reports/subjects":
+            self._handle_reports_subjects()
+            return
+        if path == "/api/reports/cases":
+            qs = urllib.parse.parse_qs(parsed.query)
+            self._handle_reports_cases(qs)
+            return
+
+        # 미구현 API (Step 11+ placeholder)
         if path.startswith("/api/"):
             self._send_error(
                 501,
                 "not_implemented",
-                f"Step 10+ API placeholder ({path})",
+                f"Step 11+ API placeholder ({path})",
             )
             return
 
@@ -159,12 +182,12 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._handle_bookmark_add(urllib.parse.unquote(case_id))
             return
 
-        # 미구현 POST (Step 10+ placeholder)
+        # 미구현 POST (Step 11+ placeholder)
         if path.startswith("/api/"):
             self._send_error(
                 501,
                 "not_implemented",
-                f"Step 10+ API placeholder ({path})",
+                f"Step 11+ API placeholder ({path})",
             )
             return
 
@@ -180,12 +203,12 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._handle_settings_put()
             return
 
-        # 미구현 PUT (Step 10+ placeholder)
+        # 미구현 PUT (Step 11+ placeholder)
         if path.startswith("/api/"):
             self._send_error(
                 501,
                 "not_implemented",
-                f"Step 10+ API placeholder ({path})",
+                f"Step 11+ API placeholder ({path})",
             )
             return
 
@@ -209,7 +232,7 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._send_error(
                 501,
                 "not_implemented",
-                f"Step 10+ API placeholder ({path})",
+                f"Step 11+ API placeholder ({path})",
             )
             return
 
@@ -492,6 +515,125 @@ class ExamHandler(SimpleHTTPRequestHandler):
             with db_mod.get_conn(DB_PATH) as conn:
                 data = bookmarks_mod.list_bookmarks(conn)
             self._send_json(200, data)
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    # ─── Reports API (Step 10) ─────────────────────────────────
+
+    def _get_stale_threshold_days(self, conn: Any) -> int:
+        """settings.bias.stale_threshold_days 로드 (DB / 기본값)."""
+        try:
+            data = settings_mod.load_all(conn)
+            bias = data.get("bias") or {}
+            val = bias.get("stale_threshold_days")
+            if isinstance(val, int) and val > 0:
+                return int(val)
+            # 'stale_threshold' alias (마이그 v1 초기 row 키 호환)
+            val2 = bias.get("stale_threshold")
+            if isinstance(val2, int) and val2 > 0:
+                return int(val2)
+        except Exception as e:  # noqa: BLE001
+            print(
+                f"[{SERVER_NAME}] _get_stale_threshold_days: {e} — using default 14",
+                file=sys.stderr,
+            )
+        return reports_mod.DEFAULT_STALE_THRESHOLD_DAYS
+
+    def _handle_reports_overall(self, qs: dict[str, list[str]]) -> None:
+        """`GET /api/reports/overall` — KPI 4 + trend + recent."""
+        # 옵션 쿼리 파라미터: window_days, trend_limit, trend_days, recent_limit
+        def _q_int(key: str, default: int) -> int:
+            v = qs.get(key)
+            if not v:
+                return default
+            try:
+                return max(1, int(v[0]))
+            except (TypeError, ValueError):
+                return default
+
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                stale_days = self._get_stale_threshold_days(conn)
+                result = reports_mod.overall(
+                    conn,
+                    window_days=_q_int("window_days", reports_mod.DEFAULT_WINDOW_DAYS),
+                    trend_limit=_q_int("trend_limit", reports_mod.DEFAULT_TREND_LIMIT),
+                    trend_days=_q_int("trend_days", reports_mod.DEFAULT_TREND_DAYS),
+                    recent_limit=_q_int("recent_limit", reports_mod.DEFAULT_RECENT_LIMIT),
+                    stale_threshold_days=stale_days,
+                )
+            self._send_json(200, result)
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    def _handle_reports_by_subject(self, qs: dict[str, list[str]]) -> None:
+        """`GET /api/reports/by-subject?subject=…` — 단일 과목 + 비교 + 케이스 리스트."""
+        subj_list = qs.get("subject") or []
+        subject = (subj_list[0] if subj_list else "").strip()
+        if not subject:
+            self._send_error(400, "bad_request", "subject is required")
+            return
+
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                stale_days = self._get_stale_threshold_days(conn)
+                result = reports_mod.by_subject(
+                    conn, subject, stale_threshold_days=stale_days
+                )
+            # subject_exists=False 라도 200 + empty:true (UI 가 "no data" 처리)
+            self._send_json(200, result)
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    def _handle_reports_by_case(self, qs: dict[str, list[str]]) -> None:
+        """`GET /api/reports/by-case?case_id=…` — 시도별 + 기준 평균 + 히스토리."""
+        cid_list = qs.get("case_id") or []
+        case_id = (cid_list[0] if cid_list else "").strip()
+        if not case_id:
+            self._send_error(400, "bad_request", "case_id is required")
+            return
+
+        def _q_int(key: str, default: int) -> int:
+            v = qs.get(key)
+            if not v:
+                return default
+            try:
+                return max(1, int(v[0]))
+            except (TypeError, ValueError):
+                return default
+
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                result = reports_mod.by_case(
+                    conn,
+                    case_id,
+                    persistent_threshold=_q_int(
+                        "persistent_threshold",
+                        reports_mod.DEFAULT_PERSISTENT_THRESHOLD,
+                    ),
+                )
+            # case_exists=False 도 200 + empty:true (UI 가 "no data" 처리)
+            self._send_json(200, result)
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    def _handle_reports_subjects(self) -> None:
+        """`GET /api/reports/subjects` — 과목 필터 탭용."""
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                result = reports_mod.list_subjects(conn)
+            self._send_json(200, result)
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    def _handle_reports_cases(self, qs: dict[str, list[str]]) -> None:
+        """`GET /api/reports/cases?subject=…` — By Case 셀렉터용."""
+        subj_list = qs.get("subject") or []
+        subject = (subj_list[0].strip() if subj_list else None) or None
+        try:
+            with db_mod.get_conn(DB_PATH) as conn:
+                result = reports_mod.list_cases_for_picker(conn, subject=subject)
+            self._send_json(200, result)
         except Exception as e:  # noqa: BLE001
             self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
 

@@ -915,53 +915,34 @@
 
         <!-- Overall -->
         <div class="sub-panel active" data-sub="overall">
-          <div class="report-grid">
+          <div class="report-grid" id="rep-overall-kpi">
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_submitted">Submitted</div>
-              <div class="k-value">47</div>
-              <div class="k-delta"><span data-i18n-fmt="delta_lastweek">+12 last week</span></div>
+              <div class="k-value" id="rep-ov-submitted">—</div>
+              <div class="k-delta" id="rep-ov-submitted-delta">—</div>
             </div>
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_avg">Avg. Score</div>
-              <div class="k-value">76.4%</div>
-              <div class="k-delta">+3.2pp</div>
+              <div class="k-value" id="rep-ov-avg">—</div>
+              <div class="k-delta" id="rep-ov-avg-delta">—</div>
             </div>
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_err">High Error Rate</div>
-              <div class="k-value">8</div>
-              <div class="k-delta down"><span data-i18n-fmt="delta_cases">+2 cases</span></div>
+              <div class="k-value" id="rep-ov-err">—</div>
+              <div class="k-delta down" id="rep-ov-err-delta">—</div>
             </div>
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_stale">Long Pending</div>
-              <div class="k-value">14</div>
-              <div class="k-delta down"><span data-i18n-fmt="delta_over14d">&gt; 14d</span></div>
+              <div class="k-value" id="rep-ov-stale">—</div>
+              <div class="k-delta down" id="rep-ov-stale-delta">—</div>
             </div>
           </div>
 
           <div class="chart-card">
             <h4 data-i18n="chart_trend">Score Trend (by Submission)</h4>
-            <svg class="chart-svg" viewBox="0 0 600 200" preserveAspectRatio="none">
-              <line x1="0" y1="40" x2="600" y2="40" stroke="#3e3e42" stroke-dasharray="2,3"/>
-              <line x1="0" y1="80" x2="600" y2="80" stroke="#3e3e42" stroke-dasharray="2,3"/>
-              <line x1="0" y1="120" x2="600" y2="120" stroke="#3e3e42" stroke-dasharray="2,3"/>
-              <line x1="0" y1="160" x2="600" y2="160" stroke="#3e3e42" stroke-dasharray="2,3"/>
-              <text x="2" y="38" fill="#858585" font-size="9" font-family="monospace">100%</text>
-              <text x="2" y="78" fill="#858585" font-size="9" font-family="monospace">80%</text>
-              <text x="2" y="118" fill="#858585" font-size="9" font-family="monospace">60%</text>
-              <text x="2" y="158" fill="#858585" font-size="9" font-family="monospace">40%</text>
-              <polyline points="40,140 80,120 120,135 160,110 200,90 240,100 280,85 320,75 360,90 400,70 440,80 480,65 520,60 560,55"
-                        fill="none" stroke="#569cd6" stroke-width="1.5"/>
-              <g fill="#569cd6">
-                <circle cx="40" cy="140" r="2.5"/><circle cx="80" cy="120" r="2.5"/><circle cx="120" cy="135" r="2.5"/>
-                <circle cx="160" cy="110" r="2.5"/><circle cx="200" cy="90" r="2.5"/><circle cx="240" cy="100" r="2.5"/>
-                <circle cx="280" cy="85" r="2.5"/><circle cx="320" cy="75" r="2.5"/><circle cx="360" cy="90" r="2.5"/>
-                <circle cx="400" cy="70" r="2.5"/><circle cx="440" cy="80" r="2.5"/><circle cx="480" cy="65" r="2.5"/>
-                <circle cx="520" cy="60" r="2.5"/><circle cx="560" cy="55" r="2.5"/>
-              </g>
-              <text x="40" y="195" fill="#858585" font-size="9" font-family="monospace">04-16</text>
-              <text x="280" y="195" fill="#858585" font-size="9" font-family="monospace">04-30</text>
-              <text x="540" y="195" fill="#858585" font-size="9" font-family="monospace">05-16</text>
-            </svg>
+            <div id="rep-ov-trend-wrap">
+              <svg class="chart-svg" id="rep-ov-trend-svg" viewBox="0 0 600 200" preserveAspectRatio="none"></svg>
+            </div>
           </div>
 
           <div class="chart-card">
@@ -976,49 +957,8 @@
                   <th style="text-align:right;" data-i18n="col_grade">Grade</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr class="expanded">
-                  <td>2026-05-16 14:23</td>
-                  <td class="id">IMK01-01</td>
-                  <td>비법인사단 · 대표권 제한</td>
-                  <td class="score">14 / 17</td>
-                  <td class="score" style="color: var(--accent);">B (82%)</td>
-                </tr>
-                <tr class="row-detail">
-                  <td colspan="5">
-                    <b style="color: var(--text);"><span data-i18n="row_notes_excerpt">Reviewer Notes (excerpt)</span>:</b><br>
-                    재건축조합은 단체 고유의 목적을 가지고 활동하며… 비법인사단에 해당한다. 사원총회의 결의를 거치지 않은 총유물의 관리 및 처분행위는 무효…<br>
-                    <b style="color: var(--text); margin-top:6px; display:inline-block;"><span data-i18n="row_evaluator">Evaluator</span>:</b> "거래상대방 알았거나 알 수 있었음" 증명책임 분배 논점 누락. −2pt.
-                  </td>
-                </tr>
-                <tr>
-                  <td>2026-05-15 22:08</td>
-                  <td class="id">IMK01-02</td>
-                  <td>이중매매 무효 (배임행위 적극 가담)</td>
-                  <td class="score">5 / 6</td>
-                  <td class="score" style="color: var(--success);">A (83%)</td>
-                </tr>
-                <tr>
-                  <td>2026-05-15 16:42</td>
-                  <td class="id">YBI01-02</td>
-                  <td>변제자대위 · 제482조 비대칭</td>
-                  <td class="score">9 / 15</td>
-                  <td class="score" style="color: var(--warn);">C (60%)</td>
-                </tr>
-                <tr>
-                  <td>2026-05-14 19:30</td>
-                  <td class="id">IMK01-05</td>
-                  <td>착오 + 일부취소</td>
-                  <td class="score">13 / 15</td>
-                  <td class="score" style="color: var(--success);">A (87%)</td>
-                </tr>
-                <tr>
-                  <td>2026-05-13 09:15</td>
-                  <td class="id">IMK01-07</td>
-                  <td>무권대리 + 표현대리 + 추인</td>
-                  <td class="score">10 / 15</td>
-                  <td class="score" style="color: var(--accent);">B (67%)</td>
-                </tr>
+              <tbody id="rep-ov-recent-tbody">
+                <tr><td colspan="5" style="text-align:center; color: var(--text-dim);" data-i18n="loading">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -1026,58 +966,37 @@
 
         <!-- By Subject -->
         <div class="sub-panel" data-sub="bysubject">
-          <div class="subject-tabs">
-            <button class="active">민법</button>
-            <button>민소</button>
-            <button>형법</button>
-            <button>부등</button>
-            <button>형소</button>
+          <div class="subject-tabs" id="rep-subj-tabs">
+            <!-- 동적 채움: rep-subj-tabs 안에 button data-subject="…" 추가 -->
+            <button class="active" data-subject="">—</button>
           </div>
 
-          <div class="report-grid">
+          <div class="report-grid" id="rep-subj-kpi">
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_cases">Cases</div>
-              <div class="k-value">21</div>
-              <div class="k-delta"><span data-i18n-fmt="kpi_submitted_n">14 submitted</span></div>
+              <div class="k-value" id="rep-subj-cases">—</div>
+              <div class="k-delta" id="rep-subj-cases-sub">—</div>
             </div>
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_avg">Avg. Score</div>
-              <div class="k-value">82%</div>
-              <div class="k-delta">+5.1pp</div>
+              <div class="k-value" id="rep-subj-avg">—</div>
+              <div class="k-delta" id="rep-subj-avg-delta">—</div>
             </div>
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_topic_err">Top Error Topic</div>
-              <div class="k-value" style="font-size: 14px;">대표권 제한</div>
-              <div class="k-delta down"><span data-i18n-fmt="kpi_err_n">err 4</span></div>
+              <div class="k-value" id="rep-subj-toperr" style="font-size: 14px;">—</div>
+              <div class="k-delta down" id="rep-subj-toperr-sub">—</div>
             </div>
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_coverage">Coverage</div>
-              <div class="k-value">67%</div>
-              <div class="k-delta"><span data-i18n-fmt="kpi_covered">14 / 21</span></div>
+              <div class="k-value" id="rep-subj-coverage">—</div>
+              <div class="k-delta" id="rep-subj-coverage-sub">—</div>
             </div>
           </div>
 
           <div class="chart-card">
             <h4 data-i18n="chart_subj_compare">By Subject (Avg %)</h4>
-            <svg class="chart-svg" viewBox="0 0 600 200" preserveAspectRatio="none">
-              <g>
-                <rect x="80"  y="60"  width="60" height="120" fill="#569cd6"/>
-                <text x="110" y="195" fill="#858585" font-size="10" font-family="monospace" text-anchor="middle">민법</text>
-                <text x="110" y="50"  fill="#cccccc" font-size="11" font-family="monospace" text-anchor="middle">82%</text>
-                <rect x="180" y="80"  width="60" height="100" fill="#569cd6"/>
-                <text x="210" y="195" fill="#858585" font-size="10" font-family="monospace" text-anchor="middle">민소</text>
-                <text x="210" y="70"  fill="#cccccc" font-size="11" font-family="monospace" text-anchor="middle">71%</text>
-                <rect x="280" y="100" width="60" height="80"  fill="#ce9178"/>
-                <text x="310" y="195" fill="#858585" font-size="10" font-family="monospace" text-anchor="middle">형법</text>
-                <text x="310" y="90"  fill="#cccccc" font-size="11" font-family="monospace" text-anchor="middle">58%</text>
-                <rect x="380" y="70"  width="60" height="110" fill="#569cd6"/>
-                <text x="410" y="195" fill="#858585" font-size="10" font-family="monospace" text-anchor="middle">부등</text>
-                <text x="410" y="60"  fill="#cccccc" font-size="11" font-family="monospace" text-anchor="middle">76%</text>
-                <rect x="480" y="120" width="60" height="60"  fill="#d16969"/>
-                <text x="510" y="195" fill="#858585" font-size="10" font-family="monospace" text-anchor="middle">형소</text>
-                <text x="510" y="110" fill="#cccccc" font-size="11" font-family="monospace" text-anchor="middle">42%</text>
-              </g>
-            </svg>
+            <svg class="chart-svg" id="rep-subj-compare-svg" viewBox="0 0 600 200" preserveAspectRatio="none"></svg>
           </div>
 
           <div class="chart-card">
@@ -1093,12 +1012,8 @@
                   <th style="text-align:right;" data-i18n="col_last">Last</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr><td class="id">IMK01-01</td><td>비법인사단 · 대표권 제한</td><td class="score">4</td><td class="score">78%</td><td class="score">88%</td><td class="score">82%</td></tr>
-                <tr><td class="id">IMK01-02</td><td>이중매매 무효 (배임행위 적극 가담)</td><td class="score">2</td><td class="score">81%</td><td class="score">83%</td><td class="score">83%</td></tr>
-                <tr><td class="id">IMK01-03</td><td>이중매매 + 채권자대위</td><td class="score">6</td><td class="score">62%</td><td class="score">75%</td><td class="score">60%</td></tr>
-                <tr><td class="id">IMK01-05</td><td>착오 + 일부취소</td><td class="score">3</td><td class="score">85%</td><td class="score">87%</td><td class="score">87%</td></tr>
-                <tr><td class="id">YBI01-02</td><td>변제자대위 · 제482조 비대칭</td><td class="score">5</td><td class="score">58%</td><td class="score">73%</td><td class="score">60%</td></tr>
+              <tbody id="rep-subj-cases-tbody">
+                <tr><td colspan="6" style="text-align:center; color: var(--text-dim);" data-i18n="loading">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -1108,98 +1023,48 @@
         <div class="sub-panel" data-sub="bycase">
           <div class="case-selector">
             <span class="label" data-i18n="case_pick">Case:</span>
-            <select>
-              <option>IMK01-01 — 비법인사단 · 대표권 제한 (4 attempts)</option>
-              <option>IMK01-02 — 이중매매 무효 (2 attempts)</option>
-              <option>IMK01-03 — 이중매매 + 채권자대위 (6 attempts)</option>
-              <option>YBI01-02 — 변제자대위 · 제482조 비대칭 (5 attempts)</option>
+            <select id="rep-case-select">
+              <option value="" data-i18n="loading">Loading…</option>
             </select>
           </div>
 
-          <div class="report-grid">
+          <div class="report-grid" id="rep-case-kpi">
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_attempts">Attempts</div>
-              <div class="k-value">4</div>
-              <div class="k-delta"><span data-i18n-fmt="kpi_since">since 2026-04-22</span></div>
+              <div class="k-value" id="rep-case-attempts">—</div>
+              <div class="k-delta" id="rep-case-attempts-sub">—</div>
             </div>
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_last">Last Score</div>
-              <div class="k-value">82%</div>
-              <div class="k-delta">14 / 17</div>
+              <div class="k-value" id="rep-case-last">—</div>
+              <div class="k-delta" id="rep-case-last-sub">—</div>
             </div>
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_best">Best Score</div>
-              <div class="k-value">88%</div>
-              <div class="k-delta">15 / 17</div>
+              <div class="k-value" id="rep-case-best">—</div>
+              <div class="k-delta" id="rep-case-best-sub">—</div>
             </div>
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_persist_err">Persistent Errors</div>
-              <div class="k-value">2</div>
-              <div class="k-delta down"><span data-i18n-fmt="kpi_recurring">3/4 attempts</span></div>
+              <div class="k-value" id="rep-case-persist">—</div>
+              <div class="k-delta down" id="rep-case-persist-sub">—</div>
             </div>
           </div>
 
           <div class="chart-card">
-            <h4 data-i18n="chart_case_trend">Score per Attempt — IMK01-01</h4>
-            <svg class="chart-svg" viewBox="0 0 600 200" preserveAspectRatio="none">
-              <line x1="0" y1="40" x2="600" y2="40" stroke="#3e3e42" stroke-dasharray="2,3"/>
-              <line x1="0" y1="100" x2="600" y2="100" stroke="#3e3e42" stroke-dasharray="2,3"/>
-              <line x1="0" y1="160" x2="600" y2="160" stroke="#3e3e42" stroke-dasharray="2,3"/>
-              <text x="2" y="38" fill="#858585" font-size="9" font-family="monospace">100%</text>
-              <text x="2" y="98" fill="#858585" font-size="9" font-family="monospace">70%</text>
-              <text x="2" y="158" fill="#858585" font-size="9" font-family="monospace">40%</text>
-              <polyline points="100,150 240,110 380,55 520,80" fill="none" stroke="#4ec9b0" stroke-width="2"/>
-              <g fill="#4ec9b0">
-                <circle cx="100" cy="150" r="4"/>
-                <circle cx="240" cy="110" r="4"/>
-                <circle cx="380" cy="55" r="4"/>
-                <circle cx="520" cy="80" r="4"/>
-              </g>
-              <text x="100" y="175" fill="#858585" font-size="9" font-family="monospace" text-anchor="middle">#1 04-22</text>
-              <text x="240" y="175" fill="#858585" font-size="9" font-family="monospace" text-anchor="middle">#2 04-30</text>
-              <text x="380" y="175" fill="#858585" font-size="9" font-family="monospace" text-anchor="middle">#3 05-08</text>
-              <text x="520" y="175" fill="#858585" font-size="9" font-family="monospace" text-anchor="middle">#4 05-16</text>
-            </svg>
+            <h4 id="rep-case-trend-h"><span data-i18n="chart_case_trend">Score per Attempt</span> — <span id="rep-case-trend-h-id">—</span></h4>
+            <svg class="chart-svg" id="rep-case-trend-svg" viewBox="0 0 600 200" preserveAspectRatio="none"></svg>
           </div>
 
           <div class="chart-card">
-            <h4 data-i18n="chart_case_criteria">Criteria Average — IMK01-01</h4>
-            <div class="criteria-grid" style="background: transparent; padding: 0;">
-              <div class="criteria-row">
-                <div class="label"><span data-i18n="crit_mnem">Lv.4 Mnemonics</span></div>
-                <div class="bar-wrap"><div class="bar-fill partial" style="width:75%"></div></div>
-                <div class="num">avg 75%</div>
-              </div>
-              <div class="criteria-row">
-                <div class="label"><span data-i18n="crit_color">Color Emphasis</span></div>
-                <div class="bar-wrap"><div class="bar-fill full" style="width:88%"></div></div>
-                <div class="num">avg 88%</div>
-              </div>
-              <div class="criteria-row">
-                <div class="label"><span data-i18n="crit_under">Underline Coverage</span></div>
-                <div class="bar-wrap"><div class="bar-fill full" style="width:100%"></div></div>
-                <div class="num">avg 100%</div>
-              </div>
-              <div class="criteria-row">
-                <div class="label"><span data-i18n="crit_outline">Lv.1 Outline Match</span></div>
-                <div class="bar-wrap"><div class="bar-fill full" style="width:95%"></div></div>
-                <div class="num">avg 95%</div>
-              </div>
-              <div class="criteria-row">
-                <div class="label"><span data-i18n="crit_sem">Semantic Match</span></div>
-                <div class="bar-wrap"><div class="bar-fill partial" style="width:72%"></div></div>
-                <div class="num">avg 72%</div>
-              </div>
-              <div class="criteria-row">
-                <div class="label"><span data-i18n="crit_miss">Missing Arguments</span></div>
-                <div class="bar-wrap"><div class="bar-fill low" style="width:40%"></div></div>
-                <div class="num">avg −1.8</div>
-              </div>
+            <h4 id="rep-case-criteria-h"><span data-i18n="chart_case_criteria">Criteria Average</span> — <span id="rep-case-criteria-h-id">—</span></h4>
+            <div class="criteria-grid" id="rep-case-criteria-grid" style="background: transparent; padding: 0;">
+              <div style="color: var(--text-dim); padding: 12px; text-align:center;" data-i18n="loading">Loading…</div>
             </div>
           </div>
 
           <div class="chart-card">
-            <h4 data-i18n="chart_attempts_history">Attempt History — IMK01-01</h4>
+            <h4 id="rep-case-history-h"><span data-i18n="chart_attempts_history">Attempt History</span> — <span id="rep-case-history-h-id">—</span></h4>
             <table class="case-history-table">
               <thead>
                 <tr>
@@ -1209,11 +1074,8 @@
                   <th data-i18n="col_main_miss">Main Miss</th>
                 </tr>
               </thead>
-              <tbody>
-                <tr><td>1</td><td>2026-04-22</td><td class="score" style="color: var(--warn);">9 / 17</td><td>비법인사단 인정 근거 누락</td></tr>
-                <tr><td>2</td><td>2026-04-30</td><td class="score" style="color: var(--accent);">11 / 17</td><td>총유물 관리 처분행위 정의 미제시</td></tr>
-                <tr><td>3</td><td>2026-05-08</td><td class="score" style="color: var(--success);">15 / 17</td><td>증명책임 분배 미언급</td></tr>
-                <tr><td>4</td><td>2026-05-16</td><td class="score" style="color: var(--accent);">14 / 17</td><td>"내" 풀이형 키워드 누락 + 증명책임 미언급</td></tr>
+              <tbody id="rep-case-history-tbody">
+                <tr><td colspan="4" style="text-align:center; color: var(--text-dim);" data-i18n="loading">Loading…</td></tr>
               </tbody>
             </table>
           </div>
@@ -1449,6 +1311,24 @@
       info_saved_at: 'auto-saved at {t}',
       info_saved_never: 'auto-saved at —',
       draft_saved: 'Draft saved locally.',
+      // wire (Step 10 — Reports)
+      rep_loading: 'Loading…',
+      rep_empty: 'No data yet. Submit at least one evaluation to see reports.',
+      rep_subject_empty: 'No data for this subject yet.',
+      rep_case_empty: 'No attempts for this case yet.',
+      rep_no_subjects: 'No subjects synced. Run Settings → Resync first.',
+      rep_no_cases: 'No cases available.',
+      rep_load_failed: 'Failed to load report.',
+      delta_lastweek_fmt: '+{n} last {d}d',
+      delta_pp_fmt: '{n}pp',
+      delta_cases_fmt: '{n} cases',
+      delta_over_fmt: '> {n}d',
+      kpi_submitted_n_fmt: '{n} submitted',
+      kpi_err_n_fmt: 'err {n}',
+      kpi_covered_fmt: '{n} / {total}',
+      kpi_since_fmt: 'since {date}',
+      kpi_recurring_fmt: '{n}/{total} attempts',
+      kpi_score_fmt: '{score} / {max}',
     },
     ko: {
       mock_label: '시안',
@@ -1535,6 +1415,24 @@
       info_saved_at: '자동저장 {t}',
       info_saved_never: '자동저장 —',
       draft_saved: '임시저장 완료 (로컬).',
+      // wire (Step 10 — 리포트)
+      rep_loading: '불러오는 중…',
+      rep_empty: '데이터 없음. 평가를 한 건 이상 제출해야 리포트 표시.',
+      rep_subject_empty: '이 과목에 시도 기록 없음.',
+      rep_case_empty: '이 케이스에 시도 기록 없음.',
+      rep_no_subjects: '과목이 동기화되지 않았습니다. 설정 → 동기화 먼저 실행.',
+      rep_no_cases: '케이스가 없습니다.',
+      rep_load_failed: '리포트 로드 실패.',
+      delta_lastweek_fmt: '최근 {d}일 +{n}',
+      delta_pp_fmt: '{n}pp',
+      delta_cases_fmt: '+{n} 케이스',
+      delta_over_fmt: '> {n}일',
+      kpi_submitted_n_fmt: '제출 {n}',
+      kpi_err_n_fmt: '오류 {n}',
+      kpi_covered_fmt: '{n} / {total}',
+      kpi_since_fmt: '시작 {date}',
+      kpi_recurring_fmt: '{total}중 {n}회',
+      kpi_score_fmt: '{score} / {max}',
     },
   };
 
@@ -2636,6 +2534,634 @@
 
   // 초기 Evaluation 탭 상태
   resetEvaluationView();
+
+  // ════════════════════════════════════════════════
+  // Step 10 — Reports API wire (overall / by-subject / by-case)
+  // ════════════════════════════════════════════════
+  const REPORTS_STATE = {
+    overallLoaded: false,
+    subjectsLoaded: false,
+    currentSubject: null,    // 활성 subject 코드 (예: 'minbeop')
+    subjects: [],            // /api/reports/subjects 응답 cache
+    casePickerLoaded: false,
+    casePickerSubject: null, // case picker 가 채워졌을 때의 subject 필터 (null=all)
+    currentCaseId: null,
+  };
+
+  // ─── 공용 헬퍼 ────────────────────────────────────────────
+  function fmtPct(v) {
+    if (v == null || isNaN(v)) return '—';
+    return Number(v).toFixed(1) + '%';
+  }
+  function fmtNumOrDash(v) {
+    if (v == null || isNaN(v)) return '—';
+    return String(v);
+  }
+  function fmtScoreFraction(total, max) {
+    if (total == null || max == null) return '—';
+    // 소수점 자리 처리: 정수 가까우면 정수, 아니면 1자리
+    const t = Number(total);
+    const m = Number(max);
+    if (isNaN(t) || isNaN(m)) return '—';
+    const ts = (Math.round(t * 10) / 10).toString();
+    const ms = (Math.round(m * 10) / 10).toString();
+    return `${ts} / ${ms}`;
+  }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    // 'YYYY-MM-DDTHH:MM:SSZ' → 'YYYY-MM-DD HH:MM'
+    const m = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    return m ? `${m[1]} ${m[2]}` : iso;
+  }
+  function fmtDateShort(iso) {
+    if (!iso) return '—';
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[2]}-${m[3]}` : iso;
+  }
+  function gradeColor(grade) {
+    if (grade === 'A') return 'var(--success)';
+    if (grade === 'B') return 'var(--accent)';
+    if (grade === 'C') return 'var(--warn)';
+    if (grade === 'F' || grade === 'ERROR') return 'var(--danger)';
+    return 'var(--text)';
+  }
+  function pctColor(pct) {
+    if (pct == null || isNaN(pct)) return 'var(--text-dim)';
+    if (pct >= 85) return 'var(--success)';
+    if (pct >= 65) return 'var(--accent)';
+    if (pct >= 50) return 'var(--warn)';
+    return 'var(--danger)';
+  }
+  function fmtSubjectTab(subj) {
+    // 시안 탭은 짧은 한글 라벨 (민법/민소/형법/부등/형소). DB 의 subject_kor 사용.
+    return subj.subject_kor || subj.subject || '—';
+  }
+  function applyTmpl(tmpl, vars) {
+    let s = tmpl;
+    for (const k of Object.keys(vars)) {
+      s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+    }
+    return s;
+  }
+
+  async function fetchJson(url) {
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!r.ok) {
+      let body = {};
+      try { body = await r.json(); } catch (e) { /* ignore */ }
+      const msg = body.message || ('HTTP ' + r.status);
+      const err = new Error(msg);
+      err.status = r.status;
+      err.body = body;
+      throw err;
+    }
+    return r.json();
+  }
+
+  // ─── Overall ─────────────────────────────────────────────
+  async function loadReportOverall() {
+    try {
+      const data = await fetchJson(`${API_BASE}/api/reports/overall`);
+      renderOverallKpi(data.kpi || {}, data.window_days || 7, data.stale_threshold_days || 14);
+      renderOverallTrend(data.trend || []);
+      renderOverallRecent(data.recent || []);
+    } catch (err) {
+      console.error('loadReportOverall failed:', err);
+      const tb = document.getElementById('rep-ov-recent-tbody');
+      if (tb) tb.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--danger);">${escapeHtml(I18N[currentLang].rep_load_failed)}: ${escapeHtml(err.message || '')}</td></tr>`;
+    }
+  }
+
+  function renderOverallKpi(kpi, windowDays, staleDays) {
+    const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    set('rep-ov-submitted', fmtNumOrDash(kpi.submitted));
+    const delta = applyTmpl(I18N[currentLang].delta_lastweek_fmt, { n: kpi.last_window_count != null ? kpi.last_window_count : 0, d: windowDays });
+    set('rep-ov-submitted-delta', delta);
+    set('rep-ov-avg', fmtPct(kpi.avg_score_pct));
+    const avgDelta = kpi.avg_score_pct_delta != null ? kpi.avg_score_pct_delta : 0;
+    set('rep-ov-avg-delta', (avgDelta >= 0 ? '+' : '') + applyTmpl(I18N[currentLang].delta_pp_fmt, { n: Number(avgDelta).toFixed(1) }));
+    set('rep-ov-err', fmtNumOrDash(kpi.high_error_cases));
+    set('rep-ov-err-delta', applyTmpl(I18N[currentLang].delta_cases_fmt, { n: kpi.high_error_delta != null ? kpi.high_error_delta : 0 }));
+    set('rep-ov-stale', fmtNumOrDash(kpi.long_pending_cases));
+    set('rep-ov-stale-delta', applyTmpl(I18N[currentLang].delta_over_fmt, { n: staleDays }));
+  }
+
+  function buildLineChartSvg(points, opts) {
+    // points: [{x_label?: str, y_pct: 0-100 (또는 null), tooltip?: str}]
+    // opts: { vbW=600, vbH=200, marginL=40, marginR=20, marginT=30, marginB=30, stroke='#569cd6', radius=2.5 }
+    const o = Object.assign({
+      vbW: 600, vbH: 200, marginL: 40, marginR: 20, marginT: 30, marginB: 30,
+      stroke: '#569cd6', radius: 2.5, fill: '#569cd6',
+    }, opts || {});
+    const W = o.vbW;
+    const H = o.vbH;
+    const xL = o.marginL, xR = W - o.marginR;
+    const yT = o.marginT, yB = H - o.marginB;
+
+    // 빈 데이터 처리
+    if (!points || points.length === 0) {
+      return `<text x="${W/2}" y="${H/2}" fill="#858585" font-size="12" font-family="monospace" text-anchor="middle">${escapeHtml(I18N[currentLang].rep_empty)}</text>`;
+    }
+
+    const usable = points.filter(p => p.y_pct != null && !isNaN(p.y_pct));
+    if (usable.length === 0) {
+      return `<text x="${W/2}" y="${H/2}" fill="#858585" font-size="12" font-family="monospace" text-anchor="middle">${escapeHtml(I18N[currentLang].rep_empty)}</text>`;
+    }
+
+    // y 범위: 0~100 고정. grid line 40/60/80
+    function yOf(pct) {
+      const p = Math.max(0, Math.min(100, pct));
+      return yB - (p / 100) * (yB - yT);
+    }
+    function xOf(idx) {
+      if (points.length === 1) return (xL + xR) / 2;
+      return xL + (idx / (points.length - 1)) * (xR - xL);
+    }
+
+    let svg = '';
+    // grid lines 100/80/60/40%
+    [[100,'100%'],[80,'80%'],[60,'60%'],[40,'40%']].forEach(([pct, lbl]) => {
+      const y = yOf(pct);
+      svg += `<line x1="${xL}" y1="${y.toFixed(1)}" x2="${xR}" y2="${y.toFixed(1)}" stroke="#3e3e42" stroke-dasharray="2,3"/>`;
+      svg += `<text x="2" y="${(y+3).toFixed(1)}" fill="#858585" font-size="9" font-family="monospace">${lbl}</text>`;
+    });
+    // polyline
+    const pts = points.map((p, i) => {
+      if (p.y_pct == null) return null;
+      return `${xOf(i).toFixed(1)},${yOf(p.y_pct).toFixed(1)}`;
+    }).filter(Boolean).join(' ');
+    if (pts) {
+      svg += `<polyline points="${pts}" fill="none" stroke="${o.stroke}" stroke-width="1.5"/>`;
+    }
+    // 점
+    svg += `<g fill="${o.fill}">`;
+    points.forEach((p, i) => {
+      if (p.y_pct == null) return;
+      const cx = xOf(i).toFixed(1);
+      const cy = yOf(p.y_pct).toFixed(1);
+      const tooltip = p.tooltip ? `<title>${escapeHtml(p.tooltip)}</title>` : '';
+      svg += `<circle cx="${cx}" cy="${cy}" r="${o.radius}">${tooltip}</circle>`;
+    });
+    svg += `</g>`;
+    // x축 라벨 (첫/중간/마지막)
+    if (points[0] && points[0].x_label) {
+      svg += `<text x="${xOf(0).toFixed(1)}" y="${(H - 5).toFixed(1)}" fill="#858585" font-size="9" font-family="monospace" text-anchor="middle">${escapeHtml(points[0].x_label)}</text>`;
+    }
+    if (points.length > 2) {
+      const mid = Math.floor((points.length - 1) / 2);
+      if (points[mid] && points[mid].x_label) {
+        svg += `<text x="${xOf(mid).toFixed(1)}" y="${(H - 5).toFixed(1)}" fill="#858585" font-size="9" font-family="monospace" text-anchor="middle">${escapeHtml(points[mid].x_label)}</text>`;
+      }
+    }
+    if (points.length > 1) {
+      const last = points.length - 1;
+      if (points[last] && points[last].x_label) {
+        svg += `<text x="${xOf(last).toFixed(1)}" y="${(H - 5).toFixed(1)}" fill="#858585" font-size="9" font-family="monospace" text-anchor="middle">${escapeHtml(points[last].x_label)}</text>`;
+      }
+    }
+    return svg;
+  }
+
+  function renderOverallTrend(trend) {
+    const svg = document.getElementById('rep-ov-trend-svg');
+    if (!svg) return;
+    const points = trend.map(p => ({
+      y_pct: p.score_pct,
+      x_label: fmtDateShort(p.date),
+      tooltip: `${fmtDate(p.date)} · ${p.case_title || p.case_id} · ${fmtPct(p.score_pct)}`,
+    }));
+    svg.innerHTML = buildLineChartSvg(points, { stroke: '#569cd6', fill: '#569cd6', radius: 2.5 });
+  }
+
+  function renderOverallRecent(recent) {
+    const tb = document.getElementById('rep-ov-recent-tbody');
+    if (!tb) return;
+    if (!recent || recent.length === 0) {
+      tb.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-dim);">${escapeHtml(I18N[currentLang].rep_empty)}</td></tr>`;
+      return;
+    }
+    const rows = recent.map(r => {
+      const scoreCell = r.status === 'done'
+        ? fmtScoreFraction(r.score_total, r.score_max)
+        : `<span style="color: var(--danger);">${escapeHtml(r.error_code || 'error')}</span>`;
+      const gradeCell = r.status === 'done'
+        ? `<span style="color: ${gradeColor(r.grade)};">${escapeHtml(r.grade || '—')} (${fmtPct(r.score_pct)})</span>`
+        : `<span style="color: var(--danger);">ERROR</span>`;
+      const titleCell = escapeHtml(r.case_title || '—');
+      const mockBadge = r.is_mock ? ' <span class="pill" style="font-size:9px;">mock</span>' : '';
+      const staleBadge = r.is_stale ? ' <span class="pill stale" style="font-size:9px;">stale</span>' : '';
+      return `<tr>
+        <td>${escapeHtml(fmtDate(r.submitted_at))}</td>
+        <td class="id">${escapeHtml(r.case_short_id || r.case_id)}</td>
+        <td>${titleCell}${mockBadge}${staleBadge}</td>
+        <td class="score">${scoreCell}</td>
+        <td class="score">${gradeCell}</td>
+      </tr>`;
+    }).join('');
+    tb.innerHTML = rows;
+  }
+
+  // ─── By Subject ──────────────────────────────────────────
+  async function loadReportSubjectsTabs() {
+    try {
+      const data = await fetchJson(`${API_BASE}/api/reports/subjects`);
+      REPORTS_STATE.subjects = data.subjects || [];
+      const tabRoot = document.getElementById('rep-subj-tabs');
+      if (!tabRoot) return;
+      if (REPORTS_STATE.subjects.length === 0) {
+        tabRoot.innerHTML = `<button class="active" disabled>${escapeHtml(I18N[currentLang].rep_no_subjects)}</button>`;
+        REPORTS_STATE.currentSubject = null;
+        return;
+      }
+      // 첫 subject 를 active 로
+      if (!REPORTS_STATE.currentSubject) {
+        REPORTS_STATE.currentSubject = REPORTS_STATE.subjects[0].subject;
+      }
+      const buttons = REPORTS_STATE.subjects.map(s => {
+        const active = s.subject === REPORTS_STATE.currentSubject ? ' active' : '';
+        return `<button class="${active.trim()}" data-subject="${escapeHtml(s.subject)}">${escapeHtml(fmtSubjectTab(s))}</button>`;
+      });
+      tabRoot.innerHTML = buttons.join('');
+      // 클릭 이벤트
+      tabRoot.querySelectorAll('button[data-subject]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const subj = btn.dataset.subject;
+          if (!subj) return;
+          REPORTS_STATE.currentSubject = subj;
+          tabRoot.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+          loadReportBySubject(subj);
+        });
+      });
+      REPORTS_STATE.subjectsLoaded = true;
+    } catch (err) {
+      console.error('loadReportSubjectsTabs failed:', err);
+      const tabRoot = document.getElementById('rep-subj-tabs');
+      if (tabRoot) {
+        tabRoot.innerHTML = `<button class="active" disabled>${escapeHtml(I18N[currentLang].rep_load_failed)}</button>`;
+      }
+    }
+  }
+
+  async function loadReportBySubject(subject) {
+    if (!subject) return;
+    try {
+      const data = await fetchJson(`${API_BASE}/api/reports/by-subject?subject=${encodeURIComponent(subject)}`);
+      renderSubjectKpi(data.kpi || {}, data.subject_exists !== false);
+      renderSubjectCompare(data.comparison || [], subject);
+      renderSubjectCases(data.cases || []);
+    } catch (err) {
+      console.error('loadReportBySubject failed:', err);
+      const tb = document.getElementById('rep-subj-cases-tbody');
+      if (tb) tb.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--danger);">${escapeHtml(I18N[currentLang].rep_load_failed)}: ${escapeHtml(err.message || '')}</td></tr>`;
+    }
+  }
+
+  function renderSubjectKpi(kpi, subjectExists) {
+    const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    set('rep-subj-cases', subjectExists ? fmtNumOrDash(kpi.cases) : '0');
+    set('rep-subj-cases-sub', applyTmpl(I18N[currentLang].kpi_submitted_n_fmt, { n: kpi.submitted != null ? kpi.submitted : 0 }));
+    set('rep-subj-avg', kpi.avg_score_pct != null ? fmtPct(kpi.avg_score_pct) : '—');
+    const avgDelta = kpi.avg_score_pct_delta != null ? kpi.avg_score_pct_delta : 0;
+    set('rep-subj-avg-delta', (avgDelta >= 0 ? '+' : '') + applyTmpl(I18N[currentLang].delta_pp_fmt, { n: Number(avgDelta).toFixed(1) }));
+    set('rep-subj-toperr', kpi.top_error_topic || (subjectExists ? '—' : I18N[currentLang].rep_subject_empty));
+    if (kpi.top_error_pct != null) {
+      set('rep-subj-toperr-sub', fmtPct(kpi.top_error_pct));
+    } else {
+      set('rep-subj-toperr-sub', '—');
+    }
+    set('rep-subj-coverage', fmtPct(kpi.coverage_pct));
+    set('rep-subj-coverage-sub', applyTmpl(I18N[currentLang].kpi_covered_fmt, { n: kpi.covered_cases || 0, total: kpi.cases || 0 }));
+  }
+
+  function renderSubjectCompare(comparison, currentSubject) {
+    const svg = document.getElementById('rep-subj-compare-svg');
+    if (!svg) return;
+    if (!comparison || comparison.length === 0) {
+      svg.innerHTML = `<text x="300" y="100" fill="#858585" font-size="12" font-family="monospace" text-anchor="middle">${escapeHtml(I18N[currentLang].rep_empty)}</text>`;
+      return;
+    }
+    // 막대 차트 (각 과목)
+    const W = 600, H = 200, marginT = 30, marginB = 30, marginL = 40, marginR = 20;
+    const yT = marginT, yB = H - marginB;
+    const usableW = W - marginL - marginR;
+    const n = comparison.length;
+    const barW = Math.min(60, Math.max(20, usableW / (n * 1.6)));
+    const gap = (usableW - barW * n) / (n + 1);
+
+    let html = '';
+    // grid 100/70/40
+    [[100,'100%'],[70,'70%'],[40,'40%']].forEach(([pct, lbl]) => {
+      const y = yB - (pct / 100) * (yB - yT);
+      html += `<line x1="${marginL}" y1="${y.toFixed(1)}" x2="${W - marginR}" y2="${y.toFixed(1)}" stroke="#3e3e42" stroke-dasharray="2,3"/>`;
+      html += `<text x="2" y="${(y+3).toFixed(1)}" fill="#858585" font-size="9" font-family="monospace">${lbl}</text>`;
+    });
+    comparison.forEach((c, i) => {
+      const pct = c.avg_pct;
+      const x = marginL + gap + i * (barW + gap);
+      let y, h, fill;
+      if (pct == null) {
+        // 빈 막대
+        y = yB - 2;
+        h = 2;
+        fill = '#3e3e42';
+      } else {
+        const p = Math.max(0, Math.min(100, pct));
+        h = (p / 100) * (yB - yT);
+        y = yB - h;
+        // 색: 75+ 청, 50+ 황, 그 외 적
+        fill = p >= 75 ? '#569cd6' : (p >= 50 ? '#ce9178' : '#d16969');
+      }
+      // 현재 subject 강조: stroke
+      const isCurrent = c.subject === currentSubject;
+      const strokeAttr = isCurrent ? ' stroke="#4ec9b0" stroke-width="1.5"' : '';
+      const cx = x + barW / 2;
+      html += `<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${fill}"${strokeAttr}>`;
+      html += `<title>${escapeHtml(c.subject_kor || c.subject)}: ${fmtPct(pct)} (n=${c.n_attempts || 0})</title>`;
+      html += `</rect>`;
+      html += `<text x="${cx.toFixed(1)}" y="${(H - 5).toFixed(1)}" fill="#858585" font-size="10" font-family="monospace" text-anchor="middle">${escapeHtml(fmtSubjectTab(c))}</text>`;
+      if (pct != null) {
+        html += `<text x="${cx.toFixed(1)}" y="${(y - 4).toFixed(1)}" fill="#cccccc" font-size="11" font-family="monospace" text-anchor="middle">${fmtPct(pct)}</text>`;
+      }
+      html += `</g>`;
+    });
+    svg.innerHTML = html;
+  }
+
+  function renderSubjectCases(cases) {
+    const tb = document.getElementById('rep-subj-cases-tbody');
+    if (!tb) return;
+    if (!cases || cases.length === 0) {
+      tb.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-dim);">${escapeHtml(I18N[currentLang].rep_subject_empty)}</td></tr>`;
+      return;
+    }
+    // 시도 0건 케이스는 뒷쪽에. 시도 있는 케이스만 먼저, 그 후 알파벳 순.
+    const sorted = cases.slice().sort((a, b) => {
+      if ((a.attempts || 0) === 0 && (b.attempts || 0) > 0) return 1;
+      if ((b.attempts || 0) === 0 && (a.attempts || 0) > 0) return -1;
+      return 0;
+    });
+    const rows = sorted.map(c => {
+      const lastPctTxt = c.last_pct != null
+        ? `<span style="color: ${pctColor(c.last_pct)};">${fmtPct(c.last_pct)}</span>`
+        : '—';
+      const staleBadge = c.is_stale ? ' <span class="pill stale" style="font-size:9px;">stale</span>' : '';
+      return `<tr>
+        <td class="id">${escapeHtml(c.case_short_id || c.case_id)}</td>
+        <td>${escapeHtml(c.title || '—')}${staleBadge}</td>
+        <td class="score">${fmtNumOrDash(c.attempts || 0)}</td>
+        <td class="score">${c.avg_pct != null ? fmtPct(c.avg_pct) : '—'}</td>
+        <td class="score">${c.best_pct != null ? fmtPct(c.best_pct) : '—'}</td>
+        <td class="score">${lastPctTxt}</td>
+      </tr>`;
+    }).join('');
+    tb.innerHTML = rows;
+  }
+
+  // ─── By Case ─────────────────────────────────────────────
+  async function loadReportCasePicker(subjectFilter) {
+    try {
+      const url = subjectFilter
+        ? `${API_BASE}/api/reports/cases?subject=${encodeURIComponent(subjectFilter)}`
+        : `${API_BASE}/api/reports/cases`;
+      const data = await fetchJson(url);
+      const sel = document.getElementById('rep-case-select');
+      if (!sel) return;
+      const items = data.cases || [];
+      if (items.length === 0) {
+        sel.innerHTML = `<option value="">${escapeHtml(I18N[currentLang].rep_no_cases)}</option>`;
+        REPORTS_STATE.currentCaseId = null;
+        return;
+      }
+      // 시도 많은 것 먼저
+      const sorted = items.slice().sort((a, b) => (b.attempts || 0) - (a.attempts || 0));
+      sel.innerHTML = sorted.map(c => {
+        const sid = c.case_short_id || c.case_id;
+        const title = c.title || '';
+        const att = c.attempts || 0;
+        return `<option value="${escapeHtml(c.case_id)}">${escapeHtml(sid)} — ${escapeHtml(title)} (${att})</option>`;
+      }).join('');
+      REPORTS_STATE.casePickerLoaded = true;
+      REPORTS_STATE.casePickerSubject = subjectFilter || null;
+      // 우선 시도 있는 첫 케이스를 선택
+      const firstWithAttempts = sorted.find(c => (c.attempts || 0) > 0) || sorted[0];
+      sel.value = firstWithAttempts.case_id;
+      REPORTS_STATE.currentCaseId = firstWithAttempts.case_id;
+      await loadReportByCase(firstWithAttempts.case_id);
+    } catch (err) {
+      console.error('loadReportCasePicker failed:', err);
+      const sel = document.getElementById('rep-case-select');
+      if (sel) sel.innerHTML = `<option value="">${escapeHtml(I18N[currentLang].rep_load_failed)}</option>`;
+    }
+  }
+
+  async function loadReportByCase(caseId) {
+    if (!caseId) return;
+    try {
+      const data = await fetchJson(`${API_BASE}/api/reports/by-case?case_id=${encodeURIComponent(caseId)}`);
+      renderCaseHeader(data);
+      renderCaseKpi(data.kpi || {}, data);
+      renderCaseTrend(data.trend || []);
+      renderCaseCriteria(data.criteria || []);
+      renderCaseHistory(data.history || []);
+    } catch (err) {
+      console.error('loadReportByCase failed:', err);
+      const tb = document.getElementById('rep-case-history-tbody');
+      if (tb) tb.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--danger);">${escapeHtml(I18N[currentLang].rep_load_failed)}: ${escapeHtml(err.message || '')}</td></tr>`;
+    }
+  }
+
+  function renderCaseHeader(data) {
+    const sid = data.case_short_id || data.case_id || '—';
+    ['rep-case-trend-h-id', 'rep-case-criteria-h-id', 'rep-case-history-h-id'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = sid;
+    });
+  }
+
+  function renderCaseKpi(kpi, data) {
+    const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    const attempts = kpi.attempts != null ? kpi.attempts : 0;
+    set('rep-case-attempts', fmtNumOrDash(attempts));
+    if (kpi.since) {
+      set('rep-case-attempts-sub', applyTmpl(I18N[currentLang].kpi_since_fmt, { date: fmtDateShort(kpi.since) }));
+    } else {
+      set('rep-case-attempts-sub', '—');
+    }
+    if (kpi.last_pct != null) {
+      const el = document.getElementById('rep-case-last');
+      if (el) {
+        el.textContent = fmtPct(kpi.last_pct);
+        el.style.color = pctColor(kpi.last_pct);
+      }
+      set('rep-case-last-sub', fmtScoreFraction(kpi.last_total, kpi.last_max));
+    } else {
+      const el = document.getElementById('rep-case-last');
+      if (el) { el.textContent = '—'; el.style.color = ''; }
+      set('rep-case-last-sub', '—');
+    }
+    if (kpi.best_pct != null) {
+      const el = document.getElementById('rep-case-best');
+      if (el) {
+        el.textContent = fmtPct(kpi.best_pct);
+        el.style.color = pctColor(kpi.best_pct);
+      }
+      set('rep-case-best-sub', fmtScoreFraction(kpi.best_total, kpi.best_max));
+    } else {
+      const el = document.getElementById('rep-case-best');
+      if (el) { el.textContent = '—'; el.style.color = ''; }
+      set('rep-case-best-sub', '—');
+    }
+    set('rep-case-persist', fmtNumOrDash(kpi.persistent_errors_count || 0));
+    if (kpi.persistent_errors_count != null && kpi.persistent_errors_count > 0 && attempts > 0) {
+      // 사용자에게 "N/X attempts" 표시 — 가장 빈도 높은 항목의 occurrences/attempts
+      const pErrItems = (data && data.persistent_errors && data.persistent_errors.items) || [];
+      const top = pErrItems.length > 0 ? pErrItems[0].occurrences : 0;
+      set('rep-case-persist-sub', applyTmpl(I18N[currentLang].kpi_recurring_fmt, { n: top, total: attempts }));
+    } else {
+      set('rep-case-persist-sub', '—');
+    }
+  }
+
+  function renderCaseTrend(trend) {
+    const svg = document.getElementById('rep-case-trend-svg');
+    if (!svg) return;
+    const points = trend.map(p => ({
+      y_pct: p.score_pct,
+      x_label: `#${p.attempt_num} ${fmtDateShort(p.date)}`,
+      tooltip: `#${p.attempt_num} · ${fmtDate(p.date)} · ${fmtScoreFraction(p.score_total, p.score_max)} (${p.grade || '—'})`,
+    }));
+    svg.innerHTML = buildLineChartSvg(points, { stroke: '#4ec9b0', fill: '#4ec9b0', radius: 4 });
+  }
+
+  function renderCaseCriteria(criteria) {
+    const root = document.getElementById('rep-case-criteria-grid');
+    if (!root) return;
+    if (!criteria || criteria.length === 0) {
+      root.innerHTML = `<div style="color: var(--text-dim); padding: 12px; text-align:center;">${escapeHtml(I18N[currentLang].rep_case_empty)}</div>`;
+      return;
+    }
+    const hasAny = criteria.some(c => (c.n || 0) > 0);
+    if (!hasAny) {
+      root.innerHTML = `<div style="color: var(--text-dim); padding: 12px; text-align:center;">${escapeHtml(I18N[currentLang].rep_case_empty)}</div>`;
+      return;
+    }
+    const labelMap = {
+      mnem: 'crit_mnem', color: 'crit_color', under: 'crit_under',
+      outline: 'crit_outline', sem: 'crit_sem', rich: 'crit_rich', miss: 'crit_miss',
+    };
+    const dict = I18N[currentLang];
+    const rows = criteria.map(c => {
+      const labelKey = labelMap[c.criterion_key];
+      const labelTxt = labelKey && dict[labelKey] ? dict[labelKey] : c.criterion_key;
+      let pct = c.avg_pct;
+      let widthPct = 0;
+      let fillCls = 'partial';
+      let numTxt = '—';
+      if (c.criterion_key === 'miss') {
+        // miss: max=0 이라 pct null. score 음수 가능. 자체 표시.
+        numTxt = c.n > 0 ? `avg ${(Math.round(c.avg_score * 10) / 10)}` : '—';
+        // 시각화: 절대값 / 5 비율 (대략)
+        const abs = Math.abs(c.avg_score || 0);
+        widthPct = Math.max(0, Math.min(100, abs * 20));  // |score| 5 → 100%
+        fillCls = abs > 1 ? 'low' : 'partial';
+      } else if (pct != null) {
+        widthPct = Math.max(0, Math.min(100, pct));
+        fillCls = widthPct >= 85 ? 'full' : (widthPct >= 60 ? 'partial' : 'low');
+        numTxt = c.n > 0 ? `avg ${fmtPct(pct)}` : '—';
+      } else {
+        widthPct = 0;
+        fillCls = 'partial';
+        numTxt = '—';
+      }
+      return `<div class="criteria-row">
+        <div class="label">${escapeHtml(labelTxt)}</div>
+        <div class="bar-wrap"><div class="bar-fill ${fillCls}" style="width:${widthPct.toFixed(1)}%"></div></div>
+        <div class="num">${escapeHtml(numTxt)}</div>
+      </div>`;
+    }).join('');
+    root.innerHTML = rows;
+  }
+
+  function renderCaseHistory(history) {
+    const tb = document.getElementById('rep-case-history-tbody');
+    if (!tb) return;
+    if (!history || history.length === 0) {
+      tb.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--text-dim);">${escapeHtml(I18N[currentLang].rep_case_empty)}</td></tr>`;
+      return;
+    }
+    const rows = history.map(h => {
+      const scoreCell = h.status === 'done'
+        ? `<span class="score" style="color: ${pctColor(h.score_pct)};">${escapeHtml(fmtScoreFraction(h.score_total, h.score_max))}</span>`
+        : `<span class="score" style="color: var(--danger);">${escapeHtml(h.error_code || 'error')}</span>`;
+      const miss = h.main_miss || '—';
+      return `<tr>
+        <td>${h.attempt_num}</td>
+        <td>${escapeHtml(fmtDate(h.submitted_at))}</td>
+        <td class="score">${scoreCell}</td>
+        <td>${escapeHtml(miss)}</td>
+      </tr>`;
+    }).join('');
+    tb.innerHTML = rows;
+  }
+
+  // ─── Case selector change ───────────────────────────────
+  (function bindCaseSelector() {
+    const sel = document.getElementById('rep-case-select');
+    if (sel) {
+      sel.addEventListener('change', () => {
+        const cid = sel.value;
+        if (cid) {
+          REPORTS_STATE.currentCaseId = cid;
+          loadReportByCase(cid);
+        }
+      });
+    }
+  })();
+
+  // ─── Reports 탭 진입 시 자동 로드 + sub-tab 전환 시 재로드 ───
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.tab !== 'reports') return;
+      // 최초 진입 시: overall + subjects 둘 다 prefetch (사용자가 sub-tab 클릭 즉시 표시)
+      if (!REPORTS_STATE.overallLoaded) {
+        REPORTS_STATE.overallLoaded = true;
+        loadReportOverall();
+      }
+      if (!REPORTS_STATE.subjectsLoaded) {
+        loadReportSubjectsTabs().then(() => {
+          if (REPORTS_STATE.currentSubject) {
+            loadReportBySubject(REPORTS_STATE.currentSubject);
+          }
+        });
+      }
+      if (!REPORTS_STATE.casePickerLoaded) {
+        loadReportCasePicker(null);
+      }
+    });
+  });
+
+  // sub-tab 클릭 시 (overall/bysubject/bycase) — 보강 (refresh 가능)
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sub = btn.dataset.sub;
+      if (sub === 'overall') {
+        // 항상 최신화 (재호출, 비용 X)
+        loadReportOverall();
+      } else if (sub === 'bysubject') {
+        if (REPORTS_STATE.currentSubject) {
+          loadReportBySubject(REPORTS_STATE.currentSubject);
+        } else if (!REPORTS_STATE.subjectsLoaded) {
+          loadReportSubjectsTabs();
+        }
+      } else if (sub === 'bycase') {
+        if (REPORTS_STATE.currentCaseId) {
+          loadReportByCase(REPORTS_STATE.currentCaseId);
+        } else if (!REPORTS_STATE.casePickerLoaded) {
+          loadReportCasePicker(null);
+        }
+      }
+    });
+  });
 
   // ─── 초기 로드 ───
   reloadCases();
