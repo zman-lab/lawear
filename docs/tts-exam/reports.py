@@ -54,8 +54,9 @@ HIGH_ERROR_PCT_THRESHOLD: float = 60.0
 # persistent_errors: missing 키워드가 N회 이상 등장하면 누락 패턴
 DEFAULT_PERSISTENT_THRESHOLD: int = 3
 
-# 채점 8기준 키 순서 (UI Criteria Average 패널과 동일 정렬 보장)
+# 채점 9기준 키 순서 (UI Criteria Average 패널과 동일 정렬 보장)
 # Step 20 (사용자 2026-05-16): articles 신설 — Lv.4 그룹 뒤, rich/miss 앞에 배치.
+# Step 21 (사용자 2026-05-17): case_apply 신설 — articles 와 rich 사이 (사안 의 경우 → 풍부함 흐름).
 CRITERION_ORDER: tuple[str, ...] = (
     "mnem",
     "color",
@@ -63,6 +64,7 @@ CRITERION_ORDER: tuple[str, ...] = (
     "outline",
     "sem",
     "articles",
+    "case_apply",
     "rich",
     "miss",
 )

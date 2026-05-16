@@ -503,6 +503,7 @@ def create_attempt(
 # 입력 alias → DB criterion_key (grader.CRITERION_KEYS) 매핑.
 # 사용자 워크플로우 (reference_grading_workflow.md) 의 긴 이름 + grader.py 의 짧은 키 둘 다 허용.
 # Step 20 (사용자 2026-05-16): articles 신설 — 원본 조문 매칭.
+# Step 21 (사용자 2026-05-17): case_apply 신설 — 사안의 경우 결론+근거 적용 (정확 매칭 X).
 CRITERIA_KEY_ALIASES: dict[str, str] = {
     # 긴 이름 (사용자 워크플로우)
     "mnemonics": "mnem",
@@ -515,6 +516,9 @@ CRITERIA_KEY_ALIASES: dict[str, str] = {
     "articles": "articles",
     "article": "articles",
     "article_match": "articles",
+    "case_apply": "case_apply",
+    "case_application": "case_apply",
+    "사안의경우": "case_apply",
     # 짧은 이름 (grader.py / DB CHECK)
     "mnem": "mnem",
     "under": "under",

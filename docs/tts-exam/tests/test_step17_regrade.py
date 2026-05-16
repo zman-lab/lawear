@@ -70,7 +70,10 @@ def _build_db(db_path: str) -> None:
 
 
 def _full_grade_payload() -> dict:
-    """inject_grade 페이로드 — done 상태 만들기용 (Step 20 v4 8기준)."""
+    """inject_grade 페이로드 — done 상태 만들기용 (Step 21 v5 9기준).
+
+    가중치 합: 16+13+8+10+12+15+11+10+5 = 100
+    """
     return {
         "criteria": [
             {"key": "mnemonics", "score": 3, "weight_applied": 16, "comment": ""},
@@ -78,9 +81,10 @@ def _full_grade_payload() -> dict:
             {"key": "underline", "score": 2, "weight_applied": 8, "comment": ""},
             {"key": "outline", "score": 3, "weight_applied": 10, "comment": ""},
             {"key": "semantic", "score": 8, "weight_applied": 12, "comment": ""},
-            {"key": "richness", "score": 15, "weight_applied": 20, "comment": ""},
+            {"key": "richness", "score": 11, "weight_applied": 15, "comment": ""},
             {"key": "missing", "score": -2, "weight_applied": 11, "comment": ""},
             {"key": "articles", "score": 8, "weight_applied": 10, "comment": ""},
+            {"key": "case_apply", "score": 3, "weight_applied": 5, "comment": ""},
         ],
         "total_score": 14.78,
         "max_score": 17.0,
@@ -167,15 +171,15 @@ class ResetGradeTest(unittest.TestCase):
         self.assertEqual(post["answer_text"], "검토 의견 본문 — Step 17")
 
     def test_reset_done_attempt_deletes_attempt_criteria(self) -> None:
-        """done → reset → attempt_criteria 8행 모두 삭제 (Step 20 v4)."""
+        """done → reset → attempt_criteria 9행 모두 삭제 (Step 21 v5)."""
         with db_mod.get_conn(self.tmp.name) as conn:
             attempts_mod.inject_grade(conn, self.attempt_id, _full_grade_payload())
-            # 8행 있음 확인 (Step 20 v4 — articles 신설)
+            # 9행 있음 확인 (Step 21 v5 — case_apply 신설)
             pre_n = conn.execute(
                 "SELECT count(*) AS n FROM attempt_criteria WHERE attempt_id = ?",
                 (self.attempt_id,),
             ).fetchone()["n"]
-            self.assertEqual(pre_n, 8)
+            self.assertEqual(pre_n, 9)
 
             attempts_mod.reset_grade(conn, self.attempt_id)
 

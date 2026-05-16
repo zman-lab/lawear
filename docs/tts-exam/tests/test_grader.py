@@ -80,16 +80,20 @@ def test_mock_mode_basic() -> None:
 
 
 def test_mock_criteria_eight_keys() -> None:
-    """TC: 8기준 모두 포함 + 각 항목 schema (Step 20 v4 — articles 신설)."""
+    """TC: 9기준 모두 포함 + 각 항목 schema (Step 21 v5 — case_apply 신설).
+
+    NOTE: 함수명은 'eight_keys' 유지 (이력 호환) — 실 검증은 9기준.
+    """
     result = grader.grade(_sample_case_meta(), _sample_user_answer(), force_mock=True)
 
     criteria = result["criteria"]
     assert isinstance(criteria, list), "criteria must be list"
-    assert len(criteria) == 8, f"criteria must have 8 entries (v4), got {len(criteria)}"
+    assert len(criteria) == 9, f"criteria must have 9 entries (v5), got {len(criteria)}"
 
     keys = {c["key"] for c in criteria}
     expected_keys = set(grader.CRITERION_KEYS)
     assert "articles" in keys, "articles key required (Step 20 v4)"
+    assert "case_apply" in keys, "case_apply key required (Step 21 v5)"
     assert keys == expected_keys, f"criteria keys mismatch: {keys} != {expected_keys}"
 
     # 각 항목 schema: key/score/max/weight/comment
@@ -157,16 +161,17 @@ def test_mock_weights_applied_default() -> None:
 
 
 def test_mock_weights_custom() -> None:
-    """TC: 커스텀 weights 전달 → 그대로 반영 + criteria.weight 갱신 (8키, v4)."""
+    """TC: 커스텀 weights 전달 → 그대로 반영 + criteria.weight 갱신 (9키, v5)."""
     custom = {
         "mnem": 20,
         "color": 15,
         "under": 10,
         "outline": 10,
         "sem": 10,
-        "rich": 15,
+        "rich": 10,
         "miss": 10,
         "articles": 10,  # Step 20 v4 신설
+        "case_apply": 5,  # Step 21 v5 신설
     }
     assert sum(custom.values()) == 100
     result = grader.grade(_sample_case_meta(), _sample_user_answer(), weights=custom, force_mock=True)
@@ -179,7 +184,7 @@ def test_mock_weights_custom() -> None:
 
 
 def test_weights_invalid_sum_raises() -> None:
-    """TC-04: 가중치 합 != 100 → ValueError (handler 에서 409 매핑)."""
+    """TC-04: 가중치 합 != 100 → ValueError (handler 에서 409 매핑). v5 9키."""
     bad_weights = {
         "mnem": 50,
         "color": 20,
@@ -189,8 +194,9 @@ def test_weights_invalid_sum_raises() -> None:
         "rich": 10,
         "miss": 0,
         "articles": 10,
-    }  # 합=130
-    assert sum(bad_weights.values()) == 130
+        "case_apply": 5,  # Step 21 v5
+    }  # 합=135
+    assert sum(bad_weights.values()) == 135
     try:
         grader.grade(_sample_case_meta(), _sample_user_answer(), weights=bad_weights, force_mock=True)
     except ValueError as e:
@@ -213,7 +219,7 @@ def test_weights_missing_key_raises() -> None:
 
 
 def test_compute_score_basic() -> None:
-    """TC: _compute_score 단독 — 만점/0점 경계 (Step 20 v4 8기준)."""
+    """TC: _compute_score 단독 — 만점/0점 경계 (Step 21 v5 9기준)."""
     # 만점 (모든 score=max, miss=0)
     full = [
         {"key": "mnem", "score": 4, "max": 4},
@@ -224,11 +230,12 @@ def test_compute_score_basic() -> None:
         {"key": "rich", "score": 2, "max": 2},
         {"key": "miss", "score": 0, "max": 0},
         {"key": "articles", "score": 5, "max": 5},  # Step 20 v4
+        {"key": "case_apply", "score": 2, "max": 2},  # Step 21 v5
     ]
     total, max_s, pct, grade_letter = grader._compute_score(full, grader.DEFAULT_WEIGHTS)
-    # weight_total - miss_weight = 100 - 11 = 89 (v4)
+    # weight_total - miss_weight = 100 - 11 = 89 (v5 동일)
     assert abs(max_s - 89.0) < 0.01, f"max_s={max_s}"
-    # 7개 비-miss 항목 모두 만점 → weighted_sum = 89
+    # 8개 비-miss 항목 모두 만점 → weighted_sum = 89
     assert abs(total - 89.0) < 0.01, f"total={total}"
     assert pct == 100.0, f"pct={pct}"
     assert grade_letter == "A"
@@ -243,6 +250,7 @@ def test_compute_score_basic() -> None:
         {"key": "rich", "score": 0, "max": 2},
         {"key": "miss", "score": -5, "max": 0},
         {"key": "articles", "score": 0, "max": 5},
+        {"key": "case_apply", "score": 0, "max": 2},  # Step 21 v5
     ]
     total, max_s, pct, grade_letter = grader._compute_score(zero, grader.DEFAULT_WEIGHTS)
     assert total <= 0, f"total={total} (miss 감점)"
@@ -251,7 +259,7 @@ def test_compute_score_basic() -> None:
 
 
 def test_parse_response_raw_json() -> None:
-    """TC: _parse_response — raw JSON 정상 파싱 (Step 20 v4 8기준)."""
+    """TC: _parse_response — raw JSON 정상 파싱 (Step 21 v5 9기준)."""
     raw = json.dumps({
         "criteria": [
             {"key": "mnem", "score": 2, "max": 4, "comment": "OK"},
@@ -262,17 +270,18 @@ def test_parse_response_raw_json() -> None:
             {"key": "rich", "score": 1, "max": 2, "comment": "OK"},
             {"key": "miss", "score": -1, "max": 0, "comment": "OK"},
             {"key": "articles", "score": 4, "max": 5, "comment": "OK"},  # Step 20 v4
+            {"key": "case_apply", "score": 1, "max": 2, "comment": "OK"},  # Step 21 v5
         ],
         "eval_notes": {"strength": "A", "caution": "B", "missing": "C"},
         "diff_segments": [{"type": "match", "text": "x"}],
     })
     parsed = grader._parse_response(raw)
-    assert len(parsed["criteria"]) == 8
+    assert len(parsed["criteria"]) == 9
     assert parsed["eval_notes"]["strength"] == "A"
 
 
 def test_parse_response_codefence() -> None:
-    """TC: _parse_response — code fence 안의 JSON 추출 (8기준)."""
+    """TC: _parse_response — code fence 안의 JSON 추출 (9기준 v5)."""
     payload = {
         "criteria": [
             {"key": k, "score": 1, "max": 1, "comment": ""}
@@ -282,7 +291,7 @@ def test_parse_response_codefence() -> None:
     }
     raw = "Here is your evaluation:\n```json\n" + json.dumps(payload) + "\n```\nThanks."
     parsed = grader._parse_response(raw)
-    assert len(parsed["criteria"]) == 8
+    assert len(parsed["criteria"]) == 9
 
 
 def test_parse_response_missing_keys_raises() -> None:
