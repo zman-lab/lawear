@@ -78,15 +78,16 @@ class GraderV4Test(unittest.TestCase):
     """grader.py v4 — 8키 + articles 신설."""
 
     def test_criterion_keys_has_articles(self) -> None:
-        """CRITERION_KEYS 에 articles 포함."""
+        """CRITERION_KEYS 에 articles 포함 (Step 20 v4)."""
         self.assertIn("articles", grader_mod.CRITERION_KEYS)
-        self.assertEqual(len(grader_mod.CRITERION_KEYS), 8)
+        # Step 21 v5 (2026-05-17): case_apply 신설 → 9개로 확장
+        self.assertEqual(len(grader_mod.CRITERION_KEYS), 9)
 
     def test_default_weights_v4(self) -> None:
-        """DEFAULT_WEIGHTS = v4 (사용자 명시 2026-05-16)."""
+        """DEFAULT_WEIGHTS — Step 21 v5 (2026-05-17): rich 20→15, case_apply 5 신설."""
         expected = {
             "mnem": 16, "color": 13, "under": 8, "outline": 10,
-            "sem": 12, "rich": 20, "miss": 11, "articles": 10,
+            "sem": 12, "rich": 15, "miss": 11, "articles": 10, "case_apply": 5,
         }
         self.assertEqual(grader_mod.DEFAULT_WEIGHTS, expected)
         self.assertEqual(sum(grader_mod.DEFAULT_WEIGHTS.values()), 100)
@@ -107,7 +108,7 @@ class GraderV4Test(unittest.TestCase):
         grader_mod.validate_weights(grader_mod.DEFAULT_WEIGHTS)
 
     def test_grade_mock_articles_in_response(self) -> None:
-        """mock 채점 응답에 articles criterion 포함."""
+        """mock 채점 응답에 articles + case_apply criterion 포함 (Step 21 v5)."""
         case = {
             "id": "step20_test",
             "subject_kor": "민법",
@@ -121,7 +122,8 @@ class GraderV4Test(unittest.TestCase):
         result = grader_mod.grade(case, "답안 — 제397조 적용", force_mock=True)
         keys = [c["key"] for c in result["criteria"]]
         self.assertIn("articles", keys, "articles criterion required (Step 20 v4)")
-        self.assertEqual(len(keys), 8)
+        self.assertIn("case_apply", keys, "case_apply criterion required (Step 21 v5)")
+        self.assertEqual(len(keys), 9)
 
     def test_score_rounding_two_decimals(self) -> None:
         """grade 응답의 score_total / score_pct 가 소수점 2자리 round."""
@@ -161,17 +163,18 @@ class SettingsV4Test(unittest.TestCase):
         os.unlink(self.tmp.name)
 
     def test_load_all_returns_v4_weights(self) -> None:
-        """신규 DB → weights 8키 (articles 포함)."""
+        """신규 DB → weights 9키 (articles + case_apply 포함, Step 21 v5)."""
         with db_mod.get_conn(self.tmp.name) as conn:
             data = settings_mod.load_all(conn)
         self.assertIn("weights", data)
         self.assertIn("articles", data["weights"])
-        self.assertEqual(len(data["weights"]), 8)
-        # v4 디폴트 일치
+        self.assertIn("case_apply", data["weights"])
+        self.assertEqual(len(data["weights"]), 9)
+        # v5 디폴트 일치 (rich 20→15, case_apply 5 신설)
         self.assertEqual(
             data["weights"],
             {"mnem": 16, "color": 13, "under": 8, "outline": 10,
-             "sem": 12, "rich": 20, "miss": 11, "articles": 10},
+             "sem": 12, "rich": 15, "miss": 11, "articles": 10, "case_apply": 5},
         )
 
     def test_save_v3_weights_rejected(self) -> None:
@@ -187,16 +190,16 @@ class SettingsV4Test(unittest.TestCase):
         self.assertIn("articles", str(ctx.exception))
 
     def test_save_v4_weights_accepted(self) -> None:
-        """PUT v4 8키 → 저장 + load_all 일치."""
-        v4_custom = {
+        """PUT v5 9키 → 저장 + load_all 일치 (Step 21 v5)."""
+        v5_custom = {
             "mnem": 20, "color": 14, "under": 8, "outline": 10,
-            "sem": 11, "rich": 15, "miss": 10, "articles": 12,
+            "sem": 11, "rich": 12, "miss": 10, "articles": 10, "case_apply": 5,
         }
-        self.assertEqual(sum(v4_custom.values()), 100)
+        self.assertEqual(sum(v5_custom.values()), 100)
         with db_mod.get_conn(self.tmp.name) as conn:
-            settings_mod.save_settings(conn, weights=v4_custom)
+            settings_mod.save_settings(conn, weights=v5_custom)
             data = settings_mod.load_all(conn)
-        self.assertEqual(data["weights"], v4_custom)
+        self.assertEqual(data["weights"], v5_custom)
 
 
 # ─── 단위: attempts.py — inject_grade with 8 criteria ────────────────
@@ -217,6 +220,10 @@ class AttemptsInjectV4Test(unittest.TestCase):
         os.unlink(self.tmp.name)
 
     def _v4_payload(self) -> dict:
+        """Step 21 v5 페이로드 (이름은 v4 호환 유지).
+
+        가중치 합: 16+13+8+10+12+15+11+10+5 = 100
+        """
         return {
             "criteria": [
                 {"key": "mnemonics", "score": 12.5, "weight_applied": 16, "comment": ""},
@@ -224,9 +231,10 @@ class AttemptsInjectV4Test(unittest.TestCase):
                 {"key": "underline", "score": 6.0, "weight_applied": 8, "comment": ""},
                 {"key": "outline", "score": 8.0, "weight_applied": 10, "comment": ""},
                 {"key": "semantic", "score": 9.5, "weight_applied": 12, "comment": ""},
-                {"key": "richness", "score": 15.5, "weight_applied": 20, "comment": ""},
+                {"key": "richness", "score": 11.5, "weight_applied": 15, "comment": ""},
                 {"key": "missing", "score": -1.5, "weight_applied": 11, "comment": ""},
                 {"key": "articles", "score": 7.75, "weight_applied": 10, "comment": ""},
+                {"key": "case_apply", "score": 3.25, "weight_applied": 5, "comment": "Step 21"},
             ],
             "total_score": 67.7345,  # 소수점 4자리 입력 → round(2) 검증
             "max_score": 89.0,
@@ -236,10 +244,10 @@ class AttemptsInjectV4Test(unittest.TestCase):
         }
 
     def test_inject_grade_8_criteria_saved(self) -> None:
-        """8기준 모두 DB attempt_criteria row 생성."""
+        """9기준 모두 DB attempt_criteria row 생성 (Step 21 v5)."""
         with db_mod.get_conn(self.tmp.name) as conn:
             out = attempts_mod.inject_grade(conn, self.attempt_id, self._v4_payload())
-            self.assertEqual(len(out["criteria"]), 8)
+            self.assertEqual(len(out["criteria"]), 9)
             # DB row 검증
             rows = conn.execute(
                 "SELECT criterion_key FROM attempt_criteria WHERE attempt_id = ?",
@@ -247,7 +255,7 @@ class AttemptsInjectV4Test(unittest.TestCase):
             ).fetchall()
             keys = sorted(r["criterion_key"] for r in rows)
         expected = sorted(["mnem", "color", "under", "outline", "sem",
-                           "rich", "miss", "articles"])
+                           "rich", "miss", "articles", "case_apply"])
         self.assertEqual(keys, expected)
 
     def test_inject_grade_score_rounded_two_decimals(self) -> None:
@@ -284,7 +292,8 @@ class MigrationV4Test(unittest.TestCase):
     """마이그 v3 → v4: weights row 업데이트 + attempts 데이터 보존."""
 
     def test_target_schema_version_is_4(self) -> None:
-        self.assertEqual(db_mod.TARGET_SCHEMA_VERSION, 4)
+        # Step 21 v5 (2026-05-17): TARGET 5 (함수명은 호환 유지)
+        self.assertEqual(db_mod.TARGET_SCHEMA_VERSION, 5)
 
     def test_migrations_dict_has_v4(self) -> None:
         self.assertIn(4, db_mod.MIGRATIONS)
@@ -293,12 +302,12 @@ class MigrationV4Test(unittest.TestCase):
         self.assertTrue(path.is_file(), f"migration v4 SQL not found at {path}")
 
     def test_fresh_db_at_v4(self) -> None:
-        """신규 DB init → user_version = 4."""
+        """신규 DB init → user_version = 5 (Step 21 v5)."""
         tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         tmp.close()
         try:
             v = db_mod.init_db(tmp.name)
-            self.assertEqual(v, 4)
+            self.assertEqual(v, 5)
             conn = sqlite3.connect(tmp.name)
             conn.row_factory = sqlite3.Row
             row = conn.execute(
@@ -307,7 +316,10 @@ class MigrationV4Test(unittest.TestCase):
             conn.close()
             w = json.loads(row["value_json"])
             self.assertIn("articles", w)
+            self.assertIn("case_apply", w)
             self.assertEqual(w["articles"], 10)
+            self.assertEqual(w["case_apply"], 5)
+            self.assertEqual(w["rich"], 15)  # 20→15 갱신
             self.assertEqual(sum(w.values()), 100)
         finally:
             os.unlink(tmp.name)
@@ -320,8 +332,10 @@ class ReportsV4Test(unittest.TestCase):
     """reports.CRITERION_ORDER 8키 + by-case criteria avg 8행."""
 
     def test_criterion_order_8_keys(self) -> None:
-        self.assertEqual(len(reports_mod.CRITERION_ORDER), 8)
+        # Step 21 v5 (2026-05-17): 9키로 확장 (case_apply 신설)
+        self.assertEqual(len(reports_mod.CRITERION_ORDER), 9)
         self.assertIn("articles", reports_mod.CRITERION_ORDER)
+        self.assertIn("case_apply", reports_mod.CRITERION_ORDER)
 
 
 if __name__ == "__main__":

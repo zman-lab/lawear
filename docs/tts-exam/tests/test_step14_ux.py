@@ -68,7 +68,10 @@ def _build_db(db_path: str) -> None:
 
 
 def _full_grade_payload(**overrides: object) -> dict:
-    """PUT /grade 입력 — 8기준 + total/max/pct + grade + eval_notes (Step 20 v4)."""
+    """PUT /grade 입력 — 9기준 + total/max/pct + grade + eval_notes (Step 21 v5).
+
+    가중치 합: 16+13+8+10+12+15+11+10+5 = 100
+    """
     base: dict = {
         "criteria": [
             {"key": "mnemonics", "score": 3, "weight_applied": 16, "comment": "두문자"},
@@ -76,9 +79,10 @@ def _full_grade_payload(**overrides: object) -> dict:
             {"key": "underline", "score": 2, "weight_applied": 8, "comment": "밑줄"},
             {"key": "outline", "score": 3, "weight_applied": 10, "comment": "목차"},
             {"key": "semantic", "score": 8, "weight_applied": 12, "comment": "의미"},
-            {"key": "richness", "score": 15, "weight_applied": 20, "comment": "사안의 경우"},
+            {"key": "richness", "score": 11, "weight_applied": 15, "comment": "원본 대비 풍부함"},
             {"key": "missing", "score": -2, "weight_applied": 11, "comment": "누락"},
             {"key": "articles", "score": 8, "weight_applied": 10, "comment": "조문"},
+            {"key": "case_apply", "score": 3, "weight_applied": 5, "comment": "사안 적용"},
         ],
         "total_score": 14.78,
         "max_score": 17.0,

@@ -77,7 +77,10 @@ def _build_db(db_path: str) -> None:
 
 
 def _full_grade_payload(**overrides) -> dict:
-    """PUT /grade 입력 — 8기준 + total/max/pct + grade + eval_notes (Step 20 v4)."""
+    """PUT /grade 입력 — 9기준 + total/max/pct + grade + eval_notes (Step 21 v5).
+
+    가중치 합: 16+13+8+10+12+15+11+10+5 = 100
+    """
     base = {
         "criteria": [
             {"key": "mnemonics", "score": 3, "weight_applied": 16, "comment": "두문자 일부 반영"},
@@ -85,9 +88,10 @@ def _full_grade_payload(**overrides) -> dict:
             {"key": "underline", "score": 2, "weight_applied": 8, "comment": "밑줄 OK"},
             {"key": "outline", "score": 3, "weight_applied": 10, "comment": "목차 일치"},
             {"key": "semantic", "score": 8, "weight_applied": 12, "comment": "의미 일치"},
-            {"key": "richness", "score": 15, "weight_applied": 20, "comment": "사안의 경우 적용"},
+            {"key": "richness", "score": 11, "weight_applied": 15, "comment": "원본 대비 풍부함"},
             {"key": "missing", "score": -2, "weight_applied": 11, "comment": "증명책임 누락"},
             {"key": "articles", "score": 8, "weight_applied": 10, "comment": "제397조 명시"},
+            {"key": "case_apply", "score": 3, "weight_applied": 5, "comment": "사안 적용 양호 (Step 21)"},
         ],
         "total_score": 14.78,
         "max_score": 17.0,
@@ -293,14 +297,14 @@ class InjectGradeTest(unittest.TestCase):
         os.unlink(self.tmp.name)
 
     def test_inject_grade_marks_attempt_completed(self) -> None:
-        """정상 입력 → status='done' (client 라벨 'completed', Step 20 v4 8기준)."""
+        """정상 입력 → status='done' (client 라벨 'completed', Step 21 v5 9기준)."""
         with db_mod.get_conn(self.tmp.name) as conn:
             out = attempts_mod.inject_grade(conn, self.attempt_id, _full_grade_payload())
             self.assertEqual(out["status"], "completed")
             self.assertEqual(out["grade"], "B")
             # Step 20 v4: 소수점 2자리 (실제 시험 형식)
             self.assertAlmostEqual(out["score_total"], 14.78, places=2)
-            self.assertEqual(len(out["criteria"]), 8)
+            self.assertEqual(len(out["criteria"]), 9)
 
             # 8기준 모두 DB 에 row 존재 (Step 20 v4 — articles 신설)
             rows = conn.execute(
@@ -308,7 +312,7 @@ class InjectGradeTest(unittest.TestCase):
                 (self.attempt_id,),
             ).fetchall()
         keys = sorted(r["criterion_key"] for r in rows)
-        self.assertEqual(keys, sorted(["mnem", "color", "under", "outline", "sem", "rich", "miss", "articles"]))
+        self.assertEqual(keys, sorted(["mnem", "color", "under", "outline", "sem", "rich", "miss", "articles", "case_apply"]))
 
     def test_inject_grade_404_for_unknown_attempt(self) -> None:
         with db_mod.get_conn(self.tmp.name) as conn:
@@ -349,7 +353,7 @@ class InjectGradeTest(unittest.TestCase):
                 attempts_mod.inject_grade(conn, self.attempt_id, payload)
 
     def test_inject_grade_accepts_short_aliases(self) -> None:
-        """grader.CRITERION_KEYS 짧은 이름 직접 입력도 OK (Step 20 v4 — articles 추가)."""
+        """grader.CRITERION_KEYS 짧은 이름 직접 입력도 OK (Step 21 v5 — case_apply 포함)."""
         payload = _full_grade_payload()
         # 모든 키를 짧은 이름으로 치환
         long_to_short = {
@@ -357,6 +361,7 @@ class InjectGradeTest(unittest.TestCase):
             "outline": "outline", "semantic": "sem", "richness": "rich",
             "missing": "miss",
             "articles": "articles",  # Step 20 v4 — long/short 동일
+            "case_apply": "case_apply",  # Step 21 v5 — long/short 동일
         }
         for c in payload["criteria"]:
             c["key"] = long_to_short[c["key"]]
@@ -471,9 +476,9 @@ class MigrationV3Test(unittest.TestCase):
         os.unlink(self.tmp.name)
 
     def test_init_db_reaches_v3(self) -> None:
-        """Step 20 v4 (2026-05-16): TARGET_SCHEMA_VERSION=4 (이름은 호환 유지)."""
+        """Step 21 v5 (2026-05-17): TARGET_SCHEMA_VERSION=5 (함수명은 호환 유지)."""
         version = db_mod.init_db(self.tmp.name)
-        self.assertEqual(version, 4)
+        self.assertEqual(version, 5)
 
     def test_status_check_constraint_accepts_pending_grade(self) -> None:
         """attempts.status='pending_grade' INSERT 가능."""

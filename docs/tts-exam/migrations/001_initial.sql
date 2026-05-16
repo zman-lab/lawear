@@ -54,11 +54,12 @@ CREATE INDEX IF NOT EXISTS idx_attempts_status    ON attempts(status);
 
 -- ─── 3. attempt_criteria ──────────────────────────────────────
 -- Step 20 (v4, 2026-05-16): CHECK 확장 — 'articles' 추가 (8기준).
+-- Step 21 (v5, 2026-05-17): CHECK 확장 — 'case_apply' 추가 (9기준).
 CREATE TABLE IF NOT EXISTS attempt_criteria (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   attempt_id    INTEGER NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
   criterion_key TEXT    NOT NULL
-                CHECK (criterion_key IN ('mnem','color','under','outline','sem','rich','miss','articles')),
+                CHECK (criterion_key IN ('mnem','color','under','outline','sem','rich','miss','articles','case_apply')),
   score         REAL    NOT NULL,
   max_score     REAL    NOT NULL,
   weight        REAL    NOT NULL,
@@ -81,9 +82,9 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 -- 초기 settings 3 row (멱등 — OR IGNORE)
--- Step 20 (v4, 2026-05-16): weights 8키 (articles 신설). 신규 DB 는 바로 v4 디폴트 적용.
--- 마이그 004 는 기존 v3 DB 의 weights row 를 v4 로 UPDATE.
+-- Step 21 (v5, 2026-05-17): weights 9키 (case_apply 신설 + rich 20→15). 신규 DB 는 바로 v5 디폴트 적용.
+-- 마이그 005 는 기존 v4 DB 의 weights row 를 v5 로 UPDATE.
 INSERT OR IGNORE INTO settings (key, value_json, updated_at) VALUES
-  ('weights', '{"mnem":16,"color":13,"under":8,"outline":10,"sem":12,"rich":20,"miss":11,"articles":10}', datetime('now')),
+  ('weights', '{"mnem":16,"color":13,"under":8,"outline":10,"sem":12,"rich":15,"miss":11,"articles":10,"case_apply":5}', datetime('now')),
   ('bias',    '{"err_weight":60,"stale_weight":40,"err_threshold":3,"stale_threshold":14}', datetime('now')),
   ('voice',   '{"lang":"ko-KR","silence_sec":3}', datetime('now'));
