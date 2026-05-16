@@ -1,0 +1,4734 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Internal Review Console</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #1e1e1e;
+    --panel: #252526;
+    --panel-2: #2d2d30;
+    --border: #3e3e42;
+    --border-light: #464647;
+    --text: #cccccc;
+    --text-dim: #858585;
+    --text-bright: #e8e8e8;
+    --accent: #569cd6;
+    --accent-dim: #4a7ba8;
+    --success: #4ec9b0;
+    --warn: #ce9178;
+    --danger: #d16969;
+    --link: #9cdcfe;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, 'Segoe UI', 'Pretendard', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Top Bar */
+  .topbar {
+    height: 36px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 16px;
+    flex-shrink: 0;
+  }
+  .topbar .brand {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-bright);
+    letter-spacing: 0.3px;
+  }
+  .topbar .brand span { color: var(--text-dim); font-weight: 400; }
+  .topbar nav { display: flex; gap: 2px; }
+  .topbar nav button {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    border-radius: 3px;
+    font-family: inherit;
+  }
+  .topbar nav button:hover { background: var(--panel-2); color: var(--text); }
+  .topbar nav button.active { background: var(--accent-dim); color: #fff; }
+  .topbar .right { margin-left: auto; display: flex; gap: 10px; align-items: center; color: var(--text-dim); font-size: 11px; }
+  .topbar .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--success); display: inline-block; margin-right: 4px; }
+
+  .icon-btn {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 3px 9px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+  .icon-btn.active { background: var(--accent-dim); color: #fff; border-color: var(--accent); }
+
+  /* Main Layout */
+  .main { flex: 1; display: flex; min-height: 0; position: relative; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 280px;
+    min-width: 280px;
+    background: var(--panel);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    transition: width 0.18s, min-width 0.18s, border-right 0.18s;
+    overflow: hidden;
+  }
+  .sidebar.collapsed {
+    width: 0;
+    min-width: 0;
+    border-right: none;
+  }
+  #sidebar-toggle {
+    position: absolute;
+    top: 10px;
+    left: 280px;
+    z-index: 50;
+    width: 18px;
+    height: 32px;
+    border: 1px solid var(--border);
+    border-left: none;
+    background: var(--panel);
+    color: var(--text-dim);
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    font-size: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: left 0.18s;
+  }
+  #sidebar-toggle:hover { background: var(--panel-2); color: var(--accent); }
+  .sidebar.collapsed ~ #sidebar-toggle { left: 0; }
+
+  .sidebar .filters {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sidebar .filter-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    margin-bottom: 6px;
+  }
+  .sidebar .filter-row button {
+    background: var(--bg);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 5px 6px;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    padding-left: 8px;
+  }
+  .sidebar .filter-row button:hover { border-color: var(--accent-dim); color: var(--text); }
+  .sidebar .filter-row button.active { background: var(--accent-dim); color: #fff; border-color: var(--accent); }
+  .sidebar .search {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 6px 8px;
+    font-size: 12px;
+    border-radius: 3px;
+    font-family: inherit;
+  }
+  .sidebar .search:focus { outline: none; border-color: var(--accent); }
+
+  .case-list {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 0;
+  }
+  .case-group-label {
+    padding: 8px 12px 4px;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  /* Step 15-1 — 4 레벨 트리 (과목 > 카테고리 > 파일 > 케이스) */
+  .tree-node { user-select: none; }
+  .tree-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 8px;
+    cursor: pointer;
+    color: var(--text);
+    font-family: inherit;
+  }
+  .tree-header:hover { background: var(--panel-2); }
+  .tree-header .arrow {
+    display: inline-block;
+    width: 10px;
+    font-size: 9px;
+    color: var(--text-dim);
+    transition: transform 0.15s;
+    flex-shrink: 0;
+  }
+  .tree-node.collapsed > .tree-header .arrow { transform: rotate(-90deg); }
+  .tree-node.collapsed > .tree-body { display: none; }
+  .tree-header .tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tree-header .tree-count { color: var(--text-dim); font-size: 10px; font-family: 'SF Mono', Consolas, monospace; }
+  /* 레벨별 들여쓰기 + 폰트 사이즈 */
+  .tree-l1 > .tree-header { font-size: 12px; font-weight: 600; color: var(--text-bright); padding-left: 10px; }
+  .tree-l2 > .tree-header { font-size: 11px; color: var(--text); padding-left: 22px; }
+  .tree-l3 > .tree-header { font-size: 11px; color: var(--text-dim); padding-left: 34px; }
+  .tree-l3 > .tree-header:hover { color: var(--text); }
+  .tree-l1 > .tree-body { /* 자체 패딩 X — children 가 자기 padding 결정 */ }
+  /* 케이스 항목 (트리 l4) 들여쓰기 보강 */
+  .tree-l3 .case-item { padding-left: 46px; }
+  .case-item {
+    padding: 6px 12px 6px 12px;
+    border-left: 2px solid transparent;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .case-item:hover { background: var(--panel-2); }
+  .case-item.active { background: var(--panel-2); border-left-color: var(--accent); color: var(--text-bright); }
+  .case-item .case-id {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .case-item .case-title { font-size: 12px; color: var(--text); }
+  .case-item .case-meta {
+    font-size: 10px;
+    color: var(--text-dim);
+    display: flex;
+    gap: 8px;
+    margin-top: 2px;
+  }
+  .case-item .case-meta .pill {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+  .case-item .case-meta .pill.warn { color: var(--warn); border-color: var(--warn); }
+  .case-item .case-meta .pill.stale { color: var(--text-dim); }
+  .case-item .case-meta .pill.bookmarked { color: var(--accent); }
+  /* Step 9: 토글 가능한 ★ — 미활성 흐릿, hover 시 밝게 */
+  .case-item .case-meta .pill.bookmark-star { color: var(--text-dim); opacity: 0.4; }
+  .case-item .case-meta .pill.bookmark-star.bookmarked { color: var(--accent); opacity: 1; }
+  .case-item .case-meta .pill.bookmark-star:hover { opacity: 1; }
+
+  /* Content */
+  .content { flex: 1; overflow-y: auto; padding: 0; background: var(--bg); min-width: 0; }
+  .content-inner { max-width: 1100px; padding: 18px 24px 60px; }
+  .content-tab { display: none; }
+  .content-tab.active { display: block; }
+
+  /* Page Header */
+  .page-header {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .page-header .case-id-large {
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--accent);
+    font-size: 14px;
+  }
+  .page-header .case-status {
+    font-size: 11px;
+    color: var(--warn);
+    background: rgba(206, 145, 120, 0.1);
+    padding: 2px 8px;
+    border-radius: 2px;
+    border: 1px solid var(--warn);
+  }
+  .page-header .case-subject {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .page-header .breadcrumb {
+    font-size: 11px;
+    color: var(--text-dim);
+    flex-basis: 100%;
+  }
+  .page-header .breadcrumb a { color: var(--link); text-decoration: none; }
+
+  /* Section */
+  .section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    margin-bottom: 12px;
+  }
+  .section .section-header {
+    padding: 8px 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .section .section-header:hover { color: var(--text); background: var(--panel-2); }
+  .section .section-header .badge {
+    font-size: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 2px;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--text-dim);
+  }
+  .section .section-header .toggle-icon {
+    margin-left: auto;
+    color: var(--text-dim);
+    font-size: 10px;
+    font-family: 'SF Mono', Consolas, monospace;
+    width: 18px;
+    text-align: center;
+    transition: transform 0.15s;
+  }
+  .section.collapsed .section-header { border-bottom: none; }
+  .section.collapsed .section-header .toggle-icon { transform: rotate(-90deg); }
+  .section .section-body {
+    padding: 14px 16px;
+    line-height: 1.7;
+    color: var(--text);
+    font-size: 13px;
+  }
+  .section .section-body p { margin-bottom: 8px; }
+  .section.collapsed .section-body { display: none; }
+
+  /* Reviewer Notes */
+  .answer-area textarea {
+    width: 100%;
+    min-height: 240px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 12px;
+    font-family: 'SF Mono', Consolas, 'Pretendard', monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    border-radius: 3px;
+    resize: vertical;
+  }
+  .answer-area textarea:focus { outline: none; border-color: var(--accent); }
+  .answer-toolbar {
+    display: flex;
+    gap: 6px;
+    margin-top: 8px;
+    align-items: center;
+  }
+  .answer-toolbar .info {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-right: auto;
+  }
+  .btn {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 5px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn.primary:hover { background: var(--accent); color: #fff; }
+  .btn.mic { color: var(--warn); }
+  .btn.mic:hover { color: var(--warn); border-color: var(--warn); }
+  .btn.mic.recording { background: rgba(209,105,105,0.15); color: var(--danger); border-color: var(--danger); }
+
+  /* Evaluation */
+  .score-overview {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .score-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 18px;
+    border-radius: 3px;
+    text-align: center;
+  }
+  .score-card .score-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .score-card .score-value {
+    font-size: 42px;
+    font-weight: 300;
+    color: var(--text-bright);
+    font-family: 'SF Mono', Consolas, monospace;
+    line-height: 1;
+  }
+  .score-card .score-value .total {
+    font-size: 18px;
+    color: var(--text-dim);
+  }
+  .score-card .score-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 8px;
+  }
+  .score-card .grade { color: var(--success); }
+  .score-card .grade.b { color: var(--accent); }
+  .score-card .grade.c { color: var(--warn); }
+
+  .criteria-grid {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px;
+  }
+  .criteria-row {
+    display: grid;
+    grid-template-columns: 220px 1fr 60px;
+    gap: 10px;
+    align-items: center;
+    padding: 6px 4px;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+  }
+  .criteria-row:last-child { border-bottom: none; }
+  .criteria-row .label { color: var(--text); }
+  .criteria-row .label .sub { color: var(--text-dim); font-size: 10px; margin-left: 6px; }
+  .criteria-row .bar-wrap {
+    height: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .criteria-row .bar-fill {
+    height: 100%;
+    background: var(--accent);
+  }
+  .criteria-row .bar-fill.full { background: var(--success); }
+  .criteria-row .bar-fill.partial { background: var(--warn); }
+  .criteria-row .bar-fill.low { background: var(--danger); }
+  .criteria-row .num {
+    text-align: right;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .feedback-section .feedback-block {
+    background: var(--bg);
+    border-left: 2px solid var(--accent);
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    line-height: 1.7;
+  }
+  .feedback-section .feedback-block.warn { border-left-color: var(--warn); }
+  .feedback-section .feedback-block.danger { border-left-color: var(--danger); }
+  .feedback-section .feedback-block .ftag {
+    display: inline-block;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-bottom: 4px;
+  }
+
+  .diff-area {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    margin-top: 8px;
+  }
+  .diff-area .match { color: var(--text); }
+  .diff-area .miss { background: rgba(209, 105, 105, 0.15); color: var(--danger); padding: 0 3px; }
+  .diff-area .partial { background: rgba(206, 145, 120, 0.15); color: var(--warn); padding: 0 3px; }
+
+  /* Step 14 — Reference Diff 2열 분할 (내 답안 vs Lv.1) */
+  /* Step 15-2 — 우측 컬럼을 상단(평 카드) + 하단(원본 본문)으로 재구성 */
+  .diff-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 8px;
+  }
+  .diff-col {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    display: flex;
+    flex-direction: column;
+    min-height: 120px;
+  }
+  .diff-col .diff-col-header {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    font-family: inherit;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .diff-col .diff-col-header .diff-col-sub {
+    font-size: 9px;
+    color: var(--text-dim);
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .diff-col .diff-col-body {
+    padding: 10px 12px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  /* Step 15-3 — 매칭 강조 (좌/우 양쪽 동일하게) */
+  .diff-col .diff-col-body .diff-match,
+  .diff-col .diff-col-body .match {
+    background: rgba(78, 201, 176, 0.15);
+    padding: 0 2px;
+    border-radius: 2px;
+  }
+  .diff-col .diff-col-body .diff-partial,
+  .diff-col .diff-col-body .partial {
+    background: rgba(206, 145, 120, 0.18);
+    color: var(--warn);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .diff-col .diff-col-body .diff-miss,
+  .diff-col .diff-col-body .miss {
+    background: rgba(209, 105, 105, 0.18);
+    color: var(--danger);
+    padding: 0 3px;
+    border-radius: 2px;
+  }
+  .diff-col .diff-col-body .dim {
+    color: var(--text-dim);
+    opacity: 0.7;
+  }
+  /* Lv.4 강조 태그 인라인 (R-28 [red][blue][bold][u][blank][blank2]) — 좌/우 공통 */
+  .diff-col .diff-col-body .em-red    { background: #d16969; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .diff-col .diff-col-body .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .diff-col .diff-col-body .em-bold   { font-weight: 700; color: var(--text-bright); }
+  .diff-col .diff-col-body .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
+  .diff-col .diff-col-body .em-blank  { background: #ffe066; color: #222; padding: 0 4px; border-radius: 2px; }
+  .diff-col .diff-col-body .em-blank2 { background: #d16969; color: #ffe066; padding: 0 4px; border-radius: 2px; }
+
+  /* Step 15-2 — 우측 컬럼 = 상단(eval-summary 평 카드) + 하단(eval-reference 원본 본문) */
+  .eval-right-stack { display: flex; flex-direction: column; gap: 12px; min-height: 120px; }
+  .eval-summary {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+  }
+  .eval-summary .summary-title {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .eval-summary .summary-card {
+    border-left: 2px solid var(--accent);
+    padding: 6px 10px;
+    margin-bottom: 6px;
+    font-size: 12px;
+    line-height: 1.6;
+    background: rgba(86, 156, 214, 0.04);
+  }
+  .eval-summary .summary-card:last-child { margin-bottom: 0; }
+  .eval-summary .summary-card.warn { border-left-color: var(--warn); background: rgba(206, 145, 120, 0.04); }
+  .eval-summary .summary-card.danger { border-left-color: var(--danger); background: rgba(209, 105, 105, 0.04); }
+  .eval-summary .summary-tag {
+    display: inline-block;
+    font-size: 9px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-right: 6px;
+    font-weight: 600;
+  }
+  @media (max-width: 720px) {
+    .diff-split { grid-template-columns: 1fr; }
+  }
+
+  /* Step 15-6 — 기준 행 ⓘ 툴팁 */
+  .crit-info {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    line-height: 13px;
+    border-radius: 50%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    text-align: center;
+    font-size: 9px;
+    color: var(--text-dim);
+    cursor: help;
+    margin-left: 6px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-weight: 600;
+    user-select: none;
+  }
+  .crit-info:hover { color: var(--accent); border-color: var(--accent); }
+
+  /* Step 15-6 — 답안+평가 팝업 모달 */
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal-panel {
+    background: var(--panel);
+    border: 1px solid var(--border-light);
+    border-radius: 6px;
+    width: min(1100px, 96vw);
+    max-height: 92vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.6);
+    overflow: hidden;
+  }
+  .modal-head {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--panel-2);
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+  .modal-head .modal-title {
+    font-size: 13px;
+    color: var(--text-bright);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  .modal-head .modal-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .modal-head .modal-close {
+    margin-left: auto;
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+  }
+  .modal-head .modal-close:hover { color: var(--text); border-color: var(--accent); }
+  .modal-body {
+    padding: 14px 18px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .modal-tabs {
+    display: flex;
+    gap: 4px;
+    padding: 8px 14px 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .modal-tabs .ts-badge {
+    background: var(--bg);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: 'SF Mono', Consolas, monospace;
+    margin-bottom: -1px;
+    border-bottom-color: var(--bg);
+  }
+  .modal-tabs .ts-badge:hover { color: var(--text); border-color: var(--accent-dim); }
+  .modal-tabs .ts-badge.active {
+    background: var(--panel);
+    color: var(--accent);
+    border-color: var(--border);
+    border-bottom-color: var(--panel);
+  }
+  .modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .modal-grid h5 {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+  }
+  .modal-grid .modal-answer {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  .modal-grid .modal-answer .diff-match { background: rgba(78, 201, 176, 0.15); padding: 0 2px; border-radius: 2px; }
+  .modal-grid .modal-answer .diff-partial { background: rgba(206, 145, 120, 0.18); color: var(--warn); padding: 0 3px; border-radius: 2px; }
+  .modal-grid .modal-answer .diff-miss { background: rgba(209, 105, 105, 0.18); color: var(--danger); padding: 0 3px; border-radius: 2px; }
+  /* Step 16-2 — 우측 컬럼 컨테이너 (Eval 상단 + Origin 하단) */
+  .modal-grid .modal-right { display: flex; flex-direction: column; min-height: 0; max-height: 60vh; }
+  .modal-grid .modal-right h5 { flex: none; }
+  .modal-grid .modal-right .modal-eval { flex: 0 0 auto; max-height: 32vh; }
+  .modal-grid .modal-right .modal-origin { flex: 1 1 auto; min-height: 0; }
+  .modal-grid .modal-eval {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-size: 12px;
+    line-height: 1.6;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  /* Step 16-2 — 강사 원본 답안 본문 (모달 우측 하단) */
+  .modal-grid .modal-origin {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 28vh;
+    overflow-y: auto;
+  }
+  /* 강조 태그 (em-*) — 시안 Eval Diff 와 동일 스타일 */
+  .modal-grid .modal-origin .em-red    { background: #d16969; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .modal-grid .modal-origin .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .modal-grid .modal-origin .em-bold   { font-weight: 700; color: var(--text-bright); }
+  .modal-grid .modal-origin .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
+  .modal-grid .modal-origin .em-blank  { background: #ffe066; color: #222; padding: 0 4px; border-radius: 2px; }
+  .modal-grid .modal-origin .em-blank2 { background: #d16969; color: #ffe066; padding: 0 4px; border-radius: 2px; }
+  /* 매칭/누락 형광펜 — 좌측 답안과 동일 색 */
+  .modal-grid .modal-origin .diff-match { background: rgba(78, 201, 176, 0.15); padding: 0 2px; border-radius: 2px; }
+  .modal-grid .modal-origin .diff-partial { background: rgba(206, 145, 120, 0.18); color: var(--warn); padding: 0 3px; border-radius: 2px; }
+  .modal-grid .modal-origin .diff-miss { background: rgba(209, 105, 105, 0.18); color: var(--danger); padding: 0 3px; border-radius: 2px; }
+  .modal-grid .modal-eval .crit-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 60px;
+    gap: 8px;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 11px;
+  }
+  .modal-grid .modal-eval .crit-row .bar-wrap {
+    height: 5px;
+    background: var(--panel-2);
+    border-radius: 1px;
+    overflow: hidden;
+  }
+  .modal-grid .modal-eval .crit-row .bar-fill {
+    height: 100%;
+    background: var(--accent);
+  }
+  .modal-grid .modal-eval .crit-row .bar-fill.full { background: var(--success); }
+  .modal-grid .modal-eval .crit-row .bar-fill.partial { background: var(--warn); }
+  .modal-grid .modal-eval .crit-row .bar-fill.low { background: var(--danger); }
+  .modal-grid .modal-eval .crit-row .num {
+    text-align: right;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 10px;
+    color: var(--text-dim);
+  }
+  .modal-grid .modal-eval .modal-note {
+    padding: 6px 10px;
+    margin: 6px 0;
+    border-left: 2px solid var(--accent);
+    background: rgba(86, 156, 214, 0.05);
+    font-size: 11px;
+    line-height: 1.6;
+  }
+  .modal-grid .modal-eval .modal-note.warn { border-left-color: var(--warn); background: rgba(206, 145, 120, 0.05); }
+  .modal-grid .modal-eval .modal-note.danger { border-left-color: var(--danger); background: rgba(209, 105, 105, 0.05); }
+  .modal-grid .modal-eval .modal-note .note-tag {
+    display: inline-block;
+    font-size: 9px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    margin-right: 6px;
+    font-weight: 600;
+  }
+  /* Reports 행 클릭 가능 표시 */
+  .case-history-table tbody tr.clickable { cursor: pointer; }
+  .case-history-table tbody tr.clickable:hover { background: var(--panel-2); }
+  @media (max-width: 720px) {
+    .modal-grid { grid-template-columns: 1fr; }
+  }
+
+  /* Sub-tabs (Reports) */
+  .sub-tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .sub-tabs button {
+    background: transparent;
+    color: var(--text-dim);
+    border: none;
+    border-bottom: 2px solid transparent;
+    padding: 6px 14px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+    margin-bottom: -1px;
+  }
+  .sub-tabs button:hover { color: var(--text); }
+  .sub-tabs button.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  .sub-panel { display: none; }
+  .sub-panel.active { display: block; }
+
+  /* Reports */
+  .report-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .kpi-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 12px 14px;
+    border-radius: 3px;
+  }
+  .kpi-card .k-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .kpi-card .k-value {
+    font-size: 22px;
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--text-bright);
+    margin-top: 4px;
+  }
+  .kpi-card .k-delta {
+    font-size: 11px;
+    color: var(--success);
+    margin-top: 2px;
+  }
+  .kpi-card .k-delta.down { color: var(--danger); }
+
+  .chart-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 14px 16px;
+    margin-bottom: 12px;
+  }
+  .chart-card h4 {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 12px;
+  }
+  .chart-svg { width: 100%; height: 200px; }
+
+  .case-history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    margin-top: 6px;
+  }
+  .case-history-table th {
+    text-align: left;
+    padding: 6px 10px;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+  }
+  .case-history-table td {
+    padding: 6px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .case-history-table td.id { font-family: 'SF Mono', Consolas, monospace; color: var(--accent); }
+  .case-history-table td.score { font-family: 'SF Mono', Consolas, monospace; text-align: right; }
+  .case-history-table tr.expanded td { background: var(--panel-2); }
+  .case-history-table .row-detail td {
+    padding: 12px 16px;
+    background: var(--bg);
+    color: var(--text-dim);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  /* By-Subject filter */
+  .subject-tabs { display: flex; gap: 4px; margin-bottom: 12px; flex-wrap: wrap; }
+  .subject-tabs button {
+    background: var(--panel);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    font-size: 11px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .subject-tabs button:hover { color: var(--text); border-color: var(--accent-dim); }
+  .subject-tabs button.active { background: var(--accent-dim); color: #fff; border-color: var(--accent); }
+
+  /* By-Case selector */
+  .case-selector {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 12px;
+  }
+  .case-selector .label { color: var(--text-dim); font-size: 11px; }
+  .case-selector select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 5px 8px;
+    border-radius: 3px;
+    font-family: inherit;
+    font-size: 12px;
+    flex: 1;
+    max-width: 320px;
+  }
+
+  /* Settings */
+  .settings-section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 14px 18px;
+    margin-bottom: 12px;
+  }
+  .settings-section h3 {
+    font-size: 12px;
+    color: var(--text-bright);
+    margin-bottom: 4px;
+  }
+  .settings-section .sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 14px;
+  }
+  .slider-row {
+    display: grid;
+    grid-template-columns: 220px 1fr 60px;
+    gap: 14px;
+    align-items: center;
+    padding: 6px 0;
+  }
+  .slider-row .s-label { font-size: 12px; color: var(--text); }
+  .slider-row .s-label .sub { color: var(--text-dim); font-size: 10px; margin-left: 6px; }
+  .slider-row input[type=range] { width: 100%; accent-color: var(--accent); }
+  .slider-row .s-val {
+    text-align: right;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .settings-section .save-row {
+    margin-top: 14px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+  .settings-section .total-warn {
+    font-size: 11px;
+    color: var(--warn);
+    margin-top: 8px;
+  }
+
+  /* Data Sync */
+  .sync-status {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+  .sync-status .sync-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+    border-radius: 3px;
+  }
+  .sync-status .sync-card .s-l {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .sync-status .sync-card .s-v {
+    font-size: 16px;
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--text-bright);
+    margin-top: 3px;
+  }
+  .sync-status .sync-card.added .s-v { color: var(--success); }
+  .sync-status .sync-card.changed .s-v { color: var(--accent); }
+  .sync-status .sync-card.removed .s-v { color: var(--danger); }
+  .sync-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  .sync-meta b { color: var(--text); font-weight: 500; }
+  .sync-log {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 8px 12px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.7;
+    max-height: 100px;
+    overflow-y: auto;
+  }
+  .sync-log .added { color: var(--success); }
+  .sync-log .changed { color: var(--accent); }
+  .sync-log .removed { color: var(--danger); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: #424242; border-radius: 0; }
+  ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+
+  /* Mockup banner */
+  .mock-banner {
+    background: rgba(86, 156, 214, 0.08);
+    border-bottom: 1px solid var(--accent-dim);
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 4px 12px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .mock-banner b { color: var(--accent); }
+  .mock-banner kbd {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--text);
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="brand"><span data-i18n="brand">Internal Review Console</span> <span>· v0.1</span></div>
+  <nav>
+    <button class="tab-btn active" data-tab="review" data-i18n="tab_review">Review</button>
+    <button class="tab-btn" data-tab="evaluation" data-i18n="tab_evaluation">Evaluation</button>
+    <button class="tab-btn" data-tab="reports" data-i18n="tab_reports">Reports</button>
+    <button class="tab-btn" data-tab="settings" data-i18n="tab_settings">Settings</button>
+  </nav>
+  <div class="right">
+    <button id="stealth-btn" class="icon-btn" title="Stealth Mode (Z) — 위장 토글">👀 <span data-i18n="stealth_label">Stealth</span></button>
+    <button id="lang-btn" class="icon-btn" title="Language Toggle">🌐 <span data-i18n="lang_label">EN</span></button>
+    <span><span class="status-dot"></span><span data-i18n="status_connected">Connected</span></span>
+    <span>user.session_id: lawear-xxxx</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- Sidebar -->
+  <div class="sidebar" id="sidebar">
+    <div class="filters">
+      <div class="filter-row">
+        <button class="active" data-i18n="filter_all">All Cases</button>
+        <button data-i18n="filter_err">High Error</button>
+        <button data-i18n="filter_stale">Long Pending</button>
+        <button data-i18n="filter_book">Bookmarked</button>
+      </div>
+      <input type="text" class="search" placeholder="Search by ID or keyword…" data-i18n-ph="search_ph">
+    </div>
+    <div class="case-list" id="case-list">
+      <div class="case-group-label" style="padding: 12px;">Loading…</div>
+    </div>
+  </div>
+
+  <button id="sidebar-toggle" title="Sidebar Toggle">‹</button>
+
+  <!-- Content -->
+  <div class="content">
+    <div class="content-inner">
+
+      <!-- Review Tab -->
+      <div class="content-tab active" data-tab="review">
+        <div class="page-header" id="review-header">
+          <div class="case-id-large" id="rv-case-id">—</div>
+          <div class="case-status" data-i18n="status_in_review">In Review</div>
+          <div class="case-subject" id="rv-subject">—</div>
+          <div class="breadcrumb" id="rv-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
+        </div>
+
+        <div class="section" data-collapsible>
+          <div class="section-header">
+            <span data-i18n="sec_background">Background</span>
+            <span class="badge" data-i18n="badge_readonly">read-only</span>
+            <span class="toggle-icon">▼</span>
+          </div>
+          <div class="section-body" id="rv-background">
+            <span style="color: var(--text-dim);">Loading…</span>
+          </div>
+        </div>
+
+        <div class="section" data-collapsible>
+          <div class="section-header">
+            <span data-i18n="sec_inquiry">Inquiry</span>
+            <span class="badge" id="rv-points">—</span>
+            <span class="toggle-icon">▼</span>
+          </div>
+          <div class="section-body" id="rv-inquiry">
+            <span style="color: var(--text-dim);">Loading…</span>
+          </div>
+        </div>
+
+        <div class="section" data-collapsible>
+          <div class="section-header">
+            <span data-i18n="sec_notes">Reviewer Notes</span>
+            <span class="badge" data-i18n="badge_required">required</span>
+            <span class="toggle-icon">▼</span>
+          </div>
+          <div class="section-body answer-area">
+            <textarea id="rv-notes" placeholder="검토 의견을 입력하세요. 마이크 버튼으로 음성 입력 가능." data-i18n-ph="notes_ph"></textarea>
+            <div class="answer-toolbar">
+              <span class="info" id="rv-notes-info" data-i18n-fmt="info_chars">0 chars · auto-saved at —</span>
+              <button class="btn mic">● <span data-i18n="btn_voice">Voice Input</span></button>
+              <button class="btn" id="btn-save-draft" data-i18n="btn_save_draft">Save Draft</button>
+              <button class="btn primary" id="btn-submit" data-i18n="btn_submit">Submit for Evaluation</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Evaluation Tab -->
+      <div class="content-tab" data-tab="evaluation">
+        <div class="page-header" id="ev-header">
+          <div class="case-id-large" id="ev-case-id">—</div>
+          <div class="case-status" id="ev-status" data-i18n="status_in_review">In Review</div>
+          <div class="case-subject" id="ev-subject">—</div>
+        </div>
+
+        <div id="ev-empty" class="section-body" style="padding: 20px; color: var(--text-dim);">
+          <div data-i18n="ev_empty">No evaluation yet. Submit your notes from the Review tab to start grading.</div>
+        </div>
+
+        <div id="ev-grading" class="section-body" style="display:none; padding: 20px;">
+          <div class="info" id="ev-grading-line" data-i18n="ev_grading">Grading…</div>
+          <div style="margin-top: 8px; color: var(--text-dim); font-size: 11px;">
+            <span data-i18n="ev_elapsed">Elapsed</span>: <span id="ev-elapsed">0.0s</span>
+          </div>
+        </div>
+
+        <!-- Step 13 — manual 채점 대기 -->
+        <div id="ev-pending-grade" class="section-body" style="display:none; padding: 20px;">
+          <div class="info" data-i18n="ev_pending_grade">💬 저장 완료 — 메인 세션에서 "채점해줘" 호출 후 잠시 기다리세요.</div>
+          <div style="margin-top: 8px; color: var(--text-dim); font-size: 12px;" data-i18n="ev_pending_grade_hint">Claude Code 메인 Opus 가 채점 결과를 주입할 때까지 폴링 중 (10초 간격).</div>
+          <div style="margin-top: 8px; color: var(--text-dim); font-size: 11px;">
+            <span data-i18n="ev_pending_elapsed">Waiting</span>: <span id="ev-pending-elapsed">0.0s</span>
+          </div>
+        </div>
+
+        <div id="ev-error" class="section-body" style="display:none; padding: 20px;">
+          <div class="info" style="color: var(--danger);"><span data-i18n="ev_failed">Grading failed.</span></div>
+          <div style="margin-top: 8px; color: var(--text-dim); font-size: 12px;">
+            <span data-i18n="ev_error_code">Error</span>: <code id="ev-error-code">—</code>
+          </div>
+          <div id="ev-error-msg" style="margin-top: 8px; color: var(--text-dim);"></div>
+          <div style="margin-top: 12px;">
+            <button class="btn primary" id="btn-retry" data-i18n="btn_retry">Retry</button>
+          </div>
+        </div>
+
+        <div id="ev-result" style="display:none;">
+          <div class="score-overview">
+            <div class="score-card">
+              <div class="score-label" data-i18n="final_score">Final Score</div>
+              <div class="score-value"><span id="ev-score-total">—</span><span class="total"> / <span id="ev-score-max">—</span></span></div>
+              <div class="score-meta"><span class="grade b" id="ev-grade">—</span> · <span id="ev-pct">—</span>%</div>
+            </div>
+            <div class="criteria-grid" id="ev-criteria-grid">
+              <!-- criteria rows injected by JS -->
+            </div>
+          </div>
+
+          <!-- Step 15-2 — Reference Diff 영역 (좌: 내 답안 / 우상: 평 카드 / 우하: 원본 본문) -->
+          <div class="section" data-collapsible>
+            <div class="section-header">
+              <span data-i18n="sec_diff">Reference Diff</span>
+              <span class="badge" data-i18n="badge_vs_origin">vs Origin</span>
+              <span class="toggle-icon">▼</span>
+            </div>
+            <div class="section-body">
+              <div class="diff-split" id="ev-diff-split" style="display:none;">
+                <!-- 좌: 내 답안 (match/partial/miss 형광펜) -->
+                <div class="diff-col">
+                  <div class="diff-col-header">
+                    <span data-i18n="diff_col_mine">My Answer</span>
+                    <span class="diff-col-sub" id="ev-diff-mine-sub"></span>
+                  </div>
+                  <div class="diff-col-body" id="ev-diff-mine"></div>
+                </div>
+                <!-- 우: 상단(평 카드 3개) + 하단(원본 답안 본문 + 매칭 강조) -->
+                <div class="eval-right-stack">
+                  <div class="eval-summary" id="ev-eval-summary">
+                    <div class="summary-title" data-i18n="sec_eval_notes">Evaluation Notes</div>
+                    <div class="summary-card">
+                      <span class="summary-tag" data-i18n="fb_strength">Strength</span>
+                      <span id="ev-note-strength">—</span>
+                    </div>
+                    <div class="summary-card warn">
+                      <span class="summary-tag" data-i18n="fb_caution">Caution</span>
+                      <span id="ev-note-caution">—</span>
+                    </div>
+                    <div class="summary-card danger">
+                      <span class="summary-tag" data-i18n="fb_missing">Missing</span>
+                      <span id="ev-note-missing">—</span>
+                    </div>
+                  </div>
+                  <div class="diff-col">
+                    <div class="diff-col-header">
+                      <span data-i18n="diff_col_ref">Reference (Origin)</span>
+                      <span class="diff-col-sub" id="ev-diff-ref-sub"></span>
+                    </div>
+                    <div class="diff-col-body" id="ev-diff-ref"></div>
+                  </div>
+                </div>
+              </div>
+              <!-- Fallback: diff_segments 만 있을 때 (구버전 호환) -->
+              <div class="diff-area" id="ev-diff-area">
+                <span style="color: var(--text-dim);" data-i18n="ev_diff_empty">No diff available.</span>
+              </div>
+            </div>
+          </div>
+        </div><!-- /ev-result -->
+      </div><!-- /content-tab evaluation -->
+
+      <!-- Reports Tab -->
+      <div class="content-tab" data-tab="reports">
+        <div class="page-header">
+          <div class="case-id-large" data-i18n="page_reports">Reports</div>
+          <div class="case-subject"><span data-i18n="rep_period">Performance metrics</span> · 2026-04-16 ~ 2026-05-16</div>
+        </div>
+
+        <div class="sub-tabs">
+          <button class="sub-tab-btn active" data-sub="overall" data-i18n="sub_overall">Overall</button>
+          <button class="sub-tab-btn" data-sub="bysubject" data-i18n="sub_subject">By Subject</button>
+          <button class="sub-tab-btn" data-sub="bycase" data-i18n="sub_case">By Case</button>
+        </div>
+
+        <!-- Overall -->
+        <div class="sub-panel active" data-sub="overall">
+          <div class="report-grid" id="rep-overall-kpi">
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_submitted">Submitted</div>
+              <div class="k-value" id="rep-ov-submitted">—</div>
+              <div class="k-delta" id="rep-ov-submitted-delta">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_avg">Avg. Score</div>
+              <div class="k-value" id="rep-ov-avg">—</div>
+              <div class="k-delta" id="rep-ov-avg-delta">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_err">High Error Rate</div>
+              <div class="k-value" id="rep-ov-err">—</div>
+              <div class="k-delta down" id="rep-ov-err-delta">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_stale">Long Pending</div>
+              <div class="k-value" id="rep-ov-stale">—</div>
+              <div class="k-delta down" id="rep-ov-stale-delta">—</div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <h4 data-i18n="chart_trend">Score Trend (by Submission)</h4>
+            <div id="rep-ov-trend-wrap">
+              <svg class="chart-svg" id="rep-ov-trend-svg" viewBox="0 0 600 200" preserveAspectRatio="none"></svg>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <h4 data-i18n="chart_recent">Recent Submissions</h4>
+            <table class="case-history-table">
+              <thead>
+                <tr>
+                  <th data-i18n="col_date">Date</th>
+                  <th data-i18n="col_case">Case ID</th>
+                  <th data-i18n="col_title">Title</th>
+                  <th style="text-align:right;" data-i18n="col_score">Score</th>
+                  <th style="text-align:right;" data-i18n="col_grade">Grade</th>
+                </tr>
+              </thead>
+              <tbody id="rep-ov-recent-tbody">
+                <tr><td colspan="5" style="text-align:center; color: var(--text-dim);" data-i18n="loading">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- By Subject -->
+        <div class="sub-panel" data-sub="bysubject">
+          <div class="subject-tabs" id="rep-subj-tabs">
+            <!-- 동적 채움: rep-subj-tabs 안에 button data-subject="…" 추가 -->
+            <button class="active" data-subject="">—</button>
+          </div>
+
+          <div class="report-grid" id="rep-subj-kpi">
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_cases">Cases</div>
+              <div class="k-value" id="rep-subj-cases">—</div>
+              <div class="k-delta" id="rep-subj-cases-sub">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_avg">Avg. Score</div>
+              <div class="k-value" id="rep-subj-avg">—</div>
+              <div class="k-delta" id="rep-subj-avg-delta">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_topic_err">Top Error Topic</div>
+              <div class="k-value" id="rep-subj-toperr" style="font-size: 14px;">—</div>
+              <div class="k-delta down" id="rep-subj-toperr-sub">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_coverage">Coverage</div>
+              <div class="k-value" id="rep-subj-coverage">—</div>
+              <div class="k-delta" id="rep-subj-coverage-sub">—</div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <h4 data-i18n="chart_subj_compare">By Subject (Avg %)</h4>
+            <svg class="chart-svg" id="rep-subj-compare-svg" viewBox="0 0 600 200" preserveAspectRatio="none"></svg>
+          </div>
+
+          <div class="chart-card">
+            <h4 data-i18n="chart_subj_recent">Cases in this Subject</h4>
+            <table class="case-history-table">
+              <thead>
+                <tr>
+                  <th data-i18n="col_case">Case ID</th>
+                  <th data-i18n="col_title">Title</th>
+                  <th style="text-align:right;" data-i18n="col_attempts">Attempts</th>
+                  <th style="text-align:right;" data-i18n="col_avg">Avg.</th>
+                  <th style="text-align:right;" data-i18n="col_best">Best</th>
+                  <th style="text-align:right;" data-i18n="col_last">Last</th>
+                </tr>
+              </thead>
+              <tbody id="rep-subj-cases-tbody">
+                <tr><td colspan="6" style="text-align:center; color: var(--text-dim);" data-i18n="loading">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- By Case -->
+        <div class="sub-panel" data-sub="bycase">
+          <div class="case-selector">
+            <span class="label" data-i18n="case_pick">Case:</span>
+            <select id="rep-case-select">
+              <option value="" data-i18n="loading">Loading…</option>
+            </select>
+          </div>
+
+          <div class="report-grid" id="rep-case-kpi">
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_attempts">Attempts</div>
+              <div class="k-value" id="rep-case-attempts">—</div>
+              <div class="k-delta" id="rep-case-attempts-sub">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_last">Last Score</div>
+              <div class="k-value" id="rep-case-last">—</div>
+              <div class="k-delta" id="rep-case-last-sub">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_best">Best Score</div>
+              <div class="k-value" id="rep-case-best">—</div>
+              <div class="k-delta" id="rep-case-best-sub">—</div>
+            </div>
+            <div class="kpi-card">
+              <div class="k-label" data-i18n="kpi_persist_err">Persistent Errors</div>
+              <div class="k-value" id="rep-case-persist">—</div>
+              <div class="k-delta down" id="rep-case-persist-sub">—</div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <h4 id="rep-case-trend-h"><span data-i18n="chart_case_trend">Score per Attempt</span> — <span id="rep-case-trend-h-id">—</span></h4>
+            <svg class="chart-svg" id="rep-case-trend-svg" viewBox="0 0 600 200" preserveAspectRatio="none"></svg>
+          </div>
+
+          <div class="chart-card">
+            <h4 id="rep-case-criteria-h"><span data-i18n="chart_case_criteria">Criteria Average</span> — <span id="rep-case-criteria-h-id">—</span></h4>
+            <div class="criteria-grid" id="rep-case-criteria-grid" style="background: transparent; padding: 0;">
+              <div style="color: var(--text-dim); padding: 12px; text-align:center;" data-i18n="loading">Loading…</div>
+            </div>
+          </div>
+
+          <div class="chart-card">
+            <h4 id="rep-case-history-h"><span data-i18n="chart_attempts_history">Attempt History</span> — <span id="rep-case-history-h-id">—</span></h4>
+            <table class="case-history-table">
+              <thead>
+                <tr>
+                  <th data-i18n="col_attempt">#</th>
+                  <th data-i18n="col_date">Date</th>
+                  <th style="text-align:right;" data-i18n="col_score">Score</th>
+                  <th data-i18n="col_main_miss">Main Miss</th>
+                </tr>
+              </thead>
+              <tbody id="rep-case-history-tbody">
+                <tr><td colspan="4" style="text-align:center; color: var(--text-dim);" data-i18n="loading">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div class="content-tab" data-tab="settings">
+        <div class="page-header">
+          <div class="case-id-large" data-i18n="page_settings">Settings</div>
+          <div class="case-subject"><span data-i18n="set_subject">Evaluation weights · Selection bias · Voice input · Data sync</span></div>
+        </div>
+
+        <!-- Grading Mode (Step 13) -->
+        <div class="settings-section" id="settings-grading-mode-section">
+          <h3 data-i18n="set_grading_mode">Grading Mode</h3>
+          <div class="sub" data-i18n="set_grading_mode_desc">채점 실행 위치. 키 미보유 시 manual 유지.</div>
+          <div style="display:flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+            <label style="display:flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+              <input type="radio" name="grading_mode" value="manual" style="margin-top: 3px;">
+              <span>
+                <b data-i18n="grading_mode_manual">Manual (Claude Code)</b>
+                <div class="sub" data-i18n="grading_mode_manual_desc">메인 세션 Opus 가 직접 채점 → 결과 주입.</div>
+              </span>
+            </label>
+            <label style="display:flex; align-items: flex-start; gap: 10px; cursor: pointer;">
+              <input type="radio" name="grading_mode" value="auto" style="margin-top: 3px;">
+              <span>
+                <b data-i18n="grading_mode_auto">Auto (Anthropic API)</b>
+                <div class="sub" data-i18n="grading_mode_auto_desc">17896 서버가 Anthropic API 직접 호출 (ANTHROPIC_API_KEY 필요).</div>
+                <div class="sub" id="grading-mode-auto-warning" style="color: var(--danger); display: none;" data-i18n="grading_mode_auto_warning">Set ANTHROPIC_API_KEY in .env first; otherwise requests fall back to manual.</div>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        <!-- Data Sync -->
+        <div class="settings-section">
+          <h3 data-i18n="set_sync">Data Sync</h3>
+          <div class="sub"><span data-i18n="set_sync_desc">17895 뷰어의 케이스 자료를 17896으로 가져옵니다.</span></div>
+          <div class="sync-meta" id="sync-meta">
+            <b data-i18n="sync_source">Source:</b> <a href="http://127.0.0.1:17895/_file_index.json" style="color: var(--link); text-decoration: none;">http://127.0.0.1:17895/_file_index.json</a><br>
+            <b data-i18n="sync_last">Last sync:</b> <span id="sync-last">—</span> · <b data-i18n="sync_local">Local cases:</b> <span id="sync-local">—</span> · <b data-i18n="sync_remote">Remote cases:</b> <span id="sync-remote">—</span>
+          </div>
+          <div class="sync-status" id="sync-status">
+            <div class="sync-card added">
+              <div class="s-l" data-i18n="sync_added">Added</div>
+              <div class="s-v" id="sync-added-n">—</div>
+            </div>
+            <div class="sync-card changed">
+              <div class="s-l" data-i18n="sync_changed">Changed</div>
+              <div class="s-v" id="sync-changed-n">—</div>
+            </div>
+            <div class="sync-card removed">
+              <div class="s-l" data-i18n="sync_removed">Removed</div>
+              <div class="s-v" id="sync-removed-n">—</div>
+            </div>
+            <div class="sync-card">
+              <div class="s-l" data-i18n="sync_total">Total after sync</div>
+              <div class="s-v" id="sync-total-n">—</div>
+            </div>
+          </div>
+          <div class="sync-log" id="sync-log">
+            <span style="color: var(--text-dim);" data-i18n="sync_log_empty">Click "Preview Diff" to load.</span>
+          </div>
+          <div class="save-row">
+            <button class="btn" id="btn-preview-diff"><span data-i18n="btn_diff_preview">Preview Diff</span></button>
+            <button class="btn primary" id="btn-resync"><span data-i18n="btn_resync">⟳ Resync from 17895</span></button>
+          </div>
+        </div>
+
+        <div class="settings-section" id="settings-weights-section">
+          <h3 data-i18n="set_weights">Evaluation Criteria Weights</h3>
+          <div class="sub" data-i18n="set_weights_desc">채점 항목별 가중치 (합계 100). 항목별 점수에 가중치 적용 → 최종 점수.</div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="crit_mnem">Lv.4 Mnemonics</span> <span class="sub">[blank2]</span></div>
+            <input type="range" min="0" max="40" value="20" data-weight-key="mnem">
+            <div class="s-val" data-weight-val="mnem">20</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="crit_color">Color Emphasis</span> <span class="sub">red/blue/bold/blank</span></div>
+            <input type="range" min="0" max="40" value="15" data-weight-key="color">
+            <div class="s-val" data-weight-val="color">15</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="crit_under">Underline Coverage</span> <span class="sub">[u]</span></div>
+            <input type="range" min="0" max="40" value="10" data-weight-key="under">
+            <div class="s-val" data-weight-val="under">10</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="crit_outline">Lv.1 Outline Match</span></div>
+            <input type="range" min="0" max="40" value="15" data-weight-key="outline">
+            <div class="s-val" data-weight-val="outline">15</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="crit_sem">Semantic Match</span></div>
+            <input type="range" min="0" max="40" value="15" data-weight-key="sem">
+            <div class="s-val" data-weight-val="sem">15</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="crit_rich">Richness</span> <span class="sub">Lv.4 / Lv.1 / Origin</span></div>
+            <input type="range" min="0" max="40" value="10" data-weight-key="rich">
+            <div class="s-val" data-weight-val="rich">10</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="crit_miss">Missing Arguments</span></div>
+            <input type="range" min="0" max="40" value="15" data-weight-key="miss">
+            <div class="s-val" data-weight-val="miss">15</div>
+          </div>
+          <div class="total-warn" id="weights-total-warn"><span id="weights-total-text" data-i18n="total_ok">Total: 100 / 100 ✓</span></div>
+        </div>
+
+        <div class="settings-section" id="settings-bias-section">
+          <h3 data-i18n="set_bias">Case Selection Bias</h3>
+          <div class="sub" data-i18n="set_bias_desc">"많이 틀린 / 오래된" 모드의 Top-K 선택 가중치.</div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="bias_err">High Error Weight</span></div>
+            <input type="range" min="0" max="100" value="60" data-bias-key="err_weight">
+            <div class="s-val" data-bias-val="err_weight">60</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="bias_stale">Stale Weight</span></div>
+            <input type="range" min="0" max="100" value="40" data-bias-key="stale_weight">
+            <div class="s-val" data-bias-val="stale_weight">40</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="bias_err_th">High Error Threshold</span> <span class="sub">err count</span></div>
+            <input type="range" min="1" max="10" value="3" data-bias-key="err_threshold">
+            <div class="s-val" data-bias-val="err_threshold">≥3</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="bias_stale_th">Stale Threshold</span> <span class="sub">days</span></div>
+            <input type="range" min="1" max="60" value="14" data-bias-key="stale_threshold_days">
+            <div class="s-val" data-bias-val="stale_threshold_days">14d</div>
+          </div>
+        </div>
+
+        <div class="settings-section" id="settings-voice-section">
+          <h3 data-i18n="set_voice">Voice Input</h3>
+          <div class="sub" data-i18n="set_voice_desc">Web Speech API · 브라우저/OS 내장 STT.</div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="voice_lang">Language</span></div>
+            <input type="range" min="0" max="1" value="0" data-voice-key="lang">
+            <div class="s-val" data-voice-val="lang">ko-KR</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="voice_silence">Auto-stop (silence sec)</span></div>
+            <input type="range" min="1" max="10" value="3" data-voice-key="silence_sec">
+            <div class="s-val" data-voice-val="silence_sec">3s</div>
+          </div>
+        </div>
+
+        <div class="save-row" style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 4px;">
+          <button class="btn" id="btn-settings-reset" data-i18n="btn_reset">Reset to Default</button>
+          <button class="btn primary" id="btn-settings-save" data-i18n="btn_save">Save Settings</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Step 15-6 — 답안+평가 팝업 모달 (Reports 행 클릭 시 표시) -->
+<div class="modal-backdrop" id="attempt-modal" aria-hidden="true">
+  <div class="modal-panel" role="dialog" aria-modal="true">
+    <div class="modal-head">
+      <span class="modal-title" id="attempt-modal-title">—</span>
+      <span class="modal-sub" id="attempt-modal-sub">—</span>
+      <button class="modal-close" id="attempt-modal-close" aria-label="Close">✕ <span data-i18n="btn_close">Close</span></button>
+    </div>
+    <div class="modal-tabs" id="attempt-modal-tabs">
+      <!-- 타임스탬프 배지 (시도 N건이면 N개) -->
+    </div>
+    <div class="modal-body">
+      <div class="modal-grid">
+        <div>
+          <h5 data-i18n="diff_col_mine">My Answer</h5>
+          <div class="modal-answer" id="attempt-modal-answer">—</div>
+        </div>
+        <div class="modal-right">
+          <h5 data-i18n="modal_eval_panel">Evaluation</h5>
+          <div class="modal-eval" id="attempt-modal-eval">—</div>
+          <h5 data-i18n="diff_col_ref" style="margin-top: 12px;">Reference (Origin)</h5>
+          <div class="modal-origin" id="attempt-modal-origin">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // ─── i18n ────────────────────────────────────────
+  const I18N = {
+    en: {
+      // mockup banner
+      mock_label: 'MOCKUP',
+      hint_stealth: '<span>Stealth: <kbd>Z</kbd> (sidebar · labels · sections all)</span>',
+      hint_tabs: '<span>Tabs: <kbd>1</kbd>~<kbd>4</kbd></span>',
+      // topbar
+      brand: 'Internal Review Console',
+      tab_review: 'Review', tab_evaluation: 'Evaluation', tab_reports: 'Reports', tab_settings: 'Settings',
+      stealth_label: 'Stealth', lang_label: 'EN', status_connected: 'Connected',
+      // sidebar
+      filter_all: 'All Cases', filter_err: 'High Error', filter_stale: 'Long Pending', filter_book: 'Bookmarked',
+      search_ph: 'Search by ID or keyword…',
+      grp_civil_intro: 'Civil Law / Intro / IMK01 (13)',
+      grp_civil_prep: 'Civil Law / Prep / YBI01 (8)',
+      pill_pt: ' pt', pill_err: 'err ', pill_d: 'd',
+      // review header
+      status_in_review: 'In Review', subject_civil_intro: 'Civil Law · Intro',
+      bc_cases: 'Cases', bc_civil: 'Civil Law', bc_intro: 'Intro',
+      // sections
+      sec_background: 'Background', sec_inquiry: 'Inquiry', sec_notes: 'Reviewer Notes',
+      sec_eval_notes: 'Evaluation Notes', sec_diff: 'Reference Diff',
+      badge_readonly: 'read-only', badge_required: 'required', badge_vs_lv1: 'vs Lv.1',
+      notes_ph: 'Enter reviewer notes. Press the mic button for voice input.',
+      info_chars: '0 chars · auto-saved at —',
+      btn_voice: 'Voice Input', btn_save_draft: 'Save Draft', btn_submit: 'Submit for Evaluation',
+      // evaluation
+      status_evaluated: 'Evaluated', eval_submitted_at: 'Submitted at',
+      final_score: 'Final Score', grade_b: 'Grade B',
+      crit_mnem: 'Lv.4 Mnemonics', crit_color: 'Color Emphasis', crit_under: 'Underline Coverage',
+      crit_outline: 'Lv.1 Outline Match', crit_outline_sub: 'outline meaning',
+      crit_sem: 'Semantic Match', crit_sem_sub: 'tag meaning',
+      crit_rich: 'Richness', crit_miss: 'Missing Arguments', crit_miss_sub: 'vs reference',
+      fb_strength: 'Strength', fb_caution: 'Caution', fb_missing: 'Missing',
+      // reports
+      page_reports: 'Reports', rep_period: 'Performance metrics',
+      sub_overall: 'Overall', sub_subject: 'By Subject', sub_case: 'By Case',
+      kpi_submitted: 'Submitted', kpi_avg: 'Avg. Score', kpi_err: 'High Error Rate', kpi_stale: 'Long Pending',
+      kpi_cases: 'Cases', kpi_topic_err: 'Top Error Topic', kpi_coverage: 'Coverage',
+      kpi_attempts: 'Attempts', kpi_last: 'Last Score', kpi_best: 'Best Score', kpi_persist_err: 'Persistent Errors',
+      delta_lastweek: '+12 last week', delta_cases: '+2 cases', delta_over14d: '> 14d',
+      kpi_submitted_n: '14 submitted', kpi_err_n: 'err 4', kpi_covered: '14 / 21',
+      kpi_since: 'since 2026-04-22', kpi_recurring: '3/4 attempts',
+      chart_trend: 'Score Trend (by Submission)',
+      chart_recent: 'Recent Submissions', chart_subj_compare: 'By Subject (Avg %)',
+      chart_subj_recent: 'Cases in this Subject',
+      chart_case_trend: 'Score per Attempt — IMK01-01',
+      chart_case_criteria: 'Criteria Average — IMK01-01',
+      chart_attempts_history: 'Attempt History — IMK01-01',
+      col_date: 'Date', col_case: 'Case ID', col_title: 'Title', col_score: 'Score', col_grade: 'Grade',
+      col_attempts: 'Attempts', col_avg: 'Avg.', col_best: 'Best', col_last: 'Last',
+      col_attempt: '#', col_main_miss: 'Main Miss',
+      row_notes_excerpt: 'Reviewer Notes (excerpt)', row_evaluator: 'Evaluator',
+      case_pick: 'Case:',
+      // settings
+      page_settings: 'Settings',
+      set_subject: 'Evaluation weights · Selection bias · Voice input · Data sync',
+      set_sync: 'Data Sync',
+      set_sync_desc: 'Pull case data from 17895 viewer into 17896.',
+      sync_source: 'Source:', sync_last: 'Last sync:', sync_local: 'Local cases:', sync_remote: 'Remote cases:',
+      sync_added: 'Added', sync_changed: 'Changed', sync_removed: 'Removed', sync_total: 'Total after sync',
+      btn_diff_preview: 'Preview Diff', btn_resync: '⟳ Resync from 17895',
+      set_weights: 'Evaluation Criteria Weights',
+      set_weights_desc: 'Per-criterion weight (sum = 100). Applied to final score.',
+      total_ok: 'Total: 100 / 100 ✓',
+      set_bias: 'Case Selection Bias',
+      set_bias_desc: 'Top-K weights for "High Error / Stale" modes.',
+      bias_err: 'High Error Weight', bias_stale: 'Stale Weight',
+      bias_err_th: 'High Error Threshold', bias_stale_th: 'Stale Threshold',
+      set_voice: 'Voice Input', set_voice_desc: 'Web Speech API · browser/OS built-in STT.',
+      voice_lang: 'Language', voice_silence: 'Auto-stop (silence sec)',
+      btn_reset: 'Reset to Default', btn_save: 'Save Settings',
+      // wire (Step 5)
+      sync_log_empty: 'Click "Preview Diff" to load.',
+      loading: 'Loading…',
+      err_load: 'Failed to load.',
+      err_sync_offline: '17895 viewer is offline. Sync skipped.',
+      empty_cases: 'No cases. Run "Resync from 17895" in Settings.',
+      // wire (Step 7 — Attempts API + Evaluation tab)
+      ev_empty: 'No evaluation yet. Submit your notes from the Review tab to start grading.',
+      ev_grading: 'Grading…',
+      ev_elapsed: 'Elapsed',
+      ev_failed: 'Grading failed.',
+      ev_error_code: 'Error',
+      btn_retry: 'Retry',
+      ev_diff_empty: 'No diff available.',
+      // Step 14 — Reference Diff 2열 분할 (Step 15-2: Lv.1 → Origin)
+      diff_col_mine: 'My Answer',
+      diff_col_ref: 'Reference (Origin)',
+      diff_col_mine_sub_fmt: '{n} chars',
+      diff_col_ref_sub_fmt: '{n} chars',
+      diff_col_ref_missing: 'No origin reference available.',
+      badge_vs_origin: 'vs Origin',
+      // Step 15-6 — 팝업 모달 + ⓘ 툴팁
+      btn_close: 'Close',
+      modal_eval_panel: 'Evaluation',
+      modal_no_attempts: 'No attempts for this case.',
+      modal_loading: 'Loading attempt…',
+      modal_load_failed: 'Failed to load attempt: {msg}',
+      modal_no_answer: 'No answer recorded.',
+      modal_no_eval: 'Not yet graded.',
+      // ⓘ 툴팁 의미 (기준별 평균)
+      crit_mnem_tip: 'Lv.4 두문자 매칭 비율 (mnem)',
+      crit_color_tip: '색 강조 ([red]/[blue]/[bold]/[blank]) 매칭 (color)',
+      crit_under_tip: '밑줄 ([u]) 매칭 (under)',
+      crit_outline_tip: 'Lv.1 목차 의미 매칭 (outline)',
+      crit_sem_tip: '태그 의미 일치도 (sem)',
+      crit_rich_tip: '깊이: Lv.4(0) → Lv.1(1) → Origin(2) (rich)',
+      crit_miss_tip: '누락 논점 — 음수일수록 누락 많음 (miss)',
+      err_submit_empty: 'Please enter reviewer notes before submitting.',
+      err_submit_failed: 'Failed to submit for evaluation.',
+      err_poll_failed: 'Failed to retrieve evaluation status.',
+      info_submitted: 'Submitted, grading in progress…',
+      info_chars_fmt: '{n} chars',
+      info_saved_at: 'auto-saved at {t}',
+      info_saved_never: 'auto-saved at —',
+      draft_saved: 'Draft saved locally.',
+      // wire (Step 10 — Reports)
+      rep_loading: 'Loading…',
+      rep_empty: 'No data yet. Submit at least one evaluation to see reports.',
+      rep_subject_empty: 'No data for this subject yet.',
+      rep_case_empty: 'No attempts for this case yet.',
+      rep_no_subjects: 'No subjects synced. Run Settings → Resync first.',
+      rep_no_cases: 'No cases available.',
+      rep_load_failed: 'Failed to load report.',
+      delta_lastweek_fmt: '+{n} last {d}d',
+      delta_pp_fmt: '{n}pp',
+      delta_cases_fmt: '{n} cases',
+      delta_over_fmt: '> {n}d',
+      kpi_submitted_n_fmt: '{n} submitted',
+      kpi_err_n_fmt: 'err {n}',
+      kpi_covered_fmt: '{n} / {total}',
+      kpi_since_fmt: 'since {date}',
+      kpi_recurring_fmt: '{n}/{total} attempts',
+      kpi_score_fmt: '{score} / {max}',
+      // wire (Step 11 — STT / Web Speech API)
+      voice_unsupported: 'Voice input not supported in this browser',
+      voice_tooltip: 'Click to start / stop voice input (mic permission required)',
+      voice_listening: '🎤 Listening…',
+      voice_no_target: 'No reviewer-notes input to dictate into',
+      voice_err_no_speech: 'No speech detected — please try again',
+      voice_err_audio_capture: 'No microphone found',
+      voice_err_not_allowed: 'Microphone permission denied — allow in browser settings',
+      voice_err_network: 'Speech service network error',
+      voice_err_start: 'Failed to start voice input',
+      voice_err_unknown: 'Voice input error',
+      // wire (Step 12 — toasts / settings)
+      toast_settings_load_failed: 'Failed to load settings: {msg}',
+      toast_settings_saved: 'Settings saved',
+      toast_settings_save_failed: 'Failed to save settings: {msg}',
+      toast_weights_sum_bad: 'Weights sum is {n}. Adjust so total = 100.',
+      toast_bookmark_failed: 'Bookmark toggle failed: {msg}',
+      // Step 13 — manual grading mode
+      set_grading_mode: 'Grading Mode',
+      set_grading_mode_desc: 'Where grading runs. Keep manual until ANTHROPIC_API_KEY is set.',
+      grading_mode_manual: 'Manual (Claude Code)',
+      grading_mode_manual_desc: 'Main Opus session grades manually and injects the result.',
+      grading_mode_auto: 'Auto (Anthropic API)',
+      grading_mode_auto_desc: '17896 server calls Anthropic API directly (requires ANTHROPIC_API_KEY).',
+      grading_mode_auto_warning: 'Set ANTHROPIC_API_KEY in .env first; otherwise requests fall back to manual.',
+      ev_pending_grade: '💬 Saved — call "채점해줘" in the main Opus session, then wait a bit.',
+      ev_pending_grade_hint: 'Polling every 10s until Claude Code injects the grade.',
+      ev_pending_elapsed: 'Waiting',
+      toast_pending_warning: 'API key missing — fell back to manual grading.',
+    },
+    ko: {
+      mock_label: '시안',
+      hint_stealth: '<span>위장: <kbd>Z</kbd> (사이드바·라벨·섹션 일괄)</span>',
+      hint_tabs: '<span>탭: <kbd>1</kbd>~<kbd>4</kbd></span>',
+      brand: '내부 리뷰 콘솔',
+      tab_review: '검토', tab_evaluation: '평가', tab_reports: '리포트', tab_settings: '설정',
+      stealth_label: '위장', lang_label: '한', status_connected: '연결됨',
+      filter_all: '전체', filter_err: '자주 틀린', filter_stale: '오래된', filter_book: '즐겨찾기',
+      search_ph: 'ID·키워드 검색…',
+      grp_civil_intro: '민법 / 입문 / 미케01 (13)',
+      grp_civil_prep: '민법 / 예비 / 미케01 (8)',
+      pill_pt: '점', pill_err: '오류 ', pill_d: '일',
+      status_in_review: '검토중', subject_civil_intro: '민법 · 입문',
+      bc_cases: '케이스', bc_civil: '민법', bc_intro: '입문',
+      sec_background: '사실관계', sec_inquiry: '문제', sec_notes: '검토 의견',
+      sec_eval_notes: '평가 메모', sec_diff: '레퍼런스 비교',
+      badge_readonly: '읽기전용', badge_required: '필수', badge_vs_lv1: 'Lv.1 대비',
+      notes_ph: '검토 의견을 입력하세요. 마이크 버튼으로 음성 입력 가능.',
+      info_chars: '0자 · 자동저장 —',
+      btn_voice: '음성 입력', btn_save_draft: '임시 저장', btn_submit: '평가 제출',
+      status_evaluated: '평가완료', eval_submitted_at: '제출 시각',
+      final_score: '최종 점수', grade_b: '등급 B',
+      crit_mnem: 'Lv.4 두문자', crit_color: '색 강조', crit_under: '밑줄',
+      crit_outline: 'Lv.1 목차', crit_outline_sub: '목차 의미',
+      crit_sem: '의미 일치', crit_sem_sub: '태그 의미',
+      crit_rich: '풍부함', crit_miss: '누락 논점', crit_miss_sub: '레퍼런스 대비',
+      fb_strength: '강점', fb_caution: '주의', fb_missing: '누락',
+      page_reports: '리포트', rep_period: '성과 지표',
+      sub_overall: '전체', sub_subject: '과목별', sub_case: '케이스별',
+      kpi_submitted: '제출', kpi_avg: '평균 점수', kpi_err: '자주 틀린', kpi_stale: '오래된',
+      kpi_cases: '케이스', kpi_topic_err: '최다 오류 주제', kpi_coverage: '커버리지',
+      kpi_attempts: '시도', kpi_last: '최근 점수', kpi_best: '최고 점수', kpi_persist_err: '반복 오류',
+      delta_lastweek: '지난주 +12', delta_cases: '+2 케이스', delta_over14d: '> 14일',
+      kpi_submitted_n: '제출 14', kpi_err_n: '오류 4', kpi_covered: '14 / 21',
+      kpi_since: '시작 2026-04-22', kpi_recurring: '4중 3회',
+      chart_trend: '점수 추이 (제출 기준)',
+      chart_recent: '최근 제출', chart_subj_compare: '과목별 (평균 %)',
+      chart_subj_recent: '이 과목의 케이스',
+      chart_case_trend: '시도별 점수 — IMK01-01',
+      chart_case_criteria: '기준별 평균 — IMK01-01',
+      chart_attempts_history: '시도 히스토리 — IMK01-01',
+      col_date: '날짜', col_case: '케이스 ID', col_title: '제목', col_score: '점수', col_grade: '등급',
+      col_attempts: '시도', col_avg: '평균', col_best: '최고', col_last: '최근',
+      col_attempt: '#', col_main_miss: '주요 누락',
+      row_notes_excerpt: '검토 의견 (요약)', row_evaluator: '평가자',
+      case_pick: '케이스:',
+      page_settings: '설정',
+      set_subject: '평가 가중치 · 선택 편향 · 음성 입력 · 자료 동기화',
+      set_sync: '자료 동기화',
+      set_sync_desc: '17895 뷰어의 케이스 자료를 17896으로 가져옵니다.',
+      sync_source: '출처:', sync_last: '마지막 동기화:', sync_local: '로컬 케이스:', sync_remote: '원격 케이스:',
+      sync_added: '추가', sync_changed: '변경', sync_removed: '삭제', sync_total: '동기화 후 합계',
+      btn_diff_preview: '변경 미리보기', btn_resync: '⟳ 17895에서 다시 가져오기',
+      set_weights: '평가 기준 가중치',
+      set_weights_desc: '항목별 가중치 (합계 100). 최종 점수에 적용.',
+      total_ok: '합계: 100 / 100 ✓',
+      set_bias: '케이스 선택 편향',
+      set_bias_desc: '"자주 틀린 / 오래된" 모드의 Top-K 가중치.',
+      bias_err: '자주 틀린 가중치', bias_stale: '오래된 가중치',
+      bias_err_th: '자주 틀린 기준', bias_stale_th: '오래된 기준',
+      set_voice: '음성 입력', set_voice_desc: 'Web Speech API · 브라우저/OS 내장 STT.',
+      voice_lang: '언어', voice_silence: '자동 정지 (무음 초)',
+      btn_reset: '기본값', btn_save: '설정 저장',
+      // wire (Step 5)
+      sync_log_empty: '"변경 미리보기" 를 눌러 불러오세요.',
+      loading: '불러오는 중…',
+      err_load: '불러오기 실패.',
+      err_sync_offline: '17895 뷰어가 꺼져있어 동기화 불가.',
+      empty_cases: '케이스 없음. 설정에서 "17895에서 다시 가져오기" 실행.',
+      // wire (Step 7 — Attempts API + 평가 탭)
+      ev_empty: '아직 평가가 없습니다. 검토 탭에서 검토 의견을 제출해 채점을 시작하세요.',
+      ev_grading: '채점 중…',
+      ev_elapsed: '경과',
+      ev_failed: '채점 실패.',
+      ev_error_code: '에러',
+      btn_retry: '다시 시도',
+      ev_diff_empty: '비교 데이터 없음.',
+      // Step 14 — Reference Diff 2열 분할 (Step 15-2: Lv.1 → 원본)
+      diff_col_mine: '내 답안',
+      diff_col_ref: '원본 답안',
+      diff_col_mine_sub_fmt: '{n}자',
+      diff_col_ref_sub_fmt: '{n}자',
+      diff_col_ref_missing: '원본 답안 데이터 없음.',
+      badge_vs_origin: '원본 대비',
+      // Step 15-6 — 팝업 모달 + ⓘ 툴팁
+      btn_close: '닫기',
+      modal_eval_panel: '평가지',
+      modal_no_attempts: '이 케이스에 시도 없음.',
+      modal_loading: '시도 불러오는 중…',
+      modal_load_failed: '시도 로드 실패: {msg}',
+      modal_no_answer: '답안 없음.',
+      modal_no_eval: '아직 채점되지 않았습니다.',
+      // ⓘ 툴팁 의미 (기준별 평균)
+      crit_mnem_tip: 'Lv.4 두문자 [blank2] 매칭 비율 (mnem)',
+      crit_color_tip: '색 강조 [red]/[blue]/[bold]/[blank] 매칭 (color)',
+      crit_under_tip: '밑줄 [u] 매칭 (under)',
+      crit_outline_tip: 'Lv.1 목차 의미 일치 (outline)',
+      crit_sem_tip: '태그 의미 정확도 (sem)',
+      crit_rich_tip: '풍부도: Lv.4(0) → Lv.1(1) → 원본(2) (rich)',
+      crit_miss_tip: '누락 논점 — 음수일수록 누락 많음 (miss)',
+      err_submit_empty: '검토 의견을 입력한 뒤 제출하세요.',
+      err_submit_failed: '평가 제출 실패.',
+      err_poll_failed: '평가 상태 조회 실패.',
+      info_submitted: '제출됨, 채점 진행 중…',
+      info_chars_fmt: '{n}자',
+      info_saved_at: '자동저장 {t}',
+      info_saved_never: '자동저장 —',
+      draft_saved: '임시저장 완료 (로컬).',
+      // wire (Step 10 — 리포트)
+      rep_loading: '불러오는 중…',
+      rep_empty: '데이터 없음. 평가를 한 건 이상 제출해야 리포트 표시.',
+      rep_subject_empty: '이 과목에 시도 기록 없음.',
+      rep_case_empty: '이 케이스에 시도 기록 없음.',
+      rep_no_subjects: '과목이 동기화되지 않았습니다. 설정 → 동기화 먼저 실행.',
+      rep_no_cases: '케이스가 없습니다.',
+      rep_load_failed: '리포트 로드 실패.',
+      delta_lastweek_fmt: '최근 {d}일 +{n}',
+      delta_pp_fmt: '{n}pp',
+      delta_cases_fmt: '+{n} 케이스',
+      delta_over_fmt: '> {n}일',
+      kpi_submitted_n_fmt: '제출 {n}',
+      kpi_err_n_fmt: '오류 {n}',
+      kpi_covered_fmt: '{n} / {total}',
+      kpi_since_fmt: '시작 {date}',
+      kpi_recurring_fmt: '{total}중 {n}회',
+      kpi_score_fmt: '{score} / {max}',
+      // wire (Step 11 — STT / Web Speech API)
+      voice_unsupported: '이 브라우저는 음성 입력을 지원하지 않습니다',
+      voice_tooltip: '클릭하여 음성 입력 시작/정지 (마이크 권한 필요)',
+      voice_listening: '🎤 듣는 중…',
+      voice_no_target: '음성 입력을 받을 검토 의견 영역이 없습니다',
+      voice_err_no_speech: '음성이 감지되지 않았습니다 — 다시 시도하세요',
+      voice_err_audio_capture: '마이크를 찾을 수 없습니다',
+      voice_err_not_allowed: '마이크 권한이 거부되었습니다 — 브라우저 설정에서 허용하세요',
+      voice_err_network: '음성 서비스 네트워크 오류',
+      voice_err_start: '음성 입력 시작 실패',
+      voice_err_unknown: '음성 입력 오류',
+      // wire (Step 12 — 토스트 / 설정)
+      toast_settings_load_failed: 'Settings 로드 실패: {msg}',
+      toast_settings_saved: 'Settings 저장 완료',
+      toast_settings_save_failed: 'Settings 저장 실패: {msg}',
+      toast_weights_sum_bad: 'Weights 합계가 {n} 입니다. 100 이 되도록 조정하세요.',
+      toast_bookmark_failed: 'Bookmark 토글 실패: {msg}',
+      // Step 13 — manual 채점 모드
+      set_grading_mode: '채점 모드',
+      set_grading_mode_desc: '채점 실행 위치. ANTHROPIC_API_KEY 미보유 시 manual 유지.',
+      grading_mode_manual: 'Manual (Claude Code)',
+      grading_mode_manual_desc: '메인 세션 Opus 가 직접 채점 → 결과 주입.',
+      grading_mode_auto: 'Auto (Anthropic API)',
+      grading_mode_auto_desc: '17896 서버가 Anthropic API 를 직접 호출 (ANTHROPIC_API_KEY 필요).',
+      grading_mode_auto_warning: '.env 에 ANTHROPIC_API_KEY 부터 설정하세요. 미설정 시 manual 로 강등됩니다.',
+      ev_pending_grade: '💬 저장 완료 — 메인 세션에서 "채점해줘" 호출 후 잠시 기다리세요.',
+      ev_pending_grade_hint: 'Claude Code 메인 Opus 가 채점 결과를 주입할 때까지 폴링 중 (10초 간격).',
+      ev_pending_elapsed: '대기',
+      toast_pending_warning: 'API 키 미설정 — manual 모드로 강등됨.',
+    },
+  };
+
+  let currentLang = localStorage.getItem('mockup_lang') || 'en';
+  let stealthMode = localStorage.getItem('mockup_stealth');
+  stealthMode = stealthMode === null ? false : stealthMode === 'true';
+
+  function applyI18n() {
+    const dict = I18N[currentLang];
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const k = el.dataset.i18n;
+      if (dict[k] !== undefined) el.innerHTML = dict[k];
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+      const k = el.dataset.iI18nPh || el.dataset.i18nPh;
+      if (dict[k] !== undefined) el.placeholder = dict[k];
+    });
+    // Formatted pills (pill_pt, pill_err, pill_d, etc.) — replace the suffix/prefix only
+    document.querySelectorAll('[data-i18n-fmt]').forEach(el => {
+      const k = el.dataset.i18nFmt;
+      if (!dict[k]) return;
+      const baseText = el.dataset.origText || el.textContent;
+      el.dataset.origText = baseText;
+      // Convert based on key pattern (works for both en/ko symmetric ones too)
+      if (k === 'pill_pt') {
+        const num = baseText.match(/\d+/);
+        el.textContent = num ? num[0] + dict[k] : baseText;
+      } else if (k === 'pill_err') {
+        const num = baseText.match(/\d+/);
+        el.textContent = num ? dict[k] + num[0] : baseText;
+      } else if (k === 'pill_d') {
+        const num = baseText.match(/\d+/);
+        el.textContent = num ? num[0] + dict[k] : baseText;
+      } else {
+        el.textContent = dict[k];
+      }
+    });
+    document.getElementById('lang-btn').querySelector('span').textContent = currentLang === 'en' ? 'EN' : '한';
+  }
+
+  function applyStealth(targetMode) {
+    // 일괄 적용: stealth ON → 영문, 사이드바 닫힘, 모든 섹션 닫힘
+    // stealth OFF → 한글, 사이드바 열림, 모든 섹션 열림
+    currentLang = targetMode ? 'en' : 'ko';
+    document.getElementById('sidebar').classList.toggle('collapsed', targetMode);
+    document.querySelectorAll('.section[data-collapsible]').forEach(s => {
+      s.classList.toggle('collapsed', targetMode);
+    });
+    const btn = document.getElementById('stealth-btn');
+    btn.classList.toggle('active', targetMode);
+    btn.querySelector('span').nextSibling; // no-op, label updates via applyI18n
+    // Update icon
+    btn.firstChild.nodeValue = targetMode ? '🔓 ' : '👀 ';
+    localStorage.setItem('mockup_stealth', targetMode);
+    localStorage.setItem('mockup_lang', currentLang);
+    applyI18n();
+  }
+
+  function toggleStealth() {
+    stealthMode = !stealthMode;
+    applyStealth(stealthMode);
+  }
+
+  // ─── tab nav ────────────────────────────────────
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.content-tab').forEach(c => c.classList.toggle('active', c.dataset.tab === tab));
+    });
+  });
+
+  // sub-tabs (Reports)
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sub = btn.dataset.sub;
+      document.querySelectorAll('.sub-tab-btn').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('.sub-panel').forEach(p => p.classList.toggle('active', p.dataset.sub === sub));
+    });
+  });
+
+  // subject tabs (By Subject 안)
+  document.querySelectorAll('.subject-tabs button').forEach(b => {
+    b.addEventListener('click', () => {
+      b.parentElement.querySelectorAll('button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    });
+  });
+
+  // ─── case list ───────────────────────────────────
+  document.querySelectorAll('.case-item').forEach(item => {
+    item.addEventListener('click', () => {
+      document.querySelectorAll('.case-item').forEach(i => i.classList.remove('active'));
+      item.classList.add('active');
+    });
+  });
+
+  // ─── section collapse (개별 클릭) ───────────────
+  document.querySelectorAll('.section[data-collapsible] .section-header').forEach(h => {
+    h.addEventListener('click', () => {
+      h.parentElement.classList.toggle('collapsed');
+    });
+  });
+
+  // ─── sidebar toggle (개별 클릭) ─────────────────
+  document.getElementById('sidebar-toggle').addEventListener('click', () => {
+    const sb = document.getElementById('sidebar');
+    sb.classList.toggle('collapsed');
+    document.getElementById('sidebar-toggle').textContent = sb.classList.contains('collapsed') ? '›' : '‹';
+  });
+
+  // ─── lang toggle (개별 클릭) ────────────────────
+  document.getElementById('lang-btn').addEventListener('click', () => {
+    currentLang = currentLang === 'en' ? 'ko' : 'en';
+    localStorage.setItem('mockup_lang', currentLang);
+    applyI18n();
+    // Step 15-6 — ⓘ 툴팁 title 도 lang 따라 재갱신 (단, criteria-grid 는 다음 렌더에 자동 반영)
+    // 현재 표시 중인 ⓘ 의 title 갱신
+    document.querySelectorAll('.crit-info').forEach(info => {
+      // 직전 부모 .label 또는 .crit-row 내 라벨에서 key 유추는 어려움 — 데이터 속성 X
+      // 다음 렌더에서 i18n 적용되므로 즉시 갱신은 skip
+    });
+  });
+
+  // ─── stealth toggle (Z 단축키 + 클릭) ──────────
+  document.getElementById('stealth-btn').addEventListener('click', toggleStealth);
+
+  // ─── 필터 (개별 클릭) ───────────────────────────
+  document.querySelectorAll('.filter-row button').forEach(b => {
+    b.addEventListener('click', () => {
+      document.querySelectorAll('.filter-row button').forEach(x => x.classList.remove('active'));
+      b.classList.add('active');
+    });
+  });
+
+  // ─── mic — Step 11: Web Speech API STT 와이어 ──────────────────
+  // 시안 코드는 토글만 했으나 본 단계에서 실제 STT 인식을 연결한다.
+  // 지원 브라우저(Chrome/Edge): 마이크 권한 → SpeechRecognition → 결과를 textarea 에 누적.
+  // 미지원 브라우저(Firefox/일부 Safari): 마이크 버튼 비활성 + 안내 툴팁.
+  // Settings.voice.lang 사용 (fetchSettings 응답 캐시 SETTINGS_CACHE).
+  // Settings.voice.silence_sec 활용 (무음 N초 → stop()).
+  (function wireSpeechToText() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const supported = !!SR;
+
+    // 미지원 → 모든 mic 버튼 비활성 + 툴팁 + i18n
+    if (!supported) {
+      document.querySelectorAll('.btn.mic').forEach(m => {
+        m.disabled = true;
+        m.style.opacity = '0.5';
+        m.style.cursor = 'not-allowed';
+        m.title = (I18N[currentLang] && I18N[currentLang].voice_unsupported)
+          || 'Voice input not supported in this browser';
+      });
+      return;
+    }
+
+    // 인식 상태 (mic 1개씩만 활성, 동시 다중 인식 금지)
+    let activeRec = null;
+    let activeBtn = null;
+    let silenceTimer = null;
+    let interimEl = null;
+
+    function ensureInterimEl(textarea) {
+      // textarea 아래에 interim 미리보기 (시안 마크업 변경 X — 동적 div)
+      if (interimEl && interimEl.isConnected) return interimEl;
+      const div = document.createElement('div');
+      div.id = 'lawear-stt-interim';
+      div.style.cssText = `
+        margin-top: 4px; padding: 6px 10px; font-size: 12px;
+        color: var(--text-dim); border-left: 2px solid var(--accent, #2a7);
+        background: rgba(78,201,176,0.06); border-radius: 0 4px 4px 0;
+        display: none; min-height: 1.2em; white-space: pre-wrap;
+      `;
+      // textarea 형제로 삽입 (.answer-area 안)
+      const parent = textarea.parentElement;
+      if (parent) parent.insertBefore(div, textarea.nextSibling);
+      interimEl = div;
+      return div;
+    }
+
+    function setMicUi(btn, recording) {
+      if (!btn) return;
+      const span = btn.querySelector('span');
+      if (recording) {
+        btn.classList.add('recording');
+        btn.firstChild.nodeValue = '■ ';
+        if (span) span.textContent = currentLang === 'en' ? 'Recording…' : '녹음중…';
+      } else {
+        btn.classList.remove('recording');
+        btn.firstChild.nodeValue = '● ';
+        if (span) span.textContent = (I18N[currentLang] && I18N[currentLang].btn_voice) || 'Voice Input';
+      }
+    }
+
+    function getSilenceMs() {
+      // Settings 응답 우선, 없으면 디폴트 3s
+      let sec = 3;
+      try {
+        if (window.SETTINGS_CACHE && window.SETTINGS_CACHE.voice && window.SETTINGS_CACHE.voice.silence_sec) {
+          sec = Number(window.SETTINGS_CACHE.voice.silence_sec) || 3;
+        }
+      } catch (e) { /* ignore */ }
+      return Math.max(1, sec) * 1000;
+    }
+
+    function getSttLang() {
+      try {
+        if (window.SETTINGS_CACHE && window.SETTINGS_CACHE.voice && window.SETTINGS_CACHE.voice.lang) {
+          return window.SETTINGS_CACHE.voice.lang;
+        }
+      } catch (e) { /* ignore */ }
+      return 'ko-KR';
+    }
+
+    function resetSilenceTimer(rec) {
+      if (silenceTimer) clearTimeout(silenceTimer);
+      silenceTimer = setTimeout(() => {
+        try { rec.stop(); } catch (e) { /* ignore */ }
+      }, getSilenceMs());
+    }
+
+    function stopAll() {
+      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+      if (interimEl) { interimEl.style.display = 'none'; interimEl.textContent = ''; }
+      if (activeRec) {
+        try { activeRec.stop(); } catch (e) { /* ignore */ }
+      }
+    }
+
+    function startRec(btn) {
+      // 대상 textarea — 본 단계에서는 #rv-notes 1개만 (mic 버튼은 검토의견 옆 1개)
+      const textarea = document.getElementById('rv-notes');
+      if (!textarea) {
+        showToast((I18N[currentLang] && I18N[currentLang].voice_no_target) || 'No input target', 'error');
+        return;
+      }
+
+      const rec = new SR();
+      rec.lang = getSttLang();
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.maxAlternatives = 1;
+
+      const interim = ensureInterimEl(textarea);
+      interim.style.display = '';
+      interim.textContent = (I18N[currentLang] && I18N[currentLang].voice_listening) || '🎤 Listening…';
+
+      rec.onstart = () => {
+        activeRec = rec;
+        activeBtn = btn;
+        setMicUi(btn, true);
+        resetSilenceTimer(rec);
+      };
+
+      rec.onresult = (ev) => {
+        // results 배열 — 마지막 resultIndex 이후 처리
+        let finalChunk = '';
+        let interimChunk = '';
+        for (let i = ev.resultIndex; i < ev.results.length; i++) {
+          const res = ev.results[i];
+          const t = (res[0] && res[0].transcript) || '';
+          if (res.isFinal) {
+            finalChunk += t;
+          } else {
+            interimChunk += t;
+          }
+        }
+        if (finalChunk) {
+          // textarea 끝에 append (구분자: 기존 끝 글자가 공백/줄바꿈 아니면 공백 한 칸)
+          const cur = textarea.value || '';
+          const sep = (cur.length === 0 || /[\s\n]$/.test(cur)) ? '' : ' ';
+          textarea.value = cur + sep + finalChunk.trim();
+          // input 이벤트 트리거 → 기존 autoSave + chars 갱신 핸들러 작동
+          textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+        // interim 미리보기
+        if (interim) {
+          if (interimChunk) {
+            interim.textContent = interimChunk;
+            interim.style.display = '';
+          } else if (!finalChunk) {
+            interim.textContent = (I18N[currentLang] && I18N[currentLang].voice_listening) || '🎤 Listening…';
+          }
+        }
+        // 발화 감지 → 무음 타이머 리셋
+        resetSilenceTimer(rec);
+      };
+
+      rec.onerror = (ev) => {
+        // no-speech / audio-capture / not-allowed / network 등
+        const code = (ev && ev.error) || 'unknown';
+        let msgKey = 'voice_err_unknown';
+        if (code === 'no-speech') msgKey = 'voice_err_no_speech';
+        else if (code === 'audio-capture') msgKey = 'voice_err_audio_capture';
+        else if (code === 'not-allowed' || code === 'service-not-allowed') msgKey = 'voice_err_not_allowed';
+        else if (code === 'network') msgKey = 'voice_err_network';
+        const msg = (I18N[currentLang] && I18N[currentLang][msgKey])
+          || `Voice input error: ${code}`;
+        // no-speech 는 onend 흐름과 함께 — 토스트 한 번만
+        if (code !== 'no-speech') {
+          showToast(msg, 'error');
+        }
+        // 강제 정리는 onend 에서 (브라우저가 보통 onend 도 발생시킴)
+      };
+
+      rec.onend = () => {
+        if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
+        if (interim) {
+          interim.style.display = 'none';
+          interim.textContent = '';
+        }
+        setMicUi(btn, false);
+        activeRec = null;
+        activeBtn = null;
+      };
+
+      try {
+        rec.start();
+      } catch (e) {
+        console.warn('SpeechRecognition.start failed:', e);
+        showToast(
+          (I18N[currentLang] && I18N[currentLang].voice_err_start) || 'Failed to start voice input',
+          'error',
+        );
+        setMicUi(btn, false);
+      }
+    }
+
+    // mic 버튼 클릭 — 시작/정지 토글
+    document.querySelectorAll('.btn.mic').forEach(m => {
+      m.title = (I18N[currentLang] && I18N[currentLang].voice_tooltip) || 'Click to start / stop voice input';
+      m.addEventListener('click', () => {
+        // 이미 다른 mic 가 active 면 정지
+        if (activeRec) {
+          stopAll();
+          return;
+        }
+        startRec(m);
+      });
+    });
+
+    // 페이지 떠나기 직전 정리 (브라우저 누수 방지)
+    window.addEventListener('beforeunload', stopAll);
+  })();
+
+  // ─── 슬라이더 값 표시 ───────────────────────────
+  document.querySelectorAll('input[type=range]').forEach(r => {
+    r.addEventListener('input', () => {
+      const val = r.nextElementSibling;
+      if (val && val.classList.contains('s-val')) {
+        const txt = val.textContent;
+        if (txt.endsWith('d')) val.textContent = r.value + 'd';
+        else if (txt.endsWith('s')) val.textContent = r.value + 's';
+        else if (txt.startsWith('≥')) val.textContent = '≥' + r.value;
+        else if (txt === 'ko-KR' || txt === 'en-US') val.textContent = r.value === '0' ? 'ko-KR' : 'en-US';
+        else if (!isNaN(parseInt(txt))) val.textContent = r.value;
+      }
+    });
+  });
+
+  // ─── 키보드 단축키 ──────────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z') { toggleStealth(); e.preventDefault(); }
+    else if (k === 'b') {
+      const sb = document.getElementById('sidebar');
+      sb.classList.toggle('collapsed');
+      document.getElementById('sidebar-toggle').textContent = sb.classList.contains('collapsed') ? '›' : '‹';
+    }
+    else if (['1','2','3','4'].includes(k)) {
+      const map = { '1': 'review', '2': 'evaluation', '3': 'reports', '4': 'settings' };
+      document.querySelector(`.tab-btn[data-tab="${map[k]}"]`).click();
+    }
+  });
+
+  // ─── 초기화 ─────────────────────────────────────
+  applyStealth(stealthMode);
+
+  // ════════════════════════════════════════════════
+  // Step 5 — 백엔드 API wire
+  // ════════════════════════════════════════════════
+  const API_BASE = '';  // same origin (17896 자체)
+  let CASES_CACHE = [];  // /api/cases 마지막 응답
+  let CURRENT_CASE_ID = null;
+  let CURRENT_CASE_DATA = null;  // Step 14 — /api/cases/{id} 마지막 응답 (lv1 등) — Reference Diff 2열 렌더 자료
+  let CURRENT_FILTER = 'all';
+  let SEARCH_TERM = '';
+
+  // ─── 사이드바: API 케이스 리스트 fetch + 그룹화 렌더 ───
+  async function fetchCases(filter) {
+    const url = `${API_BASE}/api/cases${filter && filter !== 'all' ? '?filter=' + encodeURIComponent(filter) : ''}`;
+    try {
+      const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      return Array.isArray(d.cases) ? d.cases : [];
+    } catch (err) {
+      console.error('fetchCases failed:', err);
+      return null;
+    }
+  }
+
+  // Step 15-1 — 4 레벨 트리 (과목 > 카테고리 > 파일 > 케이스)
+  //   - 각 노드 클릭 시 접기/펼치기, 상태는 localStorage 에 저장 (lawear_exam_tree_state)
+  //   - 검색 결과 있을 때는 매칭 노드까지 강제로 펼침
+  const TREE_STATE_KEY = 'lawear_exam_tree_state';
+  function loadTreeState() {
+    try {
+      const raw = localStorage.getItem(TREE_STATE_KEY);
+      if (!raw) return {};
+      const obj = JSON.parse(raw);
+      return (obj && typeof obj === 'object') ? obj : {};
+    } catch (e) { return {}; }
+  }
+  function saveTreeState(state) {
+    try { localStorage.setItem(TREE_STATE_KEY, JSON.stringify(state)); } catch (e) { /* ignore */ }
+  }
+  function treeNodeKey(level, ...parts) {
+    return `${level}:${parts.join('|')}`;
+  }
+  // 카테고리 표시 순서 (사용자 학습 우선순위: 입문 → 예비 → 1/2/3순환 → 모고)
+  const CATEGORY_ORDER = ['입문', '예비', '1순환', '2순환', '3순환', '모의고사', '모고'];
+  function categoryRank(cat) {
+    const idx = CATEGORY_ORDER.indexOf(cat || '');
+    return idx >= 0 ? idx : 999;
+  }
+
+  function renderCaseList(cases) {
+    const root = document.getElementById('case-list');
+    if (!root) return;
+    if (cases === null) {
+      root.innerHTML = `<div class="case-group-label" style="padding: 12px; color: var(--danger);">${I18N[currentLang].err_load}</div>`;
+      return;
+    }
+    // 검색 클라이언트 필터
+    const searching = SEARCH_TERM && SEARCH_TERM.length > 0;
+    const filtered = searching
+      ? cases.filter(c =>
+          (c.id || '').toLowerCase().includes(SEARCH_TERM) ||
+          (c.title || '').toLowerCase().includes(SEARCH_TERM) ||
+          (c.subject_kor || '').toLowerCase().includes(SEARCH_TERM) ||
+          (c.file || '').toLowerCase().includes(SEARCH_TERM) ||
+          (c.file_kor || '').toLowerCase().includes(SEARCH_TERM)
+        )
+      : cases;
+    if (filtered.length === 0) {
+      root.innerHTML = `<div class="case-group-label" style="padding: 12px;">${I18N[currentLang].empty_cases}</div>`;
+      return;
+    }
+    // 4 레벨 구조: subject_kor > category > file > case
+    //   tree = { subjectKor: { _meta:{subject}, categories: { category: { files: { file: [cases...] } } } } }
+    const tree = new Map();
+    for (const c of filtered) {
+      const sk = c.subject_kor || c.subject || '—';
+      const cat = c.category || '—';
+      const fk = c.file_kor || c.file || '—';
+      const fileKey = c.file || fk;
+      if (!tree.has(sk)) tree.set(sk, { subject: c.subject || sk, categories: new Map() });
+      const subjNode = tree.get(sk);
+      if (!subjNode.categories.has(cat)) subjNode.categories.set(cat, { files: new Map() });
+      const catNode = subjNode.categories.get(cat);
+      if (!catNode.files.has(fileKey)) catNode.files.set(fileKey, { label: fk, items: [] });
+      catNode.files.get(fileKey).items.push(c);
+    }
+
+    const state = loadTreeState();
+    let html = '';
+    // L1: 과목
+    for (const [sk, subjNode] of tree.entries()) {
+      const l1Key = treeNodeKey('s', sk);
+      // 디폴트: 펼침. 사용자가 접었으면 collapsed. 검색 중이면 강제 펼침.
+      const l1Collapsed = !searching && state[l1Key] === false;
+      const l1TotalCases = Array.from(subjNode.categories.values())
+        .reduce((sum, cat) => sum + Array.from(cat.files.values())
+          .reduce((s2, f) => s2 + f.items.length, 0), 0);
+      html += `<div class="tree-node tree-l1${l1Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeHtml(l1Key)}">`;
+      html += `<div class="tree-header" data-tree-toggle="${escapeHtml(l1Key)}">`;
+      html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(sk)}</span>`;
+      html += `<span class="tree-count">${l1TotalCases}</span></div>`;
+      html += `<div class="tree-body">`;
+
+      // categories 정렬 (CATEGORY_ORDER 우선)
+      const sortedCats = Array.from(subjNode.categories.entries())
+        .sort((a, b) => categoryRank(a[0]) - categoryRank(b[0]));
+      // L2: 카테고리
+      for (const [cat, catNode] of sortedCats) {
+        const l2Key = treeNodeKey('c', sk, cat);
+        const l2Collapsed = !searching && state[l2Key] === false;
+        const l2TotalCases = Array.from(catNode.files.values()).reduce((s2, f) => s2 + f.items.length, 0);
+        html += `<div class="tree-node tree-l2${l2Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeHtml(l2Key)}">`;
+        html += `<div class="tree-header" data-tree-toggle="${escapeHtml(l2Key)}">`;
+        html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(cat)}</span>`;
+        html += `<span class="tree-count">${l2TotalCases}</span></div>`;
+        html += `<div class="tree-body">`;
+
+        // files 정렬 (file 코드 asc)
+        const sortedFiles = Array.from(catNode.files.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+        // L3: 파일
+        for (const [fileKey, fileNode] of sortedFiles) {
+          const l3Key = treeNodeKey('f', sk, cat, fileKey);
+          // L3 디폴트는 접힘 (시안 요구). 검색 또는 사용자 펼침 시 펼침.
+          const l3Collapsed = !searching && state[l3Key] !== true;
+          html += `<div class="tree-node tree-l3${l3Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeHtml(l3Key)}">`;
+          html += `<div class="tree-header" data-tree-toggle="${escapeHtml(l3Key)}">`;
+          html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(fileNode.label)}</span>`;
+          html += `<span class="tree-count">${fileNode.items.length}</span></div>`;
+          html += `<div class="tree-body">`;
+
+          // L4: 케이스 (case_no asc)
+          const items = fileNode.items.slice().sort((a, b) => (a.case_no || '').localeCompare(b.case_no || ''));
+          for (const c of items) {
+            const shortId = `${c.file}-${c.case_no}`;
+            const pills = [];
+            pills.push(`<span class="pill"><span data-i18n-fmt="pill_pt">${c.points} pt</span></span>`);
+            if (c.has_error) pills.push(`<span class="pill warn"><span data-i18n-fmt="pill_err">err ${c.attempt_count || ''}</span></span>`);
+            if (c.has_stale) pills.push(`<span class="pill stale"><span data-i18n-fmt="pill_d">stale</span></span>`);
+            const starCls = c.bookmarked ? 'pill bookmark-star bookmarked' : 'pill bookmark-star';
+            const starTitle = c.bookmarked ? 'Remove bookmark' : 'Add bookmark';
+            pills.push(`<span class="${starCls}" data-bookmark-toggle="${escapeHtml(c.id)}" title="${starTitle}" style="cursor:pointer;user-select:none;">★</span>`);
+            const active = c.id === CURRENT_CASE_ID ? ' active' : '';
+            html += `<div class="case-item${active}" data-case-id="${escapeHtml(c.id)}">
+              <div class="case-id">${escapeHtml(shortId)}</div>
+              <div class="case-title">${escapeHtml(c.title || '')}</div>
+              <div class="case-meta">${pills.join('')}</div>
+            </div>`;
+          }
+          html += `</div></div>`;  // /tree-l3
+        }
+        html += `</div></div>`;  // /tree-l2
+      }
+      html += `</div></div>`;  // /tree-l1
+    }
+    root.innerHTML = html;
+
+    // 트리 toggle (헤더 클릭, 케이스 본체 영향 없음)
+    root.querySelectorAll('.tree-header[data-tree-toggle]').forEach(h => {
+      h.addEventListener('click', (ev) => {
+        const node = h.closest('.tree-node');
+        if (!node) return;
+        node.classList.toggle('collapsed');
+        const key = h.dataset.treeToggle;
+        const s = loadTreeState();
+        // L3 만 디폴트 collapsed — 다른 레벨은 디폴트 expanded
+        const isL3 = node.classList.contains('tree-l3');
+        if (node.classList.contains('collapsed')) {
+          s[key] = isL3 ? false : false;  // false 저장
+        } else {
+          s[key] = isL3 ? true : true;
+        }
+        saveTreeState(s);
+        ev.stopPropagation();
+      });
+    });
+
+    // 케이스 클릭 → loadCase, ★ 클릭 → 북마크 토글
+    root.querySelectorAll('.case-item').forEach(item => {
+      item.addEventListener('click', (ev) => {
+        if (ev.target && ev.target.dataset && ev.target.dataset.bookmarkToggle) {
+          ev.stopPropagation();
+          toggleBookmark(ev.target.dataset.bookmarkToggle);
+          return;
+        }
+        const id = item.dataset.caseId;
+        if (id) loadCase(id);
+      });
+    });
+    applyI18n();  // [data-i18n-fmt] 재포맷
+  }
+
+  async function reloadCases() {
+    const root = document.getElementById('case-list');
+    if (root) root.innerHTML = `<div class="case-group-label" style="padding: 12px;">${I18N[currentLang].loading}</div>`;
+    const cases = await fetchCases(CURRENT_FILTER);
+    if (cases !== null) CASES_CACHE = cases;
+    renderCaseList(cases);
+    // 첫 로드 시 첫 케이스 자동 선택
+    if (CURRENT_CASE_ID === null && cases && cases.length > 0) {
+      loadCase(cases[0].id);
+    }
+  }
+
+  // ─── Review 탭: 단건 fetch + Background/Inquiry 갱신 ───
+  async function loadCase(caseId) {
+    CURRENT_CASE_ID = caseId;
+    // 사이드바 active 표시
+    document.querySelectorAll('.case-item').forEach(it => {
+      it.classList.toggle('active', it.dataset.caseId === caseId);
+    });
+    // header placeholder
+    const idEl = document.getElementById('rv-case-id');
+    const subjEl = document.getElementById('rv-subject');
+    const bcEl = document.getElementById('rv-breadcrumb');
+    const bgEl = document.getElementById('rv-background');
+    const inqEl = document.getElementById('rv-inquiry');
+    const ptsEl = document.getElementById('rv-points');
+    if (idEl) idEl.textContent = caseId;
+    if (bgEl) bgEl.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].loading}</span>`;
+    if (inqEl) inqEl.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].loading}</span>`;
+
+    try {
+      const r = await fetch(`${API_BASE}/api/cases/${encodeURIComponent(caseId)}`, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const c = await r.json();
+      // Step 14 — case 데이터 캐시 (Reference Diff 2열 렌더 시 lv1 활용)
+      CURRENT_CASE_DATA = c;
+      // 헤더
+      const shortId = `${c.file}-${c.case_no}`;
+      if (idEl) idEl.textContent = shortId;
+      if (subjEl) subjEl.textContent = `${c.subject_kor} · ${c.category} · ${c.title} · ${c.points} pt`;
+      if (bcEl) {
+        bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> ${escapeHtml(c.subject_kor)} <a href="#">/</a> ${escapeHtml(c.category)} <a href="#">/</a> ${escapeHtml(c.file)} <a href="#">/</a> ${escapeHtml(c.case_no)}`;
+      }
+      if (ptsEl) ptsEl.textContent = `${c.points} pt`;
+      // Background / Inquiry: 원본 섹션을 사실관계 / 문제 로 split
+      const { facts, question } = splitOriginFactsQuestion(c.origin || '');
+      if (bgEl) bgEl.textContent = facts || (I18N[currentLang].err_load);
+      if (inqEl) inqEl.textContent = question || (I18N[currentLang].err_load);
+    } catch (err) {
+      console.error('loadCase failed:', err);
+      CURRENT_CASE_DATA = null;
+      if (bgEl) bgEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
+      if (inqEl) inqEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
+    }
+  }
+
+  // 원본 섹션 .md 본문에서 ### 사실관계 / ### 문제 추출
+  function splitOriginFactsQuestion(originRaw) {
+    if (!originRaw) return { facts: '', question: '' };
+    // 정규식으로 ### 사실관계 ... ### 문제 / 또는 ### 문제 ... 끝
+    const factsMatch = originRaw.match(/###\s*사실관계\s*([\s\S]*?)(?=###\s|$)/);
+    const questionMatch = originRaw.match(/###\s*문제\s*([\s\S]*?)(?=###\s|$)/);
+    return {
+      facts: factsMatch ? factsMatch[1].trim() : '',
+      question: questionMatch ? questionMatch[1].trim() : '',
+    };
+  }
+
+  // ─── 필터 클릭 → reloadCases (active 토글은 시안 핸들러가 담당) ───
+  const filterCodes = ['all', 'err', 'stale', 'book'];
+  document.querySelectorAll('.filter-row button').forEach((b, idx) => {
+    b.dataset.filter = filterCodes[idx] || 'all';
+    b.addEventListener('click', () => {
+      CURRENT_FILTER = b.dataset.filter || 'all';
+      reloadCases();
+    });
+  });
+
+  // ─── 검색 입력 → 클라이언트 필터 ───
+  document.querySelector('.sidebar .search').addEventListener('input', (e) => {
+    SEARCH_TERM = (e.target.value || '').toLowerCase().trim();
+    renderCaseList(CASES_CACHE);
+  });
+
+  // ─── Settings Data Sync wire ───
+  async function fetchSyncPreview() {
+    const log = document.getElementById('sync-log');
+    if (log) log.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].loading}</span>`;
+    try {
+      const r = await fetch(`${API_BASE}/api/sync/preview`, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        if (r.status === 502) throw new Error(I18N[currentLang].err_sync_offline);
+        throw new Error(body.message || 'HTTP ' + r.status);
+      }
+      const d = await r.json();
+      renderSync(d);
+    } catch (err) {
+      console.error('fetchSyncPreview failed:', err);
+      if (log) log.innerHTML = `<span style="color: var(--danger);">${escapeHtml(err.message || I18N[currentLang].err_load)}</span>`;
+    }
+  }
+
+  async function doResync() {
+    const log = document.getElementById('sync-log');
+    if (log) log.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].loading}</span>`;
+    try {
+      const r = await fetch(`${API_BASE}/api/sync`, { method: 'POST', headers: { 'Accept': 'application/json' } });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({}));
+        if (r.status === 502) throw new Error(I18N[currentLang].err_sync_offline);
+        throw new Error(body.message || 'HTTP ' + r.status);
+      }
+      const d = await r.json();
+      renderSync(d);
+      // 케이스 리스트 재로드
+      await reloadCases();
+    } catch (err) {
+      console.error('doResync failed:', err);
+      if (log) log.innerHTML = `<span style="color: var(--danger);">${escapeHtml(err.message || I18N[currentLang].err_load)}</span>`;
+    }
+  }
+
+  function renderSync(d) {
+    const setText = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    setText('sync-last', d.last_sync_at || d.applied_at || '—');
+    setText('sync-local', d.local_count != null ? d.local_count : '—');
+    setText('sync-remote', d.remote_count != null ? d.remote_count : '—');
+    const added = d.added || [];
+    const changed = d.changed || [];
+    const removed = d.removed || [];
+    setText('sync-added-n', added.length === 0 ? '0' : '+' + added.length);
+    setText('sync-changed-n', changed.length);
+    setText('sync-removed-n', removed.length);
+    setText('sync-total-n', d.total != null ? d.total : (d.remote_count != null ? d.remote_count : '—'));
+    const log = document.getElementById('sync-log');
+    if (log) {
+      const lines = [];
+      for (const a of added.slice(0, 20)) {
+        lines.push(`<span class="added">+ added</span> ${escapeHtml(a.id)} ${escapeHtml(a.title || '')}`);
+      }
+      for (const c of changed.slice(0, 20)) {
+        lines.push(`<span class="changed">~ changed</span> ${escapeHtml(c.id)} (${escapeHtml(c.reason || '')})`);
+      }
+      for (const r of removed.slice(0, 20)) {
+        lines.push(`<span class="removed">- removed</span> ${escapeHtml(r.id)}`);
+      }
+      const total = added.length + changed.length + removed.length;
+      if (total === 0) {
+        log.innerHTML = `<span style="color: var(--success);">No changes. Already in sync.</span>`;
+      } else {
+        log.innerHTML = lines.join('<br>');
+      }
+    }
+  }
+
+  const btnPreview = document.getElementById('btn-preview-diff');
+  if (btnPreview) btnPreview.addEventListener('click', fetchSyncPreview);
+  const btnResync = document.getElementById('btn-resync');
+  if (btnResync) btnResync.addEventListener('click', doResync);
+
+  // Settings 탭 진입 시 sync preview + settings 자동 로드 (한 번만)
+  let syncPreviewLoadedOnce = false;
+  let settingsLoadedOnce = false;
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.tab === 'settings') {
+        if (!syncPreviewLoadedOnce) {
+          syncPreviewLoadedOnce = true;
+          fetchSyncPreview();
+        }
+        if (!settingsLoadedOnce) {
+          settingsLoadedOnce = true;
+          fetchSettings();
+        }
+      }
+    });
+  });
+
+  // ─── 유틸 ───
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // ════════════════════════════════════════════════
+  // Step 8 — Settings API wire (GET /PUT /api/settings)
+  // ════════════════════════════════════════════════
+  // 디폴트 (서버 default 와 동기화 — 마이그 v1 INSERT 와 1:1)
+  const SETTINGS_DEFAULTS = {
+    weights: { mnem: 20, color: 15, under: 10, outline: 15, sem: 15, rich: 10, miss: 15 },
+    bias:    { err_weight: 60, stale_weight: 40, err_threshold: 3, stale_threshold_days: 14 },
+    voice:   { lang: 'ko-KR', silence_sec: 3 },
+    grading_mode: 'manual',  // Step 13 — Claude Code 외부 채점이 기본
+  };
+  const VOICE_LANG_OPTIONS = ['ko-KR', 'en-US'];
+
+  // 토스트 (300자 미만, 간단 fade)
+  function showToast(msg, kind) {
+    const existing = document.getElementById('lawear-toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.id = 'lawear-toast';
+    const bg = kind === 'error' ? 'var(--danger, #c33)' : 'var(--accent, #2a7)';
+    t.style.cssText = `
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: ${bg}; color: #fff; padding: 10px 16px; border-radius: 6px;
+      font-size: 13px; z-index: 9999; box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      max-width: 80vw;
+    `;
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => { t.style.transition = 'opacity 0.3s'; t.style.opacity = '0'; }, 2400);
+    setTimeout(() => { t.remove(); }, 2800);
+  }
+
+  function applyWeightsToUI(weights) {
+    document.querySelectorAll('input[data-weight-key]').forEach(inp => {
+      const k = inp.dataset.weightKey;
+      if (weights[k] != null) {
+        inp.value = weights[k];
+        const valEl = document.querySelector(`[data-weight-val="${k}"]`);
+        if (valEl) valEl.textContent = weights[k];
+      }
+    });
+    updateWeightsTotal();
+  }
+
+  function applyBiasToUI(bias) {
+    document.querySelectorAll('input[data-bias-key]').forEach(inp => {
+      const k = inp.dataset.biasKey;
+      if (bias[k] != null) {
+        inp.value = bias[k];
+        const valEl = document.querySelector(`[data-bias-val="${k}"]`);
+        if (valEl) valEl.textContent = formatBiasVal(k, bias[k]);
+      }
+    });
+  }
+
+  function formatBiasVal(key, val) {
+    if (key === 'err_threshold') return '≥' + val;
+    if (key === 'stale_threshold_days') return val + 'd';
+    return String(val);
+  }
+
+  // Step 13 — grading_mode 라디오 (manual/auto)
+  function applyGradingModeToUI(mode) {
+    const normalized = (mode === 'auto') ? 'auto' : 'manual';
+    document.querySelectorAll('input[name="grading_mode"]').forEach(inp => {
+      inp.checked = (inp.value === normalized);
+    });
+    const warnEl = document.getElementById('grading-mode-auto-warning');
+    if (warnEl) {
+      // auto 선택 + (브라우저는 키 보유 여부 모르므로) 항상 안내 노출
+      warnEl.style.display = (normalized === 'auto') ? '' : 'none';
+    }
+  }
+
+  function readGradingModeFromUI() {
+    const checked = document.querySelector('input[name="grading_mode"]:checked');
+    return checked ? checked.value : 'manual';
+  }
+
+  function applyVoiceToUI(voice) {
+    // lang: range 0/1 ↔ ko-KR/en-US
+    const langInp = document.querySelector('input[data-voice-key="lang"]');
+    const langVal = document.querySelector('[data-voice-val="lang"]');
+    if (langInp) {
+      const idx = VOICE_LANG_OPTIONS.indexOf(voice.lang);
+      langInp.value = idx >= 0 ? idx : 0;
+    }
+    if (langVal) langVal.textContent = voice.lang || 'ko-KR';
+
+    const silInp = document.querySelector('input[data-voice-key="silence_sec"]');
+    const silVal = document.querySelector('[data-voice-val="silence_sec"]');
+    if (silInp && voice.silence_sec != null) silInp.value = voice.silence_sec;
+    if (silVal && voice.silence_sec != null) silVal.textContent = voice.silence_sec + 's';
+  }
+
+  function updateWeightsTotal() {
+    let total = 0;
+    document.querySelectorAll('input[data-weight-key]').forEach(inp => {
+      total += parseInt(inp.value || '0', 10);
+    });
+    const warn = document.getElementById('weights-total-warn');
+    const txt = document.getElementById('weights-total-text');
+    if (txt) txt.textContent = `Total: ${total} / 100 ${total === 100 ? '✓' : '✗'}`;
+    if (warn) warn.style.color = total === 100 ? '' : 'var(--danger, #c33)';
+  }
+
+  function readWeightsFromUI() {
+    const w = {};
+    document.querySelectorAll('input[data-weight-key]').forEach(inp => {
+      w[inp.dataset.weightKey] = parseInt(inp.value || '0', 10);
+    });
+    return w;
+  }
+
+  function readBiasFromUI() {
+    const b = {};
+    document.querySelectorAll('input[data-bias-key]').forEach(inp => {
+      b[inp.dataset.biasKey] = parseInt(inp.value || '0', 10);
+    });
+    return b;
+  }
+
+  function readVoiceFromUI() {
+    const langInp = document.querySelector('input[data-voice-key="lang"]');
+    const silInp = document.querySelector('input[data-voice-key="silence_sec"]');
+    const idx = langInp ? parseInt(langInp.value || '0', 10) : 0;
+    return {
+      lang: VOICE_LANG_OPTIONS[idx] || 'ko-KR',
+      silence_sec: silInp ? parseInt(silInp.value || '3', 10) : 3,
+    };
+  }
+
+  async function fetchSettings() {
+    try {
+      const r = await fetch(`${API_BASE}/api/settings`, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      // Step 11 — STT 에서 voice.lang / voice.silence_sec 참조하므로 캐시 노출
+      window.SETTINGS_CACHE = d;
+      if (d.weights) applyWeightsToUI(d.weights);
+      if (d.bias)    applyBiasToUI(d.bias);
+      if (d.voice)   applyVoiceToUI(d.voice);
+      applyGradingModeToUI(d.grading_mode || 'manual');  // Step 13
+    } catch (err) {
+      console.error('fetchSettings failed:', err);
+      const tmpl = (I18N[currentLang] && I18N[currentLang].toast_settings_load_failed) || 'Failed to load settings: {msg}';
+      showToast(tmpl.replace('{msg}', err.message || err), 'error');
+    }
+  }
+
+  async function saveSettings() {
+    // weights sum=100 클라이언트 가드 (서버도 검증하지만 UX 개선)
+    const weights = readWeightsFromUI();
+    const sum = Object.values(weights).reduce((a, b) => a + b, 0);
+    if (sum !== 100) {
+      const tmpl = (I18N[currentLang] && I18N[currentLang].toast_weights_sum_bad) || 'Weights sum is {n}. Adjust so total = 100.';
+      showToast(tmpl.replace('{n}', sum), 'error');
+      return;
+    }
+    const payload = {
+      weights: weights,
+      bias: readBiasFromUI(),
+      voice: readVoiceFromUI(),
+      grading_mode: readGradingModeFromUI(),  // Step 13
+    };
+    try {
+      const r = await fetch(`${API_BASE}/api/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        throw new Error(d.message || ('HTTP ' + r.status));
+      }
+      // 서버 응답으로 동기화 (정규화된 값 반영)
+      // Step 11 — STT 캐시 갱신 (voice.lang / silence_sec 즉시 반영)
+      // Step 13 — grading_mode 캐시 갱신 (submitAttempt 분기에 사용)
+      window.SETTINGS_CACHE = d;
+      if (d.weights) applyWeightsToUI(d.weights);
+      if (d.bias)    applyBiasToUI(d.bias);
+      if (d.voice)   applyVoiceToUI(d.voice);
+      applyGradingModeToUI(d.grading_mode || 'manual');
+      showToast((I18N[currentLang] && I18N[currentLang].toast_settings_saved) || 'Settings saved', 'success');
+    } catch (err) {
+      console.error('saveSettings failed:', err);
+      const tmpl = (I18N[currentLang] && I18N[currentLang].toast_settings_save_failed) || 'Failed to save settings: {msg}';
+      showToast(tmpl.replace('{msg}', err.message || err), 'error');
+    }
+  }
+
+  async function resetSettings() {
+    // 디폴트 값을 UI 에 먼저 반영 후 저장
+    applyWeightsToUI(SETTINGS_DEFAULTS.weights);
+    applyBiasToUI(SETTINGS_DEFAULTS.bias);
+    applyVoiceToUI(SETTINGS_DEFAULTS.voice);
+    applyGradingModeToUI(SETTINGS_DEFAULTS.grading_mode);  // Step 13
+    await saveSettings();
+  }
+
+  // 슬라이더 input 이벤트 → 값 표시 (즉시 저장 X, sum 갱신만)
+  document.querySelectorAll('input[data-weight-key]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const k = inp.dataset.weightKey;
+      const valEl = document.querySelector(`[data-weight-val="${k}"]`);
+      if (valEl) valEl.textContent = inp.value;
+      updateWeightsTotal();
+    });
+  });
+  document.querySelectorAll('input[data-bias-key]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const k = inp.dataset.biasKey;
+      const valEl = document.querySelector(`[data-bias-val="${k}"]`);
+      if (valEl) valEl.textContent = formatBiasVal(k, inp.value);
+    });
+  });
+  document.querySelectorAll('input[data-voice-key]').forEach(inp => {
+    inp.addEventListener('input', () => {
+      const k = inp.dataset.voiceKey;
+      const valEl = document.querySelector(`[data-voice-val="${k}"]`);
+      if (valEl) {
+        if (k === 'lang') {
+          const idx = parseInt(inp.value || '0', 10);
+          valEl.textContent = VOICE_LANG_OPTIONS[idx] || 'ko-KR';
+        } else if (k === 'silence_sec') {
+          valEl.textContent = inp.value + 's';
+        } else {
+          valEl.textContent = inp.value;
+        }
+      }
+    });
+  });
+
+  const btnSettingsSave = document.getElementById('btn-settings-save');
+  if (btnSettingsSave) btnSettingsSave.addEventListener('click', saveSettings);
+  const btnSettingsReset = document.getElementById('btn-settings-reset');
+  if (btnSettingsReset) btnSettingsReset.addEventListener('click', resetSettings);
+
+  // Step 13 — grading_mode 라디오 즉시 반응 (저장 전 시각 피드백)
+  document.querySelectorAll('input[name="grading_mode"]').forEach(inp => {
+    inp.addEventListener('change', () => {
+      applyGradingModeToUI(inp.value);
+    });
+  });
+
+  // ════════════════════════════════════════════════
+  // Step 9 — Bookmarks API wire (POST/DELETE /api/bookmarks/{id})
+  // ════════════════════════════════════════════════
+  async function toggleBookmark(caseId) {
+    if (!caseId) return;
+    // optimistic update: cache 에서 현 상태 토글 → 즉시 렌더
+    const cached = (CASES_CACHE || []).find(c => c.id === caseId);
+    const currentlyBookmarked = !!(cached && cached.bookmarked);
+    const newState = !currentlyBookmarked;
+    if (cached) cached.bookmarked = newState;
+    renderCaseList(CASES_CACHE);
+
+    const method = newState ? 'POST' : 'DELETE';
+    try {
+      const r = await fetch(`${API_BASE}/api/bookmarks/${encodeURIComponent(caseId)}`, {
+        method: method,
+        headers: { 'Accept': 'application/json' },
+      });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(d.message || ('HTTP ' + r.status));
+      // 서버 응답으로 동기화 (혹시 다를 경우)
+      if (cached) cached.bookmarked = !!d.bookmarked;
+      renderCaseList(CASES_CACHE);
+      // filter=bookmarked 모드에서 해제 시 리스트에서 사라지도록 reload
+      if (CURRENT_FILTER === 'book' || CURRENT_FILTER === 'bookmarked') {
+        reloadCases();
+      }
+    } catch (err) {
+      console.error('toggleBookmark failed:', err);
+      // 롤백
+      if (cached) cached.bookmarked = currentlyBookmarked;
+      renderCaseList(CASES_CACHE);
+      const tmpl = (I18N[currentLang] && I18N[currentLang].toast_bookmark_failed) || 'Bookmark toggle failed: {msg}';
+      showToast(tmpl.replace('{msg}', err.message || err), 'error');
+    }
+  }
+
+  // ════════════════════════════════════════════════
+  // Step 7 — Attempts API wire (Review 제출 → Evaluation 폴링)
+  // Step 13 — manual 채점 대기 시 폴링 간격 10초로 연장.
+  // ════════════════════════════════════════════════
+  let CURRENT_ATTEMPT_ID = null;
+  let POLL_TIMER = null;
+  const POLL_INTERVAL_MS = 1000;            // auto 모드 (status=grading) — 1초
+  const POLL_INTERVAL_PENDING_MS = 10000;   // manual 모드 (status=pending_grade) — 10초
+
+  // ─── Reviewer Notes textarea: chars 카운트 + 자동저장 (localStorage) ───
+  const notesEl = document.getElementById('rv-notes');
+  const notesInfoEl = document.getElementById('rv-notes-info');
+
+  function pad2(n) { return String(n).padStart(2, '0'); }
+  function nowHHMM() {
+    const d = new Date();
+    return `${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+
+  function fmtChars(n) {
+    const tmpl = I18N[currentLang].info_chars_fmt;
+    return tmpl.replace('{n}', n);
+  }
+  function fmtSavedAt(t) {
+    return I18N[currentLang].info_saved_at.replace('{t}', t);
+  }
+
+  function updateNotesInfo(savedTime) {
+    if (!notesEl || !notesInfoEl) return;
+    const n = (notesEl.value || '').length;
+    const charsPart = fmtChars(n);
+    const savedPart = savedTime ? fmtSavedAt(savedTime) : I18N[currentLang].info_saved_never;
+    notesInfoEl.textContent = `${charsPart} · ${savedPart}`;
+  }
+
+  function draftKey(caseId) {
+    return `lawear_exam_draft_${caseId || 'unknown'}`;
+  }
+
+  function saveDraft(caseId, text) {
+    if (!caseId) return null;
+    try {
+      const t = nowHHMM();
+      localStorage.setItem(draftKey(caseId), JSON.stringify({ text: text, t: t }));
+      return t;
+    } catch (e) {
+      console.warn('saveDraft failed:', e);
+      return null;
+    }
+  }
+  function loadDraft(caseId) {
+    if (!caseId) return null;
+    try {
+      const raw = localStorage.getItem(draftKey(caseId));
+      if (!raw) return null;
+      const obj = JSON.parse(raw);
+      return (obj && typeof obj.text === 'string') ? obj : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  // Step 14 — autoSaveTimer 를 외부 스코프로 hoist (submitAttempt 성공 시 클리어 필요)
+  let __notesAutoSaveTimer = null;
+  if (notesEl) {
+    notesEl.addEventListener('input', () => {
+      // chars 즉시 갱신
+      updateNotesInfo(null);
+      // 1초 debounce → localStorage 저장
+      clearTimeout(__notesAutoSaveTimer);
+      __notesAutoSaveTimer = setTimeout(() => {
+        const t = saveDraft(CURRENT_CASE_ID, notesEl.value);
+        if (t) updateNotesInfo(t);
+      }, 1000);
+    });
+  }
+  function clearNotesAutoSaveTimer() {
+    if (__notesAutoSaveTimer) {
+      clearTimeout(__notesAutoSaveTimer);
+      __notesAutoSaveTimer = null;
+    }
+  }
+
+  // Step 15-4 / 16-1 — 케이스 전환 시 (draft 복원 + 마지막 채점 자동 로드) race condition 보강
+  //   * 빠른 케이스 클릭 시 이전 fetch 결과가 늦게 도착해 다른 케이스의 attempt 를 표시하는 버그 방지
+  //   * loadCase 진입 시 LOAD_TOKEN 증가 → 모든 비동기 갱신은 자신의 토큰과 현재 토큰을 비교
+  //   * Step 16-1 — 같은 caseId 재클릭 시에도 evaluation 자동 로드 보장 (early return 제거)
+  //                 origLoadCase 가 throw 해도 auto-load 는 계속 실행 (try/finally).
+  let LOAD_TOKEN = 0;
+  (function hookCaseChange() {
+    const origLoadCase = loadCase;
+    window.__origLoadCase = origLoadCase;
+    loadCase = async function patchedLoadCase(caseId) {
+      const myToken = ++LOAD_TOKEN;
+      // 폴링 중이면 정지
+      stopPolling();
+      // Evaluation 탭은 빈 상태로 즉시 리셋 (이전 케이스 데이터 잔존 방지)
+      resetEvaluationView();
+      // 원본 loadCase (case fetch + Background/Inquiry 갱신) — 실패해도 auto-load 는 계속.
+      try {
+        await origLoadCase(caseId);
+      } catch (err) {
+        console.warn('[Step 16-1] origLoadCase threw:', err);
+      }
+      // race 체크 — origLoadCase 동안 다른 케이스 클릭됐으면 이후 작업 skip
+      if (LOAD_TOKEN !== myToken || CURRENT_CASE_ID !== caseId) return;
+
+      // draft 복원
+      if (notesEl) {
+        const draft = loadDraft(caseId);
+        if (draft) {
+          notesEl.value = draft.text || '';
+          updateNotesInfo(draft.t || null);
+        } else {
+          notesEl.value = '';
+          updateNotesInfo(null);
+        }
+      }
+      // 마지막 채점 자동 로드 — 토큰 동기화. 같은 caseId 재클릭에도 매번 실행.
+      loadLastCompletedAttempt(caseId, myToken).catch((err) => {
+        console.warn('loadLastCompletedAttempt failed:', err);
+      });
+    };
+  })();
+
+  // ─── Evaluation 탭 — empty / grading / pending_grade / error / result 5상태 토글 ───
+  function setEvSection(state) {
+    // state: 'empty' | 'grading' | 'pending_grade' | 'error' | 'result'
+    const map = {
+      'empty':         'ev-empty',
+      'grading':       'ev-grading',
+      'pending_grade': 'ev-pending-grade',
+      'error':         'ev-error',
+      'result':        'ev-result',
+    };
+    Object.entries(map).forEach(([s, id]) => {
+      const el = document.getElementById(id);
+      if (el) el.style.display = (s === state) ? '' : 'none';
+    });
+  }
+  function resetEvaluationView() {
+    CURRENT_ATTEMPT_ID = null;
+    setEvSection('empty');
+    // 헤더 reset
+    const idEl = document.getElementById('ev-case-id');
+    const sjEl = document.getElementById('ev-subject');
+    const stEl = document.getElementById('ev-status');
+    if (idEl) idEl.textContent = '—';
+    if (sjEl) sjEl.textContent = '—';
+    if (stEl) {
+      stEl.textContent = I18N[currentLang].status_in_review || 'In Review';
+      stEl.style.color = '';
+      stEl.style.borderColor = '';
+      stEl.style.background = '';
+    }
+    // Step 14 — Diff 2열/fallback 모두 reset (이전 케이스 데이터 잔존 방지)
+    const splitEl = document.getElementById('ev-diff-split');
+    const fallbackEl = document.getElementById('ev-diff-area');
+    if (splitEl) splitEl.style.display = 'none';
+    if (fallbackEl) {
+      fallbackEl.style.display = '';
+      fallbackEl.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].ev_diff_empty}</span>`;
+    }
+  }
+
+  function setEvHeader(caseShortId, caseSubjectLine, statusKey) {
+    const idEl = document.getElementById('ev-case-id');
+    const sjEl = document.getElementById('ev-subject');
+    const stEl = document.getElementById('ev-status');
+    if (idEl) idEl.textContent = caseShortId || '—';
+    if (sjEl) sjEl.textContent = caseSubjectLine || '—';
+    if (stEl) {
+      const label = (I18N[currentLang] && I18N[currentLang][statusKey]) || statusKey;
+      stEl.textContent = label;
+      if (statusKey === 'status_evaluated') {
+        stEl.style.color = 'var(--success)';
+        stEl.style.borderColor = 'var(--success)';
+        stEl.style.background = 'rgba(78,201,176,0.08)';
+      } else {
+        stEl.style.color = '';
+        stEl.style.borderColor = '';
+        stEl.style.background = '';
+      }
+    }
+  }
+
+  // criteria 키별 라벨 + sub + Step 15-6 툴팁 키 (i18n)
+  const CRITERIA_META = {
+    'mnem':    { label: 'crit_mnem',    sub: '[blank2]',              tip: 'crit_mnem_tip' },
+    'color':   { label: 'crit_color',   sub: 'red/blue/bold/blank',   tip: 'crit_color_tip' },
+    'under':   { label: 'crit_under',   sub: '[u]',                   tip: 'crit_under_tip' },
+    'outline': { label: 'crit_outline', sub: null /* crit_outline_sub */, tip: 'crit_outline_tip' },
+    'sem':     { label: 'crit_sem',     sub: null /* crit_sem_sub */,     tip: 'crit_sem_tip' },
+    'rich':    { label: 'crit_rich',    sub: 'Lv.4 / Lv.1 / Origin',  tip: 'crit_rich_tip' },
+    'miss':    { label: 'crit_miss',    sub: null /* crit_miss_sub */,    tip: 'crit_miss_tip' },
+  };
+  // 툴팁 텍스트 (현재 lang 적용)
+  function critTipText(key) {
+    const meta = CRITERIA_META[key];
+    if (!meta || !meta.tip) return '';
+    const dict = I18N[currentLang] || {};
+    return dict[meta.tip] || '';
+  }
+  // ⓘ HTML 빌더 (title attr 로 네이티브 툴팁)
+  function critInfoHtml(key) {
+    const tip = critTipText(key);
+    if (!tip) return '';
+    return ` <span class="crit-info" title="${escapeHtml(tip)}">ⓘ</span>`;
+  }
+
+  function renderCriteriaGrid(criteria) {
+    const grid = document.getElementById('ev-criteria-grid');
+    if (!grid) return;
+    const dict = I18N[currentLang];
+    grid.innerHTML = '';
+    for (const c of criteria || []) {
+      const meta = CRITERIA_META[c.key];
+      if (!meta) continue;
+      const labelText = (dict[meta.label] !== undefined) ? dict[meta.label] : c.key;
+      let subText = meta.sub;
+      // dict-based sub
+      if (c.key === 'outline') subText = dict.crit_outline_sub || 'outline meaning';
+      if (c.key === 'sem')     subText = dict.crit_sem_sub     || 'tag meaning';
+      if (c.key === 'miss')    subText = dict.crit_miss_sub    || 'vs reference';
+
+      const max = Number(c.max) || 0;
+      const score = Number(c.score) || 0;
+      // bar width: score / max (0~100). miss(max=0)는 score 절대값/weight 비율 추정
+      let pct = 0;
+      let kind = '';  // full / partial / low / ''
+      let numText = '';
+      if (c.key === 'miss') {
+        // miss: max=0, score 음수 표시. weight 대비 절대값
+        const w = Number(c.weight) || 1;
+        const absRatio = Math.min(1, Math.abs(score) / w);
+        pct = Math.round(absRatio * 100);
+        kind = score < 0 ? 'low' : '';
+        numText = (score > 0 ? '+' : '') + score;
+      } else if (c.key === 'rich') {
+        // rich: score 0=Lv.4, 1=Lv.1, 2=Origin
+        pct = max > 0 ? Math.round((score / max) * 100) : 60;
+        const labels = ['Lv.4', 'Lv.1', 'Origin'];
+        numText = labels[Math.max(0, Math.min(2, Math.round(score)))] || String(score);
+      } else {
+        pct = max > 0 ? Math.round((score / max) * 100) : 0;
+        if (pct >= 90) kind = 'full';
+        else if (pct >= 60) kind = 'partial';
+        else kind = 'low';
+        numText = `${score} / ${max}`;
+      }
+
+      const row = document.createElement('div');
+      row.className = 'criteria-row';
+      row.innerHTML = `
+        <div class="label"><span>${escapeHtml(labelText)}</span> <span class="sub">${escapeHtml(subText || '')}</span>${critInfoHtml(c.key)}</div>
+        <div class="bar-wrap"><div class="bar-fill ${kind}" style="width:${pct}%"></div></div>
+        <div class="num">${escapeHtml(numText)}</div>
+      `;
+      grid.appendChild(row);
+    }
+  }
+
+  // ─── Step 14 — Reference Diff 2열 분할 렌더 헬퍼 ───
+  // Lv.4 강조 태그 인라인 렌더링 (R-28 [red][blue][bold][u][blank][blank2])
+  // 입력은 plain text — 먼저 HTML escape 한 뒤 태그를 span 으로 치환.
+  function renderEmphasisInline(text) {
+    if (text == null) return '';
+    let html = escapeHtml(String(text));
+    // 강조 태그는 escape 후 형태로 매칭: [red]…[/red] etc.
+    // [/x] 가 ]/x로 escape 되지 않으므로 안전.
+    const tagMap = [
+      ['red', 'em-red'],
+      ['blue', 'em-blue'],
+      ['bold', 'em-bold'],
+      ['u', 'em-u'],
+      ['blank2', 'em-blank2'],
+      ['blank', 'em-blank'],
+    ];
+    for (const [tag, cls] of tagMap) {
+      // 비탐욕 매칭, 다중 줄 허용
+      const re = new RegExp('\\[' + tag + '\\]([\\s\\S]*?)\\[\\/' + tag + '\\]', 'g');
+      html = html.replace(re, '<span class="' + cls + '">$1</span>');
+    }
+    return html;
+  }
+
+  // Step 15-3 — diff_segments → 형광펜 강조 (특정 클래스로 표시)
+  //   * type='match'   → .diff-match  (옅은 녹색)
+  //   * type='partial' → .diff-partial (옅은 황)
+  //   * type='miss'    → .diff-miss   (옅은 적)
+  //   - 본문 내 해당 텍스트를 찾아 span 으로 감싼다 (case-insensitive, escape 후)
+  //   - 짧은 토큰(1자) 은 false-positive 위험 → skip
+  function highlightDiffSegments(html, segments) {
+    if (!Array.isArray(segments) || segments.length === 0) return html;
+    let out = html;
+    // 긴 토큰부터 처리 (짧은 토큰이 긴 토큰 안에 포함될 수 있음)
+    const sorted = segments.slice().sort((a, b) =>
+      String(b && b.text || '').length - String(a && a.text || '').length);
+    for (const seg of sorted) {
+      if (!seg) continue;
+      const type = seg.type;
+      if (!type || (type !== 'match' && type !== 'partial' && type !== 'miss')) continue;
+      const raw = String(seg.text || '').trim();
+      if (!raw || raw.length < 2) continue;
+      // diff_segments 의 텍스트는 사람이 적은 요약(예: "원금 채권과 ... → 객관적 병합 (정확)")
+      // 원본 본문에 그대로 매칭 안 됨. 핵심 키워드만 추출해서 매칭.
+      const tokens = extractKeyTokens(raw);
+      const cls = `diff-${type}`;
+      for (const tok of tokens) {
+        const safe = escapeHtml(tok);
+        if (!safe || safe.length < 2) continue;
+        const re = new RegExp(safe.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+        // 이미 다른 span 으로 감싸진 텍스트는 매칭 X (간단한 가드: HTML 태그 직전이면 skip)
+        out = out.replace(re, (m, offset, full) => {
+          // 이미 같은 클래스 안에 들어 있으면 중첩 방지
+          const beforeChunk = full.slice(Math.max(0, offset - 50), offset);
+          if (/<span class="[^"]*diff-[a-z]+"[^>]*>[^<]*$/.test(beforeChunk)) return m;
+          return `<span class="${cls}">${m}</span>`;
+        });
+      }
+    }
+    return out;
+  }
+
+  // diff_segments 의 사람 작성 요약에서 핵심 키워드 추출
+  //   * "원금 채권과 지연손해금 채권은 별개 소송물 → 객관적 병합 (정확)"
+  //     → ["원금 채권", "지연손해금 채권", "별개 소송물", "객관적 병합"]
+  //   - '→', '·', '/', '(', ')', '+', ':', '"', '\'', '-', '—' 등으로 split
+  function extractKeyTokens(text) {
+    if (!text) return [];
+    let s = String(text)
+      .replace(/\([^)]{1,20}\)/g, ' ')  // 짧은 괄호 메타 (정확/누락 등) 제거
+      .replace(/[→·:"'\-—+/,]/g, ' ');
+    const parts = s.split(/\s{2,}|[|]/);
+    // 잡음 제거: 너무 짧거나, 단일 일반어
+    const STOP = new Set(['정확', '누락', '핵심', '관련', '논점', '서술', '미흡', '부족', '결론', '근거', '필요']);
+    const out = [];
+    for (let p of parts) {
+      p = p.trim();
+      if (p.length >= 2 && p.length <= 40 && !STOP.has(p)) out.push(p);
+    }
+    return out;
+  }
+
+  // 2열 분할 렌더 — 좌(내 답안) + 우(원본 답안 본문, 강조 태그 보존)
+  //   * 두 컬럼 모두 match/partial/miss 강조 적용 (사용자 피드백 2)
+  //   * 우측 레퍼런스는 case_data.origin 사용 (시안 변경 — 기존 lv1 → origin)
+  function renderDiffColumns(att, caseData) {
+    const splitEl = document.getElementById('ev-diff-split');
+    const fallbackEl = document.getElementById('ev-diff-area');
+    const mineEl = document.getElementById('ev-diff-mine');
+    const refEl  = document.getElementById('ev-diff-ref');
+    const mineSubEl = document.getElementById('ev-diff-mine-sub');
+    const refSubEl  = document.getElementById('ev-diff-ref-sub');
+    if (!splitEl || !mineEl || !refEl) return false;
+
+    const myText = (att && typeof att.answer_text === 'string') ? att.answer_text : null;
+    // Step 15-2 — Lv.1 → Origin (원본 답안). 케이스 응답의 `origin` 필드.
+    const refText = (caseData && typeof caseData.origin === 'string') ? caseData.origin : null;
+
+    if (!myText && !refText) {
+      splitEl.style.display = 'none';
+      if (fallbackEl) fallbackEl.style.display = '';
+      return false;
+    }
+
+    const segments = Array.isArray(att.diff_segments) ? att.diff_segments : [];
+
+    // 좌측 — 내 답안 (escape + 매칭 강조)
+    if (myText) {
+      const escaped = escapeHtml(myText);
+      const highlighted = highlightDiffSegments(escaped, segments);
+      mineEl.innerHTML = highlighted ||
+        '<span class="dim">' + escapeHtml(I18N[currentLang].ev_diff_empty) + '</span>';
+      if (mineSubEl) {
+        const tmpl = I18N[currentLang].diff_col_mine_sub_fmt || '{n} chars';
+        mineSubEl.textContent = tmpl.replace('{n}', myText.length);
+      }
+    } else {
+      mineEl.innerHTML = '<span class="dim">' + escapeHtml(I18N[currentLang].ev_diff_empty) + '</span>';
+      if (mineSubEl) mineSubEl.textContent = '';
+    }
+
+    // 우측 — 원본 답안 본문 (강조 태그 보존 + 매칭 강조)
+    if (refText) {
+      const emphasised = renderEmphasisInline(refText);
+      refEl.innerHTML = highlightDiffSegments(emphasised, segments);
+      if (refSubEl) {
+        const tmpl = I18N[currentLang].diff_col_ref_sub_fmt || '{n} chars';
+        refSubEl.textContent = tmpl.replace('{n}', refText.length);
+      }
+    } else {
+      refEl.innerHTML = '<span class="dim">' +
+        escapeHtml(I18N[currentLang].diff_col_ref_missing || 'No origin reference available.') + '</span>';
+      if (refSubEl) refSubEl.textContent = '';
+    }
+
+    splitEl.style.display = '';
+    if (fallbackEl) fallbackEl.style.display = 'none';
+    return true;
+  }
+
+  function renderEvaluationDone(att) {
+    // 헤더
+    const submitted = (att.submitted_at || '').replace('T', ' ').replace('Z', '');
+    const subjLine = `${I18N[currentLang].eval_submitted_at} ${submitted} · model: ${att.model || '—'}`;
+    setEvHeader(att.case_short_id || att.case_id || '—', subjLine, 'status_evaluated');
+
+    // 점수
+    const total = Number(att.score_total);
+    const max   = Number(att.score_max);
+    const pct   = Number(att.score_pct);
+    const grade = att.grade || '—';
+    const setText = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setText('ev-score-total', isFinite(total) ? total.toFixed(1) : '—');
+    setText('ev-score-max',   isFinite(max)   ? max.toFixed(1)   : '—');
+    setText('ev-pct',         isFinite(pct)   ? pct.toFixed(0)   : '—');
+    const gradeEl = document.getElementById('ev-grade');
+    if (gradeEl) {
+      gradeEl.textContent = `${I18N[currentLang].grade_b ? 'Grade ' : ''}${grade}`.trim() || grade;
+      gradeEl.className = 'grade ' + (grade || '').toLowerCase();
+    }
+
+    // criteria
+    renderCriteriaGrid(att.criteria || []);
+
+    // notes
+    const notes = att.eval_notes || {};
+    setText('ev-note-strength', notes.strength || '—');
+    setText('ev-note-caution',  notes.caution  || '—');
+    setText('ev-note-missing',  notes.missing  || '—');
+
+    // Step 14 — Reference Diff 2열 분할 우선 시도. 데이터 없으면 fallback diff_html.
+    const splitOk = renderDiffColumns(att, CURRENT_CASE_DATA);
+    if (!splitOk) {
+      const diffEl = document.getElementById('ev-diff-area');
+      if (diffEl) {
+        const html = att.diff_html || '';
+        if (html.trim()) {
+          diffEl.innerHTML = html;
+        } else {
+          diffEl.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].ev_diff_empty}</span>`;
+        }
+        diffEl.style.display = '';
+      }
+    }
+
+    setEvSection('result');
+  }
+
+  function renderEvaluationError(att) {
+    setEvHeader(att.case_short_id || att.case_id || '—', '—', 'status_in_review');
+    const codeEl = document.getElementById('ev-error-code');
+    const msgEl  = document.getElementById('ev-error-msg');
+    if (codeEl) codeEl.textContent = att.error_code || '—';
+    if (msgEl)  msgEl.textContent  = att.error_message || '';
+    setEvSection('error');
+  }
+
+  function renderEvaluationGrading(att) {
+    const elapsed = Number(att.elapsed_sec) || 0;
+    setEvHeader(att.case_short_id || att.case_id || '—', I18N[currentLang].info_submitted || 'Grading…', 'status_in_review');
+    const eEl = document.getElementById('ev-elapsed');
+    if (eEl) eEl.textContent = elapsed.toFixed(1) + 's';
+    setEvSection('grading');
+  }
+
+  // Step 13 — manual 채점 대기 렌더
+  function renderEvaluationPendingGrade(att) {
+    const elapsed = Number(att.elapsed_sec) || 0;
+    setEvHeader(att.case_short_id || att.case_id || '—',
+                (I18N[currentLang].ev_pending_grade || 'Pending main-session grading…'),
+                'status_in_review');
+    const eEl = document.getElementById('ev-pending-elapsed');
+    if (eEl) eEl.textContent = elapsed.toFixed(1) + 's';
+    setEvSection('pending_grade');
+  }
+
+  // ─── 폴링 ───
+  function stopPolling() {
+    if (POLL_TIMER) {
+      clearTimeout(POLL_TIMER);
+      POLL_TIMER = null;
+    }
+  }
+
+  async function pollAttempt(attemptId) {
+    if (CURRENT_ATTEMPT_ID !== attemptId) return;  // 케이스 전환되면 중단
+    try {
+      const r = await fetch(`${API_BASE}/api/attempts/${encodeURIComponent(attemptId)}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const att = await r.json();
+      // 상태별 분기
+      if (att.status === 'grading') {
+        renderEvaluationGrading(att);
+        POLL_TIMER = setTimeout(() => pollAttempt(attemptId), POLL_INTERVAL_MS);
+      } else if (att.status === 'pending_grade' || att.db_status === 'pending_grade') {
+        // Step 13 — Claude Code 메인 Opus 채점 대기. 10초 간격 폴링.
+        renderEvaluationPendingGrade(att);
+        POLL_TIMER = setTimeout(() => pollAttempt(attemptId), POLL_INTERVAL_PENDING_MS);
+      } else if (att.status === 'completed' || att.db_status === 'done') {
+        renderEvaluationDone(att);
+      } else if (att.status === 'failed' || att.db_status === 'error') {
+        renderEvaluationError(att);
+      } else {
+        // 알 수 없는 상태 — error 처리
+        renderEvaluationError({
+          case_id: att.case_id,
+          case_short_id: att.case_short_id,
+          error_code: 'unknown_status',
+          error_message: 'Unexpected status: ' + (att.status || att.db_status || ''),
+        });
+      }
+    } catch (err) {
+      console.error('pollAttempt failed:', err);
+      renderEvaluationError({
+        case_id: CURRENT_CASE_ID,
+        error_code: 'poll_failed',
+        error_message: err.message || I18N[currentLang].err_poll_failed,
+      });
+    }
+  }
+
+  // ─── Step 14-3 / 15-4 / 16-1 — 케이스 선택 시 마지막 채점 자동 로드 (race 보강) ───
+  // GET /api/attempts?case_id=X&status=completed&limit=1 → 최신 completed 1건 id 획득.
+  // 있으면 GET /api/attempts/{id} 로 풀 데이터(criteria/eval_notes/diff_segments) 가져와 렌더.
+  // 없으면 Evaluation 탭은 empty 유지 (resetEvaluationView 가 이미 처리).
+  // myToken 인자: 호출 시점의 LOAD_TOKEN. fetch 동안 다른 케이스로 전환되었으면 결과 무시.
+  //
+  // Step 16-1 — 같은 케이스 재클릭 시 평가 자동 로드 보장:
+  //   * 기존 `if (CURRENT_ATTEMPT_ID && CURRENT_ATTEMPT_ID !== lastId) return;` 가드 제거.
+  //     - LOAD_TOKEN + caseId race 체크가 이미 동일 보호를 제공.
+  //     - CURRENT_ATTEMPT_ID 가 (이전 비동기 호출로) 비정상 값이면 정상 재로드를 막아버림.
+  //   * att.case_id !== caseId 가드만 유지 (서버 응답 검증).
+  async function loadLastCompletedAttempt(caseId, myToken) {
+    if (!caseId) return;
+    const targetToken = (myToken === undefined) ? LOAD_TOKEN : myToken;
+    const raceOk = () => (LOAD_TOKEN === targetToken && CURRENT_CASE_ID === caseId);
+    try {
+      const listUrl = `${API_BASE}/api/attempts?case_id=${encodeURIComponent(caseId)}&status=completed&limit=1`;
+      const lr = await fetch(listUrl, { headers: { 'Accept': 'application/json' } });
+      if (!raceOk()) return;
+      if (!lr.ok) throw new Error('HTTP ' + lr.status);
+      const ld = await lr.json();
+      const items = (ld && Array.isArray(ld.attempts)) ? ld.attempts : [];
+      if (items.length === 0) return;  // 채점 이력 없음 — empty 유지
+      if (!raceOk()) return;
+
+      const lastId = items[0].id || items[0].attempt_id;
+      if (!lastId) return;
+
+      const ar = await fetch(`${API_BASE}/api/attempts/${encodeURIComponent(lastId)}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!raceOk()) return;
+      if (!ar.ok) throw new Error('HTTP ' + ar.status);
+      const att = await ar.json();
+
+      if (!raceOk()) return;
+      // attempt 의 case_id 가 현재 케이스와 일치하는지 확인 (서버 응답 검증)
+      if (att.case_id && att.case_id !== caseId) return;
+
+      // 무조건 갱신 — 재클릭/재로드 시 항상 최신 attempt 표시.
+      CURRENT_ATTEMPT_ID = lastId;
+      if (att.status === 'completed' || att.db_status === 'done') {
+        renderEvaluationDone(att);
+      }
+    } catch (err) {
+      // 자동 로드 실패는 silent — empty 유지
+      console.warn('loadLastCompletedAttempt:', err);
+    }
+  }
+
+  // ─── Submit / Save Draft 버튼 ───
+  const submitBtn = document.getElementById('btn-submit');
+  const saveDraftBtn = document.getElementById('btn-save-draft');
+
+  if (saveDraftBtn) {
+    saveDraftBtn.addEventListener('click', () => {
+      if (!CURRENT_CASE_ID || !notesEl) return;
+      const t = saveDraft(CURRENT_CASE_ID, notesEl.value);
+      if (t) {
+        updateNotesInfo(t);
+        // 작은 토스트 대용 — 정보 라인을 잠깐 변경 후 복귀
+        const prev = notesInfoEl.textContent;
+        notesInfoEl.textContent = I18N[currentLang].draft_saved;
+        setTimeout(() => { notesInfoEl.textContent = prev; }, 1500);
+      }
+    });
+  }
+
+  async function submitAttempt() {
+    if (!CURRENT_CASE_ID) return;
+    const text = (notesEl && notesEl.value || '').trim();
+    if (!text) {
+      alert(I18N[currentLang].err_submit_empty);
+      return;
+    }
+    // 즉시 Evaluation 탭 전환
+    const evTab = document.querySelector('.tab-btn[data-tab="evaluation"]');
+    if (evTab) evTab.click();
+
+    // Step 13 — 캐시된 grading_mode 로 초기 상태 결정 (manual=pending, auto=grading)
+    const cachedMode = (window.SETTINGS_CACHE && window.SETTINGS_CACHE.grading_mode) || 'manual';
+    const initialState = (cachedMode === 'auto') ? 'grading' : 'pending_grade';
+    setEvHeader(CURRENT_CASE_ID, I18N[currentLang].info_submitted || 'Grading…', 'status_in_review');
+    if (initialState === 'grading') {
+      const eEl = document.getElementById('ev-elapsed');
+      if (eEl) eEl.textContent = '0.0s';
+    } else {
+      const eEl = document.getElementById('ev-pending-elapsed');
+      if (eEl) eEl.textContent = '0.0s';
+    }
+    setEvSection(initialState);
+
+    // 폴링 정지 (이전 attempt 가 있으면)
+    stopPolling();
+
+    try {
+      if (submitBtn) submitBtn.disabled = true;
+      const r = await fetch(`${API_BASE}/api/attempts`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          case_id: CURRENT_CASE_ID,
+          answer_text: notesEl.value,
+          submitted_at: new Date().toISOString(),
+        }),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const code = body.error_code || ('http_' + r.status);
+        const msg  = body.message || I18N[currentLang].err_submit_failed;
+        renderEvaluationError({
+          case_id: CURRENT_CASE_ID,
+          error_code: code,
+          error_message: msg,
+        });
+        return;
+      }
+      // Step 13 — 응답의 grading_mode/warning 반영 (auto fallback 안내)
+      if (body.warning) {
+        const tmpl = I18N[currentLang].toast_pending_warning || 'API key missing — fell back to manual grading.';
+        showToast(tmpl, 'error');
+      }
+      CURRENT_ATTEMPT_ID = body.attempt_id;
+      // Step 14-1 — Submit 성공 시 textarea/draft/timer 클리어 (다음 답안 입력 가능 상태로).
+      // 사용자가 Evaluation 탭에서 채점 결과 보는 동안 Review 탭 textarea 는 비워둠.
+      // 이전 답안은 attempt(=CURRENT_ATTEMPT_ID) 에 영구 저장되어 GET 으로 조회 가능.
+      try {
+        const draftKeyToRemove = draftKey(CURRENT_CASE_ID);
+        localStorage.removeItem(draftKeyToRemove);
+      } catch (e) { /* ignore */ }
+      clearNotesAutoSaveTimer();
+      if (notesEl) {
+        notesEl.value = '';
+        updateNotesInfo(null);
+      }
+      // 즉시 1회 폴링
+      pollAttempt(CURRENT_ATTEMPT_ID);
+    } catch (err) {
+      console.error('submitAttempt failed:', err);
+      renderEvaluationError({
+        case_id: CURRENT_CASE_ID,
+        error_code: 'submit_failed',
+        error_message: err.message || I18N[currentLang].err_submit_failed,
+      });
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  }
+
+  if (submitBtn) submitBtn.addEventListener('click', submitAttempt);
+
+  // 재시도 버튼 — 동일 답안 재제출
+  const retryBtn = document.getElementById('btn-retry');
+  if (retryBtn) {
+    retryBtn.addEventListener('click', () => {
+      submitAttempt();
+    });
+  }
+
+  // 초기 Evaluation 탭 상태
+  resetEvaluationView();
+
+  // ════════════════════════════════════════════════
+  // Step 10 — Reports API wire (overall / by-subject / by-case)
+  // ════════════════════════════════════════════════
+  const REPORTS_STATE = {
+    overallLoaded: false,
+    subjectsLoaded: false,
+    currentSubject: null,    // 활성 subject 코드 (예: 'minbeop')
+    subjects: [],            // /api/reports/subjects 응답 cache
+    casePickerLoaded: false,
+    casePickerSubject: null, // case picker 가 채워졌을 때의 subject 필터 (null=all)
+    currentCaseId: null,
+  };
+
+  // ─── 공용 헬퍼 ────────────────────────────────────────────
+  function fmtPct(v) {
+    if (v == null || isNaN(v)) return '—';
+    return Number(v).toFixed(1) + '%';
+  }
+  function fmtNumOrDash(v) {
+    if (v == null || isNaN(v)) return '—';
+    return String(v);
+  }
+  function fmtScoreFraction(total, max) {
+    if (total == null || max == null) return '—';
+    // 소수점 자리 처리: 정수 가까우면 정수, 아니면 1자리
+    const t = Number(total);
+    const m = Number(max);
+    if (isNaN(t) || isNaN(m)) return '—';
+    const ts = (Math.round(t * 10) / 10).toString();
+    const ms = (Math.round(m * 10) / 10).toString();
+    return `${ts} / ${ms}`;
+  }
+  function fmtDate(iso) {
+    if (!iso) return '—';
+    // 'YYYY-MM-DDTHH:MM:SSZ' → 'YYYY-MM-DD HH:MM'
+    const m = iso.match(/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/);
+    return m ? `${m[1]} ${m[2]}` : iso;
+  }
+  function fmtDateShort(iso) {
+    if (!iso) return '—';
+    const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    return m ? `${m[2]}-${m[3]}` : iso;
+  }
+  function gradeColor(grade) {
+    if (grade === 'A') return 'var(--success)';
+    if (grade === 'B') return 'var(--accent)';
+    if (grade === 'C') return 'var(--warn)';
+    if (grade === 'F' || grade === 'ERROR') return 'var(--danger)';
+    return 'var(--text)';
+  }
+  function pctColor(pct) {
+    if (pct == null || isNaN(pct)) return 'var(--text-dim)';
+    if (pct >= 85) return 'var(--success)';
+    if (pct >= 65) return 'var(--accent)';
+    if (pct >= 50) return 'var(--warn)';
+    return 'var(--danger)';
+  }
+  function fmtSubjectTab(subj) {
+    // 시안 탭은 짧은 한글 라벨 (민법/민소/형법/부등/형소). DB 의 subject_kor 사용.
+    return subj.subject_kor || subj.subject || '—';
+  }
+  function applyTmpl(tmpl, vars) {
+    let s = tmpl;
+    for (const k of Object.keys(vars)) {
+      s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), vars[k]);
+    }
+    return s;
+  }
+
+  async function fetchJson(url) {
+    const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+    if (!r.ok) {
+      let body = {};
+      try { body = await r.json(); } catch (e) { /* ignore */ }
+      const msg = body.message || ('HTTP ' + r.status);
+      const err = new Error(msg);
+      err.status = r.status;
+      err.body = body;
+      throw err;
+    }
+    return r.json();
+  }
+
+  // ─── Overall ─────────────────────────────────────────────
+  async function loadReportOverall() {
+    try {
+      const data = await fetchJson(`${API_BASE}/api/reports/overall`);
+      renderOverallKpi(data.kpi || {}, data.window_days || 7, data.stale_threshold_days || 14);
+      renderOverallTrend(data.trend || []);
+      renderOverallRecent(data.recent || []);
+    } catch (err) {
+      console.error('loadReportOverall failed:', err);
+      const tb = document.getElementById('rep-ov-recent-tbody');
+      if (tb) tb.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--danger);">${escapeHtml(I18N[currentLang].rep_load_failed)}: ${escapeHtml(err.message || '')}</td></tr>`;
+    }
+  }
+
+  function renderOverallKpi(kpi, windowDays, staleDays) {
+    const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    set('rep-ov-submitted', fmtNumOrDash(kpi.submitted));
+    const delta = applyTmpl(I18N[currentLang].delta_lastweek_fmt, { n: kpi.last_window_count != null ? kpi.last_window_count : 0, d: windowDays });
+    set('rep-ov-submitted-delta', delta);
+    set('rep-ov-avg', fmtPct(kpi.avg_score_pct));
+    const avgDelta = kpi.avg_score_pct_delta != null ? kpi.avg_score_pct_delta : 0;
+    set('rep-ov-avg-delta', (avgDelta >= 0 ? '+' : '') + applyTmpl(I18N[currentLang].delta_pp_fmt, { n: Number(avgDelta).toFixed(1) }));
+    set('rep-ov-err', fmtNumOrDash(kpi.high_error_cases));
+    set('rep-ov-err-delta', applyTmpl(I18N[currentLang].delta_cases_fmt, { n: kpi.high_error_delta != null ? kpi.high_error_delta : 0 }));
+    set('rep-ov-stale', fmtNumOrDash(kpi.long_pending_cases));
+    set('rep-ov-stale-delta', applyTmpl(I18N[currentLang].delta_over_fmt, { n: staleDays }));
+  }
+
+  function buildLineChartSvg(points, opts) {
+    // points: [{x_label?: str, y_pct: 0-100 (또는 null), tooltip?: str}]
+    // opts: { vbW=600, vbH=200, marginL=40, marginR=20, marginT=30, marginB=30, stroke='#569cd6', radius=2.5 }
+    const o = Object.assign({
+      vbW: 600, vbH: 200, marginL: 40, marginR: 20, marginT: 30, marginB: 30,
+      stroke: '#569cd6', radius: 2.5, fill: '#569cd6',
+    }, opts || {});
+    const W = o.vbW;
+    const H = o.vbH;
+    const xL = o.marginL, xR = W - o.marginR;
+    const yT = o.marginT, yB = H - o.marginB;
+
+    // 빈 데이터 처리
+    if (!points || points.length === 0) {
+      return `<text x="${W/2}" y="${H/2}" fill="#858585" font-size="12" font-family="monospace" text-anchor="middle">${escapeHtml(I18N[currentLang].rep_empty)}</text>`;
+    }
+
+    const usable = points.filter(p => p.y_pct != null && !isNaN(p.y_pct));
+    if (usable.length === 0) {
+      return `<text x="${W/2}" y="${H/2}" fill="#858585" font-size="12" font-family="monospace" text-anchor="middle">${escapeHtml(I18N[currentLang].rep_empty)}</text>`;
+    }
+
+    // y 범위: 0~100 고정. grid line 40/60/80
+    function yOf(pct) {
+      const p = Math.max(0, Math.min(100, pct));
+      return yB - (p / 100) * (yB - yT);
+    }
+    function xOf(idx) {
+      if (points.length === 1) return (xL + xR) / 2;
+      return xL + (idx / (points.length - 1)) * (xR - xL);
+    }
+
+    let svg = '';
+    // grid lines 100/80/60/40%
+    [[100,'100%'],[80,'80%'],[60,'60%'],[40,'40%']].forEach(([pct, lbl]) => {
+      const y = yOf(pct);
+      svg += `<line x1="${xL}" y1="${y.toFixed(1)}" x2="${xR}" y2="${y.toFixed(1)}" stroke="#3e3e42" stroke-dasharray="2,3"/>`;
+      svg += `<text x="2" y="${(y+3).toFixed(1)}" fill="#858585" font-size="9" font-family="monospace">${lbl}</text>`;
+    });
+    // polyline
+    const pts = points.map((p, i) => {
+      if (p.y_pct == null) return null;
+      return `${xOf(i).toFixed(1)},${yOf(p.y_pct).toFixed(1)}`;
+    }).filter(Boolean).join(' ');
+    if (pts) {
+      svg += `<polyline points="${pts}" fill="none" stroke="${o.stroke}" stroke-width="1.5"/>`;
+    }
+    // 점
+    svg += `<g fill="${o.fill}">`;
+    points.forEach((p, i) => {
+      if (p.y_pct == null) return;
+      const cx = xOf(i).toFixed(1);
+      const cy = yOf(p.y_pct).toFixed(1);
+      const tooltip = p.tooltip ? `<title>${escapeHtml(p.tooltip)}</title>` : '';
+      svg += `<circle cx="${cx}" cy="${cy}" r="${o.radius}">${tooltip}</circle>`;
+    });
+    svg += `</g>`;
+    // x축 라벨 (첫/중간/마지막)
+    if (points[0] && points[0].x_label) {
+      svg += `<text x="${xOf(0).toFixed(1)}" y="${(H - 5).toFixed(1)}" fill="#858585" font-size="9" font-family="monospace" text-anchor="middle">${escapeHtml(points[0].x_label)}</text>`;
+    }
+    if (points.length > 2) {
+      const mid = Math.floor((points.length - 1) / 2);
+      if (points[mid] && points[mid].x_label) {
+        svg += `<text x="${xOf(mid).toFixed(1)}" y="${(H - 5).toFixed(1)}" fill="#858585" font-size="9" font-family="monospace" text-anchor="middle">${escapeHtml(points[mid].x_label)}</text>`;
+      }
+    }
+    if (points.length > 1) {
+      const last = points.length - 1;
+      if (points[last] && points[last].x_label) {
+        svg += `<text x="${xOf(last).toFixed(1)}" y="${(H - 5).toFixed(1)}" fill="#858585" font-size="9" font-family="monospace" text-anchor="middle">${escapeHtml(points[last].x_label)}</text>`;
+      }
+    }
+    return svg;
+  }
+
+  function renderOverallTrend(trend) {
+    const svg = document.getElementById('rep-ov-trend-svg');
+    if (!svg) return;
+    const points = trend.map(p => ({
+      y_pct: p.score_pct,
+      x_label: fmtDateShort(p.date),
+      tooltip: `${fmtDate(p.date)} · ${p.case_title || p.case_id} · ${fmtPct(p.score_pct)}`,
+    }));
+    svg.innerHTML = buildLineChartSvg(points, { stroke: '#569cd6', fill: '#569cd6', radius: 2.5 });
+  }
+
+  function renderOverallRecent(recent) {
+    const tb = document.getElementById('rep-ov-recent-tbody');
+    if (!tb) return;
+    if (!recent || recent.length === 0) {
+      tb.innerHTML = `<tr><td colspan="5" style="text-align:center; color: var(--text-dim);">${escapeHtml(I18N[currentLang].rep_empty)}</td></tr>`;
+      return;
+    }
+    const rows = recent.map(r => {
+      const scoreCell = r.status === 'done'
+        ? fmtScoreFraction(r.score_total, r.score_max)
+        : `<span style="color: var(--danger);">${escapeHtml(r.error_code || 'error')}</span>`;
+      const gradeCell = r.status === 'done'
+        ? `<span style="color: ${gradeColor(r.grade)};">${escapeHtml(r.grade || '—')} (${fmtPct(r.score_pct)})</span>`
+        : `<span style="color: var(--danger);">ERROR</span>`;
+      const titleCell = escapeHtml(r.case_title || '—');
+      const mockBadge = r.is_mock ? ' <span class="pill" style="font-size:9px;">mock</span>' : '';
+      const staleBadge = r.is_stale ? ' <span class="pill stale" style="font-size:9px;">stale</span>' : '';
+      // Step 15-6 — 행에 case_id/attempt_id 부여 (모달 클릭 진입점)
+      return `<tr data-case-id="${escapeHtml(r.case_id || '')}" data-attempt-id="${escapeHtml(r.attempt_id || '')}">
+        <td>${escapeHtml(fmtDate(r.submitted_at))}</td>
+        <td class="id">${escapeHtml(r.case_short_id || r.case_id)}</td>
+        <td>${titleCell}${mockBadge}${staleBadge}</td>
+        <td class="score">${scoreCell}</td>
+        <td class="score">${gradeCell}</td>
+      </tr>`;
+    }).join('');
+    tb.innerHTML = rows;
+    wireReportRowClicks();
+  }
+
+  // ─── By Subject ──────────────────────────────────────────
+  async function loadReportSubjectsTabs() {
+    try {
+      const data = await fetchJson(`${API_BASE}/api/reports/subjects`);
+      REPORTS_STATE.subjects = data.subjects || [];
+      const tabRoot = document.getElementById('rep-subj-tabs');
+      if (!tabRoot) return;
+      if (REPORTS_STATE.subjects.length === 0) {
+        tabRoot.innerHTML = `<button class="active" disabled>${escapeHtml(I18N[currentLang].rep_no_subjects)}</button>`;
+        REPORTS_STATE.currentSubject = null;
+        return;
+      }
+      // 첫 subject 를 active 로
+      if (!REPORTS_STATE.currentSubject) {
+        REPORTS_STATE.currentSubject = REPORTS_STATE.subjects[0].subject;
+      }
+      const buttons = REPORTS_STATE.subjects.map(s => {
+        const active = s.subject === REPORTS_STATE.currentSubject ? ' active' : '';
+        return `<button class="${active.trim()}" data-subject="${escapeHtml(s.subject)}">${escapeHtml(fmtSubjectTab(s))}</button>`;
+      });
+      tabRoot.innerHTML = buttons.join('');
+      // 클릭 이벤트
+      tabRoot.querySelectorAll('button[data-subject]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const subj = btn.dataset.subject;
+          if (!subj) return;
+          REPORTS_STATE.currentSubject = subj;
+          tabRoot.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+          loadReportBySubject(subj);
+        });
+      });
+      REPORTS_STATE.subjectsLoaded = true;
+    } catch (err) {
+      console.error('loadReportSubjectsTabs failed:', err);
+      const tabRoot = document.getElementById('rep-subj-tabs');
+      if (tabRoot) {
+        tabRoot.innerHTML = `<button class="active" disabled>${escapeHtml(I18N[currentLang].rep_load_failed)}</button>`;
+      }
+    }
+  }
+
+  async function loadReportBySubject(subject) {
+    if (!subject) return;
+    try {
+      const data = await fetchJson(`${API_BASE}/api/reports/by-subject?subject=${encodeURIComponent(subject)}`);
+      renderSubjectKpi(data.kpi || {}, data.subject_exists !== false);
+      renderSubjectCompare(data.comparison || [], subject);
+      renderSubjectCases(data.cases || []);
+    } catch (err) {
+      console.error('loadReportBySubject failed:', err);
+      const tb = document.getElementById('rep-subj-cases-tbody');
+      if (tb) tb.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--danger);">${escapeHtml(I18N[currentLang].rep_load_failed)}: ${escapeHtml(err.message || '')}</td></tr>`;
+    }
+  }
+
+  function renderSubjectKpi(kpi, subjectExists) {
+    const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    set('rep-subj-cases', subjectExists ? fmtNumOrDash(kpi.cases) : '0');
+    set('rep-subj-cases-sub', applyTmpl(I18N[currentLang].kpi_submitted_n_fmt, { n: kpi.submitted != null ? kpi.submitted : 0 }));
+    set('rep-subj-avg', kpi.avg_score_pct != null ? fmtPct(kpi.avg_score_pct) : '—');
+    const avgDelta = kpi.avg_score_pct_delta != null ? kpi.avg_score_pct_delta : 0;
+    set('rep-subj-avg-delta', (avgDelta >= 0 ? '+' : '') + applyTmpl(I18N[currentLang].delta_pp_fmt, { n: Number(avgDelta).toFixed(1) }));
+    set('rep-subj-toperr', kpi.top_error_topic || (subjectExists ? '—' : I18N[currentLang].rep_subject_empty));
+    if (kpi.top_error_pct != null) {
+      set('rep-subj-toperr-sub', fmtPct(kpi.top_error_pct));
+    } else {
+      set('rep-subj-toperr-sub', '—');
+    }
+    set('rep-subj-coverage', fmtPct(kpi.coverage_pct));
+    set('rep-subj-coverage-sub', applyTmpl(I18N[currentLang].kpi_covered_fmt, { n: kpi.covered_cases || 0, total: kpi.cases || 0 }));
+  }
+
+  function renderSubjectCompare(comparison, currentSubject) {
+    const svg = document.getElementById('rep-subj-compare-svg');
+    if (!svg) return;
+    if (!comparison || comparison.length === 0) {
+      svg.innerHTML = `<text x="300" y="100" fill="#858585" font-size="12" font-family="monospace" text-anchor="middle">${escapeHtml(I18N[currentLang].rep_empty)}</text>`;
+      return;
+    }
+    // 막대 차트 (각 과목)
+    const W = 600, H = 200, marginT = 30, marginB = 30, marginL = 40, marginR = 20;
+    const yT = marginT, yB = H - marginB;
+    const usableW = W - marginL - marginR;
+    const n = comparison.length;
+    const barW = Math.min(60, Math.max(20, usableW / (n * 1.6)));
+    const gap = (usableW - barW * n) / (n + 1);
+
+    let html = '';
+    // grid 100/70/40
+    [[100,'100%'],[70,'70%'],[40,'40%']].forEach(([pct, lbl]) => {
+      const y = yB - (pct / 100) * (yB - yT);
+      html += `<line x1="${marginL}" y1="${y.toFixed(1)}" x2="${W - marginR}" y2="${y.toFixed(1)}" stroke="#3e3e42" stroke-dasharray="2,3"/>`;
+      html += `<text x="2" y="${(y+3).toFixed(1)}" fill="#858585" font-size="9" font-family="monospace">${lbl}</text>`;
+    });
+    comparison.forEach((c, i) => {
+      const pct = c.avg_pct;
+      const x = marginL + gap + i * (barW + gap);
+      let y, h, fill;
+      if (pct == null) {
+        // 빈 막대
+        y = yB - 2;
+        h = 2;
+        fill = '#3e3e42';
+      } else {
+        const p = Math.max(0, Math.min(100, pct));
+        h = (p / 100) * (yB - yT);
+        y = yB - h;
+        // 색: 75+ 청, 50+ 황, 그 외 적
+        fill = p >= 75 ? '#569cd6' : (p >= 50 ? '#ce9178' : '#d16969');
+      }
+      // 현재 subject 강조: stroke
+      const isCurrent = c.subject === currentSubject;
+      const strokeAttr = isCurrent ? ' stroke="#4ec9b0" stroke-width="1.5"' : '';
+      const cx = x + barW / 2;
+      html += `<g><rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW.toFixed(1)}" height="${h.toFixed(1)}" fill="${fill}"${strokeAttr}>`;
+      html += `<title>${escapeHtml(c.subject_kor || c.subject)}: ${fmtPct(pct)} (n=${c.n_attempts || 0})</title>`;
+      html += `</rect>`;
+      html += `<text x="${cx.toFixed(1)}" y="${(H - 5).toFixed(1)}" fill="#858585" font-size="10" font-family="monospace" text-anchor="middle">${escapeHtml(fmtSubjectTab(c))}</text>`;
+      if (pct != null) {
+        html += `<text x="${cx.toFixed(1)}" y="${(y - 4).toFixed(1)}" fill="#cccccc" font-size="11" font-family="monospace" text-anchor="middle">${fmtPct(pct)}</text>`;
+      }
+      html += `</g>`;
+    });
+    svg.innerHTML = html;
+  }
+
+  function renderSubjectCases(cases) {
+    const tb = document.getElementById('rep-subj-cases-tbody');
+    if (!tb) return;
+    if (!cases || cases.length === 0) {
+      tb.innerHTML = `<tr><td colspan="6" style="text-align:center; color: var(--text-dim);">${escapeHtml(I18N[currentLang].rep_subject_empty)}</td></tr>`;
+      return;
+    }
+    // 시도 0건 케이스는 뒷쪽에. 시도 있는 케이스만 먼저, 그 후 알파벳 순.
+    const sorted = cases.slice().sort((a, b) => {
+      if ((a.attempts || 0) === 0 && (b.attempts || 0) > 0) return 1;
+      if ((b.attempts || 0) === 0 && (a.attempts || 0) > 0) return -1;
+      return 0;
+    });
+    const rows = sorted.map(c => {
+      const lastPctTxt = c.last_pct != null
+        ? `<span style="color: ${pctColor(c.last_pct)};">${fmtPct(c.last_pct)}</span>`
+        : '—';
+      const staleBadge = c.is_stale ? ' <span class="pill stale" style="font-size:9px;">stale</span>' : '';
+      // Step 15-6 — 행 클릭 시 모달 (case_id 기반, 최신 시도)
+      return `<tr data-case-id="${escapeHtml(c.case_id || '')}">
+        <td class="id">${escapeHtml(c.case_short_id || c.case_id)}</td>
+        <td>${escapeHtml(c.title || '—')}${staleBadge}</td>
+        <td class="score">${fmtNumOrDash(c.attempts || 0)}</td>
+        <td class="score">${c.avg_pct != null ? fmtPct(c.avg_pct) : '—'}</td>
+        <td class="score">${c.best_pct != null ? fmtPct(c.best_pct) : '—'}</td>
+        <td class="score">${lastPctTxt}</td>
+      </tr>`;
+    }).join('');
+    tb.innerHTML = rows;
+    wireReportRowClicks();
+  }
+
+  // ─── By Case (Step 15-5 — optgroup 트리 dropdown) ─────────
+  async function loadReportCasePicker(subjectFilter) {
+    try {
+      const url = subjectFilter
+        ? `${API_BASE}/api/reports/cases?subject=${encodeURIComponent(subjectFilter)}`
+        : `${API_BASE}/api/reports/cases`;
+      const data = await fetchJson(url);
+      const sel = document.getElementById('rep-case-select');
+      if (!sel) return;
+      const items = data.cases || [];
+      if (items.length === 0) {
+        sel.innerHTML = `<option value="">${escapeHtml(I18N[currentLang].rep_no_cases)}</option>`;
+        REPORTS_STATE.currentCaseId = null;
+        return;
+      }
+
+      // Step 15-5 — subject_kor > category 2 레벨 optgroup 트리화
+      //   optgroup label = "민법 > 입문 > 미케01" (한 줄로 합쳐서 케이스 그룹핑)
+      //   각 case option = "미케01-01 — 비법인사단 (3)"
+      const groupMap = new Map();  // "민법 > 입문 > 미케01" -> [cases]
+      for (const c of items) {
+        const sk = c.subject_kor || c.subject || '—';
+        const cat = c.category || '—';
+        const fileLabel = c.case_short_id ? c.case_short_id.split('-')[0] : (c.file || '—');
+        const groupLabel = `${sk} > ${cat} > ${fileLabel}`;
+        if (!groupMap.has(groupLabel)) groupMap.set(groupLabel, []);
+        groupMap.get(groupLabel).push(c);
+      }
+
+      // 그룹을 순회하며 정렬: 시도 있는 그룹 먼저, 그 외 알파벳 순
+      const entries = Array.from(groupMap.entries()).map(([label, cs]) => ({
+        label,
+        cases: cs.slice().sort((a, b) => (a.case_short_id || '').localeCompare(b.case_short_id || '')),
+        totalAttempts: cs.reduce((s, c) => s + (c.attempts || 0), 0),
+      }));
+      entries.sort((a, b) => {
+        // 시도 많은 그룹 우선
+        if (b.totalAttempts !== a.totalAttempts) return b.totalAttempts - a.totalAttempts;
+        return a.label.localeCompare(b.label);
+      });
+
+      let html = '';
+      let firstSelected = null;
+      for (const ent of entries) {
+        html += `<optgroup label="${escapeHtml(ent.label)}">`;
+        for (const c of ent.cases) {
+          const sid = c.case_short_id || c.case_id;
+          const title = c.title || '';
+          const att = c.attempts || 0;
+          // option 라벨 — 사이드바와 동일한 형식
+          html += `<option value="${escapeHtml(c.case_id)}">${escapeHtml(sid)} — ${escapeHtml(title)} (${att})</option>`;
+          // 시도 있는 첫 케이스를 디폴트 선택 후보로
+          if (firstSelected == null && att > 0) firstSelected = c.case_id;
+        }
+        html += `</optgroup>`;
+      }
+      sel.innerHTML = html;
+      REPORTS_STATE.casePickerLoaded = true;
+      REPORTS_STATE.casePickerSubject = subjectFilter || null;
+
+      // 시도 있는 첫 케이스가 없으면 첫 그룹의 첫 케이스
+      if (firstSelected == null && entries.length > 0 && entries[0].cases.length > 0) {
+        firstSelected = entries[0].cases[0].case_id;
+      }
+      if (firstSelected) {
+        sel.value = firstSelected;
+        REPORTS_STATE.currentCaseId = firstSelected;
+        await loadReportByCase(firstSelected);
+      }
+    } catch (err) {
+      console.error('loadReportCasePicker failed:', err);
+      const sel = document.getElementById('rep-case-select');
+      if (sel) sel.innerHTML = `<option value="">${escapeHtml(I18N[currentLang].rep_load_failed)}</option>`;
+    }
+  }
+
+  async function loadReportByCase(caseId) {
+    if (!caseId) return;
+    try {
+      const data = await fetchJson(`${API_BASE}/api/reports/by-case?case_id=${encodeURIComponent(caseId)}`);
+      renderCaseHeader(data);
+      renderCaseKpi(data.kpi || {}, data);
+      renderCaseTrend(data.trend || []);
+      renderCaseCriteria(data.criteria || []);
+      renderCaseHistory(data.history || []);
+    } catch (err) {
+      console.error('loadReportByCase failed:', err);
+      const tb = document.getElementById('rep-case-history-tbody');
+      if (tb) tb.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--danger);">${escapeHtml(I18N[currentLang].rep_load_failed)}: ${escapeHtml(err.message || '')}</td></tr>`;
+    }
+  }
+
+  function renderCaseHeader(data) {
+    const sid = data.case_short_id || data.case_id || '—';
+    ['rep-case-trend-h-id', 'rep-case-criteria-h-id', 'rep-case-history-h-id'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = sid;
+    });
+  }
+
+  function renderCaseKpi(kpi, data) {
+    const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+    const attempts = kpi.attempts != null ? kpi.attempts : 0;
+    set('rep-case-attempts', fmtNumOrDash(attempts));
+    if (kpi.since) {
+      set('rep-case-attempts-sub', applyTmpl(I18N[currentLang].kpi_since_fmt, { date: fmtDateShort(kpi.since) }));
+    } else {
+      set('rep-case-attempts-sub', '—');
+    }
+    if (kpi.last_pct != null) {
+      const el = document.getElementById('rep-case-last');
+      if (el) {
+        el.textContent = fmtPct(kpi.last_pct);
+        el.style.color = pctColor(kpi.last_pct);
+      }
+      set('rep-case-last-sub', fmtScoreFraction(kpi.last_total, kpi.last_max));
+    } else {
+      const el = document.getElementById('rep-case-last');
+      if (el) { el.textContent = '—'; el.style.color = ''; }
+      set('rep-case-last-sub', '—');
+    }
+    if (kpi.best_pct != null) {
+      const el = document.getElementById('rep-case-best');
+      if (el) {
+        el.textContent = fmtPct(kpi.best_pct);
+        el.style.color = pctColor(kpi.best_pct);
+      }
+      set('rep-case-best-sub', fmtScoreFraction(kpi.best_total, kpi.best_max));
+    } else {
+      const el = document.getElementById('rep-case-best');
+      if (el) { el.textContent = '—'; el.style.color = ''; }
+      set('rep-case-best-sub', '—');
+    }
+    set('rep-case-persist', fmtNumOrDash(kpi.persistent_errors_count || 0));
+    if (kpi.persistent_errors_count != null && kpi.persistent_errors_count > 0 && attempts > 0) {
+      // 사용자에게 "N/X attempts" 표시 — 가장 빈도 높은 항목의 occurrences/attempts
+      const pErrItems = (data && data.persistent_errors && data.persistent_errors.items) || [];
+      const top = pErrItems.length > 0 ? pErrItems[0].occurrences : 0;
+      set('rep-case-persist-sub', applyTmpl(I18N[currentLang].kpi_recurring_fmt, { n: top, total: attempts }));
+    } else {
+      set('rep-case-persist-sub', '—');
+    }
+  }
+
+  function renderCaseTrend(trend) {
+    const svg = document.getElementById('rep-case-trend-svg');
+    if (!svg) return;
+    const points = trend.map(p => ({
+      y_pct: p.score_pct,
+      x_label: `#${p.attempt_num} ${fmtDateShort(p.date)}`,
+      tooltip: `#${p.attempt_num} · ${fmtDate(p.date)} · ${fmtScoreFraction(p.score_total, p.score_max)} (${p.grade || '—'})`,
+    }));
+    svg.innerHTML = buildLineChartSvg(points, { stroke: '#4ec9b0', fill: '#4ec9b0', radius: 4 });
+  }
+
+  function renderCaseCriteria(criteria) {
+    const root = document.getElementById('rep-case-criteria-grid');
+    if (!root) return;
+    if (!criteria || criteria.length === 0) {
+      root.innerHTML = `<div style="color: var(--text-dim); padding: 12px; text-align:center;">${escapeHtml(I18N[currentLang].rep_case_empty)}</div>`;
+      return;
+    }
+    const hasAny = criteria.some(c => (c.n || 0) > 0);
+    if (!hasAny) {
+      root.innerHTML = `<div style="color: var(--text-dim); padding: 12px; text-align:center;">${escapeHtml(I18N[currentLang].rep_case_empty)}</div>`;
+      return;
+    }
+    const labelMap = {
+      mnem: 'crit_mnem', color: 'crit_color', under: 'crit_under',
+      outline: 'crit_outline', sem: 'crit_sem', rich: 'crit_rich', miss: 'crit_miss',
+    };
+    const dict = I18N[currentLang];
+    const rows = criteria.map(c => {
+      const labelKey = labelMap[c.criterion_key];
+      const labelTxt = labelKey && dict[labelKey] ? dict[labelKey] : c.criterion_key;
+      let pct = c.avg_pct;
+      let widthPct = 0;
+      let fillCls = 'partial';
+      let numTxt = '—';
+      if (c.criterion_key === 'miss') {
+        // miss: max=0 이라 pct null. score 음수 가능. 자체 표시.
+        numTxt = c.n > 0 ? `avg ${(Math.round(c.avg_score * 10) / 10)}` : '—';
+        // 시각화: 절대값 / 5 비율 (대략)
+        const abs = Math.abs(c.avg_score || 0);
+        widthPct = Math.max(0, Math.min(100, abs * 20));  // |score| 5 → 100%
+        fillCls = abs > 1 ? 'low' : 'partial';
+      } else if (pct != null) {
+        widthPct = Math.max(0, Math.min(100, pct));
+        fillCls = widthPct >= 85 ? 'full' : (widthPct >= 60 ? 'partial' : 'low');
+        numTxt = c.n > 0 ? `avg ${fmtPct(pct)}` : '—';
+      } else {
+        widthPct = 0;
+        fillCls = 'partial';
+        numTxt = '—';
+      }
+      return `<div class="criteria-row">
+        <div class="label">${escapeHtml(labelTxt)}${critInfoHtml(c.criterion_key)}</div>
+        <div class="bar-wrap"><div class="bar-fill ${fillCls}" style="width:${widthPct.toFixed(1)}%"></div></div>
+        <div class="num">${escapeHtml(numTxt)}</div>
+      </div>`;
+    }).join('');
+    root.innerHTML = rows;
+  }
+
+  function renderCaseHistory(history) {
+    const tb = document.getElementById('rep-case-history-tbody');
+    if (!tb) return;
+    if (!history || history.length === 0) {
+      tb.innerHTML = `<tr><td colspan="4" style="text-align:center; color: var(--text-dim);">${escapeHtml(I18N[currentLang].rep_case_empty)}</td></tr>`;
+      return;
+    }
+    const rows = history.map(h => {
+      const scoreCell = h.status === 'done'
+        ? `<span class="score" style="color: ${pctColor(h.score_pct)};">${escapeHtml(fmtScoreFraction(h.score_total, h.score_max))}</span>`
+        : `<span class="score" style="color: var(--danger);">${escapeHtml(h.error_code || 'error')}</span>`;
+      const miss = h.main_miss || '—';
+      // Step 15-6 — 행 클릭 시 해당 attempt 의 답안+평가 모달
+      const caseId = REPORTS_STATE.currentCaseId || '';
+      return `<tr data-attempt-id="${escapeHtml(h.attempt_id || '')}" data-case-id="${escapeHtml(caseId)}">
+        <td>${h.attempt_num}</td>
+        <td>${escapeHtml(fmtDate(h.submitted_at))}</td>
+        <td class="score">${scoreCell}</td>
+        <td>${escapeHtml(miss)}</td>
+      </tr>`;
+    }).join('');
+    tb.innerHTML = rows;
+    wireReportRowClicks();
+  }
+
+  // ─── Case selector change ───────────────────────────────
+  (function bindCaseSelector() {
+    const sel = document.getElementById('rep-case-select');
+    if (sel) {
+      sel.addEventListener('change', () => {
+        const cid = sel.value;
+        if (cid) {
+          REPORTS_STATE.currentCaseId = cid;
+          loadReportByCase(cid);
+        }
+      });
+    }
+  })();
+
+  // ════════════════════════════════════════════════
+  // Step 15-6 / 16-2 — Reports 행 클릭 → 답안+평가+원본 팝업 모달
+  // ════════════════════════════════════════════════
+  // 모달 상태: 현재 표시 중인 attempts (같은 케이스의 시도 여러 건 가능)
+  // Step 16-2 — caseData (origin 포함) 캐싱. 시도 탭 전환 시 재fetch 회피.
+  const MODAL_STATE = {
+    open: false,
+    caseId: null,
+    attempts: [],   // list_attempts 응답 (id 오름차순 또는 시간 정렬)
+    currentAttemptId: null,
+    caseData: null, // GET /api/cases/{id} 응답 (origin, lv1, lv4, points 등)
+  };
+
+  // yyyyMMdd_HHmm 포맷 (사용자 명시)
+  function fmtTimestampBadge(iso) {
+    if (!iso) return '—';
+    const m = String(iso).match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return iso;
+    return `${m[1]}${m[2]}${m[3]}_${m[4]}${m[5]}`;
+  }
+
+  function openAttemptModal() {
+    const el = document.getElementById('attempt-modal');
+    if (!el) return;
+    el.classList.add('open');
+    el.setAttribute('aria-hidden', 'false');
+    MODAL_STATE.open = true;
+    // ESC 핸들러 등록
+    document.addEventListener('keydown', onModalKeyDown);
+  }
+  function closeAttemptModal() {
+    const el = document.getElementById('attempt-modal');
+    if (!el) return;
+    el.classList.remove('open');
+    el.setAttribute('aria-hidden', 'true');
+    MODAL_STATE.open = false;
+    MODAL_STATE.caseId = null;
+    MODAL_STATE.attempts = [];
+    MODAL_STATE.currentAttemptId = null;
+    MODAL_STATE.caseData = null;
+    document.removeEventListener('keydown', onModalKeyDown);
+  }
+  function onModalKeyDown(ev) {
+    if (ev.key === 'Escape' && MODAL_STATE.open) {
+      ev.preventDefault();
+      closeAttemptModal();
+    }
+  }
+
+  // 백드롭 클릭 / X 버튼 wire (한번만)
+  (function bindModalClose() {
+    const backdrop = document.getElementById('attempt-modal');
+    const closeBtn = document.getElementById('attempt-modal-close');
+    if (backdrop) {
+      backdrop.addEventListener('click', (ev) => {
+        // 패널 안 클릭은 무시, 백드롭 자체만 닫음
+        if (ev.target === backdrop) closeAttemptModal();
+      });
+    }
+    if (closeBtn) closeBtn.addEventListener('click', closeAttemptModal);
+  })();
+
+  // 모달 헤더/탭 갱신
+  function renderModalTabs() {
+    const tabsEl = document.getElementById('attempt-modal-tabs');
+    if (!tabsEl) return;
+    const attempts = MODAL_STATE.attempts || [];
+    if (attempts.length === 0) {
+      tabsEl.innerHTML = '';
+      return;
+    }
+    tabsEl.innerHTML = attempts.map(a => {
+      const aid = a.id || a.attempt_id;
+      const ts = fmtTimestampBadge(a.submitted_at);
+      const active = (MODAL_STATE.currentAttemptId === aid) ? ' active' : '';
+      return `<span class="ts-badge${active}" data-attempt-id="${escapeHtml(aid)}" title="${escapeHtml(a.submitted_at || '')}">📅 ${escapeHtml(ts)}</span>`;
+    }).join('');
+    // 탭 클릭
+    tabsEl.querySelectorAll('.ts-badge[data-attempt-id]').forEach(t => {
+      t.addEventListener('click', () => {
+        const aid = parseInt(t.dataset.attemptId || '0', 10);
+        if (aid && aid !== MODAL_STATE.currentAttemptId) {
+          loadAndShowAttemptInModal(aid);
+        }
+      });
+    });
+  }
+
+  // 답안 + 평가 + 원본 본문 렌더 (Step 16-2)
+  //   * 좌: 내 답안 (escape + 매칭 형광펜)
+  //   * 우 상단: 평가지 (7기준 바 + 평 카드 + 메타)
+  //   * 우 하단: 강사 원본 답안 본문 (강조 태그 색 보존 + 매칭 형광펜)
+  function renderModalAttemptBody(att) {
+    const ansEl = document.getElementById('attempt-modal-answer');
+    const evEl  = document.getElementById('attempt-modal-eval');
+    const originEl = document.getElementById('attempt-modal-origin');
+    const dict = I18N[currentLang] || {};
+    if (!ansEl || !evEl) return;
+
+    // 좌 — 답안 본문 + 매칭 강조 (Reports 와 동일 형광펜)
+    const ans = (att && typeof att.answer_text === 'string') ? att.answer_text : '';
+    if (ans) {
+      const escaped = escapeHtml(ans);
+      ansEl.innerHTML = highlightDiffSegments(escaped, Array.isArray(att.diff_segments) ? att.diff_segments : []);
+    } else {
+      ansEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_answer || 'No answer recorded.')}</span>`;
+    }
+
+    // 우 — 평가지 (7기준 바 + 평 카드 + 메타)
+    let html = '';
+    // 메타: 점수/등급/상태
+    if (att.status === 'completed' || att.db_status === 'done') {
+      const total = isFinite(Number(att.score_total)) ? Number(att.score_total).toFixed(1) : '—';
+      const max = isFinite(Number(att.score_max)) ? Number(att.score_max).toFixed(1) : '—';
+      const pct = isFinite(Number(att.score_pct)) ? Number(att.score_pct).toFixed(0) : '—';
+      const grade = att.grade || '—';
+      html += `<div style="margin-bottom: 10px; font-size: 12px; color: var(--text); font-family: 'SF Mono', Consolas, monospace;">
+        <span style="color: var(--text-bright); font-size: 14px; font-weight: 600;">${total} / ${max}</span>
+        <span style="color: ${gradeColor(grade)}; margin-left: 10px;">${escapeHtml(grade)}</span>
+        <span style="color: var(--text-dim); margin-left: 6px;">(${pct}%)</span>
+      </div>`;
+
+      // 7기준 바
+      const criteria = att.criteria || [];
+      if (criteria.length > 0) {
+        for (const c of criteria) {
+          const meta = CRITERIA_META[c.key];
+          if (!meta) continue;
+          const labelTxt = (dict[meta.label] !== undefined) ? dict[meta.label] : c.key;
+          const score = Number(c.score) || 0;
+          const max = Number(c.max) || 0;
+          let widthPct = 0;
+          let fillCls = 'partial';
+          let numTxt = '—';
+          if (c.key === 'miss') {
+            const w = Number(c.weight) || 1;
+            widthPct = Math.min(100, Math.abs(score) / w * 100);
+            fillCls = score < 0 ? 'low' : 'partial';
+            numTxt = (score > 0 ? '+' : '') + score;
+          } else if (c.key === 'rich') {
+            widthPct = max > 0 ? (score / max) * 100 : 60;
+            const labels = ['Lv.4', 'Lv.1', 'Origin'];
+            numTxt = labels[Math.max(0, Math.min(2, Math.round(score)))] || String(score);
+          } else {
+            widthPct = max > 0 ? (score / max) * 100 : 0;
+            if (widthPct >= 90) fillCls = 'full';
+            else if (widthPct >= 60) fillCls = 'partial';
+            else fillCls = 'low';
+            numTxt = `${score} / ${max}`;
+          }
+          html += `<div class="crit-row">
+            <div>${escapeHtml(labelTxt)}${critInfoHtml(c.key)}</div>
+            <div class="bar-wrap"><div class="bar-fill ${fillCls}" style="width:${widthPct.toFixed(1)}%"></div></div>
+            <div class="num">${escapeHtml(numTxt)}</div>
+          </div>`;
+        }
+      }
+
+      // 평 카드 3개
+      const notes = att.eval_notes || {};
+      html += `<div class="modal-note"><span class="note-tag">${escapeHtml(dict.fb_strength || 'Strength')}</span>${escapeHtml(notes.strength || '—')}</div>`;
+      html += `<div class="modal-note warn"><span class="note-tag">${escapeHtml(dict.fb_caution || 'Caution')}</span>${escapeHtml(notes.caution || '—')}</div>`;
+      html += `<div class="modal-note danger"><span class="note-tag">${escapeHtml(dict.fb_missing || 'Missing')}</span>${escapeHtml(notes.missing || '—')}</div>`;
+    } else if (att.status === 'failed' || att.db_status === 'error') {
+      html += `<div style="color: var(--danger); font-size: 12px;">
+        Error: ${escapeHtml(att.error_code || '—')}<br>
+        ${escapeHtml(att.error_message || '')}
+      </div>`;
+    } else {
+      html += `<div style="color: var(--text-dim); font-size: 12px;">${escapeHtml(dict.modal_no_eval || 'Not yet graded.')}</div>`;
+    }
+    evEl.innerHTML = html;
+
+    // Step 16-2 — 우측 하단: 강사 원본 답안 본문
+    //   * 캐시된 MODAL_STATE.caseData.origin 사용 (loadCaseDataForModal 가 준비)
+    //   * 강조 태그 색 보존 (renderEmphasisInline) + 매칭 형광펜 (highlightDiffSegments)
+    if (originEl) {
+      const caseData = MODAL_STATE.caseData || {};
+      const refText = (typeof caseData.origin === 'string') ? caseData.origin : null;
+      if (refText) {
+        const emphasised = renderEmphasisInline(refText);
+        const segments = Array.isArray(att.diff_segments) ? att.diff_segments : [];
+        originEl.innerHTML = highlightDiffSegments(emphasised, segments);
+      } else {
+        originEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.diff_col_ref_missing || 'No origin reference available.')}</span>`;
+      }
+    }
+
+    // 헤더 갱신
+    const titleEl = document.getElementById('attempt-modal-title');
+    const subEl = document.getElementById('attempt-modal-sub');
+    if (titleEl) titleEl.textContent = att.case_short_id || att.case_id || '—';
+    if (subEl) {
+      const ts = att.submitted_at ? fmtDate(att.submitted_at) : '—';
+      const title = att.case_title ? ' · ' + att.case_title : '';
+      subEl.textContent = `${ts}${title}`;
+    }
+  }
+
+  // Step 16-2 — 모달 케이스 데이터 (origin 등) fetch + 캐시.
+  // 모달 열기 시 1회만 호출 — 시도 탭 전환에서는 재fetch 안 함.
+  async function loadCaseDataForModal(caseId) {
+    if (!caseId) return null;
+    if (MODAL_STATE.caseData && MODAL_STATE.caseData.id === caseId) return MODAL_STATE.caseData;
+    try {
+      const r = await fetch(`${API_BASE}/api/cases/${encodeURIComponent(caseId)}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const data = await r.json();
+      MODAL_STATE.caseData = data;
+      return data;
+    } catch (err) {
+      console.warn('loadCaseDataForModal failed:', err);
+      MODAL_STATE.caseData = null;
+      return null;
+    }
+  }
+
+  // attempt 단건 fetch + 모달 표시
+  async function loadAndShowAttemptInModal(attemptId) {
+    const ansEl = document.getElementById('attempt-modal-answer');
+    const evEl  = document.getElementById('attempt-modal-eval');
+    const originEl = document.getElementById('attempt-modal-origin');
+    const dict = I18N[currentLang] || {};
+    const loadingHtml = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_loading || 'Loading…')}</span>`;
+    if (ansEl) ansEl.innerHTML = loadingHtml;
+    if (evEl) evEl.innerHTML = loadingHtml;
+    if (originEl) originEl.innerHTML = loadingHtml;
+    try {
+      const r = await fetch(`${API_BASE}/api/attempts/${encodeURIComponent(attemptId)}`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const att = await r.json();
+      MODAL_STATE.currentAttemptId = att.id || att.attempt_id;
+      // Step 16-2 — origin 표시를 위해 caseData 필요. attempt.case_id 기준 로드.
+      await loadCaseDataForModal(att.case_id);
+      renderModalTabs();
+      renderModalAttemptBody(att);
+    } catch (err) {
+      console.error('loadAndShowAttemptInModal failed:', err);
+      const tmpl = dict.modal_load_failed || 'Failed to load attempt: {msg}';
+      if (evEl) evEl.innerHTML = `<span style="color: var(--danger);">${escapeHtml(tmpl.replace('{msg}', err.message || ''))}</span>`;
+    }
+  }
+
+  // 행 클릭 진입점 — case_id 로 그 케이스의 attempts 리스트 + 첫(또는 지정) 시도 표시.
+  async function openModalForCase(caseId, focusAttemptId) {
+    if (!caseId) return;
+    MODAL_STATE.caseId = caseId;
+    MODAL_STATE.attempts = [];
+    MODAL_STATE.currentAttemptId = focusAttemptId || null;
+    MODAL_STATE.caseData = null;  // Step 16-2 — 케이스 바뀌면 caseData 캐시 무효화
+    openAttemptModal();
+    const ansEl = document.getElementById('attempt-modal-answer');
+    const evEl  = document.getElementById('attempt-modal-eval');
+    const originEl = document.getElementById('attempt-modal-origin');
+    const dict = I18N[currentLang] || {};
+    const loadingHtml = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_loading || 'Loading…')}</span>`;
+    if (ansEl) ansEl.innerHTML = loadingHtml;
+    if (evEl) evEl.innerHTML = loadingHtml;
+    if (originEl) originEl.innerHTML = loadingHtml;
+
+    try {
+      // 같은 케이스의 모든 시도 리스트 (limit 충분히 크게)
+      const lr = await fetch(`${API_BASE}/api/attempts?case_id=${encodeURIComponent(caseId)}&limit=100`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!lr.ok) throw new Error('HTTP ' + lr.status);
+      const ld = await lr.json();
+      const items = (ld && Array.isArray(ld.attempts)) ? ld.attempts : [];
+      if (items.length === 0) {
+        if (ansEl) ansEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_attempts || 'No attempts.')}</span>`;
+        if (evEl) evEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_attempts || 'No attempts.')}</span>`;
+        if (originEl) originEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_attempts || 'No attempts.')}</span>`;
+        return;
+      }
+      // 최신순(DESC)으로 표시
+      MODAL_STATE.attempts = items;
+      // focusAttemptId 가 있으면 그것을, 없으면 첫번째 (최신)
+      const target = focusAttemptId
+        ? items.find(a => (a.id || a.attempt_id) === focusAttemptId)
+        : items[0];
+      const targetId = (target && (target.id || target.attempt_id)) || (items[0].id || items[0].attempt_id);
+      MODAL_STATE.currentAttemptId = targetId;
+      await loadAndShowAttemptInModal(targetId);
+    } catch (err) {
+      console.error('openModalForCase failed:', err);
+      const tmpl = dict.modal_load_failed || 'Failed to load attempt: {msg}';
+      if (evEl) evEl.innerHTML = `<span style="color: var(--danger);">${escapeHtml(tmpl.replace('{msg}', err.message || ''))}</span>`;
+    }
+  }
+
+  // Reports 행 클릭 wire — 동적 렌더 후 호출.
+  // attemptId 가 있으면 그 시도 우선, 없으면 case_id 만으로 최신 시도.
+  function wireReportRowClicks() {
+    // Overall — Recent Submissions
+    document.querySelectorAll('#rep-ov-recent-tbody tr[data-case-id]').forEach(tr => {
+      tr.classList.add('clickable');
+      tr.addEventListener('click', () => {
+        const cid = tr.dataset.caseId;
+        const aid = parseInt(tr.dataset.attemptId || '0', 10) || null;
+        if (cid) openModalForCase(cid, aid);
+      });
+    });
+    // By Subject — Cases in this Subject
+    document.querySelectorAll('#rep-subj-cases-tbody tr[data-case-id]').forEach(tr => {
+      tr.classList.add('clickable');
+      tr.addEventListener('click', () => {
+        const cid = tr.dataset.caseId;
+        if (cid) openModalForCase(cid, null);
+      });
+    });
+    // By Case — Attempt History
+    document.querySelectorAll('#rep-case-history-tbody tr[data-attempt-id]').forEach(tr => {
+      tr.classList.add('clickable');
+      tr.addEventListener('click', () => {
+        const aid = parseInt(tr.dataset.attemptId || '0', 10);
+        const cid = tr.dataset.caseId || REPORTS_STATE.currentCaseId;
+        if (cid && aid) openModalForCase(cid, aid);
+      });
+    });
+  }
+
+  // ─── Reports 탭 진입 시 자동 로드 + sub-tab 전환 시 재로드 ───
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.tab !== 'reports') return;
+      // 최초 진입 시: overall + subjects 둘 다 prefetch (사용자가 sub-tab 클릭 즉시 표시)
+      if (!REPORTS_STATE.overallLoaded) {
+        REPORTS_STATE.overallLoaded = true;
+        loadReportOverall();
+      }
+      if (!REPORTS_STATE.subjectsLoaded) {
+        loadReportSubjectsTabs().then(() => {
+          if (REPORTS_STATE.currentSubject) {
+            loadReportBySubject(REPORTS_STATE.currentSubject);
+          }
+        });
+      }
+      if (!REPORTS_STATE.casePickerLoaded) {
+        loadReportCasePicker(null);
+      }
+    });
+  });
+
+  // sub-tab 클릭 시 (overall/bysubject/bycase) — 보강 (refresh 가능)
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const sub = btn.dataset.sub;
+      if (sub === 'overall') {
+        // 항상 최신화 (재호출, 비용 X)
+        loadReportOverall();
+      } else if (sub === 'bysubject') {
+        if (REPORTS_STATE.currentSubject) {
+          loadReportBySubject(REPORTS_STATE.currentSubject);
+        } else if (!REPORTS_STATE.subjectsLoaded) {
+          loadReportSubjectsTabs();
+        }
+      } else if (sub === 'bycase') {
+        if (REPORTS_STATE.currentCaseId) {
+          loadReportByCase(REPORTS_STATE.currentCaseId);
+        } else if (!REPORTS_STATE.casePickerLoaded) {
+          loadReportCasePicker(null);
+        }
+      }
+    });
+  });
+
+  // ─── 초기 로드 ───
+  reloadCases();
+  // Step 11 — STT 가 voice.lang / silence_sec 을 참조하므로 페이지 진입 시 settings prefetch.
+  // (Settings 탭 클릭 시 재호출되지만 이미 settingsLoadedOnce 플래그가 true 로 바뀌어 무중복.)
+  if (!settingsLoadedOnce) {
+    settingsLoadedOnce = true;
+    fetchSettings();
+  }
+</script>
+
+</body>
+</html>
