@@ -64,7 +64,11 @@ CREATE TABLE attempts (
   completed_at  TEXT,
   error_message TEXT,
   elapsed_sec   REAL,
-  is_mock       INTEGER NOT NULL DEFAULT 0
+  is_mock       INTEGER NOT NULL DEFAULT 0,
+  -- Step 24-1 마이그 v6 — 다중 설문 D안 (Step 24-7 reports 4키 메타 노출용).
+  answer_subq   TEXT,
+  subq_elapsed  TEXT,
+  hints_used    TEXT
 );
 CREATE TABLE attempt_criteria (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -560,6 +564,190 @@ class TestPickers(unittest.TestCase):
         self.assertEqual(c1["attempts"], 1)
         c2 = next(c for c in result_minbeop["cases"] if c["case_id"] == "c2")
         self.assertEqual(c2["attempts"], 0)
+
+
+# ─── Step 24-7 — recent / history / trend 4키 메타 노출 ─────────────────
+
+
+def _seed_attempt_with_subq(
+    conn: sqlite3.Connection,
+    *,
+    case_id: str,
+    answer_subq_json: str | None,
+    subq_elapsed_json: str | None,
+    hints_used_json: str | None,
+    score_pct: float | None = 80.0,
+    status: str = "done",
+    submitted_at: str = "2026-05-19T09:00:00Z",
+) -> int:
+    """v6 마이그 후 컬럼 3종 (answer_subq / subq_elapsed / hints_used) 값 직접 시드."""
+    cur = conn.execute(
+        """
+        INSERT INTO attempts (
+            case_id, answer_text, submitted_at, status, score_pct,
+            score_total, score_max, weights_json, model, is_stale, is_mock,
+            answer_subq, subq_elapsed, hints_used
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            case_id, "answer", submitted_at, status, score_pct,
+            (score_pct or 0) * 0.5 if score_pct else None,
+            100.0,
+            '{"mnem":16,"color":13,"under":8,"outline":10,"sem":12,"rich":15,"miss":11,"articles":10,"case_apply":5}',
+            "mock", 0, 0,
+            answer_subq_json, subq_elapsed_json, hints_used_json,
+        ),
+    )
+    conn.commit()
+    return int(cur.lastrowid)
+
+
+class TestStep24_7OverallRecent4Keys(unittest.TestCase):
+    """Step 24-7 — overall().recent[] 4키 (subq_count/hints_used_count/hint_steps_revealed_max/total_solve_sec)."""
+
+    def test_recent_multi_subq_meta(self) -> None:
+        """다중 설문 attempt — 4키 모두 0 초과 노출."""
+        conn = _conn()
+        _seed_case(conn, "c1", subject="minbeop")
+        _seed_attempt_with_subq(
+            conn,
+            case_id="c1",
+            answer_subq_json='{"설문 1": "ans1", "설문 2": "ans2"}',
+            subq_elapsed_json='{"설문 1": 120, "설문 2": 180}',
+            hints_used_json='{"설문 1": [1, 2, 3], "설문 2": [1]}',
+        )
+        result = reports_mod.overall(conn)
+        self.assertEqual(len(result["recent"]), 1)
+        r = result["recent"][0]
+        self.assertEqual(r["subq_count"], 2, "2 카드")
+        self.assertEqual(r["hints_used_count"], 4, "step 1+2+3+1 누적")
+        self.assertEqual(r["hint_steps_revealed_max"], 3, "최대 step=3")
+        self.assertEqual(r["total_solve_sec"], 300, "120+180")
+
+    def test_recent_legacy_nulls_4keys_zero(self) -> None:
+        """legacy answer_subq=NULL → 4키 모두 0 / None."""
+        conn = _conn()
+        _seed_case(conn, "c1", subject="minbeop")
+        _seed_attempt_with_subq(
+            conn,
+            case_id="c1",
+            answer_subq_json=None,
+            subq_elapsed_json=None,
+            hints_used_json=None,
+        )
+        result = reports_mod.overall(conn)
+        self.assertEqual(len(result["recent"]), 1)
+        r = result["recent"][0]
+        self.assertEqual(r["subq_count"], 0)
+        self.assertEqual(r["hints_used_count"], 0)
+        self.assertEqual(r["hint_steps_revealed_max"], 0)
+        self.assertIsNone(r["total_solve_sec"])
+
+    def test_recent_hints_out_of_range_ignored(self) -> None:
+        """힌트 step 0/6/-1/'x' → 무시 (1~5만 카운트)."""
+        conn = _conn()
+        _seed_case(conn, "c1", subject="minbeop")
+        _seed_attempt_with_subq(
+            conn,
+            case_id="c1",
+            answer_subq_json='{"설문 1": "ans"}',
+            subq_elapsed_json=None,
+            hints_used_json='{"설문 1": [0, 1, 6, "x", 5]}',
+        )
+        result = reports_mod.overall(conn)
+        r = result["recent"][0]
+        self.assertEqual(r["hints_used_count"], 2, "1 + 5 만 카운트 (0/6/x 제외)")
+        self.assertEqual(r["hint_steps_revealed_max"], 5)
+
+
+class TestStep24_7ByCaseHistory4Keys(unittest.TestCase):
+    """Step 24-7 — by_case().history[] + by_case().trend[] 4키."""
+
+    def test_history_includes_4keys(self) -> None:
+        """case history 항목에 4키 모두 노출."""
+        conn = _conn()
+        _seed_case(conn, "c1", subject="minbeop")
+        _seed_attempt_with_subq(
+            conn,
+            case_id="c1",
+            answer_subq_json='{"설문 1": "ans1", "설문 1 가": "ans1ga", "설문 1 나": "ans1na"}',
+            subq_elapsed_json='{"설문 1": 60, "설문 1 가": 90, "설문 1 나": 120}',
+            hints_used_json='{"설문 1": [1, 2], "설문 1 가": [], "설문 1 나": [1, 2, 3, 4]}',
+        )
+        result = reports_mod.by_case(conn, "c1")
+        self.assertEqual(len(result["history"]), 1)
+        h = result["history"][0]
+        self.assertEqual(h["subq_count"], 3, "3 카드 (가/나 독립)")
+        self.assertEqual(h["hints_used_count"], 6, "2 + 0 + 4")
+        self.assertEqual(h["hint_steps_revealed_max"], 4)
+        self.assertEqual(h["total_solve_sec"], 270)
+
+    def test_trend_includes_4keys(self) -> None:
+        """case trend (status=done) 항목에 4키 모두 노출."""
+        conn = _conn()
+        _seed_case(conn, "c1", subject="minbeop")
+        _seed_attempt_with_subq(
+            conn,
+            case_id="c1",
+            answer_subq_json='{"설문 1": "ans1"}',
+            subq_elapsed_json='{"설문 1": 100}',
+            hints_used_json='{"설문 1": [1, 2]}',
+            status="done",
+        )
+        result = reports_mod.by_case(conn, "c1")
+        self.assertEqual(len(result["trend"]), 1)
+        t = result["trend"][0]
+        self.assertEqual(t["subq_count"], 1)
+        self.assertEqual(t["hints_used_count"], 2)
+        self.assertEqual(t["hint_steps_revealed_max"], 2)
+        self.assertEqual(t["total_solve_sec"], 100)
+
+    def test_history_invalid_json_safe(self) -> None:
+        """answer_subq/subq_elapsed/hints_used JSON 파싱 실패 시 None 안전 처리."""
+        conn = _conn()
+        _seed_case(conn, "c1", subject="minbeop")
+        _seed_attempt_with_subq(
+            conn,
+            case_id="c1",
+            answer_subq_json="{ bad json",
+            subq_elapsed_json="not json",
+            hints_used_json="[]",  # list (dict 아님)
+        )
+        result = reports_mod.by_case(conn, "c1")
+        h = result["history"][0]
+        self.assertEqual(h["subq_count"], 0, "bad JSON → None → 0")
+        self.assertEqual(h["hints_used_count"], 0)
+        self.assertIsNone(h["total_solve_sec"])
+
+
+class TestStep24_7SubqMetaHelper(unittest.TestCase):
+    """Step 24-7 헬퍼 — _subq_meta / _hint_meta / _load_subq_dict 직접 검증."""
+
+    def test_subq_meta_all_dicts(self) -> None:
+        m = reports_mod._subq_meta(
+            '{"설문 1": "a", "설문 2": "b"}',
+            '{"설문 1": 60, "설문 2": 120}',
+            '{"설문 1": [1], "설문 2": [1, 2, 5]}',
+        )
+        self.assertEqual(m["subq_count"], 2)
+        self.assertEqual(m["hints_used_count"], 4)
+        self.assertEqual(m["hint_steps_revealed_max"], 5)
+        self.assertEqual(m["total_solve_sec"], 180)
+
+    def test_subq_meta_all_null(self) -> None:
+        m = reports_mod._subq_meta(None, None, None)
+        self.assertEqual(m["subq_count"], 0)
+        self.assertEqual(m["hints_used_count"], 0)
+        self.assertEqual(m["hint_steps_revealed_max"], 0)
+        self.assertIsNone(m["total_solve_sec"])
+
+    def test_load_subq_dict_rejects_list(self) -> None:
+        """list/string 등 dict 아닌 JSON → None."""
+        self.assertIsNone(reports_mod._load_subq_dict('[1, 2, 3]'))
+        self.assertIsNone(reports_mod._load_subq_dict('"string"'))
+        self.assertIsNone(reports_mod._load_subq_dict("not json"))
+        self.assertIsNone(reports_mod._load_subq_dict(""))
+        self.assertIsNone(reports_mod._load_subq_dict(None))
 
 
 if __name__ == "__main__":
