@@ -729,6 +729,11 @@ _REQUIRED_INJECT_FIELDS: tuple[str, ...] = (
 #     - pattern_warning:      str | null (반복 실수 패턴 경고, 예 "🔥 같은 실수 N회 반복...")
 #       AI 채점은 단일 attempt만 보므로 *내부 답안 패턴* 한정.
 #       *외부 비교* (이전 attempt vs 현재)는 메인이 메타 분석 후 PUT /grade로 직접 주입.
+#   8번째 확장 키 (typo_corrections — lawear-e571/typo-system 추가 2026-05-19):
+#     - typo_corrections:     list[dict] | null
+#       음성 답안 (STT) 오타 교정 내역. 각 dict: {from, to, reason}.
+#       정적 사전(typo_dict.json) 매칭 + Opus SE 문맥 분석 결과 누적.
+#       legacy attempts (키 없음) 은 None — UI 분기 graceful.
 #
 # 사용자 명시 (lawear-e571 작업): SE 보낸 평가 본문이 스키마 불일치로 빈 문자열 저장됨.
 # 새 키 못 받으면 빈 문자열/빈 배열로 저장 (호환성).
@@ -742,12 +747,17 @@ _EVAL_NOTES_KEYS_EXT_LIST: tuple[str, ...] = (
 )
 # pattern_warning 은 str | null — 빈 키 디폴트는 None (legacy str EXT 와 분리)
 _EVAL_NOTES_KEYS_EXT_OPT_STR: tuple[str, ...] = ("pattern_warning",)
+# typo_corrections — 8번째 확장 키 (lawear-e571/typo-system 추가 2026-05-19):
+#   list[dict] | None — 빈 리스트도 None 으로 정규화 (UI 분기 단순화).
+#   각 dict: {"from": str, "to": str, "reason": str} — 음성 STT 오타 교정 내역.
+_EVAL_NOTES_KEYS_EXT_OPT_LIST: tuple[str, ...] = ("typo_corrections",)
 # 통합 (서버 검증 + 응답 형식 일관성)
 _EVAL_NOTES_KEYS: tuple[str, ...] = (
     _EVAL_NOTES_KEYS_LEGACY
     + _EVAL_NOTES_KEYS_EXT_STR
     + _EVAL_NOTES_KEYS_EXT_LIST
     + _EVAL_NOTES_KEYS_EXT_OPT_STR
+    + _EVAL_NOTES_KEYS_EXT_OPT_LIST
 )
 
 # eval_notes alias — 다른 키 이름으로 들어와도 정규화 (호환)
@@ -852,10 +862,11 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
 
     legacy 키 (strength/caution/missing) + 확장 키 (strengths/weaknesses/
     missing_critical/score_summary/next_study_oneliner/next_study_actionable/
-    pattern_warning) 모두 보존.
+    pattern_warning/typo_corrections) 모두 보존.
 
     Raises:
-        GradeInjectionError: dict 아님 또는 pattern_warning 잘못된 타입(list/dict).
+        GradeInjectionError: dict 아님, pattern_warning 잘못된 타입(list/dict),
+                             또는 typo_corrections 가 list/null 외 타입.
 
     Returns:
         {
@@ -869,6 +880,9 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
           "next_study_oneliner": str,
           "next_study_actionable": list[str],
           "pattern_warning": str | None,   # 반복 실수 패턴 경고 (없으면 None)
+          "typo_corrections": list[dict] | None,
+            # 음성 STT 오타 교정 (없으면 None)
+            # 각 dict: {from: str, to: str, reason: str} — 다른 키도 보존 (R-09)
         }
 
         - 없는 키는 빈 문자열/빈 배열 (호환성 — SE가 일부만 보내도 저장).
@@ -877,6 +891,9 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
           형식으로 강제 — 자유형 dict 도 그대로 보존 (R-09 가공 X).
         - pattern_warning 은 str | None — list/dict 입력 시 GradeInjectionError.
           빈 문자열은 None 으로 정규화 (UI 분기 단순화).
+        - typo_corrections 는 list[dict] | None — 빈 list 는 None 으로 정규화.
+          각 dict: {from: str, to: str, reason: str} 강제 + 다른 키 보존.
+          잘못된 타입(dict/str/int 등)은 GradeInjectionError.
     """
     if not isinstance(raw, dict):
         raise GradeInjectionError(
@@ -950,6 +967,41 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
         else:
             raise GradeInjectionError(
                 f"eval_notes.{k} must be string or null, got {type(v).__name__}"
+            )
+
+    # typo_corrections — list[dict] | None (lawear-e571/typo-system, 2026-05-19)
+    # 빈 list 는 None 으로 정규화 — UI 분기 단순화.
+    # 각 dict: {from: str, to: str, reason: str} — 다른 키도 보존.
+    for k in _EVAL_NOTES_KEYS_EXT_OPT_LIST:
+        v = src.get(k)
+        if v is None:
+            out[k] = None
+        elif isinstance(v, list):
+            normalized_corrections: list[dict[str, Any]] = []
+            for item in v:
+                if not isinstance(item, dict):
+                    # str / int 등 비-dict 항목은 from-only 로 wrap (graceful, R-09 가공 X)
+                    if isinstance(item, str) and item.strip():
+                        normalized_corrections.append({
+                            "from": item, "to": "", "reason": ""
+                        })
+                    continue
+                normalized_item: dict[str, Any] = {}
+                # 필수 3키 (string 강제) — None/missing 도 빈문자로
+                normalized_item["from"] = str(item.get("from") or "")
+                normalized_item["to"] = str(item.get("to") or "")
+                normalized_item["reason"] = str(item.get("reason") or "")
+                # 추가 키 보존 (R-09 — source/severity 등 미래 확장)
+                for ek, ev in item.items():
+                    if ek not in ("from", "to", "reason"):
+                        normalized_item[ek] = ev
+                # from 이 빈문자면 의미 없음 — skip
+                if normalized_item["from"]:
+                    normalized_corrections.append(normalized_item)
+            out[k] = normalized_corrections if normalized_corrections else None
+        else:
+            raise GradeInjectionError(
+                f"eval_notes.{k} must be array or null, got {type(v).__name__}"
             )
 
     return out
