@@ -719,6 +719,413 @@ def grade(
     return result
 
 
+# ─── Step 24-4: 다중 설문 D안 카드별 채점 ──────────────────────────────
+
+
+def _build_prompt_subq(
+    case: dict[str, Any],
+    subq: dict[str, Any],
+    user_answer: str,
+    hints_used_steps: list[int] | None = None,
+) -> tuple[str, str]:
+    """카드별(하위 설문) 채점 프롬프트 빌드.
+
+    dev-design archive §3-7 + dev-impl-plan Phase 1 Step 24-4.
+
+    Step 24-4 핵심:
+    - 다중 설문 .md → ``cases.parse_md_subqs`` 결과 카드 1건 = 1 prompt.
+    - 사용자 답안 textarea_i 와 답안지(`### 설문 N 답안` body) 를 1:1 매칭.
+    - 힌트 단계는 **메타** (점수 영향 X) — 프롬프트에 "참고: 사용자가 N단계 힌트 사용"
+      문구만 첨부. R-09 (자의적 해석 금지) 준수 — 단계별 페널티 없음.
+
+    Args:
+        case: 전체 케이스 dict (id, subject_kor, category, file, case_no, title,
+              points, md_body, common_facts 등). subq 가 부분 정보만 가져
+              상위 메타는 case 에서 보완.
+        subq: 카드 1건 — ``cases.parse_md_subqs`` 항목 구조:
+              ``{"key": str, "score_max": int|None, "body": str, "answer": str}``
+              (확장 키 ``facts_body``/``label`` 도 허용).
+        user_answer: 사용자가 textarea_i 에 입력한 답안 텍스트.
+        hints_used_steps: 해당 카드에서 노출된 힌트 단계 list (1~5). 빈 list / None 허용.
+
+    Returns:
+        (system_prompt, user_message) — system 은 SYSTEM_PROMPT 동일 (캐시 적중).
+    """
+    # 메타 안전 추출
+    subject_kor = case.get("subject_kor") or case.get("subject") or ""
+    category = case.get("category") or ""
+    file_label = case.get("file") or ""
+    case_no = case.get("case_no") or ""
+    title = case.get("title") or ""
+    case_id = case.get("id", "")
+
+    # 카드 메타
+    subq_key = subq.get("key") or "전체"
+    subq_label = subq.get("label") or subq_key
+    score_max = subq.get("score_max") or subq.get("points") or 0
+    facts_body = subq.get("facts_body") or case.get("common_facts") or ""
+    question_body = subq.get("body") or subq.get("question_body") or ""
+    answer_body = subq.get("answer") or subq.get("answer_body") or ""
+
+    # 힌트 메타 — 점수 영향 X, 프롬프트에 정보 제공만
+    hints_used_steps = hints_used_steps or []
+    if hints_used_steps:
+        # 1~5 범위 유효한 step 만 정렬
+        valid_steps = sorted({int(s) for s in hints_used_steps if isinstance(s, (int, float)) and 1 <= int(s) <= 5})
+        if valid_steps:
+            steps_str = ", ".join(str(s) for s in valid_steps)
+            hint_note = (
+                f"\n[힌트 사용 메타 (점수 영향 X — 참고만)]\n"
+                f"이 카드에서 사용자가 노출한 힌트 단계: {steps_str}\n"
+                f"(1=목차 / 2=두문자 / 3=조문+키워드 / 4=결론+근거 / 5=전체답안)\n"
+                f"힌트 사용은 채점에 영향을 주지 마세요. R-09 자의적 해석 금지.\n"
+            )
+        else:
+            hint_note = ""
+    else:
+        hint_note = ""
+
+    # user_message — 카드 1건의 본문/답안 + 사용자 답안
+    user_message = f"""[케이스 ID] {case_id}
+[과목] {subject_kor} · {category} · {file_label} · 케이스 {case_no}
+[제목] {title}
+[하위 설문] {subq_label} (배점 {score_max}점)
+
+[공통 사실관계 (모든 카드 공유)]
+{facts_body or "(없음)"}
+
+[이 카드의 문제 본문]
+{question_body or "(없음)"}
+
+[이 카드의 답안지 (정답 — 강조 태그 보존)]
+{answer_body or "(없음)"}
+{hint_note}
+[사용자 답안 (이 카드)]
+{user_answer}
+
+위 채점 9기준에 따라 **이 카드에 대해서만** JSON 형식으로 평가하세요.
+다른 카드(설문)는 별도로 채점됩니다 — 이 prompt 에서는 무관.
+JSON 외 텍스트 금지.
+"""
+    return SYSTEM_PROMPT, user_message
+
+
+def grade_attempt_subq(
+    case: dict[str, Any],
+    attempt: dict[str, Any],
+    weights: dict[str, int] | None = None,
+    *,
+    model: str | None = None,
+    force_mock: bool | None = None,
+) -> dict[str, Any]:
+    """다중 설문 D안 — 카드별 채점 + 부분 매칭 합산.
+
+    dev-design archive §3-3 / §3-4 / §3-7 + dev-impl-plan Phase 1 Step 24-4.
+
+    Step 24-4 핵심:
+    - ``attempt["answer_subq"]`` (dict) 각 카드 → grader API 1회 호출 (총 N회).
+    - 카드별 9기준 채점 결과를 ``criteria_subq`` dict 로 묶음.
+    - **부분 매칭** (사용자 결정 Q10):
+        - 풀린 카드 (빈 문자열 아닌 답안) 만 합산.
+        - 빈 카드 (textarea empty) 는 score_max 합산에서 제외.
+    - hints_used 는 카드별 메타 — 프롬프트에 첨부, 점수 영향 X.
+
+    Args:
+        case: 전체 케이스 dict (id, subject_kor, ..., subqs?, common_facts).
+              ``subqs`` 가 있으면 cards 로 사용, 없으면 ``answer_subq`` 키 만 카드로 처리
+              (테스트 / fallback 호환).
+        attempt: dict — 최소 키 ``answer_subq``. 옵션 ``hints_used`` / ``subq_elapsed``.
+            - ``answer_subq``: ``{subq_key: 답안 텍스트}``
+            - ``hints_used``: ``{subq_key: list[int]}`` (1~5 step). 없으면 ``{}``.
+        weights: 9기준 가중치 (None → DEFAULT_WEIGHTS). 모든 카드에 동일 적용.
+        model: 모델명 (None → DEFAULT_MODEL).
+        force_mock: True/False 명시 강제 (테스트용).
+
+    Returns:
+        {
+          "model":           "claude-opus-4-7" 또는 "mock(auto:...)",
+          "score_total":     float,             부분 매칭 합산 가중치 기준 점수
+          "score_max":       float,             풀린 카드의 score_max 합 (빈 카드 제외)
+          "score_pct":       float,             0~100 클램프
+          "grade":           "A"|"B"|"C"|"F",
+          "weights_applied": dict[str, int],
+          "criteria_subq":   {subq_key: [9 criteria]},
+          "eval_notes_subq": {subq_key: {strength, caution, missing}},
+          "diff_subq":       {subq_key: [diff_segments]},
+          "solved_cards":    list[str],        실제로 풀이된 카드 키
+          "skipped_cards":   list[str],        빈 카드 키
+          "subq_count":      int,              풀린 카드 수
+          "is_mock":         bool,
+          "elapsed_sec":     float,
+        }
+
+    Raises:
+        ValueError: weights 검증 실패 / answer_subq 누락.
+        GraderApiKeyMissingError, GraderRateLimitError, GraderBadGatewayError,
+        GraderParseError: 단일 카드 채점 실패 시 그대로 전파 (호출자가 처리).
+    """
+    started = time.monotonic()
+
+    # 가중치 검증
+    if weights is None:
+        weights = dict(DEFAULT_WEIGHTS)
+    validate_weights(weights)
+
+    answer_subq = attempt.get("answer_subq")
+    if not isinstance(answer_subq, dict) or not answer_subq:
+        raise ValueError("attempt.answer_subq must be non-empty dict for grade_attempt_subq")
+
+    hints_used = attempt.get("hints_used") or {}
+    if not isinstance(hints_used, dict):
+        hints_used = {}
+
+    # 카드 정보 인덱싱 (case.subqs 가 있으면 사용, 없으면 answer_subq 키 그대로)
+    subq_index: dict[str, dict[str, Any]] = {}
+    case_subqs = case.get("subqs") if isinstance(case.get("subqs"), list) else None
+    if case_subqs:
+        for sq in case_subqs:
+            if isinstance(sq, dict) and sq.get("key"):
+                subq_index[sq["key"]] = sq
+
+    # 모델 + mock 판정 (한번만 결정)
+    selected_model = model or DEFAULT_MODEL
+    is_mock = _is_mock_mode(selected_model, force_mock=force_mock)
+    if selected_model == "mock":
+        model_label = "mock"
+    elif is_mock:
+        model_label = "mock(auto:no_api_key)" if not os.environ.get("ANTHROPIC_API_KEY") else "mock"
+    else:
+        model_label = selected_model
+
+    criteria_subq: dict[str, list[dict[str, Any]]] = {}
+    eval_notes_subq: dict[str, dict[str, str]] = {}
+    diff_subq: dict[str, list[dict[str, str]]] = {}
+    solved_cards: list[str] = []
+    skipped_cards: list[str] = []
+
+    # 부분 점수 합산 — 풀린 카드만 sum(weighted) / sum(score_max_per_card)
+    total_weighted_sum: float = 0.0
+    total_score_max_sum: float = 0.0
+
+    # 카드 순회 — answer_subq 의 키 순서 유지 (Python 3.7+ dict 보존)
+    for subq_key, user_answer in answer_subq.items():
+        # 빈 카드는 skip (부분 매칭 — score_max 합산에서 제외)
+        if not isinstance(user_answer, str) or not user_answer.strip():
+            skipped_cards.append(subq_key)
+            continue
+
+        # 카드 메타 추출 (case.subqs 우선, 없으면 키만 가진 stub)
+        subq_meta = subq_index.get(subq_key, {"key": subq_key, "score_max": None, "body": "", "answer": ""})
+
+        # 힌트 메타 (카드별)
+        steps = hints_used.get(subq_key) or []
+        if not isinstance(steps, list):
+            steps = []
+
+        # 프롬프트 생성
+        system_prompt, user_message = _build_prompt_subq(case, subq_meta, user_answer, steps)
+
+        # 채점 호출 (mock 또는 실 API)
+        raw_resp: str | None = None
+        if is_mock:
+            print(
+                f"[Grader] MOCK subq case_id={case.get('id')} subq={subq_key!r}",
+                file=sys.stderr,
+            )
+            parsed = _mock_response(case, user_answer, weights)
+        else:
+            raw_resp, _usage = _call_anthropic(system_prompt, user_message, model=selected_model)
+            parsed = _parse_response(raw_resp)
+
+        # 카드별 점수 계산 (각 카드 max=89 기준이지만 부분 점수는 weight 비율로 sum)
+        card_weighted, card_max, _card_pct, _card_grade = _compute_score(parsed["criteria"], weights)
+        total_weighted_sum += card_weighted
+        total_score_max_sum += card_max
+
+        # criteria 에 weight 주입 (응답엔 없음)
+        criteria_with_weight: list[dict[str, Any]] = []
+        for c in parsed["criteria"]:
+            key = c.get("key")
+            if key not in CRITERION_KEYS:
+                continue
+            criteria_with_weight.append({
+                "key": key,
+                "score": c.get("score"),
+                "max": c.get("max"),
+                "weight": int(weights.get(key, 0)),
+                "comment": c.get("comment", ""),
+            })
+
+        # CRITERION_KEYS 순서로 정렬
+        by_key = {c["key"]: c for c in criteria_with_weight}
+        ordered = [by_key[k] for k in CRITERION_KEYS if k in by_key]
+
+        criteria_subq[subq_key] = ordered
+        eval_notes_subq[subq_key] = parsed.get("eval_notes") or {}
+        diff_subq[subq_key] = parsed.get("diff_segments", []) or []
+        solved_cards.append(subq_key)
+
+    # 부분 매칭 — 풀린 카드 합산 기준 pct
+    if total_score_max_sum > 0:
+        pct = (total_weighted_sum / total_score_max_sum) * 100.0
+    else:
+        # 모든 카드가 빈 답안 — 0점 처리
+        pct = 0.0
+    pct = max(0.0, min(100.0, pct))
+
+    grade_letter = "F"
+    for threshold, g in GRADE_THRESHOLDS:
+        if pct >= threshold:
+            grade_letter = g
+            break
+
+    elapsed = time.monotonic() - started
+
+    result = {
+        "model": model_label,
+        "score_total": round(total_weighted_sum, 2),
+        "score_max": round(total_score_max_sum, 2),
+        "score_pct": round(pct, 2),
+        "grade": grade_letter,
+        "weights_applied": dict(weights),
+        "criteria_subq": criteria_subq,
+        "eval_notes_subq": eval_notes_subq,
+        "diff_subq": diff_subq,
+        "solved_cards": solved_cards,
+        "skipped_cards": skipped_cards,
+        "subq_count": len(solved_cards),
+        "is_mock": is_mock,
+        "elapsed_sec": round(elapsed, 3),
+    }
+
+    print(
+        f"[Grader] subq done case_id={case.get('id')} cards={len(solved_cards)}/"
+        f"{len(answer_subq)} skipped={len(skipped_cards)} "
+        f"score={result['score_total']}/{result['score_max']} pct={pct:.2f} "
+        f"grade={grade_letter} time={elapsed:.2f}s mock={is_mock}",
+        file=sys.stderr,
+    )
+    return result
+
+
+def _normalize_subq_grades(grade_dict: dict[str, Any]) -> dict[str, Any]:
+    """legacy grade() 결과와 subq grade 결과를 통일 형식으로 정규화.
+
+    dev-design archive §3-4 (_attempt_row_to_dict 응답 호환).
+
+    legacy ``grade()`` 결과 (1차원 criteria) → ``criteria_subq = {"전체": criteria}`` wrap.
+    grade_attempt_subq() 결과 (이미 criteria_subq) → 그대로 두고 legacy ``criteria`` 키
+    1차원 array 도 보강 (단일 카드 케이스에서 호환).
+
+    한글 카드 키는 보존 (ensure_ascii=False).
+
+    Args:
+        grade_dict: ``grade()`` 또는 ``grade_attempt_subq()`` 반환 dict.
+
+    Returns:
+        통일된 형식:
+          - "criteria_subq":   dict (필수 — 단일이라도 {"전체": [...] } wrap)
+          - "eval_notes_subq": dict
+          - "diff_subq":       dict
+          - "criteria":        list (단일 카드 호환, 첫 카드 또는 "전체")
+          - "eval_notes":      dict (첫 카드 또는 "전체")
+          - 기존 메타키 (score_total/max/pct/grade/weights_applied/is_mock/elapsed_sec) 보존
+    """
+    if not isinstance(grade_dict, dict):
+        raise ValueError(f"grade_dict must be dict, got {type(grade_dict).__name__}")
+
+    out = dict(grade_dict)  # shallow copy — 원본 안 건드림
+
+    # 이미 criteria_subq 가 있으면 (grade_attempt_subq 결과) → criteria/eval_notes 도 호환 보강
+    if "criteria_subq" in out and isinstance(out["criteria_subq"], dict):
+        subq_map = out["criteria_subq"]
+        # 단일 카드면 legacy criteria 키도 채워 호환 (첫 카드)
+        if len(subq_map) == 1:
+            first_key = next(iter(subq_map))
+            if "criteria" not in out:
+                out["criteria"] = list(subq_map[first_key])
+            # eval_notes 호환
+            if "eval_notes" not in out:
+                notes_subq = out.get("eval_notes_subq", {})
+                if isinstance(notes_subq, dict) and first_key in notes_subq:
+                    out["eval_notes"] = notes_subq[first_key]
+            # diff_segments 호환
+            if "diff_segments" not in out:
+                diff_subq_map = out.get("diff_subq", {})
+                if isinstance(diff_subq_map, dict) and first_key in diff_subq_map:
+                    out["diff_segments"] = diff_subq_map[first_key]
+        return out
+
+    # legacy grade() 결과 → criteria_subq = {"전체": criteria} wrap
+    legacy_criteria = out.get("criteria")
+    if isinstance(legacy_criteria, list):
+        out["criteria_subq"] = {"전체": list(legacy_criteria)}
+    else:
+        out["criteria_subq"] = {}
+
+    legacy_notes = out.get("eval_notes")
+    if isinstance(legacy_notes, dict):
+        out["eval_notes_subq"] = {"전체": dict(legacy_notes)}
+    else:
+        out["eval_notes_subq"] = {}
+
+    legacy_diff = out.get("diff_segments")
+    if isinstance(legacy_diff, list):
+        out["diff_subq"] = {"전체": list(legacy_diff)}
+    else:
+        out["diff_subq"] = {}
+
+    return out
+
+
+def grade_attempt(
+    case: dict[str, Any],
+    attempt: dict[str, Any],
+    weights: dict[str, int] | None = None,
+    *,
+    model: str | None = None,
+    force_mock: bool | None = None,
+) -> dict[str, Any]:
+    """Step 24-4 attempt 채점 분기 진입점 (legacy + 다중 설문 자동 라우팅).
+
+    dev-design archive §3-2 + dev-impl-plan Phase 1 Step 24-4.
+
+    분기:
+    - ``attempt["answer_subq"]`` 가 non-empty dict → ``grade_attempt_subq()`` 위임.
+    - 그 외 (None / 빈 dict) → 기존 ``grade()`` 로직 (legacy answer_text 단일 모드).
+
+    Args:
+        case:    cases.get_case() 결과 dict (id, subject_kor, ..., md_body, subqs?).
+        attempt: attempt dict — ``answer_text`` (legacy) 또는 ``answer_subq`` (신규 D안).
+                 옵션 ``hints_used``/``subq_elapsed``.
+        weights: 9기준 가중치 (None → DEFAULT_WEIGHTS).
+        model:   Claude 모델명 (None → DEFAULT_MODEL).
+        force_mock: 테스트용 강제 mock.
+
+    Returns:
+        legacy 분기 시: ``grade()`` 결과 그대로 (criteria/eval_notes/diff_segments 1차원).
+        다중 분기 시:  ``grade_attempt_subq()`` 결과 그대로 (criteria_subq dict).
+        호출자에서 통일 형식이 필요하면 ``_normalize_subq_grades()`` 추가 호출.
+
+    Raises:
+        ValueError: weights 또는 attempt 검증 실패.
+        Grader*Error: 채점 실패 (legacy 와 동일하게 전파).
+    """
+    if not isinstance(attempt, dict):
+        raise ValueError(f"attempt must be dict, got {type(attempt).__name__}")
+
+    answer_subq = attempt.get("answer_subq")
+    if isinstance(answer_subq, dict) and answer_subq:
+        # 다중 설문 분기
+        return grade_attempt_subq(
+            case, attempt, weights, model=model, force_mock=force_mock
+        )
+
+    # legacy 분기 — answer_text 추출
+    answer_text = attempt.get("answer_text") or ""
+    return grade(case, answer_text, weights, model=model, force_mock=force_mock)
+
+
 # ─── CLI (수동 실 호출 테스트용) ────────────────────────────────────────
 
 
