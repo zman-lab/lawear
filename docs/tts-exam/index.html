@@ -3257,7 +3257,9 @@
   //                          데이터 없으면 "(데이터 없음)" 표시.
 
   const TIMER = {
-    paused: false,
+    paused: false,       // 사용자 pause 버튼 (legacy alias of userPaused — 호환 유지)
+    userPaused: false,   // 사용자 직접 pause 토글
+    autoPaused: false,   // visibility/focus 자동 pause (탭/창 백그라운드)
     totalSec: 0,
     suggestedTotalSec: 0,
     activeCardId: null,
@@ -3303,7 +3305,9 @@
   }
 
   function tickTimer() {
-    if (TIMER.paused) return;
+    // pause: 사용자 직접(userPaused) 또는 visibility/focus 자동(autoPaused).
+    // legacy TIMER.paused 도 호환 유지 (기존 코드/스킬 호출 시 동작 동일).
+    if (TIMER.paused || TIMER.userPaused || TIMER.autoPaused) return;
     TIMER.totalSec += 1;
     if (TIMER.activeCardId) {
       TIMER.cardSec[TIMER.activeCardId] = (TIMER.cardSec[TIMER.activeCardId] || 0) + 1;
@@ -3369,6 +3373,8 @@
 
   function resetTimer() {
     TIMER.paused = false;
+    TIMER.userPaused = false;
+    TIMER.autoPaused = false;
     TIMER.totalSec = 0;
     TIMER.activeCardId = null;
     TIMER.cardSec = {};
@@ -3655,6 +3661,8 @@
     TIMER.totalSec = 0;
     TIMER.overFiredTotal = false;
     TIMER.paused = false;
+    TIMER.userPaused = false;
+    TIMER.autoPaused = false;
     document.getElementById('counter-total').textContent = '00:00';
     document.getElementById('counter-active').textContent = '00:00';
     document.getElementById('counter-total').classList.remove('over');
@@ -3880,17 +3888,34 @@
 
   // ─── timer-bar 버튼 wire ───
   document.addEventListener('DOMContentLoaded', () => {
-    // pause
+    // pause — 사용자 직접 토글 (TIMER.userPaused). legacy TIMER.paused 도 동기화.
     const pauseBtn = document.getElementById('btn-pause');
     if (pauseBtn) {
       pauseBtn.addEventListener('click', () => {
-        TIMER.paused = !TIMER.paused;
-        pauseBtn.classList.toggle('active', TIMER.paused);
-        pauseBtn.textContent = TIMER.paused
+        TIMER.userPaused = !TIMER.userPaused;
+        TIMER.paused = TIMER.userPaused;  // legacy alias
+        pauseBtn.classList.toggle('active', TIMER.userPaused);
+        pauseBtn.textContent = TIMER.userPaused
           ? (I18N[currentLang].btn_pause_resume || 'Resume')
           : (I18N[currentLang].btn_pause || 'Pause');
       });
     }
+    // 자동 pause: visibility/focus — 탭/창 백그라운드 시 시간 누적 X (사용자 명시 edge).
+    //   visibilitychange : 탭 전환 / 최소화 등 document.hidden 변경 감지
+    //   window blur/focus: 다른 앱(Cmd+Tab)으로 포커스 이동 — visibility 없이 blur 만 발생하는 케이스 보강
+    // 사용자 직접 pause(userPaused) 와 독립 — 자동 pause 해제되어도 사용자 pause 는 유지.
+    const __syncAutoPause = () => {
+      // hidden + blurred 둘 다 검사 — 둘 중 하나라도 참이면 자동 pause.
+      // 항상 boolean 으로 정규화 (degenerate 케이스에서도 autoPaused=true/false 만 가능).
+      const hidden = !!(typeof document !== 'undefined' && document.hidden === true);
+      const blurred = !!(typeof document !== 'undefined' && document.hasFocus && !document.hasFocus());
+      TIMER.autoPaused = !!(hidden || blurred);
+    };
+    document.addEventListener('visibilitychange', __syncAutoPause);
+    window.addEventListener('blur', __syncAutoPause);
+    window.addEventListener('focus', __syncAutoPause);
+    // 초기 sync (페이지 로드 시점에 이미 backgrounded 일 가능성 — 드물지만 안전망)
+    __syncAutoPause();
     // reset
     const resetBtn = document.getElementById('btn-counter-reset');
     if (resetBtn) {
@@ -5904,11 +5929,16 @@
 
   if (submitBtn) submitBtn.addEventListener('click', submitAttempt);
 
-  // 재시도 버튼 — 동일 답안 재제출
+  // 재시도 버튼 — 카드 모드면 submitAttemptCards, 아니면 legacy submitAttempt.
+  // (Step 24-6 이후 카드 모드가 기본. 단일/다중 모드 모두 가상/실제 카드 사용)
   const retryBtn = document.getElementById('btn-retry');
   if (retryBtn) {
     retryBtn.addEventListener('click', () => {
-      submitAttempt();
+      if (typeof isCardsMode === 'function' && isCardsMode()) {
+        submitAttemptCards();
+      } else {
+        submitAttempt();
+      }
     });
   }
 
