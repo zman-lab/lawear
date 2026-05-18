@@ -879,6 +879,8 @@
   #rv-cards-section.active { display: block; }
   /* 카드 모드일 때 기존 Notes 섹션 숨김 */
   #rv-notes-section.hidden { display: none; }
+  /* 단일 모드 중복 표시 fix — 위쪽 Inquiry 섹션 숨김 (가상 카드 안에 본문이 들어가므로 중복 방지) */
+  .section.hidden { display: none; }
 
   /* Evaluation */
   .score-overview {
@@ -4007,6 +4009,11 @@
     const labelEl = document.getElementById('rv-cards-label');
     const timerBar = document.getElementById('timer-bar');
     const sugEl = document.getElementById('counter-suggested');
+    // 단일 모드 중복 표시 fix — inquiry section ref (위쪽 question 영역, 가상 카드 안에서 본문 표시 시 숨김)
+    const inqSection = (function () {
+      const el = document.getElementById('rv-inquiry');
+      return el ? el.closest('.section') : null;
+    })();
     if (!sec || !container) return;
 
     const rawSubqs = Array.isArray(caseData && caseData.subqs) ? caseData.subqs : [];
@@ -4017,6 +4024,8 @@
       sec.classList.remove('active');
       if (notesSec) notesSec.classList.add('hidden');
       if (timerBar) timerBar.classList.remove('active');
+      // inquiry section 표시 복원 (단일 모드 중복 fix 보조 — 에러 후 다른 케이스 진입 회귀 방지)
+      if (inqSection) inqSection.classList.remove('hidden');
       stopTimerInterval();
       resetTimer();
       container.innerHTML = '';
@@ -4033,7 +4042,8 @@
     //       · score_max = c.points (권장시간 환산)
     //       · mnemonic 은 비움 — hasMnemonic / buildHintContent 가 caseFull.mnemonic 으로 자동 fallback
     let subqs;
-    if (rawSubqs.length === 0) {
+    const isSingleMode = (rawSubqs.length === 0);
+    if (isSingleMode) {
       let body = '';
       try {
         const split = splitOriginFactsQuestion(caseData && caseData.origin || '');
@@ -4057,6 +4067,13 @@
     sec.classList.add('active');
     if (notesSec) notesSec.classList.add('hidden');
     if (timerBar) timerBar.classList.add('active');
+    // 단일 모드 중복 표시 fix — 위쪽 Inquiry 섹션 숨김 (가상 카드 안에 본문 표시되므로 중복 방지).
+    //   다중 모드: Inquiry = 설문 N 통합 라벨 + 본문 / 카드 = 각 subq.body (다른 본문) → 표시 유지
+    //   단일 모드: Inquiry = question 통째 / 가상 카드 = question 통째 → 중복이므로 Inquiry hide
+    if (inqSection) {
+      if (isSingleMode) inqSection.classList.add('hidden');
+      else inqSection.classList.remove('hidden');
+    }
 
     // 권장 시간: 1점 = 1분 (사용자 명시)
     const points = caseData.points || 0;
