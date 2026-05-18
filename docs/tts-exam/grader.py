@@ -157,17 +157,33 @@ SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한�
 - [blank]…[/blank]: 블랭크 (본문 시각 처리)
 - [blank2]…[/blank2]: 두문자 (Lv.4 사용자 두문자만)
 
-[채점 규칙 — 절대 준수]
-- 자료(사실관계/문제/원본/Lv.1/Lv.4)에 없는 내용을 추가하지 마세요. 자의적 해석 금지.
+[채점 규칙 — 절대 준수 + 엄격화 (Phase 2, lawear-e571 2026-05-19)]
+- 자료(사실관계/문제/원본/Lv.1/Lv.4)에 없는 내용을 추가하지 마세요. 자의적 해석 금지 (R-09).
+  답안에 명시되지 않은 논점을 "의도했을 것 같다"고 가점 X. 적힌 그대로만 평가.
 - 두문자(예 "위,발,간")를 그대로 외운 게 아니라 "풀이형 키워드"(예 "관할위반/발견시 조치/간과판결")로 적었어도 OK.
 - 색 강조는 글자가 완전히 똑같지 않아도 의미만 비슷하면 OK (sem 기준에서 가산).
 - 누락 논점은 차감 (miss: score 는 0 이하 음수 또는 0, max=0).
 - rich: 원본 전체와 비교 — 자세히 적을수록 가점 (기존 의미 유지, 사안의 경우 한정 X).
 - case_apply: 사안의 경우 채점. 강사 예시와 같이 적을 필요 X — 결론+근거의 법리/근거를 사안에
   어떻게 적용했는지가 핵심. 사안에 적힌 일자/사실 + 결론 도출 과정 논리 + 수험생의 인용 흐름 평가.
-- articles: 원본 답안에 명시된 조문(예 "제397조 제2항", "제387조") 전체 중 답안에 적힌 비율.
-  조문이 없는 케이스는 max=0 또는 N/A(만점) 처리.
 - comment 는 한국어 1~2 문장, 간결, 자료 인용 가능.
+
+[엄격화 — articles 채점 임계 (Phase 2 핵심)]
+원본 답안에 명시된 조문(예 "제397조 제2항", "제387조") 매칭 임계 (절대 준수):
+  - 조문 매칭 0개 (사용자 답안에 조문 번호 0건 인용)  → score 는 max 의 **20% 이하** (예 max=10 → score ≤ 2)
+  - 조문 매칭 1~2개 (원본 5개 기준, 40%↓)             → score 는 max 의 **40% 이하**
+  - 조문 매칭 3~4개 (원본 5개 기준, 60~80%)           → score 는 max 의 **60~80%**
+  - 조문 매칭 5개 이상 (원본과 동일)                  → score 는 max 의 **90~100%**
+  원본에 조문이 0개인 케이스는 max=0 처리 (articles 자체 N/A).
+
+[엄격화 — 누락 핵심 4건 (Phase 2 의무 식별)]
+다음 누락 패턴이 답안에 보이면 반드시 missing_critical 에 명시 + miss score 음수 차감:
+  1. 비법인사단 인정 근거 (조직성/다수결/존속/주요사항) 미언급 → -3 ~ -4점 차감
+  2. 권리능력 범위 단계 (제34조 유추적용, 목적범위) 미언급   → -2 ~ -3점 차감
+  3. 제126조 표현대리 준용 부정 미언급                       → -2 ~ -3점 차감
+  4. 증명책임 = 비법인사단측 (입증주체 명시) 미언급          → -1 ~ -2점 차감
+  위 4건은 민법 비법인사단 케이스 채점 시 반드시 확인. 다른 과목/케이스는
+  원본 답안에 명시된 핵심 논점을 식별해 missing_critical 에 채워주세요.
 
 [출력 형식 — JSON only (코드펜스 없이 raw JSON 만)]
 {
@@ -179,13 +195,21 @@ SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한�
     {"key":"sem",        "score":<int|float>, "max":<int|float>, "comment":"..."},
     {"key":"rich",       "score":<int|float>, "max":<int|float>, "comment":"..."},
     {"key":"miss",       "score":<int|float>, "max":0,           "comment":"..."},
-    {"key":"articles",   "score":<int|float>, "max":<int|float>, "comment":"..."},
+    {"key":"articles",   "score":<int|float>, "max":<int|float>, "comment":"... (조문 N/M개 매칭 명시)"},
     {"key":"case_apply", "score":<int|float>, "max":<int|float>, "comment":"..."}
   ],
   "eval_notes": {
-    "strength": "한국어 1~2 문장",
-    "caution":  "한국어 1~2 문장",
-    "missing":  "한국어 1~2 문장"
+    "strength": "한국어 1~2 문장 (legacy 호환)",
+    "caution":  "한국어 1~2 문장 (legacy 호환)",
+    "missing":  "한국어 1~2 문장 (legacy 호환)",
+    "score_summary":        "3줄 핵심 평가 (총평 — 점수/조문/누락/사안적용 요약)",
+    "strengths":            ["강점 항목 1", "강점 항목 2", ...],
+    "weaknesses":           ["약점 항목 1", "약점 항목 2", ...],
+    "missing_critical":     [
+      {"item":"누락 항목 이름", "expected_score_impact": -N}
+    ],
+    "next_study_oneliner":  "💡 다음 +N~M점 가능: 조문 K개 + ... (간결한 학습 가이드)",
+    "next_study_actionable":["실행 가능 학습 액션 1", "...", ...]
   },
   "diff_segments": [
     {"type":"match",   "text":"사용자 답안의 일치 부분"},
@@ -194,7 +218,15 @@ SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한�
   ]
 }
 
+[필수 출력 키 (Phase 2 의무)]
+- criteria 9개 모두 (mnem~case_apply)
+- eval_notes 의 legacy 3키 (strength/caution/missing) + 확장 6키
+  (score_summary/strengths/weaknesses/missing_critical/next_study_oneliner/next_study_actionable)
+- next_study_oneliner 는 **반드시 출력** (사용자 학습 동기 핵심) — "💡 다음 +N점 가능: ..." 형식
+- missing_critical 은 답안에서 식별된 누락 항목 0~5개 (없으면 빈 배열)
+
 반드시 위 JSON 형식만 출력하세요. 다른 텍스트 (설명, 사과, 코드펜스) 절대 추가 X.
+자료에 없는 내용 추가 X — R-09 자의적 해석 금지.
 """
 
 
@@ -441,9 +473,17 @@ def _mock_response(
     return {
         "criteria": criteria,
         "eval_notes": {
+            # legacy 호환
             "strength": "[mock] 사용자 답안 구조가 표면적으로 기준에 맞음",
             "caution": "[mock] 자료 인용 정확성은 실 채점 필요",
             "missing": "[mock] mock 응답이므로 누락 논점 분석 불가 — ANTHROPIC_API_KEY 설정 후 재채점",
+            # Phase 2 확장 (mock 도 새 키 빈 값으로 보강 — Phase 1 attempts 정규화 호환)
+            "score_summary": "[mock] 자동 채점 시뮬레이션 — 실 API 호출 후 점수 확정.",
+            "strengths": ["[mock] 답안 작성 자체"],
+            "weaknesses": ["[mock] mock 모드에서는 실 누락 분석 불가"],
+            "missing_critical": [],
+            "next_study_oneliner": "💡 다음 +0점 가능 (mock): ANTHROPIC_API_KEY 설정 후 실 채점 → 정확 분석",
+            "next_study_actionable": ["[mock] ANTHROPIC_API_KEY 설정", "[mock] 실 채점 재요청"],
         },
         "diff_segments": diff_segments,
     }
