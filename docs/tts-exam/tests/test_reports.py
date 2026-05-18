@@ -750,5 +750,82 @@ class TestStep24_7SubqMetaHelper(unittest.TestCase):
         self.assertIsNone(reports_mod._load_subq_dict(None))
 
 
+# ─── e571-score-display — case_points 노출 (Reports) ────────────────────
+
+
+class TestCasePointsExposureReports(unittest.TestCase):
+    """reports.py overall.recent / by_case.history / by_case.trend 의 case_points 노출.
+
+    UI 점수 표시: n/case_points (m/100) — 실제 시험 배점 환산.
+    """
+
+    def test_overall_recent_exposes_case_points(self) -> None:
+        """overall().recent[i].case_points = cases.points."""
+        conn = _conn()
+        _seed_case(conn, "c1", points=15)  # 미케01-04 같은 15점
+        _seed_attempt(
+            conn,
+            case_id="c1",
+            score_pct=44.0,
+            score_total=6.6,
+            score_max=15.0,
+            grade="C",
+        )
+        result = reports_mod.overall(conn)
+        self.assertEqual(len(result["recent"]), 1)
+        r0 = result["recent"][0]
+        self.assertIn("case_points", r0)
+        self.assertEqual(r0["case_points"], 15)
+
+    def test_by_case_case_points_top_level(self) -> None:
+        """by_case().case_points = cases.points (이미 노출 — 회귀 방지)."""
+        conn = _conn()
+        _seed_case(conn, "c1", points=17)  # 미케01-01 17점
+        result = reports_mod.by_case(conn, "c1")
+        self.assertEqual(result["case_points"], 17)
+
+    def test_by_case_history_echoes_case_points(self) -> None:
+        """by_case().history[i].case_points echo."""
+        conn = _conn()
+        _seed_case(conn, "c1", points=20)
+        _seed_attempt(conn, case_id="c1", score_pct=80.0, score_total=16.0, score_max=20.0)
+        _seed_attempt(
+            conn, case_id="c1",
+            score_pct=60.0, score_total=12.0, score_max=20.0,
+            submitted_at="2026-05-15T09:00:00Z",
+        )
+        result = reports_mod.by_case(conn, "c1")
+        self.assertEqual(len(result["history"]), 2)
+        for h in result["history"]:
+            self.assertIn("case_points", h)
+            self.assertEqual(h["case_points"], 20)
+
+    def test_by_case_trend_echoes_case_points(self) -> None:
+        """by_case().trend[i].case_points echo."""
+        conn = _conn()
+        _seed_case(conn, "c1", points=25)
+        _seed_attempt(conn, case_id="c1", score_pct=70.0, score_total=17.5, score_max=25.0)
+        result = reports_mod.by_case(conn, "c1")
+        self.assertEqual(len(result["trend"]), 1)
+        self.assertEqual(result["trend"][0]["case_points"], 25)
+
+    def test_overall_recent_case_points_orphan_graceful(self) -> None:
+        """attempts row 만 있고 cases 가 없는 (orphan) → case_points None graceful.
+
+        cases.points 는 NOT NULL 제약 — DB 정합상 NULL 시드는 불가.
+        실제 None 시나리오는 cases row 자체 부재 (LEFT JOIN miss).
+        """
+        conn = _conn()
+        _seed_case(conn, "c1", points=15)
+        _seed_attempt(conn, case_id="c1", score_pct=44.0,
+                      score_total=6.6, score_max=15.0, grade="C")
+        # cases row 삭제 → LEFT JOIN miss → c.points NULL
+        conn.execute("DELETE FROM cases WHERE id = ?", ("c1",))
+        conn.commit()
+        result = reports_mod.overall(conn)
+        self.assertEqual(len(result["recent"]), 1)
+        self.assertIsNone(result["recent"][0]["case_points"])
+
+
 if __name__ == "__main__":
     unittest.main()

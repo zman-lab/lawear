@@ -566,6 +566,96 @@ class ListAttemptsHintsMetaTest(unittest.TestCase):
         self.assertIsNone(item["total_solve_sec"])
 
 
+# ─── 6-b. case_points 노출 (e571-score-display) ───────────────────────
+
+
+class CasePointsExposureTest(unittest.TestCase):
+    """attempts API 응답에 case_points 필드 노출 검증 (e571-score-display).
+
+    - list_attempts: items 각 row 에 case_points
+    - get_attempt: 응답 dict 에 case_points
+    - legacy (case_points NULL) graceful
+    """
+
+    def setUp(self) -> None:
+        self.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+        self.tmp.close()
+        self.db_path = self.tmp.name
+        _build_db(self.db_path)
+        self.conn = db_mod.get_conn(self.db_path)
+        _seed_case(self.conn, "tc24-3")  # points=35
+
+    def tearDown(self) -> None:
+        try:
+            self.conn.close()
+        except Exception:
+            pass
+        try:
+            os.unlink(self.db_path)
+        except OSError:
+            pass
+
+    def test_list_attempts_exposes_case_points(self):
+        """list_attempts 응답 items 각 row 에 case_points=35."""
+        with patch.object(cases_mod, "get_case", return_value=_fake_case_meta()):
+            attempts_mod.create_attempt(
+                self.conn,
+                self.db_path,
+                "tc24-3",
+                answer_text="답안",
+                grading_mode="manual",
+            )
+        out = attempts_mod.list_attempts(self.conn, case_id="tc24-3")
+        self.assertEqual(len(out["attempts"]), 1)
+        item = out["attempts"][0]
+        self.assertIn("case_points", item)
+        self.assertEqual(item["case_points"], 35)
+
+    def test_get_attempt_exposes_case_points(self):
+        """get_attempt 응답에 case_points=35."""
+        with patch.object(cases_mod, "get_case", return_value=_fake_case_meta()):
+            result = attempts_mod.create_attempt(
+                self.conn,
+                self.db_path,
+                "tc24-3",
+                answer_text="답안",
+                grading_mode="manual",
+            )
+        got = attempts_mod.get_attempt(self.conn, result["attempt_id"])
+        self.assertIn("case_points", got)
+        self.assertEqual(got["case_points"], 35)
+
+    def test_case_points_orphan_attempt_graceful(self):
+        """attempt 만 있고 cases row 가 없는 케이스 (LEFT JOIN 미스) → None graceful.
+
+        Note: cases.points 는 NOT NULL 제약 — DB 정합상 NULL 직접 INSERT 불가.
+        실제 None 시나리오는 cases row 자체 부재 (LEFT JOIN miss).
+        FK CASCADE 우회: PRAGMA foreign_keys=OFF 후 cases 삭제 — attempt 만 남김.
+        """
+        # case 시드 후 attempt 생성
+        with patch.object(cases_mod, "get_case", return_value=_fake_case_meta()):
+            result = attempts_mod.create_attempt(
+                self.conn,
+                self.db_path,
+                "tc24-3",
+                answer_text="답안",
+                grading_mode="manual",
+            )
+        # FK 끄고 cases 삭제 (orphan attempt 생성)
+        self.conn.execute("PRAGMA foreign_keys = OFF")
+        self.conn.execute("DELETE FROM cases WHERE id = ?", ("tc24-3",))
+        self.conn.commit()
+        self.conn.execute("PRAGMA foreign_keys = ON")
+        # get_attempt: cases row 없음 → case_points=None
+        got = attempts_mod.get_attempt(self.conn, result["attempt_id"])
+        self.assertIn("case_points", got)
+        self.assertIsNone(got["case_points"])
+        # list_attempts 도 None 노출 (LEFT JOIN c.points NULL)
+        out = attempts_mod.list_attempts(self.conn, case_id="tc24-3")
+        self.assertEqual(len(out["attempts"]), 1)
+        self.assertIsNone(out["attempts"][0]["case_points"])
+
+
 # ─── 7. inject_grade — criteria_subq + legacy 양립 ──────────────────
 
 

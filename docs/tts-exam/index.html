@@ -2381,6 +2381,8 @@
             <div class="score-card">
               <div class="score-label" data-i18n="final_score">Final Score</div>
               <div class="score-value"><span id="ev-score-total">—</span><span class="total"> / <span id="ev-score-max">—</span></span></div>
+              <!-- e571-score-display — 실제 시험 배점 + 100점 환산 (case_points 부재 시 숨김) -->
+              <div class="score-real" id="ev-score-real" style="display:none; font-size: 12px; color: var(--text-dim); margin-top: 4px;">—</div>
               <div class="score-meta"><span class="grade b" id="ev-grade">—</span> · <span id="ev-pct">—</span>%</div>
               <!-- Step 17 — 재채점 버튼 / Step 18 — UI 유지 + 영구 disabled
                    (사용자 결정 2026-05-16: 답안 재작성으로 다시 Submit 권장.
@@ -4666,7 +4668,11 @@
       const isBest = (typeof a.score_pct === 'number' && a.score_pct === best && best > 0);
       const numFmt = I18N[currentLang].history_attempt_no || '#{n}';
       const nlabel = numFmt.replace('{n}', String(attempts.length - idx).padStart(2, '0'));
-      const score = (a.score_total != null && a.score_max != null) ? `${a.score_total}/${a.score_max}` : '—';
+      // e571-score-display — 사이드바 좁은 공간 → 단축형 (n/case_points) 사용
+      //   case_points 부재 시 fmtScoreReal 가 '44%' 폴백 — 기존 fmtScoreFraction 유지하지 X
+      const score = (a.score_pct != null && a.case_points != null && a.case_points > 0)
+        ? fmtScoreReal(a.score_pct, a.case_points, { compact: true })
+        : ((a.score_total != null && a.score_max != null) ? `${a.score_total}/${a.score_max}` : '—');
       const pct = (a.score_pct != null) ? `(${Number(a.score_pct).toFixed(0)}%)` : '';
       const pctCls = (a.score_pct == null) ? '' : (a.score_pct >= 80 ? '' : a.score_pct >= 60 ? 'low' : 'bad');
       const hn = a.hints_used_count || 0;
@@ -6432,6 +6438,18 @@
     setText('ev-score-total', isFinite(total) ? total.toFixed(2) : '—');
     setText('ev-score-max',   isFinite(max)   ? max.toFixed(2)   : '—');
     setText('ev-pct',         isFinite(pct)   ? pct.toFixed(2)   : '—');
+    // e571-score-display — 실제 시험 배점 + 100점 환산 (case_points 있을 때만 표시)
+    const realEl = document.getElementById('ev-score-real');
+    if (realEl) {
+      const cp = (att.case_points != null) ? Number(att.case_points) : null;
+      if (cp != null && cp > 0 && isFinite(pct)) {
+        realEl.textContent = fmtScoreReal(pct, cp);
+        realEl.style.display = '';
+      } else {
+        realEl.textContent = '—';
+        realEl.style.display = 'none';
+      }
+    }
     const gradeEl = document.getElementById('ev-grade');
     if (gradeEl) {
       gradeEl.textContent = `${I18N[currentLang].grade_b ? 'Grade ' : ''}${grade}`.trim() || grade;
@@ -6869,6 +6887,31 @@
     if (isNaN(t) || isNaN(m)) return '—';
     return `${t.toFixed(2)} / ${m.toFixed(2)}`;
   }
+  // e571-score-display — 실제 시험 배점 + 100점 환산 형식.
+  //   fmtScoreReal(44, 15)     → "6.6/15 (44/100)"
+  //   fmtScoreReal(75, 17)     → "12.75/17 (75/100)"
+  //   fmtScoreReal(100, 5)     → "5/5 (100/100)"
+  //   fmtScoreReal(0, 20)      → "0/20 (0/100)"
+  //   fmtScoreReal(44, null)   → "44%"      (case_points 부재 — legacy)
+  //   fmtScoreReal(null, 15)   → "—"
+  //   fmtScoreReal(44, 0)      → "44%"      (배점 0 방어)
+  // opts.compact=true 시 (퍼센트 생략) → "6.6/15"  (사이드바 등 좁은 영역용)
+  function fmtScoreReal(scorePct, casePoints, opts) {
+    if (scorePct == null || isNaN(Number(scorePct))) return '—';
+    const sp = Number(scorePct);
+    const cp = (casePoints == null || isNaN(Number(casePoints))) ? null : Number(casePoints);
+    if (cp == null || cp <= 0) return `${sp.toFixed(0)}%`;
+    const real = (sp / 100) * cp;
+    // 정수면 정수, 소수면 1자리
+    const realStr = (Math.abs(real - Math.round(real)) < 1e-9)
+      ? String(Math.round(real))
+      : real.toFixed(1);
+    const compact = !!(opts && opts.compact);
+    if (compact) {
+      return `${realStr}/${cp}`;
+    }
+    return `${realStr}/${cp} (${sp.toFixed(0)}/100)`;
+  }
   // Step 19-1 — fmtSeoul 단일 함수로 통합. 모든 시간 표시는 Asia/Seoul TZ.
   // 기존 fmtDate / fmtDateShort 는 호환용 thin wrapper (호출처는 유지).
   function fmtDate(iso) {
@@ -7270,11 +7313,12 @@
       return;
     }
     const rows = recent.map(r => {
+      // e571-score-display — 실제 시험 배점 + 100점 환산 (case_points 부재 시 fmtPct 폴백)
       const scoreCell = r.status === 'done'
-        ? fmtScoreFraction(r.score_total, r.score_max)
+        ? escapeHtml(fmtScoreReal(r.score_pct, r.case_points))
         : `<span style="color: var(--danger);">${escapeHtml(r.error_code || 'error')}</span>`;
       const gradeCell = r.status === 'done'
-        ? `<span style="color: ${gradeColor(r.grade)};">${escapeHtml(r.grade || '—')} (${fmtPct(r.score_pct)})</span>`
+        ? `<span style="color: ${gradeColor(r.grade)};">${escapeHtml(r.grade || '—')}</span>`
         : `<span style="color: var(--danger);">ERROR</span>`;
       const titleCell = escapeHtml(r.case_title || '—');
       const mockBadge = r.is_mock ? ' <span class="pill" style="font-size:9px;">mock</span>' : '';
@@ -7672,8 +7716,9 @@
       return;
     }
     const rows = history.map(h => {
+      // e571-score-display — 실제 시험 배점 + 100점 환산 (case_points echo 사용)
       const scoreCell = h.status === 'done'
-        ? `<span class="score" style="color: ${pctColor(h.score_pct)};">${escapeHtml(fmtScoreFraction(h.score_total, h.score_max))}</span>`
+        ? `<span class="score" style="color: ${pctColor(h.score_pct)};">${escapeHtml(fmtScoreReal(h.score_pct, h.case_points))}</span>`
         : `<span class="score" style="color: var(--danger);">${escapeHtml(h.error_code || 'error')}</span>`;
       const miss = h.main_miss || '—';
       // Step 24-f — 풀이 시간 컬럼 (total_solve_sec 우선 + 한글 포맷)
@@ -7917,10 +7962,16 @@
       const max = isFinite(Number(att.score_max)) ? Number(att.score_max).toFixed(2) : '—';
       const pct = isFinite(Number(att.score_pct)) ? Number(att.score_pct).toFixed(2) : '—';
       const grade = att.grade || '—';
+      // e571-score-display — 실제 시험 배점 + 100점 환산 (case_points 있을 때 보조 라인 추가)
+      const cpModal = (att.case_points != null) ? Number(att.case_points) : null;
+      const realLine = (cpModal != null && cpModal > 0 && isFinite(Number(att.score_pct)))
+        ? `<div style="margin-top: 3px; font-size: 11px; color: var(--text-dim);">${escapeHtml(fmtScoreReal(Number(att.score_pct), cpModal))}</div>`
+        : '';
       html += `<div style="margin-bottom: 10px; font-size: 12px; color: var(--text); font-family: 'SF Mono', Consolas, monospace;">
         <span style="color: var(--text-bright); font-size: 14px; font-weight: 600;">${total} / ${max}</span>
         <span style="color: ${gradeColor(grade)}; margin-left: 10px;">${escapeHtml(grade)}</span>
         <span style="color: var(--text-dim); margin-left: 6px;">(${pct}%)</span>
+        ${realLine}
       </div>`;
 
       // Step 20 v4: 8기준 바 (articles 추가)
@@ -8039,7 +8090,15 @@
       const elapsedPart = (solveRaw == null)
         ? ` · ${solvePrefix}: ${notTracked}`
         : ` · ${solvePrefix}: ${fmtSolveSecLocale(solveRaw)}`;
-      subEl.textContent = `${ts}${elapsedPart}${title}`;
+      // e571-score-display — sub 헤더에 점수 (case_points 있고 done 시 표시).
+      // textContent 사용 — escapeHtml 불필요 (raw 문자열).
+      const isDoneSub = (att.status === 'completed' || att.db_status === 'done');
+      const cpSub = (att.case_points != null) ? Number(att.case_points) : null;
+      const spSub = (att.score_pct != null && isFinite(Number(att.score_pct))) ? Number(att.score_pct) : null;
+      const scorePart = (isDoneSub && cpSub != null && cpSub > 0 && spSub != null)
+        ? ` · ${fmtScoreReal(spSub, cpSub)}`
+        : '';
+      subEl.textContent = `${ts}${elapsedPart}${scorePart}${title}`;
     }
 
     // Step 17 — 재채점 버튼: completed 일 때만 표시
@@ -8248,6 +8307,8 @@
           last_grade: null,
           last_submitted_at: null,
           last_solve_sec: null,
+          // e571-score-display — case_points 추적 (실제 시험 배점)
+          case_points: (a.case_points != null) ? Number(a.case_points) : null,
         };
         map.set(cid, g);
       }
@@ -8278,6 +8339,8 @@
         // subq_count, subject_label 도 가장 최신 값으로
         if (a.subq_count != null) g.subq_count = Number(a.subq_count) || 0;
         if (a.subject_kor || a.subject) g.subject_label = a.subject_kor || a.subject;
+        // e571-score-display — case_points 최신값 (legacy 호환: 부재 시 기존 유지)
+        if (a.case_points != null) g.case_points = Number(a.case_points);
       }
     }
     const rows = Array.from(map.values());
@@ -8323,8 +8386,9 @@
         ? `<span class="badge-multi">${escapeHtml(multiTmpl.replace('{n}', String(r.subq_count)))}</span>`
         : '';
       const cnt = String(r.attempt_count);
-      const bestPct = (r.best_pct != null) ? `${Number(r.best_pct).toFixed(1)}%` : '—';
-      const lastPct = (r.last_pct != null) ? `${Number(r.last_pct).toFixed(1)}%` : '—';
+      // e571-score-display — 실제 시험 배점 + 100점 환산 (case_points 부재 시 % 폴백)
+      const bestPct = fmtScoreReal(r.best_pct, r.case_points);
+      const lastPct = fmtScoreReal(r.last_pct, r.case_points);
       const bestColor = pctColor(r.best_pct);
       const lastColor = pctColor(r.last_pct);
       const lastGrade = r.last_grade
