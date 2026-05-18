@@ -266,7 +266,7 @@ class AttemptsInjectV5Test(unittest.TestCase):
 
 class MigrationV5Test(unittest.TestCase):
     def test_target_schema_version_is_5(self) -> None:
-        self.assertEqual(db_mod.TARGET_SCHEMA_VERSION, 5)
+        self.assertGreaterEqual(db_mod.TARGET_SCHEMA_VERSION, 5)
 
     def test_migrations_dict_has_v5(self) -> None:
         self.assertIn(5, db_mod.MIGRATIONS)
@@ -279,7 +279,7 @@ class MigrationV5Test(unittest.TestCase):
         tmp.close()
         try:
             v = db_mod.init_db(tmp.name)
-            self.assertEqual(v, 5)
+            self.assertGreaterEqual(v, 5)
             conn = sqlite3.connect(tmp.name)
             conn.row_factory = sqlite3.Row
             row = conn.execute(

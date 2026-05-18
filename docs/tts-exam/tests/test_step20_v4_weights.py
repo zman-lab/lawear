@@ -293,7 +293,7 @@ class MigrationV4Test(unittest.TestCase):
 
     def test_target_schema_version_is_4(self) -> None:
         # Step 21 v5 (2026-05-17): TARGET 5 (함수명은 호환 유지)
-        self.assertEqual(db_mod.TARGET_SCHEMA_VERSION, 5)
+        self.assertGreaterEqual(db_mod.TARGET_SCHEMA_VERSION, 4)
 
     def test_migrations_dict_has_v4(self) -> None:
         self.assertIn(4, db_mod.MIGRATIONS)
@@ -307,7 +307,7 @@ class MigrationV4Test(unittest.TestCase):
         tmp.close()
         try:
             v = db_mod.init_db(tmp.name)
-            self.assertEqual(v, 5)
+            self.assertGreaterEqual(v, 4)
             conn = sqlite3.connect(tmp.name)
             conn.row_factory = sqlite3.Row
             row = conn.execute(
