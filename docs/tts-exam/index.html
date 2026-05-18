@@ -224,6 +224,15 @@
     color: var(--accent);
   }
   .case-item .case-title { font-size: 12px; color: var(--text); }
+  /* sidebar-count: 케이스 제목 옆 시험 횟수 (n) — n>0일 때만 표시 */
+  .case-item .case-title .attempts-count {
+    color: var(--text-dim);
+    font-size: 11px;
+    margin-left: 4px;
+    font-variant-numeric: tabular-nums;
+  }
+  .case-item:hover .case-title .attempts-count { color: var(--accent); }
+  .case-item.active .case-title .attempts-count { color: var(--accent); }
   .case-item .case-meta {
     font-size: 10px;
     color: var(--text-dim);
@@ -4050,9 +4059,14 @@
             const starTitle = c.bookmarked ? 'Remove bookmark' : 'Add bookmark';
             pills.push(`<span class="${starCls}" data-bookmark-toggle="${escapeHtml(c.id)}" title="${starTitle}" style="cursor:pointer;user-select:none;">★</span>`);
             const active = c.id === CURRENT_CASE_ID ? ' active' : '';
+            // sidebar-count: 시험 횟수 (n) 표시 (n>0만, 0은 미표시 — UI 클린)
+            const attemptN = parseInt(c.attempt_count || 0, 10) || 0;
+            const attemptsBadge = attemptN > 0
+              ? ` <span class="attempts-count" title="${attemptN} attempts">(${attemptN})</span>`
+              : '';
             html += `<div class="case-item${active}" data-case-id="${escapeHtml(c.id)}">
               <div class="case-id">${escapeHtml(shortId)}</div>
-              <div class="case-title">${escapeHtml(c.title || '')}</div>
+              <div class="case-title">${escapeHtml(c.title || '')}${attemptsBadge}</div>
               <div class="case-meta">${pills.join('')}</div>
             </div>`;
           }
