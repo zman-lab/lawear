@@ -13,11 +13,18 @@ Step 7 (commit 0207a5c): Attempts API (POST/GET /api/attempts + background 채�
 Step 8 (commit e38294e): Settings API (GET/PUT /api/settings + weights/bias/voice 검증).
 Step 9 (commit e38294e): Bookmarks API (POST/DELETE /api/bookmarks/{case_id}).
 Step 10 (commit c6acfb4): Reports 집계 API (overall/by-subject/by-case + subjects/cases picker).
-Step 11 (본 커밋): STT placeholder (`POST /api/stt` → 501 stt_not_implemented).
+Step 11 (commit f5d3a5c): STT placeholder (`POST /api/stt` → 501 stt_not_implemented).
                     실제 STT 는 index.html Web Speech API 클라이언트 사이드 wire.
+Step 24-5 (본 커밋): 다중 설문 D안 endpoint 확장.
+    - POST /api/attempts          : `answer_subq` + `subq_elapsed` + `hints_used` 수용 (legacy `answer_text` 호환).
+    - PUT  /api/attempts/{id}/grade : `criteria_subq` 수용 (legacy `criteria` 호환).
+    - GET  /api/attempts           : list item 에 `hints_used_count` / `hint_steps_revealed_max` /
+                                     `subq_count` / `total_solve_sec` 노출 (attempts.list_attempts 이미 반환).
+    - GET  /api/attempts/{id}      : `answer_subq` / `subq_elapsed` / `hints_used` / `criteria_subq` 노출.
+    - GET  /api/cases/{id}         : `subqs[]` (parse_md_subqs) + `toc` (parse_md_toc) + `mnemonic` (parse_md_mnemonic) 추가.
 
 dev-design archive #48 §3-1 endpoint matrix + §3-3 ErrorCode 1:1.
-dev-impl-plan #51 Step 3~11 표 1:1.
+dev-impl-plan #51 Step 3~11 + Step 24-1~24-5 표 1:1.
 """
 from __future__ import annotations
 
@@ -49,7 +56,7 @@ BIND: str = os.environ.get("LAWEAR_EXAM_BIND", "127.0.0.1")
 ROOT: Path = Path(__file__).parent.resolve()
 DB_PATH: str = os.environ.get("LAWEAR_EXAM_DB", str(ROOT / "exam.db"))
 SERVER_NAME: str = "lawear-examconsole"
-SERVER_VERSION: str = "0.9.0-manual-grading"
+SERVER_VERSION: str = "0.10.0-subq-d"
 
 
 class ExamHandler(SimpleHTTPRequestHandler):
@@ -72,7 +79,7 @@ class ExamHandler(SimpleHTTPRequestHandler):
                 "status": "ok",
                 "server": SERVER_NAME,
                 "version": SERVER_VERSION,
-                "phase": "stt-placeholder",
+                "phase": "subq-d-time-hint",
             })
             return
 
@@ -334,10 +341,24 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._send_error(500, "internal_error", str(e))
 
     def _handle_case_get(self, case_id: str) -> None:
-        """`GET /api/cases/{id}` — 메타 + .md 파싱 origin/lv1/lv4."""
+        """`GET /api/cases/{id}` — 메타 + .md 파싱 origin/lv1/lv4 + Step 24-5 subq/toc/mnemonic.
+
+        Step 24-5 추가 응답 키:
+          - `subqs`:    `parse_md_subqs(md_body)` 결과 — 다중 설문 카드 list.
+                        단일 설문 (헤더 0개) fallback → 빈 list `[]`.
+          - `toc`:      `parse_md_toc(md_body)` — `### 목차` 본문 (없으면 "").
+          - `mnemonic`: `parse_md_mnemonic(md_body)` — Lv.4 번호 목록 list (없으면 []).
+
+        index.html 시험 페이지가 다중 카드 렌더 + 목차/두문자 사이드바 로딩에 사용.
+        """
         try:
             with db_mod.get_conn(DB_PATH) as conn:
                 case = cases_mod.get_case(conn, case_id)
+            # Step 24-5 — md_body 기반 추가 파싱 노출 (R-09: 가공 X, 파서 결과 그대로).
+            md_body = case.get("md_body") or ""
+            case["subqs"] = cases_mod.parse_md_subqs(md_body)
+            case["toc"] = cases_mod.parse_md_toc(md_body)
+            case["mnemonic"] = cases_mod.parse_md_mnemonic(md_body)
             self._send_json(200, case)
         except cases_mod.CaseNotFoundError:
             self._send_error(404, "case_not_found", f"case_id={case_id}")
@@ -374,15 +395,32 @@ class ExamHandler(SimpleHTTPRequestHandler):
     def _handle_attempts_post(self) -> None:
         """`POST /api/attempts` — INSERT + background grader 트리거.
 
-        요청: {"case_id": str, "answer_text": str, "started_at"?, "submitted_at"?}
-        응답: 200 {"attempt_id": int, "status": "grading", "case_id", "submitted_at"}
+        Step 24-5 — 다중 설문 D안 스키마 확장:
+            {
+              "case_id":      str (필수),
+              "answer_text":  str (legacy, 선택),
+              "answer_subq":  {"설문 1": "...", "설문 2": "..."} (다중 카드, 선택),
+              "subq_elapsed": {"설문 1": 234, "설문 2": 156}     (카드별 풀이 시간 초, 선택),
+              "hints_used":   {"설문 1": [1, 2, 3], "설문 2": [1]} (카드별 노출 힌트 단계, 선택),
+              "started_at":   ISO-8601 (선택),
+              "submitted_at": ISO-8601 (선택, 기본 utcnow)
+            }
+
+          `answer_text` 와 `answer_subq` 중 최소 하나 비어있지 않아야 함.
+          정규화는 `attempts.create_attempt` 에 위임 — 본 핸들러는 타입 가드만 수행.
+
+        응답: 200 {"attempt_id": int, "status": "grading"|"pending_grade",
+                  "case_id", "submitted_at", "grading_mode",
+                  "subq_count", "hints_used_count", "hint_steps_revealed_max",
+                  "warning"? (auto→manual fallback 시)}
 
         에러:
-          400 bad_request    — JSON 파싱 / case_id / answer_text 빈 값
-          404 case_not_found — case_id 미존재
-          503 api_key_missing— ANTHROPIC_API_KEY 미설정 (Grader 가 mock auto fallback 하므로
-                               본 단계는 실제로 503 안 남. 미래 force_real 옵션 대비)
-          500 internal_error — 기타
+          400 bad_request     — JSON 파싱 / case_id 빈 값 / dict 외 타입
+          400 subq_empty      — answer_text + answer_subq 둘 다 빈 값
+          404 case_not_found  — case_id 미존재
+          500 md_file_missing — .md 파일 없음
+          503 api_key_missing — ANTHROPIC_API_KEY 미설정 (auto + mock 비활성 시)
+          500 internal_error  — 기타
         """
         # 1. JSON 파싱
         try:
@@ -393,15 +431,45 @@ class ExamHandler(SimpleHTTPRequestHandler):
 
         case_id = body.get("case_id")
         answer_text = body.get("answer_text")
+        answer_subq = body.get("answer_subq")
+        subq_elapsed = body.get("subq_elapsed")
+        hints_used = body.get("hints_used")
         started_at = body.get("started_at")
         submitted_at = body.get("submitted_at")
 
         if not isinstance(case_id, str) or not case_id.strip():
             self._send_error(400, "bad_request", "case_id is required")
             return
-        if not isinstance(answer_text, str) or not answer_text.strip():
-            self._send_error(400, "bad_request", "answer_text is required")
+
+        # 타입 가드 — 잘못된 타입은 None 으로 정규화 (attempts.create_attempt 가 dict 검증 후 처리)
+        if answer_text is not None and not isinstance(answer_text, str):
+            self._send_error(
+                400, "bad_request",
+                f"answer_text must be str or null, got {type(answer_text).__name__}",
+            )
             return
+        if answer_subq is not None and not isinstance(answer_subq, dict):
+            self._send_error(
+                400, "bad_request",
+                f"answer_subq must be dict or null, got {type(answer_subq).__name__}",
+            )
+            return
+        if subq_elapsed is not None and not isinstance(subq_elapsed, dict):
+            self._send_error(
+                400, "bad_request",
+                f"subq_elapsed must be dict or null, got {type(subq_elapsed).__name__}",
+            )
+            return
+        if hints_used is not None and not isinstance(hints_used, dict):
+            self._send_error(
+                400, "bad_request",
+                f"hints_used must be dict or null, got {type(hints_used).__name__}",
+            )
+            return
+
+        # answer_text + answer_subq 둘 다 빈 값 사전 거부 — attempts.create_attempt 가
+        # AttemptValidationError(error_code="subq_empty") 를 던지므로 그쪽으로 위임해도 OK.
+        # 본 가드는 명시적 — 동일한 결과지만 핸들러 책임 명확화.
 
         try:
             with db_mod.get_conn(DB_PATH) as conn:
@@ -411,7 +479,10 @@ class ExamHandler(SimpleHTTPRequestHandler):
                     conn,
                     DB_PATH,
                     case_id=case_id,
-                    answer_text=answer_text,
+                    answer_text=answer_text if isinstance(answer_text, str) else None,
+                    answer_subq=answer_subq,
+                    subq_elapsed=subq_elapsed,
+                    hints_used=hints_used,
                     started_at=started_at if isinstance(started_at, str) else None,
                     submitted_at=submitted_at if isinstance(submitted_at, str) else None,
                     grading_mode=grading_mode,
@@ -447,24 +518,42 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
 
     def _handle_attempt_grade_put(self, attempt_id: int) -> None:
-        """`PUT /api/attempts/{id}/grade` — 외부 채점 결과 주입 (Step 13).
+        """`PUT /api/attempts/{id}/grade` — 외부 채점 결과 주입 (Step 13 + Step 24-5).
 
         Claude Code 메인 세션(Opus)이 manual 모드 attempt 를 채점한 결과를 주입.
 
-        요청 본문 (JSON):
+        요청 본문 (JSON) — legacy 단일 모드:
           {
-            "criteria": [{key, score, weight_applied, comment}] × 7,
+            "criteria": [{key, score, weight_applied, comment}] × 9,
             "total_score": float, "max_score": float, "score_pct": float, "grade": str,
             "eval_notes": {strength, caution, missing},
             "diff_segments": [{type, text}]?,
             "model": str?
           }
 
+        Step 24-5 다중 설문 D안 스키마 — `criteria_subq` (criteria 와 양자택일):
+          {
+            "criteria_subq": {
+              "설문 1": [{key, score, weight_applied, comment}] × 9,
+              "설문 2": [...]
+            },
+            "total_score": float, "max_score": float, "score_pct": float, "grade": str,
+            "eval_notes": {strength, caution, missing},
+            "eval_notes_subq": {"설문 1": "...", "설문 2": "..."}?,   # 선택
+            "diff_html": str?,                                          # 선택
+            "diff_segments": [{type, text}]?,                           # 선택
+            "model": str?
+          }
+
+          `criteria_subq` 우선 — `criteria` 와 동시 제공 시 `criteria_subq` 만 적용
+          (attempts.inject_grade 명세 §870 line). 둘 다 없으면 400 criteria_subq_required.
+
         에러:
-          400 bad_request          — JSON 파싱 / 필수 필드 누락 / 7기준 키 누락
-          404 attempt_not_found    — attempt_id 미존재
-          409 already_graded       — 이미 status='done'
-          500 internal_error       — 기타
+          400 bad_request              — JSON 파싱 / 필드 누락 / 형식 오류
+          400 criteria_subq_required   — criteria 와 criteria_subq 둘 다 없음
+          404 attempt_not_found        — attempt_id 미존재
+          409 already_graded           — 이미 status='done'
+          500 internal_error           — 기타
         """
         # 1. JSON 본문 파싱
         try:
