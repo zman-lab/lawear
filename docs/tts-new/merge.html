@@ -281,6 +281,38 @@
   }
   .page-header .breadcrumb span.crumb-sep { margin: 0 6px; color: var(--text-mute); }
 
+  /* 라이브러리(두문자) 업로드 바 — library 분기에서만 노출 */
+  .library-upload-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+    margin: 0 0 14px; padding: 10px 12px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .library-upload-bar .lib-upload-btn {
+    padding: 6px 14px;
+    background: var(--accent-dim);
+    color: #fff;
+    border: 1px solid var(--accent);
+    border-radius: 3px;
+    font-size: 12px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .library-upload-bar .lib-upload-btn:hover { background: var(--accent); }
+  .library-upload-bar .lib-upload-btn:disabled { opacity: 0.5; cursor: progress; }
+  .library-upload-bar .lib-upload-hint { color: var(--text-dim); font-size: 11px; }
+  .library-upload-bar .lib-upload-hint code {
+    background: var(--bg); padding: 1px 5px; border-radius: 2px;
+    color: var(--link); font-family: 'SF Mono', Consolas, monospace;
+  }
+  .library-upload-bar .lib-upload-status { color: var(--text); font-size: 11px; margin-left: auto; }
+  .library-upload-bar .lib-upload-status.ok { color: var(--success); }
+  .library-upload-bar .lib-upload-status.err { color: var(--danger); }
+  .library-upload-bar .lib-upload-status.pending { color: var(--warn); }
+
   .lv-tabs {
     display: flex; gap: 8px; margin-bottom: 16px;
     position: sticky; top: 0; background: var(--bg);
@@ -506,15 +538,15 @@ function treeNodeKey(level, ...parts) {
   return `${level}:${parts.join('|')}`;
 }
 
-// 카테고리 표시 순서 (사용자 학습 우선순위)
-const CATEGORY_ORDER = ['입문', '예비', '1순환', '2순환', '3순환', '모의고사', '모고'];
+// 카테고리 표시 순서 (사용자 학습 우선순위) — '민법'/'민소'는 두문자 라이브러리용 (최상위)
+const CATEGORY_ORDER = ['민법', '민소', '입문', '예비', '1순환', '2순환', '3순환', '모의고사', '모고'];
 function categoryRank(cat) {
   const idx = CATEGORY_ORDER.indexOf(cat || '');
   return idx >= 0 ? idx : 999;
 }
 
-// 과목 표시 순서
-const SUBJECT_ORDER = ['민법', '민소법', '민소', '민사소송법', '형법', '형소법', '형소', '형사소송법', '부등법', '부등', '민사서류', '부등서류'];
+// 과목 표시 순서 ('두문자'를 최상위로)
+const SUBJECT_ORDER = ['두문자', '민법', '민소법', '민소', '민사소송법', '형법', '형소법', '형소', '형사소송법', '부등법', '부등', '민사서류', '부등서류'];
 function subjectRank(s) {
   const idx = SUBJECT_ORDER.indexOf(s || '');
   return idx >= 0 ? idx : 999;
@@ -522,6 +554,7 @@ function subjectRank(s) {
 
 // ─────────── 위장 모드 매핑 ───────────
 const stealthSubjectMap = {
+  '두문자': 'Index',
   '민법': 'Civil', '민소법': 'CivilProc', '민소': 'CivilProc',
   '형법': 'Criminal', '형소법': 'CrimProc', '형소': 'CrimProc',
   '부등법': 'RealEstate', '부등': 'RealEstate',
@@ -531,9 +564,11 @@ const stealthCategoryMap = {
   '입문': 'Intro', '예비': 'Prelim',
   '1순환': 'Cycle1', '2순환': 'Cycle2', '3순환': 'Cycle3',
   '모의고사': 'Mock', '모고': 'Mock',
+  '민법': 'Civil', '민소': 'CivilProc',
 };
 // 디렉토리 → 위장 (구 형식 호환)
 const stealthDirMap = {
+  '두문자': '000_idx',
   '입문_민법': '002_min', '입문_민소': '002_mso',
   '입문_형법': '002_hyung', '입문_부등': '002_bu',
   '예비_민법': '001_min', '예비_민소': '001_mso',
@@ -701,8 +736,10 @@ function renderTree(filter = '') {
 
   // 트리 구조 빌드
   //   tree4 = Map<subjectKor, {subject, subjectKor, categories: Map<category, {category, files: Map<fileCode, {fileCode, fileKor, items: [meta], dir}>}>}
+  //   libraryTree = Map<subjectKor, {subjectKor, items: [{meta, filename, path, dir}]}>  ← type==="library" 평탄 트리
   //   noMeta = Map<dir, [{filename, path}]>  ← 메타 없는 파일들
   const tree4 = new Map();
+  const libraryTree = new Map();
   const noMeta = new Map();
 
   for (const [dir, files] of Object.entries(fileIndex)) {
@@ -717,12 +754,18 @@ function renderTree(filter = '') {
           f, path, dir,
           meta && meta.subjectKor, meta && meta.category, meta && meta.fileKor,
           meta && meta.file, meta && meta.title, meta && meta.id,
+          meta && meta.type, meta && meta.case,
           displayFile(f), displayDir(dir),
           meta && displaySubject(meta.subjectKor),
         ].filter(Boolean).join(' ').toLowerCase();
         if (!hay.includes(lowerFilter)) continue;
       }
-      if (meta && meta.subjectKor && meta.category && meta.fileKor) {
+      if (meta && meta.type === 'library' && meta.subjectKor) {
+        // 두문자 등 라이브러리: 평탄 트리 (L1 subjectKor → L2 case 항목 직접)
+        const sk = meta.subjectKor;
+        if (!libraryTree.has(sk)) libraryTree.set(sk, { subjectKor: sk, subject: meta.subject, items: [] });
+        libraryTree.get(sk).items.push({ meta, filename: f, path, dir });
+      } else if (meta && meta.subjectKor && meta.category && meta.fileKor) {
         const sk = meta.subjectKor;
         const cat = meta.category;
         const fileCode = meta.file || meta.fileKor;
@@ -740,7 +783,7 @@ function renderTree(filter = '') {
   }
 
   // 빈 결과 처리
-  if (tree4.size === 0 && noMeta.size === 0) {
+  if (tree4.size === 0 && libraryTree.size === 0 && noMeta.size === 0) {
     tree.innerHTML = '<div style="padding:16px;color:#484f58;font-size:12px;text-align:center;">매칭 결과 없음</div>';
     updateSelectedCount();
     return;
@@ -748,6 +791,36 @@ function renderTree(filter = '') {
 
   const state = loadTreeState();
   let html = '';
+
+  // ─── 라이브러리 트리 (두문자 등): L1 subjectKor → L2 case 직접 (2단 평탄) ───
+  const sortedLibrary = Array.from(libraryTree.entries()).sort((a, b) => subjectRank(a[0]) - subjectRank(b[0]));
+  for (const [sk, libNode] of sortedLibrary) {
+    const l1Key = treeNodeKey('lib', sk);
+    const l1Collapsed = !searching && state[l1Key] === false;
+    html += `<div class="tree-node tree-l1${l1Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l1Key)}">`;
+    html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l1Key)}">`;
+    html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(displaySubject(sk))}</span>`;
+    html += `<span class="tree-count">${libNode.items.length}</span></div>`;
+    html += `<div class="tree-body">`;
+    const items = libNode.items.slice().sort((a, b) => (a.meta.case || '').localeCompare(b.meta.case || ''));
+    for (const it of items) {
+      const m = it.meta;
+      const active = (currentPath === it.path) ? ' active' : '';
+      const caseLabel = stealthMode ? (stealthCategoryMap[m.case] || m.case || '') : (m.case || '');
+      const title = (m.title || '').trim();
+      const bm = isBookmarked(it.path);
+      const starCls = bm ? 'pill bookmark-star bookmarked' : 'pill bookmark-star';
+      const pills = [`<span class="${starCls}" data-bookmark-toggle="${escapeAttr(it.path)}" title="${bm ? 'Remove bookmark' : 'Add bookmark'}">★</span>`];
+      html += `<div class="case-item${active}" data-path="${escapeAttr(it.path)}" style="padding-left: 22px;">`;
+      html += `<div class="case-item-row">`;
+      html += `<span class="case-id">${escapeHtml(caseLabel)}</span>`;
+      html += `</div>`;
+      html += `<div class="case-title" title="${escapeAttr(title)}">${escapeHtml(title)}</div>`;
+      html += `<div class="case-meta">${pills.join('')}</div>`;
+      html += `</div>`;
+    }
+    html += `</div></div>`;
+  }
 
   // ─── 풍부 메타 트리 (L1~L4) ───
   const sortedSubjects = Array.from(tree4.entries()).sort((a, b) => subjectRank(a[0]) - subjectRank(b[0]));
@@ -1060,6 +1133,58 @@ async function loadFileByPath(path) {
   renderContent();
 }
 
+// ─── 라이브러리(두문자) 업로드 핸들러 ───
+function bindLibraryUpload() {
+  const bar = document.querySelector('.library-upload-bar');
+  if (!bar) return;
+  const triggerBtn = bar.querySelector('[data-upload-trigger]');
+  const key = triggerBtn && triggerBtn.getAttribute('data-upload-trigger');
+  if (!key) return;
+  const fileInput = document.getElementById(`lib-upload-${key}`);
+  const statusEl = document.getElementById(`lib-upload-status-${key}`);
+  const targetPath = bar.getAttribute('data-upload-path') || '';
+  const subject = bar.getAttribute('data-upload-subject') || '';
+  if (!fileInput) return;
+
+  triggerBtn.addEventListener('click', () => fileInput.click());
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    if (!targetPath || !targetPath.endsWith('.md')) {
+      statusEl.className = 'lib-upload-status err';
+      statusEl.textContent = '저장 경로 오류 (.md 아님)';
+      return;
+    }
+    triggerBtn.disabled = true;
+    statusEl.className = 'lib-upload-status pending';
+    statusEl.textContent = 'Staging 업로드 중…';
+    try {
+      const content = await file.text();
+      // Staging endpoint (뷰어 즉시 갱신 X — AI가 분석/머지 후 최종 저장)
+      const resp = await fetch(`/api/staging/upload/${encodeURIComponent(subject)}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body: content
+      });
+      if (!resp.ok) {
+        const errTxt = await resp.text().catch(() => '');
+        throw new Error(`HTTP ${resp.status}${errTxt ? ' — ' + errTxt.slice(0, 80) : ''}`);
+      }
+      const result = await resp.json();
+      statusEl.className = 'lib-upload-status ok';
+      statusEl.textContent = `Staging 저장 완료 (${result.bytes} bytes, ${result.staged}). ${result.next_step}`;
+      // 뷰어 자동 새로고침 X — 사용자가 AI 발화 후 최종 머지 시점에 갱신
+    } catch (err) {
+      statusEl.className = 'lib-upload-status err';
+      statusEl.textContent = `실패: ${err.message || err}`;
+      triggerBtn.disabled = false;
+    } finally {
+      // 동일 파일 재업로드 가능하도록 input 리셋
+      fileInput.value = '';
+    }
+  });
+}
+
 function renderContent() {
   const content = document.getElementById('content');
   const editorWrap = document.getElementById('editor-wrap');
@@ -1069,6 +1194,31 @@ function renderContent() {
 
   // Case 메타 헤더 (풍부 메타가 있는 경우)
   const meta = fileMetadata[currentPath];
+
+  // ─── 라이브러리(두문자 등) 분기: 탭 없이 전체 마크다운 렌더 + 업로드 UI ───
+  if (meta && meta.type === 'library') {
+    const caseLabel = stealthMode ? (stealthCategoryMap[meta.case] || meta.case || '') : (meta.case || '');
+    const subjLine = `${displaySubject(meta.subjectKor)} · ${caseLabel}${meta.title ? ' · ' + meta.title : ''}`;
+    const uploadKey = (meta.subjectKor || 'lib').replace(/[^a-zA-Z0-9가-힣]/g, '_');
+    const headerHtml = `<div class="page-header">
+      <span class="case-id-large">${escapeHtml(caseLabel)}</span>
+      <span class="case-subject">${escapeHtml(subjLine)}</span>
+      <div class="breadcrumb">${escapeHtml(displaySubject(meta.subjectKor))}<span class="crumb-sep">/</span>${escapeHtml(caseLabel)}</div>
+    </div>`;
+    const uploadBarHtml = `<div class="library-upload-bar" data-upload-path="${escapeAttr(currentPath)}" data-upload-subject="${escapeAttr(meta.subjectKor || '')}">
+      <input type="file" id="lib-upload-${escapeAttr(uploadKey)}" accept=".md,text/markdown" style="display:none" />
+      <button type="button" class="lib-upload-btn" data-upload-trigger="${escapeAttr(uploadKey)}">새 두문자 업로드 (Staging — AI가 분석 후 머지)</button>
+      <span class="lib-upload-hint">현재 파일: <code>${escapeHtml(currentPath)}</code> — Staging 폴더 <code>_staging/</code>에 임시 저장. AI 발화로 최종 머지</span>
+      <span class="lib-upload-status" id="lib-upload-status-${escapeAttr(uploadKey)}"></span>
+    </div>`;
+    content.innerHTML = headerHtml + uploadBarHtml + '<div id="mdContent"></div>';
+    if (editorWrap) content.appendChild(editorWrap);
+    const target = document.getElementById('mdContent');
+    target.innerHTML = renderMd(fullContent || '');
+    bindLibraryUpload();
+    return;
+  }
+
   let headerHtml = '';
   if (meta) {
     const shortId = `${meta.file}-${meta.case}`;

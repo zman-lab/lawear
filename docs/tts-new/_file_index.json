@@ -1721,6 +1721,30 @@
       "pdfPath": "입문_민소/민소_입문_미케_01.pdf",
       "points": 10,
       "userCase": null
+    },
+    {
+      "id": "2026_index_minbeop",
+      "subject": "index",
+      "subjectKor": "두문자",
+      "type": "library",
+      "case": "민법",
+      "title": "민법 두문자/요건 라이브러리 (~70 요건 + 인덱스)",
+      "path": "두문자/민법.md",
+      "pdfPath": null,
+      "points": null,
+      "userCase": null
+    },
+    {
+      "id": "2026_index_minso",
+      "subject": "index",
+      "subjectKor": "두문자",
+      "type": "library",
+      "case": "민소",
+      "title": "민사소송법 두문자/요건 라이브러리 (~60 요건 + 인덱스)",
+      "path": "두문자/민소.md",
+      "pdfPath": null,
+      "points": null,
+      "userCase": null
     }
   ]
 }
