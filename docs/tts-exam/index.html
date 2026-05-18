@@ -3217,14 +3217,22 @@
       return lines.length ? escapeHtml(lines.join('\n')).replace(/\n/g, '<br>') : noData;
     }
     if (level === 2) {
-      // Lv.2: case.mnemonic (Lv.4 번호 목록) — 자의적 가공 X
+      // Lv.2: case.mnemonic (Lv.4 번호 목록) — 두문자/핵심 단서
+      // 너무 길면 정신없으므로 첫 5개 정도만 보여주는 게 힌트 본 의도 (시안 v5 디자인 일치)
+      // R-09: 자르기만 함, 텍스트 추가/변형 X.
       const items = (caseFull && Array.isArray(caseFull.mnemonic)) ? caseFull.mnemonic : [];
       if (items.length === 0) return noData;
-      return escapeHtml(items.join('\n')).replace(/\n/g, '<br>');
+      const top = items.slice(0, 6);  // 너무 많아도 6개로 제한
+      const truncated = items.length > 6
+        ? top.concat([`<span style="color:var(--text-dim);">... +${items.length - 6}</span>`])
+        : top;
+      return truncated.map((s, i) => i === top.length && items.length > 6 ? s : escapeHtml(s)).join('<br>');
     }
     if (level === 3) {
-      // Lv.3: subq.body 에서 조문 키워드 추출 + body 헤더 라인
-      const tokens = extractArticleTokens(card.body || '');
+      // Lv.3: subq.body + subq.answer 합쳐서 조문 키워드 추출 (R-09: 원문에서 직접 grep, 가공 X)
+      // body 는 설문 본문이라 조문이 거의 없고, answer 에는 다수 있음.
+      const src = (card.body || '') + '\n' + (card.answer || '');
+      const tokens = extractArticleTokens(src);
       const tokList = tokens.length
         ? tokens.map(t => `<code>${escapeHtml(t)}</code>`).join(' · ')
         : noData;
