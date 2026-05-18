@@ -33,6 +33,8 @@ ALTER TABLE attempts ADD COLUMN hints_used TEXT;     -- JSON list[step_n], NULL 
 -- ─── 2. attempt_criteria 재생성 (subq_key 추가 + UNIQUE 변경) ──────────
 -- 005 패턴 차용. SQLite는 UNIQUE 변경 불가라 재생성.
 
+-- NOTE: SQLite UNIQUE constraint는 expression(COALESCE 등) 금지 → CREATE UNIQUE INDEX 패턴 사용
+
 CREATE TABLE attempt_criteria_new (
   id            INTEGER PRIMARY KEY AUTOINCREMENT,
   attempt_id    INTEGER NOT NULL REFERENCES attempts(id) ON DELETE CASCADE,
@@ -42,8 +44,7 @@ CREATE TABLE attempt_criteria_new (
   score         REAL    NOT NULL,
   max_score     REAL    NOT NULL,
   weight        REAL    NOT NULL,
-  comment       TEXT,
-  UNIQUE (attempt_id, COALESCE(subq_key, ''), criterion_key)
+  comment       TEXT
 );
 
 INSERT INTO attempt_criteria_new (id, attempt_id, subq_key, criterion_key, score, max_score, weight, comment)
@@ -53,8 +54,9 @@ SELECT id, attempt_id, NULL, criterion_key, score, max_score, weight, comment
 DROP TABLE attempt_criteria;
 ALTER TABLE attempt_criteria_new RENAME TO attempt_criteria;
 
--- 인덱스 재생성 (005 패턴 + idx_criteria_subq 신규)
+-- 인덱스 재생성 (005 패턴 + UNIQUE INDEX with COALESCE + idx_criteria_subq 신규)
 CREATE INDEX IF NOT EXISTS idx_criteria_attempt ON attempt_criteria(attempt_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_criteria_unique ON attempt_criteria(attempt_id, COALESCE(subq_key, ''), criterion_key);
 CREATE INDEX IF NOT EXISTS idx_criteria_subq ON attempt_criteria(attempt_id, subq_key);
 
 PRAGMA foreign_keys = ON;
