@@ -3494,22 +3494,51 @@
     const sugEl = document.getElementById('counter-suggested');
     if (!sec || !container) return;
 
-    const subqs = Array.isArray(caseData && caseData.subqs) ? caseData.subqs : [];
+    const rawSubqs = Array.isArray(caseData && caseData.subqs) ? caseData.subqs : [];
     CURRENT_CASE_FULL = caseData;
-    CURRENT_SUBQ_CARDS = subqs;
 
-    // 모드 분기: 카드 0건 → 단일 모드 (기존 textarea)
-    if (subqs.length === 0) {
+    // 에러 sentinel — loadCase 실패 시 호출. 카드/타이머 정리 후 즉시 반환.
+    if (caseData && caseData.__error) {
       sec.classList.remove('active');
-      if (notesSec) notesSec.classList.remove('hidden');
+      if (notesSec) notesSec.classList.add('hidden');
       if (timerBar) timerBar.classList.remove('active');
       stopTimerInterval();
       resetTimer();
       container.innerHTML = '';
+      CURRENT_SUBQ_CARDS = [];
       return;
     }
 
-    // 카드 모드 활성
+    // 모드 분기:
+    //   - 다중 설문 (rawSubqs.length > 0): 기존 그대로 N개 카드
+    //   - 단일 설문 (rawSubqs.length === 0, 미케 등): 가상 subq 1개 생성 → 카드 1개 모드
+    //     R-09 (자의 해석 금지): caseData 의 기존 필드만 사용, 텍스트 합성/가공 X.
+    //       · body  = splitOriginFactsQuestion(c.origin).question (있으면) or c.origin
+    //       · answer = c.lv4 (Lv.4 답안, Lv.4/Lv.5 힌트 원본) — 없으면 ''
+    //       · score_max = c.points (권장시간 환산)
+    //       · mnemonic 은 비움 — hasMnemonic / buildHintContent 가 caseFull.mnemonic 으로 자동 fallback
+    let subqs;
+    if (rawSubqs.length === 0) {
+      let body = '';
+      try {
+        const split = splitOriginFactsQuestion(caseData && caseData.origin || '');
+        body = (split && split.question) ? split.question : (caseData && caseData.origin || '');
+      } catch (e) {
+        body = (caseData && caseData.origin) || (caseData && caseData.title) || '';
+      }
+      subqs = [{
+        key: '단일',
+        body: body,
+        answer: (caseData && caseData.lv4) || '',
+        score_max: (caseData && typeof caseData.points === 'number') ? caseData.points : 0,
+        mnemonic: '',
+      }];
+    } else {
+      subqs = rawSubqs;
+    }
+    CURRENT_SUBQ_CARDS = subqs;
+
+    // 카드 모드 활성 (단일 모드도 동일 — 가상 카드 1개로 통합)
     sec.classList.add('active');
     if (notesSec) notesSec.classList.add('hidden');
     if (timerBar) timerBar.classList.add('active');
@@ -4355,8 +4384,8 @@
       CURRENT_CASE_DATA = null;
       if (bgEl) bgEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
       if (inqEl) inqEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
-      // 실패 시 카드 모드 종료 (단일 모드로 복귀)
-      try { renderSubqCards({ subqs: [] }); } catch (e2) { /* ignore */ }
+      // 실패 시 카드 모드 종료 — 카드/타이머/단일 textarea 전부 정리 (sentinel 모드)
+      try { renderSubqCards({ subqs: [], __error: true }); } catch (e2) { /* ignore */ }
     }
 
     // Step 23 — 케이스 진입 시 자동 시작 + 시작 버튼 상태 갱신
