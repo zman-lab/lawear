@@ -703,20 +703,7 @@
   .hint-panel[data-level="3"] { border-left-color: var(--hint-3); }
   .hint-panel[data-level="4"] { border-left-color: var(--hint-4); }
   .hint-panel[data-level="5"] { border-left-color: var(--hint-5); }
-  .hint-panel .hint-head {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    margin-bottom: 3px;
-    display: flex;
-    gap: 6px;
-    align-items: center;
-  }
-  .hint-panel[data-level="1"] .hint-head { color: var(--hint-1); }
-  .hint-panel[data-level="2"] .hint-head { color: var(--hint-2); }
-  .hint-panel[data-level="3"] .hint-head { color: var(--hint-3); }
-  .hint-panel[data-level="4"] .hint-head { color: var(--hint-4); }
-  .hint-panel[data-level="5"] .hint-head { color: var(--hint-5); }
+  /* e571-hint-panel-title: .hint-head 중복 제목 제거 — 버튼만으로 단계 인지 가능 (border-left 색상으로 단계 시각 구분 유지) */
   .hint-panel .hint-body {
     color: var(--text);
     line-height: 1.35;
@@ -4144,7 +4131,6 @@
               <div class="hint-panels" id="hint-panels-${idSafe}">
                 ${[1,2,3,4,5].map(lv => `
                   <div class="hint-panel" data-level="${lv}">
-                    <div class="hint-head"><span class="badge-dot"></span><span>${I18N[currentLang]['hint_lv' + lv + '_head'] || ('Lv.' + lv)}</span></div>
                     <div class="hint-body">${buildHintContent(card, lv, caseData)}</div>
                   </div>
                 `).join('')}
