@@ -1476,6 +1476,118 @@
     max-width: 320px;
   }
 
+  /* Evaluation Overview (제출된 케이스 리스트) */
+  .eval-overview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+  }
+  .eval-overview-header .ov-title {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .eval-overview-header .ov-title strong {
+    color: var(--accent);
+    margin-left: 6px;
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  .eval-overview-header .ov-actions { display: flex; gap: 6px; }
+  .eval-overview-header .ov-btn {
+    background: var(--panel);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .eval-overview-header .ov-btn:hover { color: var(--text); border-color: var(--accent-dim); }
+
+  .eval-overview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .eval-overview-table th {
+    text-align: left;
+    padding: 6px 10px;
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 500;
+    background: var(--panel);
+  }
+  .eval-overview-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    vertical-align: middle;
+  }
+  .eval-overview-table tbody tr { cursor: pointer; }
+  .eval-overview-table tbody tr:hover { background: var(--panel-2); }
+  .eval-overview-table td.id { font-family: 'SF Mono', Consolas, monospace; color: var(--accent); white-space: nowrap; }
+  .eval-overview-table td.score { font-family: 'SF Mono', Consolas, monospace; text-align: right; white-space: nowrap; }
+  .eval-overview-table td.count { font-family: 'SF Mono', Consolas, monospace; text-align: right; }
+  .eval-overview-table td.subject { color: var(--text-dim); font-size: 11px; }
+  .eval-overview-table td.last-date { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  .eval-overview-table .badge-multi {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 9px;
+    color: var(--warn);
+    border: 1px solid var(--warn);
+    border-radius: 2px;
+    font-family: 'SF Mono', Consolas, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+  }
+  .eval-overview-table .grade-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10px;
+    border-radius: 2px;
+    border: 1px solid;
+    font-family: 'SF Mono', Consolas, monospace;
+    margin-left: 6px;
+  }
+  .eval-overview-empty {
+    padding: 24px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+    background: var(--panel);
+    border: 1px dashed var(--border);
+    border-radius: 3px;
+  }
+  .eval-overview-loading {
+    padding: 14px;
+    text-align: center;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  .ev-back-overview {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    font-size: 11px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-family: inherit;
+    margin-bottom: 8px;
+  }
+  .ev-back-overview:hover { color: var(--accent); border-color: var(--accent-dim); }
+
   /* Settings */
   .settings-section {
     background: var(--panel);
@@ -1740,7 +1852,31 @@
 
       <!-- Evaluation Tab -->
       <div class="content-tab" data-tab="evaluation">
-        <div class="page-header" id="ev-header">
+
+        <!-- Step 24-e — 평가 탭 진입 시 기본: 전체 제출 케이스 overview 리스트 -->
+        <div id="ev-overview" style="display:block;">
+          <div class="page-header">
+            <div class="case-id-large" data-i18n="ev_overview_title">Submitted Cases</div>
+            <div class="case-subject" data-i18n="ev_overview_subtitle">All cases with at least one attempt</div>
+          </div>
+          <div class="eval-overview-header">
+            <div class="ov-title">
+              <span data-i18n="ev_overview_count_label">Cases submitted</span>
+              <strong id="ev-overview-count">—</strong>
+            </div>
+            <div class="ov-actions">
+              <button class="ov-btn" id="btn-ev-overview-refresh" data-i18n="ev_overview_refresh">Refresh</button>
+            </div>
+          </div>
+          <div id="ev-overview-body">
+            <div class="eval-overview-loading" data-i18n="ev_overview_loading">Loading submissions…</div>
+          </div>
+        </div>
+
+        <!-- Step 24-e — 사이드바 케이스 클릭 시: 기존 case-specific 평가 뷰 -->
+        <div id="ev-case-view" style="display:none;">
+          <button class="ev-back-overview" id="btn-ev-back-overview" data-i18n="ev_overview_back">← All Submissions</button>
+          <div class="page-header" id="ev-header">
           <div class="case-id-large" id="ev-case-id">—</div>
           <div class="case-status" id="ev-status" data-i18n="status_in_review">In Review</div>
           <div class="case-subject" id="ev-subject">—</div>
@@ -1845,6 +1981,7 @@
             </div>
           </div>
         </div><!-- /ev-result -->
+        </div><!-- /ev-case-view (Step 24-e) -->
       </div><!-- /content-tab evaluation -->
 
       <!-- Reports Tab -->
@@ -2313,6 +2450,22 @@
       err_load: 'Failed to load.',
       err_sync_offline: '17895 viewer is offline. Sync skipped.',
       empty_cases: 'No cases. Run "Resync from 17895" in Settings.',
+      // Step 24-e — Evaluation overview (submitted cases list)
+      ev_overview_title: 'Submitted Cases',
+      ev_overview_subtitle: 'All cases with at least one attempt',
+      ev_overview_count_label: 'Cases submitted',
+      ev_overview_refresh: '↻ Refresh',
+      ev_overview_loading: 'Loading submissions…',
+      ev_overview_empty: 'No submissions yet. Submit at least one attempt from the Review tab.',
+      ev_overview_load_failed: 'Failed to load overview: {msg}',
+      ev_overview_back: '← All Submissions',
+      ev_overview_col_case: 'Case',
+      ev_overview_col_subject: 'Subject',
+      ev_overview_col_attempts: 'Attempts',
+      ev_overview_col_best: 'Best',
+      ev_overview_col_last: 'Last',
+      ev_overview_col_last_date: 'Last Submitted',
+      ev_overview_multi_fmt: 'Multi {n}',
       // wire (Step 7 — Attempts API + Evaluation tab)
       ev_empty: 'No evaluation yet. Submit your notes from the Review tab to start grading.',
       ev_grading: 'Grading…',
@@ -2515,6 +2668,22 @@
       err_load: '불러오기 실패.',
       err_sync_offline: '17895 뷰어가 꺼져있어 동기화 불가.',
       empty_cases: '케이스 없음. 설정에서 "17895에서 다시 가져오기" 실행.',
+      // Step 24-e — 평가 탭 overview (제출된 케이스 리스트)
+      ev_overview_title: '제출한 케이스',
+      ev_overview_subtitle: '한 번 이상 시도한 모든 케이스',
+      ev_overview_count_label: '제출 케이스',
+      ev_overview_refresh: '↻ 새로고침',
+      ev_overview_loading: '제출 내역 불러오는 중…',
+      ev_overview_empty: '아직 제출한 케이스가 없습니다. 검토 탭에서 답안을 제출하세요.',
+      ev_overview_load_failed: '리스트 로드 실패: {msg}',
+      ev_overview_back: '← 전체 목록',
+      ev_overview_col_case: '케이스',
+      ev_overview_col_subject: '과목',
+      ev_overview_col_attempts: '시도',
+      ev_overview_col_best: '최고',
+      ev_overview_col_last: '최근',
+      ev_overview_col_last_date: '최근 제출',
+      ev_overview_multi_fmt: '다중 {n}',
       // wire (Step 7 — Attempts API + 평가 탭)
       ev_empty: '아직 평가가 없습니다. 검토 탭에서 검토 의견을 제출해 채점을 시작하세요.',
       ev_grading: '채점 중…',
@@ -3745,7 +3914,8 @@
       return;
     }
 
-    // 즉시 Evaluation 탭 전환
+    // 즉시 Evaluation 탭 전환 (Step 24-e: case-view 표시 의도 플래그 set)
+    window.__EV_TAB_CASE_VIEW_INTENT = true;
     const evTab = document.querySelector('.tab-btn[data-tab="evaluation"]');
     if (evTab) evTab.click();
 
@@ -5606,7 +5776,8 @@
       alert(I18N[currentLang].err_submit_empty);
       return;
     }
-    // 즉시 Evaluation 탭 전환
+    // 즉시 Evaluation 탭 전환 (Step 24-e: case-view 표시 의도 플래그 set)
+    window.__EV_TAB_CASE_VIEW_INTENT = true;
     const evTab = document.querySelector('.tab-btn[data-tab="evaluation"]');
     if (evTab) evTab.click();
 
@@ -6690,6 +6861,252 @@
       });
     });
   }
+
+  // ═══════════════════════════════════════════════════════════════
+  // Step 24-e — 평가 탭 Overview (전체 제출 케이스 리스트)
+  // ═══════════════════════════════════════════════════════════════
+  // - 평가 탭 진입 시 기본 화면: 사용자가 제출한 모든 케이스의 리스트
+  // - 사이드바 케이스 클릭 시: case-specific 평가 뷰 (기존 동작 보존)
+  // - 데이터 소스: GET /api/attempts?status=done&limit=200 → 클라이언트에서 case_id 그룹핑
+  //   (서버에 group API 가 없어 attempts 한 번에 가져와서 그룹핑)
+  // - 빈 상태 / 다중 카드(subq_count) / legacy 답안 모두 처리
+  const EV_OVERVIEW_STATE = {
+    loaded: false,
+    loading: false,
+    rows: [],          // 그룹핑된 케이스 배열
+  };
+
+  // ev-case-view vs ev-overview 토글
+  function showEvOverview() {
+    const ovEl = document.getElementById('ev-overview');
+    const cvEl = document.getElementById('ev-case-view');
+    if (ovEl) ovEl.style.display = '';
+    if (cvEl) cvEl.style.display = 'none';
+  }
+  function showEvCaseView() {
+    const ovEl = document.getElementById('ev-overview');
+    const cvEl = document.getElementById('ev-case-view');
+    if (ovEl) ovEl.style.display = 'none';
+    if (cvEl) cvEl.style.display = '';
+  }
+
+  // attempts(전체) → case_id 별 그룹핑
+  // 입력: [{id, case_id, case_short_id, subject_kor, subject, submitted_at, status, db_status,
+  //         score_total, score_max, score_pct, grade, subq_count, ...}, ...]
+  // 출력: [{case_id, case_short_id, subject_label, subq_count, attempt_count, best_pct, last_pct,
+  //         last_grade, last_submitted_at}, ...]  // last_submitted_at DESC 정렬
+  function groupAttemptsByCase(attempts) {
+    const map = new Map();
+    for (const a of (attempts || [])) {
+      const cid = a.case_id || a.case_short_id;
+      if (!cid) continue;
+      // done/completed 만 집계 — pending/grading 은 제외 (사용자가 "제출했다" 인식하는 시점은 done)
+      const isDone = (a.status === 'completed') || (a.db_status === 'done');
+      if (!isDone) continue;
+      let g = map.get(cid);
+      if (!g) {
+        g = {
+          case_id: cid,
+          case_short_id: a.case_short_id || cid,
+          subject_label: a.subject_kor || a.subject || '',
+          subq_count: Number(a.subq_count) || 0,
+          attempt_count: 0,
+          best_pct: null,
+          last_pct: null,
+          last_grade: null,
+          last_submitted_at: null,
+        };
+        map.set(cid, g);
+      }
+      g.attempt_count += 1;
+      const pct = Number(a.score_pct);
+      if (isFinite(pct)) {
+        if (g.best_pct == null || pct > g.best_pct) g.best_pct = pct;
+      }
+      // 최신 attempt 추적 (submitted_at DESC)
+      const tNew = a.submitted_at ? Date.parse(a.submitted_at) : 0;
+      const tCur = g.last_submitted_at ? Date.parse(g.last_submitted_at) : 0;
+      if (tNew >= tCur) {
+        g.last_submitted_at = a.submitted_at || g.last_submitted_at;
+        g.last_pct = isFinite(pct) ? pct : g.last_pct;
+        g.last_grade = a.grade || g.last_grade;
+        // subq_count, subject_label 도 가장 최신 값으로
+        if (a.subq_count != null) g.subq_count = Number(a.subq_count) || 0;
+        if (a.subject_kor || a.subject) g.subject_label = a.subject_kor || a.subject;
+      }
+    }
+    const rows = Array.from(map.values());
+    // 최근 제출순(DESC)
+    rows.sort((a, b) => {
+      const ta = a.last_submitted_at ? Date.parse(a.last_submitted_at) : 0;
+      const tb = b.last_submitted_at ? Date.parse(b.last_submitted_at) : 0;
+      return tb - ta;
+    });
+    return rows;
+  }
+
+  function renderEvOverview() {
+    const bodyEl = document.getElementById('ev-overview-body');
+    const countEl = document.getElementById('ev-overview-count');
+    if (!bodyEl) return;
+    const dict = I18N[currentLang] || {};
+    const rows = EV_OVERVIEW_STATE.rows || [];
+    if (countEl) countEl.textContent = String(rows.length);
+    if (rows.length === 0) {
+      bodyEl.innerHTML = `<div class="eval-overview-empty">${escapeHtml(dict.ev_overview_empty || 'No submissions yet.')}</div>`;
+      return;
+    }
+    const head = `
+      <thead>
+        <tr>
+          <th data-i18n="ev_overview_col_case">${escapeHtml(dict.ev_overview_col_case || 'Case')}</th>
+          <th data-i18n="ev_overview_col_subject">${escapeHtml(dict.ev_overview_col_subject || 'Subject')}</th>
+          <th style="text-align:right;" data-i18n="ev_overview_col_attempts">${escapeHtml(dict.ev_overview_col_attempts || 'Attempts')}</th>
+          <th style="text-align:right;" data-i18n="ev_overview_col_best">${escapeHtml(dict.ev_overview_col_best || 'Best')}</th>
+          <th style="text-align:right;" data-i18n="ev_overview_col_last">${escapeHtml(dict.ev_overview_col_last || 'Last')}</th>
+          <th data-i18n="ev_overview_col_last_date">${escapeHtml(dict.ev_overview_col_last_date || 'Last Submitted')}</th>
+        </tr>
+      </thead>`;
+    const multiTmpl = dict.ev_overview_multi_fmt || 'Multi {n}';
+    const bodyHtml = rows.map(r => {
+      const cid = escapeHtml(r.case_id || '');
+      const sid = escapeHtml(r.case_short_id || r.case_id || '—');
+      const subj = escapeHtml(r.subject_label || '—');
+      const multi = (r.subq_count && r.subq_count > 1)
+        ? `<span class="badge-multi">${escapeHtml(multiTmpl.replace('{n}', String(r.subq_count)))}</span>`
+        : '';
+      const cnt = String(r.attempt_count);
+      const bestPct = (r.best_pct != null) ? `${Number(r.best_pct).toFixed(1)}%` : '—';
+      const lastPct = (r.last_pct != null) ? `${Number(r.last_pct).toFixed(1)}%` : '—';
+      const bestColor = pctColor(r.best_pct);
+      const lastColor = pctColor(r.last_pct);
+      const lastGrade = r.last_grade
+        ? `<span class="grade-pill" style="color:${gradeColor(r.last_grade)}; border-color:${gradeColor(r.last_grade)};">${escapeHtml(r.last_grade)}</span>`
+        : '';
+      const lastDate = r.last_submitted_at ? escapeHtml(fmtSeoul(r.last_submitted_at, { style: 'full' })) : '—';
+      return `<tr data-case-id="${cid}">
+        <td class="id">${sid}${multi}</td>
+        <td class="subject">${subj}</td>
+        <td class="count">${escapeHtml(cnt)}</td>
+        <td class="score" style="color:${bestColor};">${escapeHtml(bestPct)}</td>
+        <td class="score" style="color:${lastColor};">${escapeHtml(lastPct)}${lastGrade}</td>
+        <td class="last-date">${lastDate}</td>
+      </tr>`;
+    }).join('');
+    bodyEl.innerHTML = `<table class="eval-overview-table">${head}<tbody>${bodyHtml}</tbody></table>`;
+    // 행 클릭 → 기존 모달 재사용
+    bodyEl.querySelectorAll('tbody tr[data-case-id]').forEach(tr => {
+      tr.addEventListener('click', () => {
+        const cid = tr.dataset.caseId;
+        if (cid && typeof openModalForCase === 'function') {
+          openModalForCase(cid, null);
+        }
+      });
+    });
+  }
+
+  async function loadEvOverview(opts) {
+    if (EV_OVERVIEW_STATE.loading) return;
+    const force = !!(opts && opts.force);
+    if (!force && EV_OVERVIEW_STATE.loaded) {
+      renderEvOverview();
+      return;
+    }
+    const bodyEl = document.getElementById('ev-overview-body');
+    const dict = I18N[currentLang] || {};
+    if (bodyEl) bodyEl.innerHTML = `<div class="eval-overview-loading">${escapeHtml(dict.ev_overview_loading || 'Loading…')}</div>`;
+    EV_OVERVIEW_STATE.loading = true;
+    try {
+      // status=done + limit 충분히 크게 (사용자 시도 누적 수 < 200 가정).
+      // 추후 누적 200건 초과 시 server-side group API 도입 검토.
+      const r = await fetch(`${API_BASE}/api/attempts?status=done&limit=200`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json();
+      const items = (d && Array.isArray(d.attempts)) ? d.attempts : [];
+      EV_OVERVIEW_STATE.rows = groupAttemptsByCase(items);
+      EV_OVERVIEW_STATE.loaded = true;
+      renderEvOverview();
+    } catch (err) {
+      console.error('loadEvOverview failed:', err);
+      const tmpl = (dict.ev_overview_load_failed || 'Failed: {msg}');
+      if (bodyEl) bodyEl.innerHTML = `<div class="eval-overview-empty" style="color: var(--danger);">${escapeHtml(tmpl.replace('{msg}', err.message || ''))}</div>`;
+    } finally {
+      EV_OVERVIEW_STATE.loading = false;
+    }
+  }
+
+  // 평가 탭 진입 의도 플래그 (window 레벨 — submit 함수에서 접근)
+  //   * 사용자가 직접 탭 클릭 → overview 로 전환 (기본)
+  //   * Submit 흐름의 자동 탭 전환 → case-view 유지 (플래그 set)
+  //   * 사이드바 케이스 클릭으로 인한 자동 전환 → case-view 유지 (loadCase wrapper)
+  window.__EV_TAB_CASE_VIEW_INTENT = false;
+
+  // 평가 탭 클릭 시 — overview lazy-load 및 case-view/overview 토글
+  document.querySelectorAll('.tab-btn[data-tab="evaluation"]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (window.__EV_TAB_CASE_VIEW_INTENT) {
+        // submit 또는 사이드바 → case-view 표시
+        showEvCaseView();
+        window.__EV_TAB_CASE_VIEW_INTENT = false;
+      } else {
+        // 사용자가 직접 평가 탭 클릭 → overview 표시
+        showEvOverview();
+      }
+      // overview lazy-load (한 번만)
+      if (!EV_OVERVIEW_STATE.loaded) {
+        loadEvOverview();
+      }
+    });
+  });
+
+  // 새로고침 버튼
+  (function bindEvOverviewRefresh() {
+    const btn = document.getElementById('btn-ev-overview-refresh');
+    if (btn) btn.addEventListener('click', () => loadEvOverview({ force: true }));
+  })();
+
+  // "← 전체 목록" 버튼 (case-view 에서 overview 로 복귀)
+  (function bindEvBackOverview() {
+    const btn = document.getElementById('btn-ev-back-overview');
+    if (btn) btn.addEventListener('click', () => {
+      showEvOverview();
+      // overview 가 stale 할 가능성 — 클릭 시 force refresh (최근 시도 반영)
+      loadEvOverview({ force: true });
+    });
+  })();
+
+  // 사이드바 case-item 클릭 시 — case-view 로 전환
+  // case-list 는 동적으로 렌더 → 이벤트 위임 (#case-list 컨테이너)
+  // 추가로 loadCase 자체에도 hook (직접 호출 / 키보드 단축키 / 자동선택 경로 보강)
+  (function bindEvSidebarToCaseView() {
+    const root = document.getElementById('case-list');
+    if (root) {
+      root.addEventListener('click', (ev) => {
+        // .case-item 안 클릭이면 (북마크 ★ 등 자식 클릭 포함)
+        const it = ev.target.closest('.case-item');
+        if (!it) return;
+        // 북마크 토글 클릭은 case-view 전환 X
+        if (ev.target && ev.target.dataset && ev.target.dataset.bookmarkToggle) return;
+        const evTabActive = document.querySelector('.tab-btn[data-tab="evaluation"]')?.classList.contains('active');
+        if (evTabActive) showEvCaseView();
+      });
+    }
+    // loadCase 직접 호출 (자동 선택, 키보드 단축키 등) 경로 보강
+    if (typeof loadCase === 'function') {
+      const origLoadCase = loadCase;
+      loadCase = async function evWrappedLoadCase(caseId) {
+        // 평가 탭이 활성이면 case-view 로 전환
+        const evTabActive = document.querySelector('.tab-btn[data-tab="evaluation"]')?.classList.contains('active');
+        if (evTabActive) showEvCaseView();
+        return origLoadCase.apply(this, arguments);
+      };
+    }
+  })();
+
+  // (submitAttempt / submitAttemptCards 내부에서 window.__EV_TAB_CASE_VIEW_INTENT = true 직접 set.
+  //  evTab.click() 호출 직전 동기 코드 보장 — 플래그 set → tab-btn 핸들러 분기.)
 
   // ─── Reports 탭 진입 시 자동 로드 + sub-tab 전환 시 재로드 ───
   document.querySelectorAll('.tab-btn').forEach(btn => {
