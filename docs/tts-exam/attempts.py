@@ -725,6 +725,10 @@ _REQUIRED_INJECT_FIELDS: tuple[str, ...] = (
 #     - missing_critical:     list[dict] [{item, expected_score_impact}]
 #     - next_study_oneliner:  str ("💡 다음 +N점 가능: ...")
 #     - next_study_actionable:list[str] (실행 가능 학습 액션)
+#   7번째 확장 키 (pattern_warning — lawear-e571 추가 2026-05-19):
+#     - pattern_warning:      str | null (반복 실수 패턴 경고, 예 "🔥 같은 실수 N회 반복...")
+#       AI 채점은 단일 attempt만 보므로 *내부 답안 패턴* 한정.
+#       *외부 비교* (이전 attempt vs 현재)는 메인이 메타 분석 후 PUT /grade로 직접 주입.
 #
 # 사용자 명시 (lawear-e571 작업): SE 보낸 평가 본문이 스키마 불일치로 빈 문자열 저장됨.
 # 새 키 못 받으면 빈 문자열/빈 배열로 저장 (호환성).
@@ -736,11 +740,14 @@ _EVAL_NOTES_KEYS_EXT_LIST: tuple[str, ...] = (
     "missing_critical",
     "next_study_actionable",
 )
+# pattern_warning 은 str | null — 빈 키 디폴트는 None (legacy str EXT 와 분리)
+_EVAL_NOTES_KEYS_EXT_OPT_STR: tuple[str, ...] = ("pattern_warning",)
 # 통합 (서버 검증 + 응답 형식 일관성)
 _EVAL_NOTES_KEYS: tuple[str, ...] = (
     _EVAL_NOTES_KEYS_LEGACY
     + _EVAL_NOTES_KEYS_EXT_STR
     + _EVAL_NOTES_KEYS_EXT_LIST
+    + _EVAL_NOTES_KEYS_EXT_OPT_STR
 )
 
 # eval_notes alias — 다른 키 이름으로 들어와도 정규화 (호환)
@@ -844,11 +851,11 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
     """eval_notes 검증 + 정규화 — Phase 1 확장 (lawear-e571, 2026-05-19).
 
     legacy 키 (strength/caution/missing) + 확장 키 (strengths/weaknesses/
-    missing_critical/score_summary/next_study_oneliner/next_study_actionable)
-    모두 보존.
+    missing_critical/score_summary/next_study_oneliner/next_study_actionable/
+    pattern_warning) 모두 보존.
 
     Raises:
-        GradeInjectionError: dict 아님.
+        GradeInjectionError: dict 아님 또는 pattern_warning 잘못된 타입(list/dict).
 
     Returns:
         {
@@ -861,12 +868,15 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
           "missing_critical": list[dict],  # [{item, expected_score_impact}]
           "next_study_oneliner": str,
           "next_study_actionable": list[str],
+          "pattern_warning": str | None,   # 반복 실수 패턴 경고 (없으면 None)
         }
 
         - 없는 키는 빈 문자열/빈 배열 (호환성 — SE가 일부만 보내도 저장).
         - alias (weakness → weaknesses) 자동 정규화.
         - missing_critical 항목은 {item: str, expected_score_impact: int|float}
           형식으로 강제 — 자유형 dict 도 그대로 보존 (R-09 가공 X).
+        - pattern_warning 은 str | None — list/dict 입력 시 GradeInjectionError.
+          빈 문자열은 None 으로 정규화 (UI 분기 단순화).
     """
     if not isinstance(raw, dict):
         raise GradeInjectionError(
@@ -928,6 +938,19 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
             out[k] = [v] if v.strip() else []
         else:
             out[k] = []
+
+    # pattern_warning — str | None (잘못된 타입은 즉시 거부)
+    for k in _EVAL_NOTES_KEYS_EXT_OPT_STR:
+        v = src.get(k)
+        if v is None:
+            out[k] = None
+        elif isinstance(v, str):
+            stripped = v.strip()
+            out[k] = stripped if stripped else None
+        else:
+            raise GradeInjectionError(
+                f"eval_notes.{k} must be string or null, got {type(v).__name__}"
+            )
 
     return out
 
