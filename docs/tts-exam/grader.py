@@ -62,13 +62,45 @@ CRITERION_KEYS: tuple[str, ...] = (
     "case_apply",
 )
 
-# 기본 가중치 v5 (사용자 명시 2026-05-17) — 합계 100
-#   Lv.4핏 (mnem 16 + color 13 + under 8 + sem 12 + miss 11 = 60)
-# + outline 10 (별도, Lv.4핏에서 분리)
-# + articles 10 (원본 조문 매칭)
-# + rich 15 (원본 전체 대비 풍부함, 20→15 — Step 21)
-# + case_apply 5 (사안의 경우 신설 — 결론+근거 활용 논거 펼침, 정확 매칭 X)
-DEFAULT_WEIGHTS: dict[str, int] = {
+# 가중치 버전 (settings 에 표시) — DB 마이그 없이 logical 버전만 추적.
+# 신규 채점은 v6 가중치 사용, 기존 attempts 의 weights_json 은 미터치 (사용자 명시).
+WEIGHTS_VERSION_V5: int = 5
+WEIGHTS_VERSION_V6: int = 6
+DEFAULT_WEIGHTS_VERSION: int = WEIGHTS_VERSION_V6
+
+# 기본 가중치 v6 (사용자 명시 2026-05-19, lawear-e571 Phase 4) — 합계 100
+#
+# 변경 의도:
+#   v5 학습 보조 키 (mnem 16 + color 13 + under 8 = 37) → v6 (10+8+5 = 23) 하향
+#   v5 답안 본질 키 (articles 10 + sem 12 + miss 11 + case_apply 5 + outline 10 + rich 15 = 63)
+#                  → v6 (15+15+13+7+14+13 = 77) 상향
+#
+# v6 분포 (학습 보조 23 + 답안 본질 77 = 100):
+#   학습 보조 (Lv.4 키워드 회수 — 채점 보조용, 낮춤):
+#     - mnem    16 → 10  (두문자 풀이형 키워드)
+#     - color   13 →  8  (Color Emphasis)
+#     - under    8 →  5  (Underline Coverage)
+#   답안 본질 (답안의 핵심 가치 — 무게 이동):
+#     - articles 10 → 15 (조문 매칭 — 자체 채점 articles 4→2 엄격화 반영)
+#     - sem      12 → 15 (의미 일치)
+#     - miss     11 → 13 (누락 차감 — Phase 2 missing_critical 강제 반영)
+#     - case_apply 5 →  7 (사안의 경우 적용)
+#     - outline 10 → 14 (목차 구조 — 본문 가치 강화)
+#     - rich    15 → 13 (원본 대비 풍부함 — 본질 키 우선이라 약간 낮춤)
+DEFAULT_WEIGHTS_V6: dict[str, int] = {
+    "mnem": 10,
+    "color": 8,
+    "under": 5,
+    "outline": 14,
+    "sem": 15,
+    "rich": 13,
+    "miss": 13,
+    "articles": 15,
+    "case_apply": 7,
+}
+
+# v5 가중치 (fallback 보존 — 기존 attempts.weights_json 호환)
+DEFAULT_WEIGHTS_V5: dict[str, int] = {
     "mnem": 16,
     "color": 13,
     "under": 8,
@@ -79,6 +111,9 @@ DEFAULT_WEIGHTS: dict[str, int] = {
     "articles": 10,
     "case_apply": 5,
 }
+
+# 신규 채점은 v6 사용
+DEFAULT_WEIGHTS: dict[str, int] = dict(DEFAULT_WEIGHTS_V6)
 
 # Grade threshold (dev-design #48 §5-4 + dev-impl-plan #51 Q9)
 GRADE_THRESHOLDS: list[tuple[float, str]] = [

@@ -83,14 +83,30 @@ class GraderV4Test(unittest.TestCase):
         # Step 21 v5 (2026-05-17): case_apply 신설 → 9개로 확장
         self.assertEqual(len(grader_mod.CRITERION_KEYS), 9)
 
-    def test_default_weights_v4(self) -> None:
-        """DEFAULT_WEIGHTS — Step 21 v5 (2026-05-17): rich 20→15, case_apply 5 신설."""
+    def test_default_weights_current_default(self) -> None:
+        """DEFAULT_WEIGHTS — Phase 4 v6 (lawear-e571, 2026-05-19):
+        학습보조 23 (mnem10+color8+under5) + 답안본질 77 = 100.
+
+        과거 historical record (참고용):
+          - v4 (Step 20): mnem 16/color 13/under 8/outline 10/sem 12/rich 20/miss 11/articles 10 = 100
+          - v5 (Step 21): + case_apply 5, rich 20→15 = 100
+          - v6 (Phase 4): 학습 보조 키 하향, 답안 본질 키 상향
+        """
         expected = {
-            "mnem": 16, "color": 13, "under": 8, "outline": 10,
-            "sem": 12, "rich": 15, "miss": 11, "articles": 10, "case_apply": 5,
+            "mnem": 10, "color": 8, "under": 5, "outline": 14,
+            "sem": 15, "rich": 13, "miss": 13, "articles": 15, "case_apply": 7,
         }
         self.assertEqual(grader_mod.DEFAULT_WEIGHTS, expected)
         self.assertEqual(sum(grader_mod.DEFAULT_WEIGHTS.values()), 100)
+
+    def test_default_weights_v5_preserved_as_fallback(self) -> None:
+        """v5 가중치는 DEFAULT_WEIGHTS_V5 fallback 으로 보존 (Phase 4)."""
+        v5 = {
+            "mnem": 16, "color": 13, "under": 8, "outline": 10,
+            "sem": 12, "rich": 15, "miss": 11, "articles": 10, "case_apply": 5,
+        }
+        self.assertEqual(grader_mod.DEFAULT_WEIGHTS_V5, v5)
+        self.assertEqual(sum(grader_mod.DEFAULT_WEIGHTS_V5.values()), 100)
 
     def test_validate_weights_v3_rejected(self) -> None:
         """v3 7키 데이터(articles 없음) → ValueError."""
@@ -162,20 +178,22 @@ class SettingsV4Test(unittest.TestCase):
     def tearDown(self) -> None:
         os.unlink(self.tmp.name)
 
-    def test_load_all_returns_v4_weights(self) -> None:
-        """신규 DB → weights 9키 (articles + case_apply 포함, Step 21 v5)."""
+    def test_load_all_returns_v6_weights(self) -> None:
+        """신규 DB → weights 9키 (Phase 4 v6 — 학습보조 23 + 답안본질 77)."""
         with db_mod.get_conn(self.tmp.name) as conn:
             data = settings_mod.load_all(conn)
         self.assertIn("weights", data)
         self.assertIn("articles", data["weights"])
         self.assertIn("case_apply", data["weights"])
         self.assertEqual(len(data["weights"]), 9)
-        # v5 디폴트 일치 (rich 20→15, case_apply 5 신설)
+        # v6 디폴트 (Phase 4) — 학습보조 키 하향, 답안 본질 키 상향
         self.assertEqual(
             data["weights"],
-            {"mnem": 16, "color": 13, "under": 8, "outline": 10,
-             "sem": 12, "rich": 15, "miss": 11, "articles": 10, "case_apply": 5},
+            {"mnem": 10, "color": 8, "under": 5, "outline": 14,
+             "sem": 15, "rich": 13, "miss": 13, "articles": 15, "case_apply": 7},
         )
+        # weights_version 도 v6 (Phase 4)
+        self.assertEqual(data.get("weights_version"), 6)
 
     def test_save_v3_weights_rejected(self) -> None:
         """PUT v3 7키 → SettingsValidationError(weights_invalid)."""
@@ -301,13 +319,13 @@ class MigrationV4Test(unittest.TestCase):
         path = db_mod.MIGRATIONS_DIR / db_mod.MIGRATIONS[4]
         self.assertTrue(path.is_file(), f"migration v4 SQL not found at {path}")
 
-    def test_fresh_db_at_v4(self) -> None:
-        """신규 DB init → user_version = 5 (Step 21 v5)."""
+    def test_fresh_db_at_v6(self) -> None:
+        """신규 DB init → user_version >= 7 + v6 weights (Phase 4)."""
         tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         tmp.close()
         try:
             v = db_mod.init_db(tmp.name)
-            self.assertGreaterEqual(v, 4)
+            self.assertGreaterEqual(v, 7)
             conn = sqlite3.connect(tmp.name)
             conn.row_factory = sqlite3.Row
             row = conn.execute(
@@ -317,9 +335,11 @@ class MigrationV4Test(unittest.TestCase):
             w = json.loads(row["value_json"])
             self.assertIn("articles", w)
             self.assertIn("case_apply", w)
-            self.assertEqual(w["articles"], 10)
-            self.assertEqual(w["case_apply"], 5)
-            self.assertEqual(w["rich"], 15)  # 20→15 갱신
+            # Phase 4 v6 디폴트 값 검증
+            self.assertEqual(w["articles"], 15)  # v5 10 → v6 15
+            self.assertEqual(w["case_apply"], 7)  # v5 5 → v6 7
+            self.assertEqual(w["rich"], 13)       # v5 15 → v6 13
+            self.assertEqual(w["mnem"], 10)       # v5 16 → v6 10
             self.assertEqual(sum(w.values()), 100)
         finally:
             os.unlink(tmp.name)

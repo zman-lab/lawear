@@ -107,14 +107,25 @@ class GraderV5Test(unittest.TestCase):
         self.assertIn("case_apply", grader_mod.CRITERION_KEYS)
         self.assertEqual(len(grader_mod.CRITERION_KEYS), 9)
 
-    def test_default_weights_v5(self) -> None:
-        """DEFAULT_WEIGHTS = v5 (사용자 명시 2026-05-17): rich 15, case_apply 5."""
+    def test_default_weights_current_v6(self) -> None:
+        """DEFAULT_WEIGHTS — Phase 4 v6 (lawear-e571, 2026-05-19).
+
+        Historical note (Step 21 v5 → Phase 4 v6):
+          v5 (2026-05-17): mnem 16/color 13/under 8/outline 10/sem 12/rich 15/miss 11/articles 10/case_apply 5
+          v6 (2026-05-19): 학습 보조 23 + 답안 본질 77 = 100
+        """
         expected = {
-            "mnem": 16, "color": 13, "under": 8, "outline": 10,
-            "sem": 12, "rich": 15, "miss": 11, "articles": 10, "case_apply": 5,
+            "mnem": 10, "color": 8, "under": 5, "outline": 14,
+            "sem": 15, "rich": 13, "miss": 13, "articles": 15, "case_apply": 7,
         }
         self.assertEqual(grader_mod.DEFAULT_WEIGHTS, expected)
         self.assertEqual(sum(grader_mod.DEFAULT_WEIGHTS.values()), 100)
+        # v5 historical fallback 보존 검증
+        v5 = {
+            "mnem": 16, "color": 13, "under": 8, "outline": 10,
+            "sem": 12, "rich": 15, "miss": 11, "articles": 10, "case_apply": 5,
+        }
+        self.assertEqual(grader_mod.DEFAULT_WEIGHTS_V5, v5)
 
     def test_validate_weights_v4_rejected(self) -> None:
         """v4 8키 데이터(case_apply 없음) → ValueError."""
@@ -171,14 +182,16 @@ class SettingsV5Test(unittest.TestCase):
     def tearDown(self) -> None:
         os.unlink(self.tmp.name)
 
-    def test_load_all_returns_v5_weights(self) -> None:
-        """신규 DB → weights 9키 (case_apply 포함)."""
+    def test_load_all_returns_v6_weights(self) -> None:
+        """신규 DB → weights 9키 (Phase 4 v6 — 학습보조 23 + 답안본질 77)."""
         with db_mod.get_conn(self.tmp.name) as conn:
             data = settings_mod.load_all(conn)
         self.assertEqual(len(data["weights"]), 9)
         self.assertIn("case_apply", data["weights"])
-        self.assertEqual(data["weights"]["case_apply"], 5)
-        self.assertEqual(data["weights"]["rich"], 15)  # 20→15
+        # v6 값 (case_apply 5→7, rich 15→13, articles 10→15)
+        self.assertEqual(data["weights"]["case_apply"], 7)
+        self.assertEqual(data["weights"]["rich"], 13)
+        self.assertEqual(data["weights"]["articles"], 15)
 
     def test_save_v4_weights_rejected(self) -> None:
         """PUT v4 8키 → SettingsValidationError(weights_invalid)."""
@@ -273,13 +286,13 @@ class MigrationV5Test(unittest.TestCase):
         path = db_mod.MIGRATIONS_DIR / db_mod.MIGRATIONS[5]
         self.assertTrue(path.is_file(), f"migration v5 SQL not found at {path}")
 
-    def test_fresh_db_at_v5(self) -> None:
-        """신규 DB init → user_version = 5 + weights v5 디폴트."""
+    def test_fresh_db_at_v6(self) -> None:
+        """신규 DB init → user_version >= 7 + weights v6 디폴트 (Phase 4)."""
         tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
         tmp.close()
         try:
             v = db_mod.init_db(tmp.name)
-            self.assertGreaterEqual(v, 5)
+            self.assertGreaterEqual(v, 7)
             conn = sqlite3.connect(tmp.name)
             conn.row_factory = sqlite3.Row
             row = conn.execute(
@@ -287,10 +300,10 @@ class MigrationV5Test(unittest.TestCase):
             ).fetchone()
             conn.close()
             w = json.loads(row["value_json"])
-            # v5 디폴트 (rich 20→15, case_apply 5 신설)
-            self.assertEqual(w["rich"], 15)
-            self.assertEqual(w["case_apply"], 5)
-            self.assertEqual(w["articles"], 10)
+            # v6 디폴트 (Phase 4) — case_apply 5→7, rich 15→13, articles 10→15
+            self.assertEqual(w["rich"], 13)
+            self.assertEqual(w["case_apply"], 7)
+            self.assertEqual(w["articles"], 15)
             self.assertEqual(len(w), 9)
             self.assertEqual(sum(w.values()), 100)
         finally:
