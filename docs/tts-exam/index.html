@@ -1112,6 +1112,170 @@
     .diff-split { grid-template-columns: 1fr; }
   }
 
+  /* ───────────────────────────────────────────────────────
+     Phase 3 — 평가 본문 풍부 표시 (한줄평/강점/약점/누락/actionable)
+     v6 채점 새 키 6개 (score_summary / next_study_oneliner /
+     strengths / weaknesses / missing_critical / next_study_actionable)
+     메인 평가 탭(#ev-rich-summary)과 Reports 모달(.modal-eval .rich-summary) 공용.
+     ─────────────────────────────────────────────────────── */
+  .rich-summary {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .rich-summary .rich-empty {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-style: italic;
+    padding: 4px 0;
+  }
+  .rich-summary .rich-legacy {
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 6px 8px;
+    border-left: 2px solid var(--border-light);
+    background: rgba(133, 133, 133, 0.05);
+    margin-bottom: 6px;
+  }
+  /* 한줄평 박스 — accent 강조, 최상단 */
+  .rich-summary .oneliner-box {
+    background: rgba(86, 156, 214, 0.10);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-bright);
+    font-weight: 500;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .rich-summary .oneliner-box .oneliner-icon {
+    flex-shrink: 0;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+  .rich-summary .oneliner-box .oneliner-text { flex: 1; }
+  /* score_summary 3줄 핵심 */
+  .rich-summary .score-summary-box {
+    border-left: 2px solid var(--accent-dim);
+    background: rgba(86, 156, 214, 0.04);
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre-line;
+  }
+  /* 강점/약점/누락/actionable 공통 섹션 */
+  .rich-summary .sw-section {
+    margin-bottom: 12px;
+  }
+  .rich-summary .sw-section:last-child { margin-bottom: 0; }
+  .rich-summary .sw-section .sw-title {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .rich-summary .sw-section .sw-title .sw-icon {
+    font-size: 12px;
+    line-height: 1;
+  }
+  .rich-summary .sw-section .sw-title.t-strength { color: var(--success); }
+  .rich-summary .sw-section .sw-title.t-weakness { color: var(--warn); }
+  .rich-summary .sw-section .sw-title.t-missing { color: var(--danger); }
+  .rich-summary .sw-section .sw-title.t-actionable { color: var(--accent); }
+  .rich-summary .sw-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .rich-summary .sw-list li {
+    position: relative;
+    padding: 4px 10px 4px 22px;
+    margin-bottom: 4px;
+    border-radius: 2px;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .rich-summary .sw-list li:last-child { margin-bottom: 0; }
+  .rich-summary .sw-list li::before {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    font-size: 12px;
+    line-height: 1.55;
+    font-weight: 700;
+  }
+  .rich-summary .sw-list.l-strength li {
+    background: rgba(78, 201, 176, 0.06);
+    border-left: 2px solid var(--success);
+  }
+  .rich-summary .sw-list.l-strength li::before { content: '✓'; color: var(--success); }
+  .rich-summary .sw-list.l-weakness li {
+    background: rgba(206, 145, 120, 0.06);
+    border-left: 2px solid var(--warn);
+  }
+  .rich-summary .sw-list.l-weakness li::before { content: '⚠'; color: var(--warn); }
+  .rich-summary .sw-list.l-missing li {
+    background: rgba(209, 105, 105, 0.06);
+    border-left: 2px solid var(--danger);
+    padding-right: 60px;
+  }
+  .rich-summary .sw-list.l-missing li::before { content: '✕'; color: var(--danger); }
+  .rich-summary .sw-list.l-missing li .impact-pt {
+    position: absolute;
+    right: 8px;
+    top: 4px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--danger);
+    font-weight: 700;
+    background: rgba(209, 105, 105, 0.12);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+  .rich-summary .sw-list.l-actionable {
+    counter-reset: actionable;
+  }
+  .rich-summary .sw-list.l-actionable li {
+    background: rgba(86, 156, 214, 0.05);
+    border-left: 2px solid var(--accent);
+    counter-increment: actionable;
+    padding-left: 28px;
+  }
+  .rich-summary .sw-list.l-actionable li::before {
+    content: counter(actionable) '.';
+    color: var(--accent);
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    left: 6px;
+  }
+  /* 모달 내 rich-summary — 폰트/패딩 축소 */
+  .modal-grid .modal-eval .rich-summary {
+    padding: 10px 12px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+    font-size: 11px;
+  }
+  .modal-grid .modal-eval .rich-summary .oneliner-box {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .modal-grid .modal-eval .rich-summary .sw-list li { font-size: 11px; }
+
   /* Step 15-6 — 기준 행 ⓘ 툴팁 */
   .crit-info {
     display: inline-block;
@@ -1547,6 +1711,7 @@
   .eval-overview-table td.count { font-family: 'SF Mono', Consolas, monospace; text-align: right; }
   .eval-overview-table td.subject { color: var(--text-dim); font-size: 11px; }
   .eval-overview-table td.last-date { color: var(--text-dim); font-size: 11px; white-space: nowrap; }
+  .eval-overview-table td.solve-time { color: var(--text); font-size: 11px; white-space: nowrap; font-family: 'SF Mono', Consolas, monospace; }
   .eval-overview-table .badge-multi {
     display: inline-block;
     margin-left: 6px;
@@ -1959,6 +2124,8 @@
                 </div>
                 <!-- 우: 상단(평 카드 3개) + 하단(원본 답안 본문 + 매칭 강조) -->
                 <div class="eval-right-stack">
+                  <!-- Phase 3 — v6 채점 풍부 표시 (한줄평/강점/약점/누락/actionable) -->
+                  <div class="rich-summary" id="ev-rich-summary" style="display:none;"></div>
                   <div class="eval-summary" id="ev-eval-summary">
                     <div class="summary-title" data-i18n="sec_eval_notes">Evaluation Notes</div>
                     <div class="summary-card">
@@ -2415,6 +2582,16 @@
       // Step 21 v5 (2026-05-17): case_apply 신설 — 사안의 경우 (정확 매칭 X, 논거 적용 정도)
       crit_case_apply: 'Case Application', crit_case_apply_sub: 'legal reasoning',
       fb_strength: 'Strength', fb_caution: 'Caution', fb_missing: 'Missing',
+      // Phase 3 — v6 채점 풍부 표시
+      rich_legacy_note: 'Detailed feedback not stored — newer gradings will show full breakdown.',
+      rich_empty_note: 'No detailed feedback available.',
+      rich_score_summary: 'Summary',
+      rich_oneliner: 'Key Takeaway',
+      rich_strengths: 'Strengths',
+      rich_weaknesses: 'Weaknesses',
+      rich_missing_critical: 'Critical Misses',
+      rich_actionable: 'Next Study Actions',
+      rich_impact_fmt: '−{n}pt',
       // reports
       page_reports: 'Reports', rep_period: 'Performance metrics',
       sub_overall: 'Overall', sub_subject: 'By Subject', sub_case: 'By Case',
@@ -2474,7 +2651,11 @@
       ev_overview_col_best: 'Best',
       ev_overview_col_last: 'Last',
       ev_overview_col_last_date: 'Last Submitted',
+      ev_overview_col_solve: 'Solve Time',
       ev_overview_multi_fmt: 'Multi {n}',
+      solve_time_label: 'Solve Time',
+      solve_not_tracked: 'Not Tracked',
+      solve_prefix: 'Solve',
       // wire (Step 7 — Attempts API + Evaluation tab)
       ev_empty: 'No evaluation yet. Submit your notes from the Review tab to start grading.',
       ev_grading: 'Grading…',
@@ -2635,6 +2816,16 @@
       // Step 21 v5 (2026-05-17): case_apply 신설 — 사안의 경우 (정확 매칭 X, 논거 적용 정도)
       crit_case_apply: '사안의 경우', crit_case_apply_sub: '법리 적용',
       fb_strength: '강점', fb_caution: '주의', fb_missing: '누락',
+      // Phase 3 — v6 채점 풍부 표시
+      rich_legacy_note: '평가 본문 미저장 — 향후 새 채점부터 풍부한 평가가 표시됩니다.',
+      rich_empty_note: '상세 평가 본문이 없습니다.',
+      rich_score_summary: '핵심 요약',
+      rich_oneliner: '한줄평',
+      rich_strengths: '강점',
+      rich_weaknesses: '약점',
+      rich_missing_critical: '누락 핵심',
+      rich_actionable: '다음 학습 액션',
+      rich_impact_fmt: '−{n}점',
       page_reports: '리포트', rep_period: '성과 지표',
       sub_overall: '전체', sub_subject: '과목별', sub_case: '케이스별',
       kpi_submitted: '제출', kpi_avg: '평균 점수', kpi_err: '자주 틀린', kpi_stale: '오래된',
@@ -2692,7 +2883,11 @@
       ev_overview_col_best: '최고',
       ev_overview_col_last: '최근',
       ev_overview_col_last_date: '최근 제출',
+      ev_overview_col_solve: '풀이 시간',
       ev_overview_multi_fmt: '다중 {n}',
+      solve_time_label: '풀이 시간',
+      solve_not_tracked: '측정 안 됨',
+      solve_prefix: '풀이',
       // wire (Step 7 — Attempts API + 평가 탭)
       ev_empty: '아직 평가가 없습니다. 검토 탭에서 검토 의견을 제출해 채점을 시작하세요.',
       ev_grading: '채점 중…',
@@ -4617,6 +4812,189 @@
   }
 
   // ════════════════════════════════════════════════
+  // Phase 3 — v6 채점 풍부 표시 (한줄평/강점/약점/누락/actionable)
+  // ════════════════════════════════════════════════
+  // 백엔드 Phase 1 새 키 (eval_notes_json):
+  //   - score_summary (string | string[]) — 3줄 핵심
+  //   - next_study_oneliner (string) — 💡 한줄평 강조
+  //   - strengths (string[] | string) — 강점
+  //   - weaknesses (string[] | string) — 약점
+  //   - missing_critical ([{item, impact_pt}] | string[] | string) — 누락 결정적 + 예상 점수 영향
+  //   - next_study_actionable (string[] | string) — 다음 학습 구체
+  //
+  // 입력 형식이 유연해도 깨지지 않게 정규화.
+  // 빈/없음 키는 섹션 자체 숨김. 6개 키 모두 비어있으면 안내 메시지(legacy / empty).
+
+  // 문자열(또는 배열)을 항목 배열로 정규화. null/빈 → [].
+  function normalizeItems(v) {
+    if (v == null) return [];
+    if (Array.isArray(v)) {
+      return v
+        .map(x => (typeof x === 'string' ? x : (x && typeof x === 'object' ? x : '')))
+        .filter(x => {
+          if (typeof x === 'string') return x.trim().length > 0;
+          if (x && typeof x === 'object') {
+            // missing_critical 객체 — item 필드 존재 시 유효
+            return (x.item != null && String(x.item).trim().length > 0)
+                || (x.text != null && String(x.text).trim().length > 0);
+          }
+          return false;
+        });
+    }
+    if (typeof v === 'string') {
+      const trimmed = v.trim();
+      if (!trimmed) return [];
+      // 줄바꿈/번호 분리 — "1. xx\n2. yy" 또는 "- xx\n- yy" 같이 들어와도 분해.
+      const lines = trimmed.split(/\n+/).map(s => s.replace(/^[\-•·*]\s*|^\d+[\.\)]\s*/, '').trim()).filter(Boolean);
+      return lines.length > 0 ? lines : [trimmed];
+    }
+    if (typeof v === 'object') {
+      // 단일 객체 {item, impact_pt} 형태
+      return [v];
+    }
+    return [];
+  }
+
+  // missing_critical 항목 정규화 — {item, impact_pt} 형태로 통일.
+  function normalizeMissingItem(x) {
+    if (typeof x === 'string') return { item: x, impact_pt: null };
+    if (x && typeof x === 'object') {
+      const item = x.item != null ? String(x.item) : (x.text != null ? String(x.text) : '');
+      let pt = null;
+      if (x.impact_pt != null) pt = x.impact_pt;
+      else if (x.impact != null) pt = x.impact;
+      else if (x.pt != null) pt = x.pt;
+      else if (x.score_impact != null) pt = x.score_impact;
+      // 숫자 추출 — "−2점", "-3pt", "2", 2.5 모두 수용
+      let ptNum = null;
+      if (pt != null) {
+        if (typeof pt === 'number' && isFinite(pt)) ptNum = pt;
+        else {
+          const m = String(pt).match(/-?\d+(\.\d+)?/);
+          if (m) ptNum = Math.abs(parseFloat(m[0]));
+        }
+      }
+      return { item, impact_pt: ptNum };
+    }
+    return { item: String(x), impact_pt: null };
+  }
+
+  // 단일 평가 본문(notes 객체)을 받아 rich-summary HTML 반환. 없으면 빈 문자열.
+  // legacy 모드: notes 가 신규 키 0개라면 안내 메시지.
+  function buildRichSummaryHtml(notes) {
+    const dict = (typeof I18N !== 'undefined' && I18N[currentLang]) ? I18N[currentLang] : {};
+    notes = notes || {};
+
+    // 신규 키 정규화
+    const oneliner = (typeof notes.next_study_oneliner === 'string')
+      ? notes.next_study_oneliner.trim()
+      : '';
+    const scoreSummary = (() => {
+      const s = notes.score_summary;
+      if (s == null) return '';
+      if (Array.isArray(s)) return s.filter(x => typeof x === 'string' && x.trim()).join('\n').trim();
+      if (typeof s === 'string') return s.trim();
+      return '';
+    })();
+    const strengths = normalizeItems(notes.strengths);
+    const weaknesses = normalizeItems(notes.weaknesses);
+    const missingRaw = normalizeItems(notes.missing_critical);
+    const missing = missingRaw.map(normalizeMissingItem).filter(x => x.item);
+    const actionable = normalizeItems(notes.next_study_actionable);
+
+    const hasAnyNew = !!(oneliner || scoreSummary
+      || strengths.length || weaknesses.length || missing.length || actionable.length);
+
+    // legacy 검사 — 신규 키 0개 + 구 키(strength/caution/missing) 중 하나라도 있으면 legacy
+    const hasLegacy = !!(notes.strength || notes.caution || notes.missing);
+
+    if (!hasAnyNew) {
+      if (hasLegacy) {
+        return `<div class="rich-legacy">${escapeHtml(dict.rich_legacy_note || 'Detailed feedback not stored — newer gradings will show full breakdown.')}</div>`;
+      }
+      return ''; // 완전 빈 케이스 — 호출자가 컨테이너 자체 숨김
+    }
+
+    let html = '';
+
+    // 1. 한줄평 (최상단, accent 강조)
+    if (oneliner) {
+      html += `<div class="oneliner-box">
+        <span class="oneliner-icon">💡</span>
+        <span class="oneliner-text">${escapeHtml(oneliner)}</span>
+      </div>`;
+    }
+
+    // 2. score_summary (3줄 핵심)
+    if (scoreSummary) {
+      html += `<div class="sw-section">
+        <div class="sw-title"><span class="sw-icon">📋</span>${escapeHtml(dict.rich_score_summary || 'Summary')}</div>
+        <div class="score-summary-box">${escapeHtml(scoreSummary)}</div>
+      </div>`;
+    }
+
+    // 3. 강점
+    if (strengths.length) {
+      const lis = strengths.map(s => `<li>${escapeHtml(typeof s === 'string' ? s : (s.item || s.text || String(s)))}</li>`).join('');
+      html += `<div class="sw-section">
+        <div class="sw-title t-strength"><span class="sw-icon">✓</span>${escapeHtml(dict.rich_strengths || 'Strengths')}</div>
+        <ul class="sw-list l-strength">${lis}</ul>
+      </div>`;
+    }
+
+    // 4. 약점
+    if (weaknesses.length) {
+      const lis = weaknesses.map(s => `<li>${escapeHtml(typeof s === 'string' ? s : (s.item || s.text || String(s)))}</li>`).join('');
+      html += `<div class="sw-section">
+        <div class="sw-title t-weakness"><span class="sw-icon">⚠</span>${escapeHtml(dict.rich_weaknesses || 'Weaknesses')}</div>
+        <ul class="sw-list l-weakness">${lis}</ul>
+      </div>`;
+    }
+
+    // 5. 누락 핵심 (각 항목 예상 점수 영향)
+    if (missing.length) {
+      const lis = missing.map(m => {
+        let ptBadge = '';
+        if (m.impact_pt != null && isFinite(m.impact_pt) && m.impact_pt > 0) {
+          const ptFmt = (dict.rich_impact_fmt || '−{n}pt').replace('{n}',
+            Number.isInteger(m.impact_pt) ? String(m.impact_pt) : m.impact_pt.toFixed(1));
+          ptBadge = `<span class="impact-pt">${escapeHtml(ptFmt)}</span>`;
+        }
+        return `<li>${escapeHtml(m.item)}${ptBadge}</li>`;
+      }).join('');
+      html += `<div class="sw-section">
+        <div class="sw-title t-missing"><span class="sw-icon">✕</span>${escapeHtml(dict.rich_missing_critical || 'Critical Misses')}</div>
+        <ul class="sw-list l-missing">${lis}</ul>
+      </div>`;
+    }
+
+    // 6. 다음 학습 actionable (번호 리스트)
+    if (actionable.length) {
+      const lis = actionable.map(s => `<li>${escapeHtml(typeof s === 'string' ? s : (s.item || s.text || String(s)))}</li>`).join('');
+      html += `<div class="sw-section">
+        <div class="sw-title t-actionable"><span class="sw-icon">📚</span>${escapeHtml(dict.rich_actionable || 'Next Study Actions')}</div>
+        <ul class="sw-list l-actionable">${lis}</ul>
+      </div>`;
+    }
+
+    return html;
+  }
+
+  // 평가 탭 메인 영역 — #ev-rich-summary 갱신
+  function renderRichSummary(notes) {
+    const root = document.getElementById('ev-rich-summary');
+    if (!root) return;
+    const html = buildRichSummaryHtml(notes);
+    if (!html) {
+      root.style.display = 'none';
+      root.innerHTML = '';
+    } else {
+      root.style.display = '';
+      root.innerHTML = html;
+    }
+  }
+
+  // ════════════════════════════════════════════════
   // Step 8 — Settings API wire (GET /PUT /api/settings)
   // ════════════════════════════════════════════════
   // 디폴트 (서버 default 와 동기화 — 마이그 v1 INSERT 와 1:1)
@@ -5001,6 +5379,46 @@
     const hours = Math.floor(totalMin / 60);
     const remMin = totalMin - hours * 60;
     return remMin > 0 ? `${hours}h ${remMin}m` : `${hours}h`;
+  }
+
+  // Step 24-f — 풀이 시간 한글 포맷 (사용자 명시: "12분 34초" 형식)
+  // - null/undefined/음수 → "—" (graceful: legacy attempts 미트래킹)
+  // - < 60s → "N초"
+  // - < 3600s → "M분" 또는 "M분 S초"
+  // - >= 3600s → "H시간 M분"
+  // - EN locale 도 동일 (시간 단위는 만국 공통이므로 그대로 사용 가능)
+  function fmtSolveSec(sec) {
+    if (sec === null || sec === undefined) return '—';
+    const s = Number(sec);
+    if (!isFinite(s) || s < 0) return '—';
+    if (s < 60) return Math.round(s) + '초';
+    if (s < 3600) {
+      const m = Math.floor(s / 60);
+      const r = Math.round(s - m * 60);
+      return r === 0 ? `${m}분` : `${m}분 ${r}초`;
+    }
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return m === 0 ? `${h}시간` : `${h}시간 ${m}분`;
+  }
+  // 영문 locale 용 (EN 모드 일관성): "12s" / "12m 34s" / "1h 23m"
+  function fmtSolveSecEn(sec) {
+    if (sec === null || sec === undefined) return '—';
+    const s = Number(sec);
+    if (!isFinite(s) || s < 0) return '—';
+    if (s < 60) return Math.round(s) + 's';
+    if (s < 3600) {
+      const m = Math.floor(s / 60);
+      const r = Math.round(s - m * 60);
+      return r === 0 ? `${m}m` : `${m}m ${r}s`;
+    }
+    const h = Math.floor(s / 3600);
+    const m = Math.floor((s % 3600) / 60);
+    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+  }
+  // locale-aware wrapper
+  function fmtSolveSecLocale(sec) {
+    return currentLang === 'en' ? fmtSolveSecEn(sec) : fmtSolveSec(sec);
   }
 
   // 활성 풀이 카운터 타이머 (Review 탭 시작 버튼)
@@ -5531,12 +5949,17 @@
   function renderEvaluationDone(att) {
     // 헤더 (Step 19-1: fmtSeoul KST 변환)
     const submitted = fmtSeoul(att.submitted_at, { style: 'full' });
-    // Step 23 — 풀이 시간 표시 (있을 때만)
-    const solveSec = Number(att.solve_elapsed_sec);
-    const elapsedPart = isFinite(solveSec) && solveSec > 0
-      ? ` · ⏱ ${fmtElapsed(solveSec)}`
-      : '';
-    const subjLine = `${I18N[currentLang].eval_submitted_at} ${submitted}${elapsedPart} · model: ${att.model || '—'}`;
+    // Step 24-f — 풀이 시간 표시 (total_solve_sec 우선 + 한글 포맷 + legacy graceful)
+    const solveRaw = (att.total_solve_sec != null) ? att.total_solve_sec
+                   : (att.solve_elapsed_sec != null) ? att.solve_elapsed_sec
+                   : null;
+    const dict = I18N[currentLang] || {};
+    const solvePrefix = dict.solve_prefix || '풀이';
+    const notTracked = dict.solve_not_tracked || '측정 안 됨';
+    const elapsedPart = (solveRaw == null)
+      ? ` · ${solvePrefix}: ${notTracked}`
+      : ` · ${solvePrefix}: ${fmtSolveSecLocale(solveRaw)}`;
+    const subjLine = `${dict.eval_submitted_at || '제출'} ${submitted}${elapsedPart} · model: ${att.model || '—'}`;
     setEvHeader(att.case_short_id || att.case_id || '—', subjLine, 'status_evaluated');
 
     // Step 17 — 재채점 버튼에 attempt_id 바인딩 (실제 click은 wireRegradeButtons 에서)
@@ -5571,6 +5994,9 @@
     setText('ev-note-strength', notes.strength || '—');
     setText('ev-note-caution',  notes.caution  || '—');
     setText('ev-note-missing',  notes.missing  || '—');
+
+    // Phase 3 — v6 채점 풍부 표시 (한줄평/강점/약점/누락/actionable)
+    renderRichSummary(notes);
 
     // Step 14 — Reference Diff 2열 분할 우선 시도. 데이터 없으면 fallback diff_html.
     const splitOk = renderDiffColumns(att, CURRENT_CASE_DATA);
@@ -6156,9 +6582,11 @@
       const titleCell = escapeHtml(r.case_title || '—');
       const mockBadge = r.is_mock ? ' <span class="pill" style="font-size:9px;">mock</span>' : '';
       const staleBadge = r.is_stale ? ' <span class="pill stale" style="font-size:9px;">stale</span>' : '';
-      // Step 23 — 풀이 시간 컬럼
-      const solveSec = Number(r.solve_elapsed_sec);
-      const elapsedCell = isFinite(solveSec) && solveSec > 0 ? fmtElapsed(solveSec) : '—';
+      // Step 24-f — 풀이 시간 컬럼 (total_solve_sec 우선 + 한글 포맷)
+      const solveRawR = (r.total_solve_sec != null) ? r.total_solve_sec
+                      : (r.solve_elapsed_sec != null) ? r.solve_elapsed_sec
+                      : null;
+      const elapsedCell = (solveRawR == null) ? '—' : fmtSolveSecLocale(solveRawR);
       // Step 15-6 — 행에 case_id/attempt_id 부여 (모달 클릭 진입점)
       return `<tr data-case-id="${escapeHtml(r.case_id || '')}" data-attempt-id="${escapeHtml(r.attempt_id || '')}">
         <td>${escapeHtml(fmtDate(r.submitted_at))}</td>
@@ -6551,9 +6979,11 @@
         ? `<span class="score" style="color: ${pctColor(h.score_pct)};">${escapeHtml(fmtScoreFraction(h.score_total, h.score_max))}</span>`
         : `<span class="score" style="color: var(--danger);">${escapeHtml(h.error_code || 'error')}</span>`;
       const miss = h.main_miss || '—';
-      // Step 23 — 풀이 시간 컬럼
-      const solveSec = Number(h.solve_elapsed_sec);
-      const elapsedCell = isFinite(solveSec) && solveSec > 0 ? fmtElapsed(solveSec) : '—';
+      // Step 24-f — 풀이 시간 컬럼 (total_solve_sec 우선 + 한글 포맷)
+      const solveRawH = (h.total_solve_sec != null) ? h.total_solve_sec
+                      : (h.solve_elapsed_sec != null) ? h.solve_elapsed_sec
+                      : null;
+      const elapsedCell = (solveRawH == null) ? '—' : fmtSolveSecLocale(solveRawH);
       // Step 15-6 — 행 클릭 시 해당 attempt 의 답안+평가 모달
       const caseId = REPORTS_STATE.currentCaseId || '';
       return `<tr data-attempt-id="${escapeHtml(h.attempt_id || '')}" data-case-id="${escapeHtml(caseId)}">
@@ -6654,10 +7084,13 @@
       const aid = a.id || a.attempt_id;
       const ts = fmtTimestampBadge(a.submitted_at);
       const active = (MODAL_STATE.currentAttemptId === aid) ? ' active' : '';
-      // Step 23 — 시도 배지 옆에 풀이 시간 (있을 때만)
-      const solveSec = Number(a.solve_elapsed_sec);
-      const elapsedSuffix = isFinite(solveSec) && solveSec > 0
-        ? ` <span style="color: var(--text-dim); font-size: 10px;">⏱ ${escapeHtml(fmtElapsed(solveSec))}</span>`
+      // Step 24-f — 시도 배지 옆에 풀이 시간 (total_solve_sec 우선, 좁은 공간이므로 영문 짧은 포맷 유지)
+      const solveRawA = (a.total_solve_sec != null) ? a.total_solve_sec
+                      : (a.solve_elapsed_sec != null) ? a.solve_elapsed_sec
+                      : null;
+      const solveSecA = (solveRawA != null) ? Number(solveRawA) : NaN;
+      const elapsedSuffix = isFinite(solveSecA) && solveSecA > 0
+        ? ` <span style="color: var(--text-dim); font-size: 10px;">⏱ ${escapeHtml(fmtElapsed(solveSecA))}</span>`
         : '';
       return `<span class="ts-badge${active}" data-attempt-id="${escapeHtml(aid)}" title="${escapeHtml(a.submitted_at || '')}">📅 ${escapeHtml(ts)}${elapsedSuffix}</span>`;
     }).join('');
@@ -6749,8 +7182,13 @@
         }
       }
 
-      // 평 카드 3개
+      // Phase 3 — v6 채점 풍부 표시 (한줄평/강점/약점/누락/actionable)
       const notes = att.eval_notes || {};
+      const richHtml = buildRichSummaryHtml(notes);
+      if (richHtml) {
+        html += `<div class="rich-summary">${richHtml}</div>`;
+      }
+      // 평 카드 3개 (구 스키마 — 호환성)
       html += `<div class="modal-note"><span class="note-tag">${escapeHtml(dict.fb_strength || 'Strength')}</span>${escapeHtml(notes.strength || '—')}</div>`;
       html += `<div class="modal-note warn"><span class="note-tag">${escapeHtml(dict.fb_caution || 'Caution')}</span>${escapeHtml(notes.caution || '—')}</div>`;
       html += `<div class="modal-note danger"><span class="note-tag">${escapeHtml(dict.fb_missing || 'Missing')}</span>${escapeHtml(notes.missing || '—')}</div>`;
@@ -6786,9 +7224,16 @@
     if (subEl) {
       const ts = att.submitted_at ? fmtDate(att.submitted_at) : '—';
       const title = att.case_title ? ' · ' + att.case_title : '';
-      // Step 23 — sub 헤더에 풀이 시간 표시 (있을 때만)
-      const solveSec = Number(att.solve_elapsed_sec);
-      const elapsedPart = isFinite(solveSec) && solveSec > 0 ? ` · ⏱ ${fmtElapsed(solveSec)}` : '';
+      // Step 24-f — sub 헤더에 풀이 시간 표시 (total_solve_sec 우선 + 한글 + legacy graceful)
+      const solveRaw = (att.total_solve_sec != null) ? att.total_solve_sec
+                     : (att.solve_elapsed_sec != null) ? att.solve_elapsed_sec
+                     : null;
+      const dict = I18N[currentLang] || {};
+      const solvePrefix = dict.solve_prefix || '풀이';
+      const notTracked = dict.solve_not_tracked || '측정 안 됨';
+      const elapsedPart = (solveRaw == null)
+        ? ` · ${solvePrefix}: ${notTracked}`
+        : ` · ${solvePrefix}: ${fmtSolveSecLocale(solveRaw)}`;
       subEl.textContent = `${ts}${elapsedPart}${title}`;
     }
 
@@ -6988,6 +7433,7 @@
           last_pct: null,
           last_grade: null,
           last_submitted_at: null,
+          last_solve_sec: null,
         };
         map.set(cid, g);
       }
@@ -7003,6 +7449,18 @@
         g.last_submitted_at = a.submitted_at || g.last_submitted_at;
         g.last_pct = isFinite(pct) ? pct : g.last_pct;
         g.last_grade = a.grade || g.last_grade;
+        // Step 24-f — 풀이 시간 추적: total_solve_sec(v6 마이그) 우선, fallback solve_elapsed_sec
+        // (legacy attempts 의 경우 둘 다 null → last_solve_sec=null → "—" 표시)
+        const solveRaw = (a.total_solve_sec != null) ? a.total_solve_sec
+                       : (a.solve_elapsed_sec != null) ? a.solve_elapsed_sec
+                       : null;
+        if (solveRaw != null) {
+          const solveNum = Number(solveRaw);
+          g.last_solve_sec = isFinite(solveNum) && solveNum >= 0 ? solveNum : null;
+        } else {
+          // 최신 attempt 의 풀이 시간이 null 이면 명시적으로 null (이전 값 덮어쓰기)
+          g.last_solve_sec = null;
+        }
         // subq_count, subject_label 도 가장 최신 값으로
         if (a.subq_count != null) g.subq_count = Number(a.subq_count) || 0;
         if (a.subject_kor || a.subject) g.subject_label = a.subject_kor || a.subject;
@@ -7038,9 +7496,11 @@
           <th style="text-align:right;" data-i18n="ev_overview_col_best">${escapeHtml(dict.ev_overview_col_best || 'Best')}</th>
           <th style="text-align:right;" data-i18n="ev_overview_col_last">${escapeHtml(dict.ev_overview_col_last || 'Last')}</th>
           <th data-i18n="ev_overview_col_last_date">${escapeHtml(dict.ev_overview_col_last_date || 'Last Submitted')}</th>
+          <th data-i18n="ev_overview_col_solve">${escapeHtml(dict.ev_overview_col_solve || 'Solve Time')}</th>
         </tr>
       </thead>`;
     const multiTmpl = dict.ev_overview_multi_fmt || 'Multi {n}';
+    const notTracked = dict.solve_not_tracked || 'Not Tracked';
     const bodyHtml = rows.map(r => {
       const cid = escapeHtml(r.case_id || '');
       const sid = escapeHtml(r.case_short_id || r.case_id || '—');
@@ -7057,6 +7517,10 @@
         ? `<span class="grade-pill" style="color:${gradeColor(r.last_grade)}; border-color:${gradeColor(r.last_grade)};">${escapeHtml(r.last_grade)}</span>`
         : '';
       const lastDate = r.last_submitted_at ? escapeHtml(fmtSeoul(r.last_submitted_at, { style: 'full' })) : '—';
+      // Step 24-f — 최근 제출 옆 풀이 시간 셀 (legacy attempts: "측정 안 됨")
+      const solveLabel = (r.last_solve_sec != null)
+        ? escapeHtml(fmtSolveSecLocale(r.last_solve_sec))
+        : `<span style="color: var(--text-dim); font-size: 11px;">${escapeHtml(notTracked)}</span>`;
       return `<tr data-case-id="${cid}">
         <td class="id">${sid}${multi}</td>
         <td class="subject">${subj}</td>
@@ -7064,6 +7528,7 @@
         <td class="score" style="color:${bestColor};">${escapeHtml(bestPct)}</td>
         <td class="score" style="color:${lastColor};">${escapeHtml(lastPct)}${lastGrade}</td>
         <td class="last-date">${lastDate}</td>
+        <td class="solve-time">${solveLabel}</td>
       </tr>`;
     }).join('');
     bodyEl.innerHTML = `<table class="eval-overview-table">${head}<tbody>${bodyHtml}</tbody></table>`;
