@@ -1726,6 +1726,61 @@
     font-size: 12px;
     padding: 9px 12px;
   }
+  /* e571-typo-system — typo_corrections 박스 (음성 STT 오타 교정 내역) */
+  .typo-corr-box {
+    background: rgba(110, 168, 254, 0.08);
+    border: 1px solid var(--info, #6ea8fe);
+    border-left-width: 4px;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 12.5px;
+    line-height: 1.55;
+    color: var(--text-bright);
+  }
+  .typo-corr-box .typo-corr-title {
+    font-size: 11px;
+    color: var(--info, #6ea8fe);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    margin-bottom: 8px;
+  }
+  .typo-corr-box .typo-corr-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .typo-corr-box .typo-corr-list li {
+    padding: 2px 0;
+    word-break: break-word;
+    color: var(--text);
+  }
+  .typo-corr-box .typo-corr-from {
+    color: var(--text-dim, #999);
+    text-decoration: line-through;
+    text-decoration-color: rgba(209, 105, 105, 0.6);
+  }
+  .typo-corr-box .typo-corr-arrow {
+    color: var(--text-dim, #999);
+    font-weight: 600;
+  }
+  .typo-corr-box .typo-corr-to {
+    color: var(--text-bright);
+    font-weight: 600;
+  }
+  .typo-corr-box .typo-corr-reason {
+    color: var(--text-dim, #999);
+    font-size: 11px;
+    font-style: italic;
+  }
+  .modal-grid .modal-eval .typo-corr-box {
+    font-size: 12px;
+    padding: 9px 12px;
+  }
   /* Reports 행 클릭 가능 표시 */
   .case-history-table tbody tr.clickable { cursor: pointer; }
   .case-history-table tbody tr.clickable:hover { background: var(--panel-2); }
@@ -2958,6 +3013,8 @@
       modal_ref_hint: 'Highlighted origin (match / partial / miss) — clean view available in the tab above.',
       // e571-ui-eval-rework — pattern_warning header (legacy graceful)
       rich_pattern_warning: 'Recurring Pattern Warning',
+      // e571-typo-system — typo_corrections title (음성 STT 오타 교정)
+      rich_typo_corrections_title: '🔤 {n} voice typos auto-corrected',
       // ⓘ 툴팁 의미 (기준별 평균)
       crit_case_apply_tip: 'How well student applies conclusion+reasoning to facts (case_apply, exact match X)',
       crit_mnem_tip: 'Lv.4 두문자 매칭 비율 (mnem)',
@@ -3205,6 +3262,8 @@
       modal_ref_hint: '강조 형광펜(일치/부분/누락) 적용한 원본. 깨끗한 원문은 위쪽 탭에서 볼 수 있습니다.',
       // e571-ui-eval-rework — pattern_warning 헤더 (legacy graceful)
       rich_pattern_warning: '반복 약점 패턴 경고',
+      // e571-typo-system — typo_corrections 헤더 (음성 STT 오타 교정)
+      rich_typo_corrections_title: '🔤 오타 {n}건 자동 교정',
       // ⓘ 툴팁 의미 (기준별 평균)
       crit_case_apply_tip: '사안의 경우 — 수험생이 결론+근거로 사안에 논거 펼친 정도 (case_apply, 정확 매칭 X)',
       crit_mnem_tip: 'Lv.4 두문자 [blank2] 매칭 비율 (mnem)',
@@ -5233,9 +5292,16 @@
       }
       return false;
     })();
+    // e571-typo-system — typo_corrections 도 신규 키로 인정
+    const typoCorrectionsList = (() => {
+      const tc = notes.typo_corrections;
+      if (tc == null || !Array.isArray(tc)) return [];
+      return tc.filter(c => c && typeof c === 'object' && c.from);
+    })();
+    const hasTypoCorrections = typoCorrectionsList.length > 0;
     const hasAnyNew = !!(oneliner || scoreSummary
       || strengths.length || weaknesses.length || missing.length || actionable.length
-      || hasPatternWarning);
+      || hasPatternWarning || hasTypoCorrections);
 
     // legacy 검사 — 신규 키 0개 + 구 키(strength/caution/missing) 중 하나라도 있으면 legacy
     const hasLegacy = !!(notes.strength || notes.caution || notes.missing);
@@ -5278,6 +5344,29 @@
           <div class="pattern-warn-title">${escapeHtml(dict.rich_pattern_warning || 'Recurring Pattern Warning')}</div>
           <div class="pattern-warn-text">${escapeHtml(patternWarning)}</div>
         </div>
+      </div>`;
+    }
+
+    // 1.7 e571-typo-system — typo_corrections 섹션 (음성 STT 오타 교정 내역)
+    // 위치: pattern_warning 다음, score_summary 위. legacy attempts 시 hidden.
+    if (hasTypoCorrections) {
+      const count = typoCorrectionsList.length;
+      const titleTmpl = dict.rich_typo_corrections_title || '🔤 오타 {n}건 자동 교정';
+      const title = titleTmpl.replace('{n}', String(count));
+      const lis = typoCorrectionsList.map(c => {
+        const fromStr = escapeHtml(String(c.from || ''));
+        const toStr = escapeHtml(String(c.to || ''));
+        const reasonStr = String(c.reason || '').trim();
+        const reasonHtml = reasonStr
+          ? ` <span class="typo-corr-reason">(${escapeHtml(reasonStr)})</span>`
+          : '';
+        return `<li><span class="typo-corr-from">${fromStr}</span>` +
+               `<span class="typo-corr-arrow"> → </span>` +
+               `<span class="typo-corr-to">${toStr}</span>${reasonHtml}</li>`;
+      }).join('');
+      html += `<div class="typo-corr-box">
+        <div class="typo-corr-title">${escapeHtml(title)}</div>
+        <ul class="typo-corr-list">${lis}</ul>
       </div>`;
     }
 
@@ -7891,7 +7980,9 @@
         || (Array.isArray(notes.weaknesses) && notes.weaknesses.length)
         || (Array.isArray(notes.missing_critical) && notes.missing_critical.length)
         || (Array.isArray(notes.next_study_actionable) && notes.next_study_actionable.length)
-        || notes.pattern_warning);
+        || notes.pattern_warning
+        // e571-typo-system — typo_corrections 도 신규 키 (legacy 폴백 회피)
+        || (Array.isArray(notes.typo_corrections) && notes.typo_corrections.length));
       const hasLegacyContent = !!(notes.strength || notes.caution || notes.missing);
       if (!hasNewContent && hasLegacyContent) {
         if (notes.strength) {

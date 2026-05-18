@@ -203,6 +203,18 @@ SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한�
   어떻게 적용했는지가 핵심. 사안에 적힌 일자/사실 + 결론 도출 과정 논리 + 수험생의 인용 흐름 평가.
 - comment 는 한국어 1~2 문장, 간결, 자료 인용 가능.
 
+[음성 인식 오타 관용 — lawear-e571/typo-system 2026-05-19]
+- 사용자 답안은 음성 녹음(STT) 입력이라 오타 가능성 있음.
+- 법무사 시험 컨텍스트 + 법률 용어 사전 기반으로 명백한 오타는 의도된 정답으로 해석.
+- 예: 파산관제인=파산관재인, 통정표시=통정허위표시, 선한간리주의=선량한 관리자의 주의,
+  아기(법률 문맥)=악의, 채취=채권자취소, 체대=채권자대위, 법류행위=법률행위, 표면대리=표현대리 등.
+- 단, **조문 번호(제103/104/108/126/397 등)와 핵심 두문자**는 오타 인정 X — 그건 진짜 모르는 것.
+  조문번호가 틀렸으면 articles 채점에 그대로 반영 (사용자가 모르는 것).
+- 음성 오타로 인정한 항목은 eval_notes.typo_corrections 에 명시:
+  list[{"from": "파산관제인", "to": "파산관재인", "reason": "음성 STT 오타"}], 없으면 null.
+- 오타 인정 후 채점 — 즉 "파산관제인"이라 적었어도 "파산관재인"으로 인정해 평가하되,
+  typo_corrections 에 from/to 를 기록.
+
 [엄격화 — articles 채점 임계 (Phase 2 핵심)]
 원본 답안에 명시된 조문(예 "제397조 제2항", "제387조") 매칭 임계 (절대 준수):
   - 조문 매칭 0개 (사용자 답안에 조문 번호 0건 인용)  → score 는 max 의 **20% 이하** (예 max=10 → score ≤ 2)
@@ -245,7 +257,10 @@ SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한�
     ],
     "next_study_oneliner":  "💡 다음 +N~M점 가능: 조문 K개 + ... (간결한 학습 가이드)",
     "next_study_actionable":["실행 가능 학습 액션 1", "...", ...],
-    "pattern_warning":      "🔥 같은 실수 N회 반복 가능성: ... (또는 🔥 주의: ...) — 없으면 null"
+    "pattern_warning":      "🔥 같은 실수 N회 반복 가능성: ... (또는 🔥 주의: ...) — 없으면 null",
+    "typo_corrections":     [
+      {"from":"파산관제인","to":"파산관재인","reason":"음성 STT 오타"}
+    ]
   },
   "diff_segments": [
     {"type":"match",   "text":"사용자 답안의 일치 부분"},
@@ -256,9 +271,9 @@ SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한�
 
 [필수 출력 키 (Phase 2 의무)]
 - criteria 9개 모두 (mnem~case_apply)
-- eval_notes 의 legacy 3키 (strength/caution/missing) + 확장 7키
+- eval_notes 의 legacy 3키 (strength/caution/missing) + 확장 8키
   (score_summary/strengths/weaknesses/missing_critical/next_study_oneliner/
-   next_study_actionable/pattern_warning)
+   next_study_actionable/pattern_warning/typo_corrections)
 - next_study_oneliner 는 **반드시 출력** (사용자 학습 동기 핵심) — "💡 다음 +N점 가능: ..." 형식
 - missing_critical 은 답안에서 식별된 누락 항목 0~5개 (없으면 빈 배열)
 - pattern_warning 은 **선택** (null 허용, lawear-e571 추가 2026-05-19):
@@ -268,6 +283,10 @@ SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한�
   - **단일 attempt 한정** — 이전 시도와 외부 비교는 메인 세션이 메타 분석 후
     PUT /grade body 에 직접 주입 (AI 채점관은 단일 attempt 만 보므로 자체 외부 비교 X).
   - 발견 사항 없으면 null 또는 키 생략.
+- typo_corrections 은 **선택** (null 또는 빈 배열 허용, lawear-e571/typo-system 추가 2026-05-19):
+  - 사용 시점: 음성 STT 오타로 보이는 표기를 정답으로 인정한 경우 from/to 기록.
+  - 형식: list[{"from": str, "to": str, "reason": str}]
+  - 정적 사전 매칭 결과는 메인 세션이 별도로 누적 — AI 채점관은 *추가 발견* 항목만 기록 가능.
 
 반드시 위 JSON 형식만 출력하세요. 다른 텍스트 (설명, 사과, 코드펜스) 절대 추가 X.
 자료에 없는 내용 추가 X — R-09 자의적 해석 금지.
@@ -530,6 +549,8 @@ def _mock_response(
             "next_study_actionable": ["[mock] ANTHROPIC_API_KEY 설정", "[mock] 실 채점 재요청"],
             # pattern_warning — mock 은 단일 attempt 만 보므로 자체 패턴 분석 X
             "pattern_warning": None,
+            # typo_corrections — mock 은 정적 사전 매칭 X (실 채점 시 typo_corrector 가 채움)
+            "typo_corrections": None,
         },
         "diff_segments": diff_segments,
     }
@@ -740,8 +761,20 @@ def grade(
     else:
         model_label = selected_model
 
-    # 프롬프트 빌드
-    system_prompt, user_message = _build_prompt(case_meta, user_answer, weights)
+    # lawear-e571/typo-system (2026-05-19) — 정적 사전 1차 패스
+    # 음성 STT 오타 교정 (조문 번호 인접은 보호). 교정본을 grader 에게 전달.
+    typo_corrections_static: list[dict[str, Any]] = []
+    user_answer_for_grader = user_answer or ""
+    try:
+        import typo_corrector as _tc
+        corrected, typo_corrections_static = _tc.correct(user_answer_for_grader)
+        if typo_corrections_static:
+            user_answer_for_grader = corrected
+    except Exception as e:  # noqa: BLE001 — 사전 미존재/파싱 실패 graceful
+        print(f"[Grader] typo_corrector skipped: {type(e).__name__}: {e}", file=sys.stderr)
+
+    # 프롬프트 빌드 (교정본 사용 — AI 가 오타에 끌리지 않도록)
+    system_prompt, user_message = _build_prompt(case_meta, user_answer_for_grader, weights)
 
     raw_response: str | None = None
     usage: dict[str, Any] = {}
@@ -780,6 +813,26 @@ def grade(
         )
 
     elapsed = time.monotonic() - started
+
+    # lawear-e571/typo-system — eval_notes.typo_corrections 누적
+    # AI 가 발견한 추가 항목 + 정적 사전 매칭 결과를 합산 (중복 from 키 제거).
+    eval_notes_out = dict(parsed["eval_notes"])
+    ai_corrections_raw = eval_notes_out.get("typo_corrections")
+    ai_corrections: list[dict[str, Any]] = []
+    if isinstance(ai_corrections_raw, list):
+        for item in ai_corrections_raw:
+            if isinstance(item, dict) and item.get("from"):
+                ai_corrections.append(item)
+    # 정적 사전 결과를 우선 (이미 매칭), AI 추가는 from 기준 중복 제거
+    seen_from: set[str] = {c.get("from") for c in typo_corrections_static if c.get("from")}
+    merged: list[dict[str, Any]] = list(typo_corrections_static)
+    for ai_c in ai_corrections:
+        f = ai_c.get("from")
+        if f and f not in seen_from:
+            merged.append(ai_c)
+            seen_from.add(f)
+    eval_notes_out["typo_corrections"] = merged if merged else None
+
     result = {
         "model": model_label,
         "score_total": round(total, 2),
@@ -788,7 +841,7 @@ def grade(
         "grade": grade_letter,
         "weights_applied": dict(weights),
         "criteria": criteria_with_weight,
-        "eval_notes": parsed["eval_notes"],
+        "eval_notes": eval_notes_out,
         "diff_segments": parsed.get("diff_segments", []),
         "raw_response": raw_response,
         "usage": usage,
@@ -993,6 +1046,17 @@ def grade_attempt_subq(
     total_weighted_sum: float = 0.0
     total_score_max_sum: float = 0.0
 
+    # lawear-e571/typo-system (2026-05-19) — 다중 설문 typo_corrections 누적
+    # 모든 카드의 정적 사전 매칭 + AI 발견 항목을 카드별 dict 로 합산.
+    typo_corrections_per_card: dict[str, list[dict[str, Any]]] = {}
+    try:
+        import typo_corrector as _tc  # 카드 외부 1회 import
+        _typo_dict = _tc.load_typo_dict()
+    except Exception as e:  # noqa: BLE001
+        _tc = None
+        _typo_dict = None
+        print(f"[Grader] typo_corrector skipped (subq): {type(e).__name__}: {e}", file=sys.stderr)
+
     # 카드 순회 — answer_subq 의 키 순서 유지 (Python 3.7+ dict 보존)
     for subq_key, user_answer in answer_subq.items():
         # 빈 카드는 skip (부분 매칭 — score_max 합산에서 제외)
@@ -1008,8 +1072,19 @@ def grade_attempt_subq(
         if not isinstance(steps, list):
             steps = []
 
-        # 프롬프트 생성
-        system_prompt, user_message = _build_prompt_subq(case, subq_meta, user_answer, steps)
+        # 음성 STT 정적 사전 1차 패스 (카드별)
+        user_answer_for_grader = user_answer
+        if _tc is not None and _typo_dict is not None:
+            try:
+                corrected, card_corrections = _tc.apply_static_replacements(user_answer, _typo_dict)
+                if card_corrections:
+                    typo_corrections_per_card[subq_key] = card_corrections
+                    user_answer_for_grader = corrected
+            except Exception as e:  # noqa: BLE001
+                print(f"[Grader] typo_corrector card={subq_key} skipped: {type(e).__name__}: {e}", file=sys.stderr)
+
+        # 프롬프트 생성 (교정본 사용)
+        system_prompt, user_message = _build_prompt_subq(case, subq_meta, user_answer_for_grader, steps)
 
         # 채점 호출 (mock 또는 실 API)
         raw_resp: str | None = None
@@ -1047,7 +1122,24 @@ def grade_attempt_subq(
         ordered = [by_key[k] for k in CRITERION_KEYS if k in by_key]
 
         criteria_subq[subq_key] = ordered
-        eval_notes_subq[subq_key] = parsed.get("eval_notes") or {}
+        card_eval_notes = dict(parsed.get("eval_notes") or {})
+        # 카드별 정적 사전 typo_corrections + AI 발견 항목 합산
+        static_corr = typo_corrections_per_card.get(subq_key, [])
+        ai_corr_raw = card_eval_notes.get("typo_corrections")
+        ai_corr: list[dict[str, Any]] = []
+        if isinstance(ai_corr_raw, list):
+            for it in ai_corr_raw:
+                if isinstance(it, dict) and it.get("from"):
+                    ai_corr.append(it)
+        seen: set[str] = {c.get("from") for c in static_corr if c.get("from")}
+        merged_card: list[dict[str, Any]] = list(static_corr)
+        for ai_c in ai_corr:
+            f = ai_c.get("from")
+            if f and f not in seen:
+                merged_card.append(ai_c)
+                seen.add(f)
+        card_eval_notes["typo_corrections"] = merged_card if merged_card else None
+        eval_notes_subq[subq_key] = card_eval_notes
         diff_subq[subq_key] = parsed.get("diff_segments", []) or []
         solved_cards.append(subq_key)
 
@@ -1067,6 +1159,16 @@ def grade_attempt_subq(
 
     elapsed = time.monotonic() - started
 
+    # 전체 typo_corrections flat 요약 (eval_notes 로 노출 — _normalize_subq_grades 호환)
+    flat_typo: list[dict[str, Any]] = []
+    seen_flat: set[str] = set()
+    for sk in solved_cards:
+        for c in (eval_notes_subq.get(sk, {}).get("typo_corrections") or []):
+            f = c.get("from") if isinstance(c, dict) else None
+            if f and f not in seen_flat:
+                flat_typo.append(c)
+                seen_flat.add(f)
+
     result = {
         "model": model_label,
         "score_total": round(total_weighted_sum, 2),
@@ -1080,6 +1182,7 @@ def grade_attempt_subq(
         "solved_cards": solved_cards,
         "skipped_cards": skipped_cards,
         "subq_count": len(solved_cards),
+        "typo_corrections_flat": flat_typo if flat_typo else None,
         "is_mock": is_mock,
         "elapsed_sec": round(elapsed, 3),
     }
