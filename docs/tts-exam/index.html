@@ -3532,43 +3532,50 @@
   // 미지원 브라우저(Firefox/일부 Safari): 마이크 버튼 비활성 + 안내 툴팁.
   // Settings.voice.lang 사용 (fetchSettings 응답 캐시 SETTINGS_CACHE).
   // Settings.voice.silence_sec 활용 (무음 N초 → stop()).
-  (function wireSpeechToText() {
+  //
+  // e571 — 답안 입력란 녹음 버튼 부활:
+  //   · 단일 모드도 카드 모드(가상 카드 1개)로 진입 → #rv-notes-section.hidden 처리되어 검토 의견 mic 안 보임
+  //   · Step 24-6 시안 v5 의 카드 textarea (data-card-textarea) 에는 mic 자체가 누락됨
+  //   → 카드 textarea 옆 data-card-mic 버튼 추가 + wireSpeechToText 가 동적 mic 도 지원
+  //   → window.LAWEAR_STT.wireMic(btn) 으로 외부(wireSubqCardEvents)에서 카드 mic 결선
+  window.LAWEAR_STT = (function wireSpeechToText() {
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
     const supported = !!SR;
-
-    // 미지원 → 모든 mic 버튼 비활성 + 툴팁 + i18n
-    if (!supported) {
-      document.querySelectorAll('.btn.mic').forEach(m => {
-        m.disabled = true;
-        m.style.opacity = '0.5';
-        m.style.cursor = 'not-allowed';
-        m.title = (I18N[currentLang] && I18N[currentLang].voice_unsupported)
-          || 'Voice input not supported in this browser';
-      });
-      return;
-    }
 
     // 인식 상태 (mic 1개씩만 활성, 동시 다중 인식 금지)
     let activeRec = null;
     let activeBtn = null;
+    let activeTextarea = null;
+    let activeInterimEl = null;
     let silenceTimer = null;
-    let interimEl = null;
+    // mic 버튼별 interim 미리보기 element 캐시 (textarea 마다 1개)
+    const interimByTextarea = new WeakMap();
+
+    function disableUnsupported(btn) {
+      if (!btn) return;
+      btn.disabled = true;
+      btn.style.opacity = '0.5';
+      btn.style.cursor = 'not-allowed';
+      btn.title = (I18N[currentLang] && I18N[currentLang].voice_unsupported)
+        || 'Voice input not supported in this browser';
+    }
 
     function ensureInterimEl(textarea) {
-      // textarea 아래에 interim 미리보기 (시안 마크업 변경 X — 동적 div)
-      if (interimEl && interimEl.isConnected) return interimEl;
+      // textarea 다음 형제로 interim 미리보기 (시안 마크업 변경 X — 동적 div, textarea 별 캐시)
+      if (!textarea) return null;
+      const existing = interimByTextarea.get(textarea);
+      if (existing && existing.isConnected) return existing;
       const div = document.createElement('div');
-      div.id = 'lawear-stt-interim';
+      div.className = 'lawear-stt-interim';
       div.style.cssText = `
         margin-top: 4px; padding: 6px 10px; font-size: 12px;
         color: var(--text-dim); border-left: 2px solid var(--accent, #2a7);
         background: rgba(78,201,176,0.06); border-radius: 0 4px 4px 0;
         display: none; min-height: 1.2em; white-space: pre-wrap;
       `;
-      // textarea 형제로 삽입 (.answer-area 안)
       const parent = textarea.parentElement;
       if (parent) parent.insertBefore(div, textarea.nextSibling);
-      interimEl = div;
+      interimByTextarea.set(textarea, div);
       return div;
     }
 
@@ -3615,15 +3622,28 @@
 
     function stopAll() {
       if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
-      if (interimEl) { interimEl.style.display = 'none'; interimEl.textContent = ''; }
+      if (activeInterimEl) { activeInterimEl.style.display = 'none'; activeInterimEl.textContent = ''; }
       if (activeRec) {
         try { activeRec.stop(); } catch (e) { /* ignore */ }
       }
     }
 
+    function resolveTargetTextarea(btn) {
+      // 우선순위:
+      //   1) btn[data-card-mic="{cardId}"] → 카드 textarea[data-card-textarea="{cardId}"]
+      //   2) #rv-notes (검토 의견 — 단일 모드 fallback, 현재 카드모드로 hidden 되지만 안전망)
+      if (btn && btn.dataset && btn.dataset.cardMic) {
+        const cid = btn.dataset.cardMic;
+        const ta = document.querySelector(
+          `#rv-cards-container textarea[data-card-textarea="${cssQuoteAttr(cid)}"]`
+        );
+        if (ta) return ta;
+      }
+      return document.getElementById('rv-notes');
+    }
+
     function startRec(btn) {
-      // 대상 textarea — 본 단계에서는 #rv-notes 1개만 (mic 버튼은 검토의견 옆 1개)
-      const textarea = document.getElementById('rv-notes');
+      const textarea = resolveTargetTextarea(btn);
       if (!textarea) {
         showToast((I18N[currentLang] && I18N[currentLang].voice_no_target) || 'No input target', 'error');
         return;
@@ -3636,12 +3656,16 @@
       rec.maxAlternatives = 1;
 
       const interim = ensureInterimEl(textarea);
-      interim.style.display = '';
-      interim.textContent = (I18N[currentLang] && I18N[currentLang].voice_listening) || '🎤 Listening…';
+      if (interim) {
+        interim.style.display = '';
+        interim.textContent = (I18N[currentLang] && I18N[currentLang].voice_listening) || '🎤 Listening…';
+      }
 
       rec.onstart = () => {
         activeRec = rec;
         activeBtn = btn;
+        activeTextarea = textarea;
+        activeInterimEl = interim;
         setMicUi(btn, true);
         resetSilenceTimer(rec);
       };
@@ -3664,7 +3688,7 @@
           const cur = textarea.value || '';
           const sep = (cur.length === 0 || /[\s\n]$/.test(cur)) ? '' : ' ';
           textarea.value = cur + sep + finalChunk.trim();
-          // input 이벤트 트리거 → 기존 autoSave + chars 갱신 핸들러 작동
+          // input 이벤트 트리거 → 기존 autoSave + chars 갱신 + 카드 draft 저장 핸들러 작동
           textarea.dispatchEvent(new Event('input', { bubbles: true }));
         }
         // interim 미리보기
@@ -3706,6 +3730,8 @@
         setMicUi(btn, false);
         activeRec = null;
         activeBtn = null;
+        activeTextarea = null;
+        activeInterimEl = null;
       };
 
       try {
@@ -3720,21 +3746,34 @@
       }
     }
 
-    // mic 버튼 클릭 — 시작/정지 토글
-    document.querySelectorAll('.btn.mic').forEach(m => {
-      m.title = (I18N[currentLang] && I18N[currentLang].voice_tooltip) || 'Click to start / stop voice input';
-      m.addEventListener('click', () => {
-        // 이미 다른 mic 가 active 면 정지
+    // mic 버튼 1개에 클릭 핸들러 + 툴팁/미지원 처리 (idempotent — 한 번만 wire)
+    function wireMic(btn) {
+      if (!btn || btn.dataset.lawearMicWired === '1') return;
+      btn.dataset.lawearMicWired = '1';
+      if (!supported) {
+        disableUnsupported(btn);
+        return;
+      }
+      btn.title = (I18N[currentLang] && I18N[currentLang].voice_tooltip) || 'Click to start / stop voice input';
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        // 이미 다른 mic 가 active 면 정지 (카드 간 전환 시 자연스럽게 stop → 사용자가 다시 누르면 다른 카드 시작)
         if (activeRec) {
           stopAll();
           return;
         }
-        startRec(m);
+        startRec(btn);
       });
-    });
+    }
+
+    // 페이지 진입 시 정적 mic (검토 의견 — 단일 모드 fallback) 결선
+    document.querySelectorAll('.btn.mic').forEach(wireMic);
 
     // 페이지 떠나기 직전 정리 (브라우저 누수 방지)
     window.addEventListener('beforeunload', stopAll);
+
+    // 외부 API — 동적 mic (카드 렌더링 후) 결선용
+    return { wireMic: wireMic, stopAll: stopAll, supported: supported };
   })();
 
   // ─── 슬라이더 값 표시 ───────────────────────────
@@ -4211,6 +4250,7 @@
               <textarea data-card-textarea="${escapeHtml(cid)}" placeholder="${escapeHtml(I18N[currentLang].sub_answer_ph || '답안')}"></textarea>
               <div class="sub-answer-toolbar">
                 <span class="info" data-card-info="${escapeHtml(cid)}">0${currentLang === 'ko' ? '자 · 진척 ' : ' chars · '}0%</span>
+                <button type="button" class="btn mic" data-card-mic="${escapeHtml(cid)}">● <span>${I18N[currentLang].btn_voice || 'Voice Input'}</span></button>
               </div>
               <div class="sub-grade-result" id="sub-grade-${idSafe}">
                 <div class="grade-head">
@@ -4306,6 +4346,10 @@
         scheduleCardDraftSave(CURRENT_CASE_ID, cid);
       });
     });
+    // 카드 mic 버튼 — 동적 추가 (e571 부활): wireSpeechToText 외부 API 사용
+    if (window.LAWEAR_STT && typeof window.LAWEAR_STT.wireMic === 'function') {
+      document.querySelectorAll('#rv-cards-container .btn.mic[data-card-mic]').forEach(window.LAWEAR_STT.wireMic);
+    }
   }
 
   function setActiveCard(cardId) {
