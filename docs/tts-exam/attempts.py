@@ -172,6 +172,103 @@ def _client_status(db_status: str) -> str:
     return CLIENT_STATUS_MAP.get(db_status, db_status)
 
 
+# ─── Step 24-3 헬퍼: 카드별 dict JSON 직렬화 + 힌트 메타 ─────────────────
+
+
+def _serialize_subq_dicts(
+    answer_subq: dict | None,
+    subq_elapsed: dict | None,
+    hints_used: dict | None,
+) -> tuple[str | None, str | None, str | None]:
+    """카드별 3종 dict → JSON 직렬화 (None 보존, 한글 키 ensure_ascii=False).
+
+    Step 24-1 마이그 v6 에서 추가된 attempts.answer_subq / subq_elapsed /
+    hints_used (모두 TEXT NULL 허용) 컬럼 직렬화 헬퍼.
+
+    한글 카드 키(예: "설문 1", "설문 1 가")가 escape 없이 그대로 저장되도록
+    ``ensure_ascii=False`` 사용 (cases.py 의 normalize_subq_key 결과 호환).
+
+    Args:
+        answer_subq:  {subq_key: 답안 텍스트}.  None 또는 빈 dict → None.
+        subq_elapsed: {subq_key: int 초}.       None 또는 빈 dict → None.
+        hints_used:   {subq_key: list[int]}.    None 또는 빈 dict → None.
+
+    Returns:
+        (answer_subq_json, subq_elapsed_json, hints_used_json) — 각 항목은 str 또는 None.
+    """
+    return (
+        json.dumps(answer_subq, ensure_ascii=False) if answer_subq else None,
+        json.dumps(subq_elapsed, ensure_ascii=False) if subq_elapsed else None,
+        json.dumps(hints_used, ensure_ascii=False) if hints_used else None,
+    )
+
+
+def _deserialize_subq_dicts(
+    answer_subq_json: str | None,
+    subq_elapsed_json: str | None,
+    hints_used_json: str | None,
+) -> tuple[dict | None, dict | None, dict | None]:
+    """JSON 문자열 → dict (legacy NULL → None 유지).
+
+    NULL/빈 문자열 입력은 None 으로 보존 (legacy answer_text 단일 모드 호환).
+    JSON 파싱 실패 시에도 안전하게 None 반환 (raise X — _attempt_row_to_dict
+    응답 흐름 차단 방지).
+
+    Args:
+        answer_subq_json:  attempts.answer_subq 컬럼 값 (str 또는 None).
+        subq_elapsed_json: attempts.subq_elapsed 컬럼 값 (str 또는 None).
+        hints_used_json:   attempts.hints_used 컬럼 값 (str 또는 None).
+
+    Returns:
+        (answer_subq, subq_elapsed, hints_used) — 각 항목은 dict 또는 None.
+        dict 가 아닌 JSON 값(예: list, 문자열) 이 들어오면 None 으로 정규화.
+    """
+    def _load(j: str | None) -> dict | None:
+        if not j:
+            return None
+        try:
+            obj = json.loads(j)
+        except (TypeError, json.JSONDecodeError):
+            return None
+        return obj if isinstance(obj, dict) else None
+
+    return _load(answer_subq_json), _load(subq_elapsed_json), _load(hints_used_json)
+
+
+def _compute_hint_meta(hints_used: dict | None) -> dict[str, int]:
+    """hints_used dict → {count, steps_max} 메타 계산.
+
+    히스토리 패널 "힌트 N회" / "최대 단계 K" 표시용 (Step 24-3 응답 메타).
+
+    Args:
+        hints_used: ``{subq_key: list[int]}`` 형식. None 또는 빈 dict 허용.
+                    각 step 정수는 1~5 범위 (범위 밖은 무시).
+
+    Returns:
+        ``{"count": int, "steps_max": int}``
+        - count:     모든 카드의 사용된 힌트 step 총 개수 (1~5 범위만 누적).
+        - steps_max: 모든 카드 중 최대 노출 step (1~5 범위만 비교, 없으면 0).
+        - hints_used 가 None / 빈 dict → ``{"count": 0, "steps_max": 0}``.
+    """
+    count = 0
+    steps_max = 0
+    if not isinstance(hints_used, dict):
+        return {"count": count, "steps_max": steps_max}
+    for steps in hints_used.values():
+        if not isinstance(steps, list):
+            continue
+        for s in steps:
+            try:
+                si = int(s)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= si <= 5:
+                count += 1
+                if si > steps_max:
+                    steps_max = si
+    return {"count": count, "steps_max": steps_max}
+
+
 # ─── 잔존 grading 마킹 (Q24 A) ────────────────────────────────────────────
 
 
@@ -400,13 +497,19 @@ def create_attempt(
     conn: sqlite3.Connection,
     db_path: str,
     case_id: str,
-    answer_text: str,
+    answer_text: str | None = None,
     *,
+    answer_subq: dict | None = None,
+    subq_elapsed: dict | None = None,
+    hints_used: dict | None = None,
     started_at: str | None = None,
     submitted_at: str | None = None,
     grading_mode: str = GRADING_MODE_MANUAL,
 ) -> dict[str, Any]:
     """POST /api/attempts — 즉시 INSERT + (auto 모드) daemon thread 트리거.
+
+    Step 24-3 확장: 다중 설문 D안 (answer_subq + subq_elapsed + hints_used).
+      legacy `answer_text` 단일 모드 fallback 보존 — 둘 중 하나는 반드시 제공.
 
     Step 13 분기:
       - grading_mode='manual': INSERT row(status='pending_grade'), thread 안 띄움.
@@ -414,28 +517,58 @@ def create_attempt(
       - grading_mode='auto':   기존 흐름 (status='grading' + daemon thread + grader.grade).
         ANTHROPIC_API_KEY 미설정 시 자동으로 manual 강등 + 응답에 warning 포함.
 
+    호환 매트릭스 (Step 24-3 핵심):
+        - `answer_subq` 있고 `answer_text` 없음 (신규 D안 다중 설문):
+            DB attempts.answer_text NOT NULL → 카드 dict 를 join 해 컬럼 채움.
+            attempts.answer_subq 컬럼에 JSON dict 그대로 저장.
+        - `answer_subq` 없고 `answer_text` 있음 (legacy 단일 설문):
+            attempts.answer_subq NULL → `_attempt_row_to_dict` 시 None 으로 노출.
+        - 둘 다 있음: 양쪽 모두 저장 (R-09 — 가공 X).
+        - 둘 다 없음: ``AttemptValidationError("answer empty", "subq_empty")``.
+
     Args:
         conn:         (요청 핸들러가 보유한) DB connection — INSERT 전용. 트랜잭션 분리.
         db_path:      백그라운드 thread 가 별도 conn 을 열기 위한 경로.
         case_id:      cases.id (FK).
-        answer_text:  검토 의견 본문. 빈 값/공백만 → 400.
+        answer_text:  검토 의견 본문 (legacy 단일 카드 모드). answer_subq 와 둘 중 하나 필수.
+        answer_subq:  ``{subq_key: 답안 텍스트}`` 다중 카드 모드.
+        subq_elapsed: ``{subq_key: int 초}`` 카드별 풀이 시간.
+        hints_used:   ``{subq_key: list[int]}`` 카드별 노출 힌트 단계 (1~5).
         started_at:   클라이언트 시작 시각 (선택).
         submitted_at: 클라이언트 제출 시각 (선택, 기본 utcnow).
         grading_mode: 'manual' (디폴트, Step 13) 또는 'auto'.
 
     Returns:
-        manual: {"attempt_id", "status": "pending_grade", "case_id", "submitted_at", "grading_mode": "manual"}
-        auto:   {"attempt_id", "status": "grading",       "case_id", "submitted_at", "grading_mode": "auto"}
+        manual: {"attempt_id", "status": "pending_grade", "case_id", "submitted_at", "grading_mode": "manual",
+                 "subq_count", "hints_used_count", "hint_steps_revealed_max"}
+        auto:   {"attempt_id", "status": "grading",       ... (위와 동일)}
         auto+키없음 fallback: 위 manual 응답 + "warning": "api_key_missing — fell back to manual"
 
     Raises:
-        AttemptValidationError: answer_text 빈 값.
+        AttemptValidationError: answer_text + answer_subq 둘 다 빈 값.
         cases.CaseNotFoundError: case_id 미존재 — 호출자가 404 로 매핑.
     """
-    if not answer_text or not answer_text.strip():
-        raise AttemptValidationError("answer_text empty", "bad_request")
+    # 입력 검증 — 둘 다 빈 값 거부 (legacy + 신규 모두 호환)
+    text_empty = not answer_text or not answer_text.strip()
+    subq_empty = not isinstance(answer_subq, dict) or not answer_subq or not any(
+        isinstance(v, str) and v.strip() for v in answer_subq.values()
+    )
+    if text_empty and subq_empty:
+        raise AttemptValidationError(
+            "answer empty (provide answer_text or answer_subq)", "subq_empty"
+        )
     if not case_id or not case_id.strip():
         raise AttemptValidationError("case_id empty", "bad_request")
+
+    # answer_text 미제공이면 answer_subq 카드를 join 해 NOT NULL 충족.
+    # R-09 — 원본 그대로, 카드 라벨을 prefix 로 명시.
+    if text_empty and not subq_empty:
+        joined = "\n\n---\n\n".join(
+            f"[{k}]\n{v}"
+            for k, v in answer_subq.items()  # type: ignore[union-attr]
+            if isinstance(v, str) and v.strip()
+        )
+        answer_text = joined
 
     # case_meta 로드 (.md 본문 포함) — 미존재 시 CaseNotFoundError → 404
     case_meta = cases_mod.get_case(conn, case_id)
@@ -463,12 +596,18 @@ def create_attempt(
         DB_STATUS_GRADING if effective_mode == GRADING_MODE_AUTO else DB_STATUS_PENDING_GRADE
     )
 
-    # INSERT attempts
+    # Step 24-3 — 카드별 dict 3종 JSON 직렬화 (None 이면 None 유지)
+    ans_json, elap_json, hints_json = _serialize_subq_dicts(
+        answer_subq, subq_elapsed, hints_used
+    )
+
+    # INSERT attempts (마이그 v6 신규 컬럼 3 포함)
     cur = conn.execute(
         """
         INSERT INTO attempts
-          (case_id, answer_text, started_at, submitted_at, status, weights_json, is_stale)
-        VALUES (?, ?, ?, ?, ?, ?, 0)
+          (case_id, answer_text, started_at, submitted_at, status, weights_json, is_stale,
+           answer_subq, subq_elapsed, hints_used)
+        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
         """,
         (
             case_id,
@@ -477,6 +616,9 @@ def create_attempt(
             submitted,
             initial_status,
             weights_json,
+            ans_json,
+            elap_json,
+            hints_json,
         ),
     )
     conn.commit()
@@ -505,12 +647,19 @@ def create_attempt(
             file=sys.stderr,
         )
 
+    # Step 24-3 — 응답에 subq 메타 키 3개 추가
+    hint_meta = _compute_hint_meta(hints_used)
+    subq_count_val = len(answer_subq) if isinstance(answer_subq, dict) and answer_subq else 0
+
     result: dict[str, Any] = {
         "attempt_id": attempt_id,
         "status": _client_status(initial_status),
         "case_id": case_id,
         "submitted_at": submitted,
         "grading_mode": effective_mode,
+        "subq_count": subq_count_val,
+        "hints_used_count": hint_meta["count"],
+        "hint_steps_revealed_max": hint_meta["steps_max"],
     }
     if warning is not None:
         result["warning"] = warning
@@ -697,12 +846,16 @@ def inject_grade(
       Claude Code 메인 세션(Opus)이 채점 → 결과를 17896 에 주입.
       attempt.status='pending_grade' (또는 호환 'grading') → 'done' 전환.
 
+    Step 24-3 확장 (2026-05-18):
+      `criteria_subq` 옵션 추가 — 다중 설문 카드별 9기준 채점 결과 주입.
+      legacy `criteria` (1차원 list, subq_key=NULL) 와 양립 가능.
+
     Args:
         conn:       핸들러 보유 DB connection.
         attempt_id: 대상 attempt PK.
-        payload:    외부 채점 결과 JSON. 스키마:
+        payload:    외부 채점 결과 JSON. 스키마 (legacy):
             {
-              "criteria": [{key, score, weight_applied, comment}] × 7,
+              "criteria": [{key, score, weight_applied, comment}] × 9,
               "total_score": float,
               "max_score": float,
               "score_pct": float,
@@ -712,6 +865,18 @@ def inject_grade(
               "model": str?,                       # optional — 디폴트 "claude-code-opus"
             }
 
+            Step 24-3 다중 설문 스키마 (criteria 대신):
+            {
+              "criteria_subq": {
+                "설문 1": [{key, score, weight_applied, comment}, ...],
+                "설문 2": [...]
+              },
+              "total_score": float, ...
+            }
+
+            ``criteria_subq`` 우선 — 있으면 ``criteria`` 무시 가능 (양쪽 다 있으면
+            criteria_subq 만 사용). 빈 dict 또는 dict 아닌 값 → ``GradeInjectionError``.
+
     Returns:
         {"attempt_id", "status": "completed", "total_score", "max_score",
          "score_pct", "grade", "case_id", ...}
@@ -719,7 +884,7 @@ def inject_grade(
     Raises:
         AttemptNotFoundError:       attempt_id 미존재.
         AttemptAlreadyGradedError:  status='done' (재채점 별도 endpoint).
-        GradeInjectionError:        필수 필드 누락 / 7기준 누락 / 형식 오류.
+        GradeInjectionError:        필수 필드 누락 / 9기준 누락 / 형식 오류.
     """
     # 1. attempt 존재 + status 가드
     cur = conn.execute(
@@ -743,13 +908,41 @@ def inject_grade(
             "bad_request",
         )
 
-    # 2. payload 필수 필드
-    missing_fields = [f for f in _REQUIRED_INJECT_FIELDS if f not in payload]
+    # 2. payload 필수 필드 — Step 24-3: criteria 또는 criteria_subq 둘 중 하나 필수
+    has_subq_payload = "criteria_subq" in payload
+    has_legacy_payload = "criteria" in payload
+    if not has_subq_payload and not has_legacy_payload:
+        raise GradeInjectionError(
+            "missing required fields: either 'criteria' (legacy 1차원) or "
+            "'criteria_subq' (다중 설문 dict) required",
+            "criteria_subq_required",
+        )
+    # criteria 외 다른 필수 필드는 그대로 (criteria 자리만 분기)
+    other_required = tuple(f for f in _REQUIRED_INJECT_FIELDS if f != "criteria")
+    missing_fields = [f for f in other_required if f not in payload]
     if missing_fields:
         raise GradeInjectionError(f"missing required fields: {missing_fields}")
 
-    # 3. 필드별 정규화
-    criteria_normalized = _normalize_criteria(payload["criteria"])
+    # 3. 필드별 정규화 — Step 24-3 분기.
+    #    criteria_by_subq: {subq_key 또는 None: [{key, score, max, weight, comment}] × 9}
+    criteria_by_subq: dict[str | None, list[dict[str, Any]]] = {}
+    if has_subq_payload:
+        raw_subq = payload["criteria_subq"]
+        if not isinstance(raw_subq, dict) or not raw_subq:
+            raise GradeInjectionError(
+                f"criteria_subq must be non-empty dict, got {type(raw_subq).__name__}",
+                "criteria_subq_required",
+            )
+        for sk, raw_list in raw_subq.items():
+            if not isinstance(sk, str) or not sk.strip():
+                raise GradeInjectionError(
+                    f"criteria_subq key must be non-empty string, got {sk!r}"
+                )
+            criteria_by_subq[sk.strip()] = _normalize_criteria(raw_list)
+    else:
+        # legacy 단일 모드 — subq_key=None 으로 1개 entry
+        criteria_by_subq[None] = _normalize_criteria(payload["criteria"])
+
     eval_notes_normalized = _normalize_eval_notes(payload["eval_notes"])
     diff_segments_normalized = _normalize_diff_segments(payload.get("diff_segments"))
 
@@ -776,7 +969,7 @@ def inject_grade(
     if not isinstance(model, str) or not model.strip():
         model = "claude-code-opus"  # 디폴트 — Claude Code 메인 세션이 채점
 
-    # 4. 단일 트랜잭션 — UPDATE attempts + INSERT attempt_criteria × 7
+    # 4. 단일 트랜잭션 — UPDATE attempts + INSERT attempt_criteria × (N카드 × 9기준)
     completed_at = _utcnow_iso()
     elapsed = _elapsed_since(row["submitted_at"])
     eval_notes_json = json.dumps(eval_notes_normalized, ensure_ascii=False)
@@ -830,22 +1023,25 @@ def inject_grade(
         conn.execute(
             "DELETE FROM attempt_criteria WHERE attempt_id = ?", (int(attempt_id),)
         )
-        for c in criteria_normalized:
-            conn.execute(
-                """
-                INSERT INTO attempt_criteria
-                  (attempt_id, criterion_key, score, max_score, weight, comment)
-                VALUES (?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    int(attempt_id),
-                    c["key"],
-                    float(c["score"]),
-                    float(c["max"]),
-                    float(c["weight"]),
-                    c["comment"],
-                ),
-            )
+        # Step 24-3 — subq_key 별로 9기준 row 다중 INSERT (legacy NULL 모드 호환)
+        for sk, criteria_list in criteria_by_subq.items():
+            for c in criteria_list:
+                conn.execute(
+                    """
+                    INSERT INTO attempt_criteria
+                      (attempt_id, subq_key, criterion_key, score, max_score, weight, comment)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        int(attempt_id),
+                        sk,  # None=legacy 단일 / 문자열=다중 카드
+                        c["key"],
+                        float(c["score"]),
+                        float(c["max"]),
+                        float(c["weight"]),
+                        c["comment"],
+                    ),
+                )
         conn.commit()
     except Exception:
         try:
@@ -856,7 +1052,8 @@ def inject_grade(
 
     print(
         f"[Attempts] inject_grade attempt_id={attempt_id} status=done "
-        f"score={total_score}/{max_score} pct={score_pct} grade={grade} model={model}",
+        f"score={total_score}/{max_score} pct={score_pct} grade={grade} model={model} "
+        f"subqs={len(criteria_by_subq)}",
         file=sys.stderr,
     )
 
@@ -970,8 +1167,33 @@ def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
 
     Step 23 — solve_elapsed_sec: 사용자 풀이 시간 (submitted_at - started_at).
     기존 elapsed_sec 는 grader 채점 elapsed (의미 다름) — 둘 다 노출.
+
+    Step 24-3 — answer_subq / subq_elapsed / hints_used (마이그 v6) + 메타.
+      - legacy attempts (answer_subq NULL) → 위 3키 모두 None 노출 + 메타 0.
+      - 다중 카드 attempts → JSON dict deserialize + 메타 계산.
     """
     db_status = row["status"]
+
+    # Step 24-3 — 카드별 dict 3종 deserialize (legacy NULL → None 유지)
+    # sqlite3.Row 는 컬럼 미존재 시 IndexError, _attempt_row_to_dict 가 v5 이하
+    # DB 에서 호출되는 일은 없으나 안전성 강화 (try/except).
+    try:
+        ans_json = row["answer_subq"]
+    except (IndexError, KeyError):
+        ans_json = None
+    try:
+        elap_json = row["subq_elapsed"]
+    except (IndexError, KeyError):
+        elap_json = None
+    try:
+        hints_json = row["hints_used"]
+    except (IndexError, KeyError):
+        hints_json = None
+    answer_subq_val, subq_elapsed_val, hints_used_val = _deserialize_subq_dicts(
+        ans_json, elap_json, hints_json
+    )
+    hint_meta = _compute_hint_meta(hints_used_val)
+
     out: dict[str, Any] = {
         "id": row["id"],
         "attempt_id": row["id"],  # 클라이언트 호환 alias
@@ -987,6 +1209,12 @@ def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         ),
         "is_stale": bool(row["is_stale"]),
         "is_mock": bool(row["is_mock"]),
+        # Step 24-3 — 다중 설문 D안 키 5종
+        "answer_subq": answer_subq_val,
+        "subq_elapsed": subq_elapsed_val,
+        "hints_used": hints_used_val,
+        "hints_used_count": hint_meta["count"],
+        "hint_steps_revealed_max": hint_meta["steps_max"],
     }
     if db_status == DB_STATUS_DONE:
         out["score_total"] = row["score_total"]
@@ -1062,11 +1290,16 @@ def _diff_segments_to_html(segments: list[dict[str, str]]) -> str:
 
 
 def get_attempt(conn: sqlite3.Connection, attempt_id: int) -> dict[str, Any]:
-    """GET /api/attempts/{id} — 단건 조회 + criteria 7개 join.
+    """GET /api/attempts/{id} — 단건 조회 + criteria N개 join.
 
     status='grading': elapsed_sec live 계산.
     status='done':    criteria 배열 + diff_html + eval_notes + weights_applied.
     status='error':   error_code + error_message + retryable.
+
+    Step 24-3 — attempt_criteria.subq_key 노출:
+      - 다중 설문 (subq_key non-NULL) → ``criteria_subq`` dict 추가 (legacy ``criteria``
+        는 첫 카드 또는 단일 모드만 보존).
+      - 단일 설문 (subq_key NULL) → 기존 ``criteria`` list 그대로 (legacy 호환).
     """
     cur = conn.execute("SELECT * FROM attempts WHERE id = ?", (int(attempt_id),))
     row = cur.fetchone()
@@ -1082,11 +1315,11 @@ def get_attempt(conn: sqlite3.Connection, attempt_id: int) -> dict[str, Any]:
         out["case_title"] = crow["title"]
         out["case_short_id"] = f"{crow['file']}-{crow['case_no']}"
 
-    # criteria 7개 (done 시만 — grading/error 시도 row 가 있을 수 있으나 비어있음)
+    # criteria (done 시만 — grading/error 시도 row 가 있을 수 있으나 비어있음)
     if out["db_status"] == DB_STATUS_DONE:
         cur = conn.execute(
             """
-            SELECT criterion_key, score, max_score, weight, comment
+            SELECT criterion_key, score, max_score, weight, comment, subq_key
               FROM attempt_criteria
              WHERE attempt_id = ?
              ORDER BY id ASC
@@ -1094,22 +1327,42 @@ def get_attempt(conn: sqlite3.Connection, attempt_id: int) -> dict[str, Any]:
             (int(attempt_id),),
         )
         criteria_rows = cur.fetchall()
-        # CRITERION_KEYS 순서로 정렬
-        by_key = {r["criterion_key"]: r for r in criteria_rows}
-        out["criteria"] = []
-        for key in grader_mod.CRITERION_KEYS:
-            r = by_key.get(key)
-            if r is None:
-                continue
-            out["criteria"].append(
-                {
-                    "key": r["criterion_key"],
-                    "score": r["score"],
-                    "max": r["max_score"],
-                    "weight": r["weight"],
-                    "comment": r["comment"] or "",
-                }
-            )
+
+        # Step 24-3 — subq_key 별 그룹핑. NULL=legacy 단일 모드.
+        criteria_subq_map: dict[str | None, dict[str, dict[str, Any]]] = {}
+        for r in criteria_rows:
+            try:
+                sk = r["subq_key"]
+            except (IndexError, KeyError):
+                sk = None
+            ck = r["criterion_key"]
+            criteria_subq_map.setdefault(sk, {})[ck] = {
+                "key": ck,
+                "score": r["score"],
+                "max": r["max_score"],
+                "weight": r["weight"],
+                "comment": r["comment"] or "",
+            }
+
+        # 다중 설문 — subq_key non-NULL 1개 이상이면 criteria_subq 추가.
+        non_null_subq_keys = [k for k in criteria_subq_map if k is not None]
+        if non_null_subq_keys:
+            criteria_subq_out: dict[str, list[dict[str, Any]]] = {}
+            for sk in non_null_subq_keys:
+                by_key = criteria_subq_map[sk]
+                criteria_subq_out[sk] = [
+                    by_key[ck] for ck in grader_mod.CRITERION_KEYS if ck in by_key
+                ]
+            out["criteria_subq"] = criteria_subq_out
+            # legacy criteria — 첫 카드 (호환용 1차원 list)
+            first_sk = non_null_subq_keys[0]
+            out["criteria"] = criteria_subq_out[first_sk]
+        else:
+            # 단일 모드 (legacy) — criteria_subq_map[None] 에서 추출
+            by_key = criteria_subq_map.get(None, {})
+            out["criteria"] = [
+                by_key[ck] for ck in grader_mod.CRITERION_KEYS if ck in by_key
+            ]
 
     return out
 
@@ -1193,9 +1446,12 @@ def list_attempts(
     # Step 13 — pending_grade 필터 시 answer_text 도 반환 (외부 채점 자료).
     # 다른 status 에서도 응답에 포함 (메인 Opus 가 'pending 채점' 명령으로 본 endpoint 호출).
     # Step 23 — started_at + solve_elapsed_sec (= submitted - started) 노출.
+    # Step 24-3 — answer_subq / subq_elapsed / hints_used (JSON TEXT) 노출
+    #            → 히스토리 패널 "힌트 N회" / "최대 단계 K" / "카드 수 M" 표시용 메타.
     page_sql = f"""
         SELECT a.id, a.case_id, a.started_at, a.submitted_at, a.completed_at, a.status,
                a.answer_text,
+               a.answer_subq, a.subq_elapsed, a.hints_used,
                a.score_total, a.score_max, a.score_pct, a.grade,
                a.is_stale, a.is_mock, a.error_code,
                c.title AS case_title, c.subject AS case_subject,
@@ -1211,6 +1467,20 @@ def list_attempts(
     rows = cur.fetchall()
     items: list[dict[str, Any]] = []
     for r in rows:
+        # Step 24-3 — 카드별 dict 3종 deserialize + 메타 산출
+        ans_subq, elap, hints = _deserialize_subq_dicts(
+            r["answer_subq"], r["subq_elapsed"], r["hints_used"]
+        )
+        hint_meta_row = _compute_hint_meta(hints)
+        subq_count_val = len(ans_subq) if isinstance(ans_subq, dict) and ans_subq else 0
+        # total_solve_sec — 카드별 elapsed 합산 (legacy 단일 → None)
+        total_solve = None
+        if isinstance(elap, dict) and elap:
+            try:
+                total_solve = sum(int(v) for v in elap.values() if isinstance(v, (int, float)))
+            except (TypeError, ValueError):
+                total_solve = None
+
         items.append(
             {
                 "id": r["id"],
@@ -1237,6 +1507,11 @@ def list_attempts(
                 "solve_elapsed_sec": _solve_elapsed_sec(
                     r["started_at"], r["submitted_at"]
                 ),
+                # Step 24-3 메타 (히스토리 패널 표시용)
+                "subq_count": subq_count_val,
+                "hints_used_count": hint_meta_row["count"],
+                "hint_steps_revealed_max": hint_meta_row["steps_max"],
+                "total_solve_sec": total_solve,
             }
         )
 
