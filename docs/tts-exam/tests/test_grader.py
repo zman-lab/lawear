@@ -219,7 +219,13 @@ def test_weights_missing_key_raises() -> None:
 
 
 def test_compute_score_basic() -> None:
-    """TC: _compute_score 단독 — 만점/0점 경계 (Step 21 v5 9기준)."""
+    """TC: _compute_score 단독 — 만점/0점 경계 (Phase 4 v6 9기준).
+
+    Phase 4 (lawear-e571, 2026-05-19): DEFAULT_WEIGHTS v5 → v6 변경.
+      v6: mnem 10 / color 8 / under 5 / outline 14 / sem 15 / rich 13 /
+          miss 13 / articles 15 / case_apply 7  (합 100)
+      score_max = 100 - miss_weight = 100 - 13 = 87 (v5 89 → v6 87)
+    """
     # 만점 (모든 score=max, miss=0)
     full = [
         {"key": "mnem", "score": 4, "max": 4},
@@ -233,10 +239,10 @@ def test_compute_score_basic() -> None:
         {"key": "case_apply", "score": 2, "max": 2},  # Step 21 v5
     ]
     total, max_s, pct, grade_letter = grader._compute_score(full, grader.DEFAULT_WEIGHTS)
-    # weight_total - miss_weight = 100 - 11 = 89 (v5 동일)
-    assert abs(max_s - 89.0) < 0.01, f"max_s={max_s}"
-    # 8개 비-miss 항목 모두 만점 → weighted_sum = 89
-    assert abs(total - 89.0) < 0.01, f"total={total}"
+    # weight_total - miss_weight = 100 - 13 = 87 (v6 — Phase 4)
+    assert abs(max_s - 87.0) < 0.01, f"max_s={max_s}"
+    # 8개 비-miss 항목 모두 만점 → weighted_sum = 87 (v6 합)
+    assert abs(total - 87.0) < 0.01, f"total={total}"
     assert pct == 100.0, f"pct={pct}"
     assert grade_letter == "A"
 
@@ -364,9 +370,11 @@ def test_build_prompt_includes_md_body_and_weights() -> None:
     assert case["id"] in user, "user message must include case_id"
     # md_body 의 강조 태그 보존 (substring 매칭)
     assert "[blue]비법인사단[/blue]" in user, "user message must preserve emphasis tags"
-    # weights JSON 포함 (Step 20 v4 — articles 신설, 디폴트 mnem=16)
-    assert "mnem" in user and "16" in user, "user message must include weights (mnem=16, v4)"
+    # weights JSON 포함 (Phase 4 v6 — mnem=10, articles=15)
+    assert "mnem" in user, "user message must include mnem weight"
     assert "articles" in user, "user message must include articles (Step 20 v4)"
+    # v6 mnem=10 (Phase 4)
+    assert '"mnem": 10' in user or '"mnem":10' in user, "user message must include mnem=10 (v6)"
 
 
 def test_grade_with_empty_md_body_falls_back() -> None:

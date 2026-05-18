@@ -666,6 +666,7 @@ class ExamHandler(SimpleHTTPRequestHandler):
         bias = body.get("bias")
         voice = body.get("voice")
         grading_mode = body.get("grading_mode")  # Step 13 — 'manual' | 'auto'
+        weights_version = body.get("weights_version")  # Phase 4 — 신규 채점 가중치 버전
 
         # 최소 하나는 제공되어야 함 (옵션 — 빈 PUT 도 허용해 현 상태 반환)
         # dev-design #48 PUT 명세 상 부분 갱신 가능 → 빈 객체는 NOOP.
@@ -678,6 +679,8 @@ class ExamHandler(SimpleHTTPRequestHandler):
                     bias=bias if isinstance(bias, dict) else None,
                     voice=voice if isinstance(voice, dict) else None,
                     grading_mode=grading_mode if isinstance(grading_mode, str) else None,
+                    # Phase 4 — int or str(int) 모두 수용 (validate_weights_version 에서 정규화)
+                    weights_version=weights_version if isinstance(weights_version, (int, str)) else None,
                 )
             self._send_json(200, data)
         except settings_mod.SettingsValidationError as e:

@@ -362,7 +362,17 @@ def _save_grade_result(db_path: str, attempt_id: int, result: dict[str, Any]) ->
          → COMMIT
     """
     completed_at = _utcnow_iso()
-    eval_notes_json = json.dumps(result.get("eval_notes", {}), ensure_ascii=False)
+    # Phase 1 — eval_notes 정규화 적용 (확장 키 포함, 빈 키는 빈 문자열/빈 배열)
+    raw_eval_notes = result.get("eval_notes") or {}
+    if isinstance(raw_eval_notes, dict):
+        try:
+            eval_notes_normalized = _normalize_eval_notes(raw_eval_notes)
+        except GradeInjectionError:
+            # grader 응답이 dict 아니면 안전 fallback (빈 dict)
+            eval_notes_normalized = _normalize_eval_notes({})
+    else:
+        eval_notes_normalized = _normalize_eval_notes({})
+    eval_notes_json = json.dumps(eval_notes_normalized, ensure_ascii=False)
     diff_json = json.dumps(result.get("diff_segments", []), ensure_ascii=False)
     criteria = result.get("criteria") or []
     is_mock_int = 1 if result.get("is_mock") else 0
@@ -706,8 +716,41 @@ _REQUIRED_INJECT_FIELDS: tuple[str, ...] = (
     "eval_notes",
 )
 
-# eval_notes 필수 키 (strength / caution / missing)
-_EVAL_NOTES_KEYS: tuple[str, ...] = ("strength", "caution", "missing")
+# eval_notes 키 — Phase 1 확장 (lawear-e571, 2026-05-19):
+#   legacy 키 (호환 보존): strength / caution / missing — str
+#   확장 키 (자체 채점 누락 캡처용):
+#     - score_summary:        str (3줄 핵심 평가)
+#     - strengths:            list[str] (강점 항목)
+#     - weaknesses:           list[str] (약점 항목)
+#     - missing_critical:     list[dict] [{item, expected_score_impact}]
+#     - next_study_oneliner:  str ("💡 다음 +N점 가능: ...")
+#     - next_study_actionable:list[str] (실행 가능 학습 액션)
+#
+# 사용자 명시 (lawear-e571 작업): SE 보낸 평가 본문이 스키마 불일치로 빈 문자열 저장됨.
+# 새 키 못 받으면 빈 문자열/빈 배열로 저장 (호환성).
+_EVAL_NOTES_KEYS_LEGACY: tuple[str, ...] = ("strength", "caution", "missing")
+_EVAL_NOTES_KEYS_EXT_STR: tuple[str, ...] = ("score_summary", "next_study_oneliner")
+_EVAL_NOTES_KEYS_EXT_LIST: tuple[str, ...] = (
+    "strengths",
+    "weaknesses",
+    "missing_critical",
+    "next_study_actionable",
+)
+# 통합 (서버 검증 + 응답 형식 일관성)
+_EVAL_NOTES_KEYS: tuple[str, ...] = (
+    _EVAL_NOTES_KEYS_LEGACY
+    + _EVAL_NOTES_KEYS_EXT_STR
+    + _EVAL_NOTES_KEYS_EXT_LIST
+)
+
+# eval_notes alias — 다른 키 이름으로 들어와도 정규화 (호환)
+#   strengths/weaknesses 단수형(strength/weakness) → 자체 normalize
+#   missing → missing_critical 자동 wrap (legacy missing str 보존)
+_EVAL_NOTES_ALIASES: dict[str, str] = {
+    # 단수 → 복수 list 키
+    "weakness": "weaknesses",
+    # missing은 legacy str 보존, 단 새 키로 들어오면 wrap도 가능 — 별도 로직
+}
 
 # diff_segments 의 type 화이트리스트
 _DIFF_SEGMENT_TYPES: frozenset[str] = frozenset({"match", "miss", "partial"})
@@ -797,20 +840,96 @@ def _normalize_criteria(raw: Any) -> list[dict[str, Any]]:
     return [by_key[k] for k in grader_mod.CRITERION_KEYS]
 
 
-def _normalize_eval_notes(raw: Any) -> dict[str, str]:
-    """eval_notes 검증 + 정규화.
+def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
+    """eval_notes 검증 + 정규화 — Phase 1 확장 (lawear-e571, 2026-05-19).
+
+    legacy 키 (strength/caution/missing) + 확장 키 (strengths/weaknesses/
+    missing_critical/score_summary/next_study_oneliner/next_study_actionable)
+    모두 보존.
 
     Raises:
         GradeInjectionError: dict 아님.
 
     Returns:
-        {"strength": str, "caution": str, "missing": str} (없는 키는 빈 문자열).
+        {
+          "strength": str,
+          "caution": str,
+          "missing": str,
+          "score_summary": str,
+          "strengths": list[str],
+          "weaknesses": list[str],
+          "missing_critical": list[dict],  # [{item, expected_score_impact}]
+          "next_study_oneliner": str,
+          "next_study_actionable": list[str],
+        }
+
+        - 없는 키는 빈 문자열/빈 배열 (호환성 — SE가 일부만 보내도 저장).
+        - alias (weakness → weaknesses) 자동 정규화.
+        - missing_critical 항목은 {item: str, expected_score_impact: int|float}
+          형식으로 강제 — 자유형 dict 도 그대로 보존 (R-09 가공 X).
     """
     if not isinstance(raw, dict):
         raise GradeInjectionError(
             f"eval_notes must be object, got {type(raw).__name__}"
         )
-    return {k: str(raw.get(k) or "") for k in _EVAL_NOTES_KEYS}
+
+    out: dict[str, Any] = {}
+
+    # alias 처리: weakness → weaknesses 미존재 시만 wrap
+    src = dict(raw)
+    for alias_key, target_key in _EVAL_NOTES_ALIASES.items():
+        if alias_key in src and target_key not in src:
+            src[target_key] = src.pop(alias_key)
+
+    # legacy str 키 (3개)
+    for k in _EVAL_NOTES_KEYS_LEGACY:
+        out[k] = str(src.get(k) or "")
+
+    # 확장 str 키 (score_summary / next_study_oneliner)
+    for k in _EVAL_NOTES_KEYS_EXT_STR:
+        out[k] = str(src.get(k) or "")
+
+    # 확장 list 키 (strengths / weaknesses / missing_critical / next_study_actionable)
+    for k in _EVAL_NOTES_KEYS_EXT_LIST:
+        v = src.get(k)
+        if v is None:
+            out[k] = []
+        elif isinstance(v, list):
+            # missing_critical 만 dict element 허용, 나머지는 str element
+            if k == "missing_critical":
+                normalized_list: list[dict[str, Any]] = []
+                for item in v:
+                    if isinstance(item, dict):
+                        # item / expected_score_impact 키 정규화 (없으면 그대로)
+                        normalized_item: dict[str, Any] = {}
+                        if "item" in item:
+                            normalized_item["item"] = str(item["item"] or "")
+                        if "expected_score_impact" in item:
+                            try:
+                                normalized_item["expected_score_impact"] = float(
+                                    item["expected_score_impact"]
+                                )
+                            except (TypeError, ValueError):
+                                normalized_item["expected_score_impact"] = 0.0
+                        # 다른 키도 보존 (R-09 가공 X)
+                        for ek, ev in item.items():
+                            if ek not in ("item", "expected_score_impact"):
+                                normalized_item[ek] = ev
+                        normalized_list.append(normalized_item)
+                    elif isinstance(item, str):
+                        # str 그대로 들어오면 item 키로 wrap
+                        normalized_list.append({"item": item, "expected_score_impact": 0.0})
+                out[k] = normalized_list
+            else:
+                # 일반 str list (strengths / weaknesses / next_study_actionable)
+                out[k] = [str(x) for x in v if x is not None]
+        elif isinstance(v, str):
+            # str 단일 값으로 들어오면 1-item list 로 보존 (호환)
+            out[k] = [v] if v.strip() else []
+        else:
+            out[k] = []
+
+    return out
 
 
 def _normalize_diff_segments(raw: Any) -> list[dict[str, str]]:

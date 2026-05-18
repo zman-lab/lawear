@@ -31,11 +31,21 @@ KEY_WEIGHTS: str = "weights"
 KEY_BIAS: str = "bias"
 KEY_VOICE: str = "voice"
 KEY_GRADING_MODE: str = "grading_mode"
+# Phase 4 (lawear-e571, 2026-05-19): 가중치 버전 표시 (DB 마이그 없이 logical 버전)
+KEY_WEIGHTS_VERSION: str = "weights_version"
 
-ALL_KEYS: tuple[str, ...] = (KEY_WEIGHTS, KEY_BIAS, KEY_VOICE, KEY_GRADING_MODE)
+ALL_KEYS: tuple[str, ...] = (
+    KEY_WEIGHTS,
+    KEY_BIAS,
+    KEY_VOICE,
+    KEY_GRADING_MODE,
+    KEY_WEIGHTS_VERSION,
+)
 
 # ─── 디폴트 (마이그 v1/v3 초기 INSERT 와 1:1 — 동기화 의무) ────────────
 DEFAULT_WEIGHTS: dict[str, int] = dict(grader_mod.DEFAULT_WEIGHTS)
+# Phase 4 — 신규 채점 가중치 버전 (default v6)
+DEFAULT_WEIGHTS_VERSION: int = grader_mod.DEFAULT_WEIGHTS_VERSION
 
 DEFAULT_BIAS: dict[str, int] = {
     "err_weight": 60,
@@ -188,6 +198,40 @@ def validate_bias(bias: dict[str, Any]) -> dict[str, int]:
     return coerced
 
 
+def validate_weights_version(value: Any) -> int:
+    """Phase 4 — weights_version 검증: 양의 정수만 허용.
+
+    Returns:
+        검증된 int.
+
+    Raises:
+        SettingsValidationError(bad_request).
+    """
+    if isinstance(value, bool):
+        raise SettingsValidationError(
+            "weights_version must be int, got bool", "bad_request"
+        )
+    if isinstance(value, int):
+        v = value
+    elif isinstance(value, str):
+        try:
+            v = int(value)
+        except ValueError as e:
+            raise SettingsValidationError(
+                f"weights_version must be int, got {value!r}", "bad_request"
+            ) from e
+    else:
+        raise SettingsValidationError(
+            f"weights_version must be int, got {type(value).__name__}",
+            "bad_request",
+        )
+    if v < 1:
+        raise SettingsValidationError(
+            f"weights_version must be >= 1, got {v}", "bad_request"
+        )
+    return v
+
+
 def validate_grading_mode(mode: Any) -> str:
     """grading_mode 검증: 'manual' | 'auto' 만 허용.
 
@@ -310,17 +354,46 @@ def load_grading_mode(conn: sqlite3.Connection) -> str:
     return raw
 
 
+def load_weights_version(conn: sqlite3.Connection) -> int:
+    """Phase 4 — settings.weights_version 로드 (logical 버전 표시용).
+
+    DB row 부재 → DEFAULT_WEIGHTS_VERSION (v6).
+    잘못된 값 → DEFAULT_WEIGHTS_VERSION fallback.
+    """
+    try:
+        cur = conn.execute(
+            "SELECT value_json FROM settings WHERE key = ?", (KEY_WEIGHTS_VERSION,)
+        )
+        row = cur.fetchone()
+        if row is None or row["value_json"] is None:
+            return DEFAULT_WEIGHTS_VERSION
+        v = json.loads(row["value_json"])
+        if isinstance(v, int) and v >= 1:
+            return v
+        if isinstance(v, str):
+            try:
+                return int(v)
+            except (TypeError, ValueError):
+                return DEFAULT_WEIGHTS_VERSION
+    except (sqlite3.DatabaseError, json.JSONDecodeError):
+        pass
+    return DEFAULT_WEIGHTS_VERSION
+
+
 def load_all(conn: sqlite3.Connection) -> dict[str, Any]:
     """전체 settings 조회. 부재 키는 default 채움.
 
     Returns:
-        {"weights": {...}, "bias": {...}, "voice": {...}, "grading_mode": "manual"|"auto"}
+        {"weights": {...}, "bias": {...}, "voice": {...},
+         "grading_mode": "manual"|"auto",
+         "weights_version": int (Phase 4 — 신규 채점 가중치 버전 표시, default v6)}
     """
     return {
         "weights": _load_one(conn, KEY_WEIGHTS, DEFAULT_WEIGHTS),
         "bias": _load_one(conn, KEY_BIAS, DEFAULT_BIAS),
         "voice": _load_one(conn, KEY_VOICE, DEFAULT_VOICE),
         "grading_mode": load_grading_mode(conn),
+        "weights_version": load_weights_version(conn),
     }
 
 
@@ -348,11 +421,13 @@ def save_settings(
     bias: dict[str, Any] | None = None,
     voice: dict[str, Any] | None = None,
     grading_mode: str | None = None,
+    weights_version: int | None = None,
 ) -> dict[str, Any]:
     """부분 갱신 저장. 제공된 섹션만 UPDATE.
 
     Args:
-        weights/bias/voice/grading_mode: 각각 None 이면 변경 없음.
+        weights/bias/voice/grading_mode/weights_version: 각각 None 이면 변경 없음.
+        weights_version: Phase 4 — 신규 채점 가중치 버전 (default v6).
 
     Returns:
         저장 후 전체 settings (load_all 동일).
@@ -370,6 +445,8 @@ def save_settings(
         validated["voice"] = validate_voice(voice)
     if grading_mode is not None:
         validated["grading_mode"] = validate_grading_mode(grading_mode)
+    if weights_version is not None:
+        validated["weights_version"] = validate_weights_version(weights_version)
 
     # 2. 변경 없음 → 현재 상태 그대로 반환
     if not validated:
@@ -387,6 +464,8 @@ def save_settings(
             _upsert(conn, KEY_VOICE, validated["voice"], now)
         if "grading_mode" in validated:
             _upsert(conn, KEY_GRADING_MODE, validated["grading_mode"], now)
+        if "weights_version" in validated:
+            _upsert(conn, KEY_WEIGHTS_VERSION, validated["weights_version"], now)
         conn.commit()
     except Exception:
         conn.rollback()
@@ -403,4 +482,5 @@ def reset_to_default(conn: sqlite3.Connection) -> dict[str, Any]:
         bias=dict(DEFAULT_BIAS),
         voice=dict(DEFAULT_VOICE),
         grading_mode=DEFAULT_GRADING_MODE,
+        weights_version=DEFAULT_WEIGHTS_VERSION,
     )
