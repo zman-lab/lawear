@@ -599,6 +599,17 @@
     transition: all 0.15s;
   }
   .hint-btn:hover { border-color: var(--accent); color: var(--text); }
+  .hint-btn.disabled,
+  .hint-btn:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+  .hint-btn.disabled:hover,
+  .hint-btn:disabled:hover {
+    border-color: var(--border);
+    color: var(--text-dim);
+  }
   .hint-btn.revealed {
     background: rgba(86, 156, 214, 0.12);
     color: var(--text-bright);
@@ -2416,6 +2427,7 @@
       hint_n_used: '{n} used',
       hint_count_fmt: 'hint {n}/5',
       hint_no_content: '(no data — see Lv.4 in TTS notes)',
+      hint_lv2_disabled_tip: 'No mnemonic — add [blank2] tags to enable',
       hint_lv5_confirm: 'Reveal full answer? (Lv.5 is essentially "give up".)',
       side_history: 'Attempt History',
       history_empty: 'No attempts yet.',
@@ -2617,6 +2629,7 @@
       hint_n_used: '{n}회 사용',
       hint_count_fmt: '힌트 {n}/5',
       hint_no_content: '(데이터 없음 — TTS Lv.4 참고)',
+      hint_lv2_disabled_tip: '두문자 없음 — 사용자 [blank2] 보강 후 사용 가능',
       hint_lv5_confirm: '전체 답안을 보시겠습니까? (5단계는 일종의 "포기" 단계입니다.)',
       side_history: '시도 히스토리',
       history_empty: '시도 기록 없음.',
@@ -3031,12 +3044,16 @@
       e.preventDefault();
     }
     else if (k === 'h' && inCardsMode) {
-      // 활성 카드 다음 힌트 단계 노출
+      // 활성 카드 다음 힌트 단계 노출 (disabled 버튼은 건너뜀)
       const id = TIMER.activeCardId;
       if (id) {
         const used = HINT_USED[id] || new Set();
         for (let lv = 1; lv <= 5; lv++) {
-          if (!used.has(lv)) { revealHint(id, String(lv)); break; }
+          if (used.has(lv)) continue;
+          const btn = document.querySelector(`#rv-cards-container .hint-btn[data-card="${cssQuoteAttr(id)}"][data-level="${lv}"]`);
+          if (btn && (btn.disabled || btn.classList.contains('disabled'))) continue;
+          revealHint(id, String(lv));
+          break;
         }
         e.preventDefault();
       }
@@ -3202,6 +3219,25 @@
     return dedup.slice(0, 12);  // 너무 많으면 12개로 자름
   }
 
+  // Lv.2 두문자 존재 여부 — buildHintContent level=2 와 동일한 소스/우선순위.
+  // 빈 결과(undefined / 빈 문자열 / 빈 리스트) → false. 사용자 [blank2] 태그 보강 후 true.
+  function hasMnemonic(card, caseFull) {
+    let cardMnem = '';
+    if (card && typeof card.mnemonic === 'string') {
+      cardMnem = card.mnemonic.trim();
+    } else if (card && Array.isArray(card.mnemonic)) {
+      cardMnem = card.mnemonic.join(',').trim();
+    }
+    if (cardMnem) return true;
+    let caseMnem = '';
+    if (caseFull && Array.isArray(caseFull.mnemonic)) {
+      caseMnem = caseFull.mnemonic.join(',').trim();
+    } else if (caseFull && typeof caseFull.mnemonic === 'string') {
+      caseMnem = caseFull.mnemonic.trim();
+    }
+    return !!caseMnem;
+  }
+
   function buildHintContent(card, level, caseFull) {
     // level: 1~5 정수. 반환: HTML string (escape 처리됨)
     const dictKey = `hint_no_content`;
@@ -3328,6 +3364,11 @@
       const subqLabel = (I18N[currentLang].sub_inquiry || 'Inquiry') + ' · ' + escapeHtml(cid);
       const subTitle = escapeHtml(cid);
       const isActive = idx === 0;
+      const lv2Enabled = hasMnemonic(card, caseData);
+      const lv2Class = lv2Enabled ? 'hint-btn' : 'hint-btn disabled';
+      const lv2Extra = lv2Enabled
+        ? ''
+        : ` disabled title="${escapeHtml(I18N[currentLang].hint_lv2_disabled_tip || '')}"`;
       return `
         <div class="sub-card${isActive ? ' active' : ''}" data-card-id="${escapeHtml(cid)}">
           <div class="sub-card-header" data-card-id="${escapeHtml(cid)}">
@@ -3347,7 +3388,7 @@
             <div class="hint-bar">
               <span class="hint-label">${I18N[currentLang].hint_label || '힌트'}</span>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="1"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv1 || '1. 목차'}</span></button>
-              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="2"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv2 || '2. 두문자'}</span></button>
+              <button type="button" class="${lv2Class}"${lv2Extra} data-card="${escapeHtml(cid)}" data-level="2"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv2 || '2. 두문자'}</span></button>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="3"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv3 || '3. 조문+키워드'}</span></button>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="4"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv4 || '4. 결론+근거'}</span></button>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="5"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv5 || '5. 전체답안'}</span></button>
@@ -3446,6 +3487,8 @@
     document.querySelectorAll('#rv-cards-container .hint-btn').forEach(b => {
       b.addEventListener('click', (e) => {
         e.stopPropagation();
+        // disabled 가드 (Lv.2 두문자 없음 케이스 등 — pointer-events:none 우회 대비)
+        if (b.disabled || b.classList.contains('disabled')) return;
         const cid = b.dataset.card;
         const lv = b.dataset.level;
         revealHint(cid, lv);
@@ -3480,6 +3523,8 @@
     const btn = document.querySelector(`#rv-cards-container .hint-btn[data-card="${cssQuoteAttr(cardId)}"][data-level="${lvInt}"]`);
     const panel = document.querySelector(`#hint-panels-${idSafe} .hint-panel[data-level="${lvInt}"]`);
     if (!btn || !panel) return;
+    // disabled 가드 (Lv.2 두문자 없음 등 — 단축키/외부 호출 안전망)
+    if (btn.disabled || btn.classList.contains('disabled')) return;
     if (lvInt === 5 && !btn.classList.contains('revealed')) {
       const msg = I18N[currentLang].hint_lv5_confirm || 'Reveal Lv.5?';
       if (!confirm(msg)) return;
