@@ -1112,6 +1112,170 @@
     .diff-split { grid-template-columns: 1fr; }
   }
 
+  /* ───────────────────────────────────────────────────────
+     Phase 3 — 평가 본문 풍부 표시 (한줄평/강점/약점/누락/actionable)
+     v6 채점 새 키 6개 (score_summary / next_study_oneliner /
+     strengths / weaknesses / missing_critical / next_study_actionable)
+     메인 평가 탭(#ev-rich-summary)과 Reports 모달(.modal-eval .rich-summary) 공용.
+     ─────────────────────────────────────────────────────── */
+  .rich-summary {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .rich-summary .rich-empty {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-style: italic;
+    padding: 4px 0;
+  }
+  .rich-summary .rich-legacy {
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 6px 8px;
+    border-left: 2px solid var(--border-light);
+    background: rgba(133, 133, 133, 0.05);
+    margin-bottom: 6px;
+  }
+  /* 한줄평 박스 — accent 강조, 최상단 */
+  .rich-summary .oneliner-box {
+    background: rgba(86, 156, 214, 0.10);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--text-bright);
+    font-weight: 500;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .rich-summary .oneliner-box .oneliner-icon {
+    flex-shrink: 0;
+    font-size: 16px;
+    line-height: 1.2;
+  }
+  .rich-summary .oneliner-box .oneliner-text { flex: 1; }
+  /* score_summary 3줄 핵심 */
+  .rich-summary .score-summary-box {
+    border-left: 2px solid var(--accent-dim);
+    background: rgba(86, 156, 214, 0.04);
+    padding: 8px 12px;
+    margin-bottom: 12px;
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre-line;
+  }
+  /* 강점/약점/누락/actionable 공통 섹션 */
+  .rich-summary .sw-section {
+    margin-bottom: 12px;
+  }
+  .rich-summary .sw-section:last-child { margin-bottom: 0; }
+  .rich-summary .sw-section .sw-title {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    margin-bottom: 6px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .rich-summary .sw-section .sw-title .sw-icon {
+    font-size: 12px;
+    line-height: 1;
+  }
+  .rich-summary .sw-section .sw-title.t-strength { color: var(--success); }
+  .rich-summary .sw-section .sw-title.t-weakness { color: var(--warn); }
+  .rich-summary .sw-section .sw-title.t-missing { color: var(--danger); }
+  .rich-summary .sw-section .sw-title.t-actionable { color: var(--accent); }
+  .rich-summary .sw-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+  .rich-summary .sw-list li {
+    position: relative;
+    padding: 4px 10px 4px 22px;
+    margin-bottom: 4px;
+    border-radius: 2px;
+    font-size: 12px;
+    line-height: 1.55;
+    color: var(--text);
+  }
+  .rich-summary .sw-list li:last-child { margin-bottom: 0; }
+  .rich-summary .sw-list li::before {
+    position: absolute;
+    left: 4px;
+    top: 4px;
+    font-size: 12px;
+    line-height: 1.55;
+    font-weight: 700;
+  }
+  .rich-summary .sw-list.l-strength li {
+    background: rgba(78, 201, 176, 0.06);
+    border-left: 2px solid var(--success);
+  }
+  .rich-summary .sw-list.l-strength li::before { content: '✓'; color: var(--success); }
+  .rich-summary .sw-list.l-weakness li {
+    background: rgba(206, 145, 120, 0.06);
+    border-left: 2px solid var(--warn);
+  }
+  .rich-summary .sw-list.l-weakness li::before { content: '⚠'; color: var(--warn); }
+  .rich-summary .sw-list.l-missing li {
+    background: rgba(209, 105, 105, 0.06);
+    border-left: 2px solid var(--danger);
+    padding-right: 60px;
+  }
+  .rich-summary .sw-list.l-missing li::before { content: '✕'; color: var(--danger); }
+  .rich-summary .sw-list.l-missing li .impact-pt {
+    position: absolute;
+    right: 8px;
+    top: 4px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--danger);
+    font-weight: 700;
+    background: rgba(209, 105, 105, 0.12);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+  .rich-summary .sw-list.l-actionable {
+    counter-reset: actionable;
+  }
+  .rich-summary .sw-list.l-actionable li {
+    background: rgba(86, 156, 214, 0.05);
+    border-left: 2px solid var(--accent);
+    counter-increment: actionable;
+    padding-left: 28px;
+  }
+  .rich-summary .sw-list.l-actionable li::before {
+    content: counter(actionable) '.';
+    color: var(--accent);
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    left: 6px;
+  }
+  /* 모달 내 rich-summary — 폰트/패딩 축소 */
+  .modal-grid .modal-eval .rich-summary {
+    padding: 10px 12px;
+    margin-top: 4px;
+    margin-bottom: 8px;
+    font-size: 11px;
+  }
+  .modal-grid .modal-eval .rich-summary .oneliner-box {
+    padding: 8px 12px;
+    font-size: 12px;
+  }
+  .modal-grid .modal-eval .rich-summary .sw-list li { font-size: 11px; }
+
   /* Step 15-6 — 기준 행 ⓘ 툴팁 */
   .crit-info {
     display: inline-block;
@@ -1959,6 +2123,8 @@
                 </div>
                 <!-- 우: 상단(평 카드 3개) + 하단(원본 답안 본문 + 매칭 강조) -->
                 <div class="eval-right-stack">
+                  <!-- Phase 3 — v6 채점 풍부 표시 (한줄평/강점/약점/누락/actionable) -->
+                  <div class="rich-summary" id="ev-rich-summary" style="display:none;"></div>
                   <div class="eval-summary" id="ev-eval-summary">
                     <div class="summary-title" data-i18n="sec_eval_notes">Evaluation Notes</div>
                     <div class="summary-card">
@@ -2415,6 +2581,16 @@
       // Step 21 v5 (2026-05-17): case_apply 신설 — 사안의 경우 (정확 매칭 X, 논거 적용 정도)
       crit_case_apply: 'Case Application', crit_case_apply_sub: 'legal reasoning',
       fb_strength: 'Strength', fb_caution: 'Caution', fb_missing: 'Missing',
+      // Phase 3 — v6 채점 풍부 표시
+      rich_legacy_note: 'Detailed feedback not stored — newer gradings will show full breakdown.',
+      rich_empty_note: 'No detailed feedback available.',
+      rich_score_summary: 'Summary',
+      rich_oneliner: 'Key Takeaway',
+      rich_strengths: 'Strengths',
+      rich_weaknesses: 'Weaknesses',
+      rich_missing_critical: 'Critical Misses',
+      rich_actionable: 'Next Study Actions',
+      rich_impact_fmt: '−{n}pt',
       // reports
       page_reports: 'Reports', rep_period: 'Performance metrics',
       sub_overall: 'Overall', sub_subject: 'By Subject', sub_case: 'By Case',
@@ -2635,6 +2811,16 @@
       // Step 21 v5 (2026-05-17): case_apply 신설 — 사안의 경우 (정확 매칭 X, 논거 적용 정도)
       crit_case_apply: '사안의 경우', crit_case_apply_sub: '법리 적용',
       fb_strength: '강점', fb_caution: '주의', fb_missing: '누락',
+      // Phase 3 — v6 채점 풍부 표시
+      rich_legacy_note: '평가 본문 미저장 — 향후 새 채점부터 풍부한 평가가 표시됩니다.',
+      rich_empty_note: '상세 평가 본문이 없습니다.',
+      rich_score_summary: '핵심 요약',
+      rich_oneliner: '한줄평',
+      rich_strengths: '강점',
+      rich_weaknesses: '약점',
+      rich_missing_critical: '누락 핵심',
+      rich_actionable: '다음 학습 액션',
+      rich_impact_fmt: '−{n}점',
       page_reports: '리포트', rep_period: '성과 지표',
       sub_overall: '전체', sub_subject: '과목별', sub_case: '케이스별',
       kpi_submitted: '제출', kpi_avg: '평균 점수', kpi_err: '자주 틀린', kpi_stale: '오래된',
@@ -4563,6 +4749,189 @@
   }
 
   // ════════════════════════════════════════════════
+  // Phase 3 — v6 채점 풍부 표시 (한줄평/강점/약점/누락/actionable)
+  // ════════════════════════════════════════════════
+  // 백엔드 Phase 1 새 키 (eval_notes_json):
+  //   - score_summary (string | string[]) — 3줄 핵심
+  //   - next_study_oneliner (string) — 💡 한줄평 강조
+  //   - strengths (string[] | string) — 강점
+  //   - weaknesses (string[] | string) — 약점
+  //   - missing_critical ([{item, impact_pt}] | string[] | string) — 누락 결정적 + 예상 점수 영향
+  //   - next_study_actionable (string[] | string) — 다음 학습 구체
+  //
+  // 입력 형식이 유연해도 깨지지 않게 정규화.
+  // 빈/없음 키는 섹션 자체 숨김. 6개 키 모두 비어있으면 안내 메시지(legacy / empty).
+
+  // 문자열(또는 배열)을 항목 배열로 정규화. null/빈 → [].
+  function normalizeItems(v) {
+    if (v == null) return [];
+    if (Array.isArray(v)) {
+      return v
+        .map(x => (typeof x === 'string' ? x : (x && typeof x === 'object' ? x : '')))
+        .filter(x => {
+          if (typeof x === 'string') return x.trim().length > 0;
+          if (x && typeof x === 'object') {
+            // missing_critical 객체 — item 필드 존재 시 유효
+            return (x.item != null && String(x.item).trim().length > 0)
+                || (x.text != null && String(x.text).trim().length > 0);
+          }
+          return false;
+        });
+    }
+    if (typeof v === 'string') {
+      const trimmed = v.trim();
+      if (!trimmed) return [];
+      // 줄바꿈/번호 분리 — "1. xx\n2. yy" 또는 "- xx\n- yy" 같이 들어와도 분해.
+      const lines = trimmed.split(/\n+/).map(s => s.replace(/^[\-•·*]\s*|^\d+[\.\)]\s*/, '').trim()).filter(Boolean);
+      return lines.length > 0 ? lines : [trimmed];
+    }
+    if (typeof v === 'object') {
+      // 단일 객체 {item, impact_pt} 형태
+      return [v];
+    }
+    return [];
+  }
+
+  // missing_critical 항목 정규화 — {item, impact_pt} 형태로 통일.
+  function normalizeMissingItem(x) {
+    if (typeof x === 'string') return { item: x, impact_pt: null };
+    if (x && typeof x === 'object') {
+      const item = x.item != null ? String(x.item) : (x.text != null ? String(x.text) : '');
+      let pt = null;
+      if (x.impact_pt != null) pt = x.impact_pt;
+      else if (x.impact != null) pt = x.impact;
+      else if (x.pt != null) pt = x.pt;
+      else if (x.score_impact != null) pt = x.score_impact;
+      // 숫자 추출 — "−2점", "-3pt", "2", 2.5 모두 수용
+      let ptNum = null;
+      if (pt != null) {
+        if (typeof pt === 'number' && isFinite(pt)) ptNum = pt;
+        else {
+          const m = String(pt).match(/-?\d+(\.\d+)?/);
+          if (m) ptNum = Math.abs(parseFloat(m[0]));
+        }
+      }
+      return { item, impact_pt: ptNum };
+    }
+    return { item: String(x), impact_pt: null };
+  }
+
+  // 단일 평가 본문(notes 객체)을 받아 rich-summary HTML 반환. 없으면 빈 문자열.
+  // legacy 모드: notes 가 신규 키 0개라면 안내 메시지.
+  function buildRichSummaryHtml(notes) {
+    const dict = (typeof I18N !== 'undefined' && I18N[currentLang]) ? I18N[currentLang] : {};
+    notes = notes || {};
+
+    // 신규 키 정규화
+    const oneliner = (typeof notes.next_study_oneliner === 'string')
+      ? notes.next_study_oneliner.trim()
+      : '';
+    const scoreSummary = (() => {
+      const s = notes.score_summary;
+      if (s == null) return '';
+      if (Array.isArray(s)) return s.filter(x => typeof x === 'string' && x.trim()).join('\n').trim();
+      if (typeof s === 'string') return s.trim();
+      return '';
+    })();
+    const strengths = normalizeItems(notes.strengths);
+    const weaknesses = normalizeItems(notes.weaknesses);
+    const missingRaw = normalizeItems(notes.missing_critical);
+    const missing = missingRaw.map(normalizeMissingItem).filter(x => x.item);
+    const actionable = normalizeItems(notes.next_study_actionable);
+
+    const hasAnyNew = !!(oneliner || scoreSummary
+      || strengths.length || weaknesses.length || missing.length || actionable.length);
+
+    // legacy 검사 — 신규 키 0개 + 구 키(strength/caution/missing) 중 하나라도 있으면 legacy
+    const hasLegacy = !!(notes.strength || notes.caution || notes.missing);
+
+    if (!hasAnyNew) {
+      if (hasLegacy) {
+        return `<div class="rich-legacy">${escapeHtml(dict.rich_legacy_note || 'Detailed feedback not stored — newer gradings will show full breakdown.')}</div>`;
+      }
+      return ''; // 완전 빈 케이스 — 호출자가 컨테이너 자체 숨김
+    }
+
+    let html = '';
+
+    // 1. 한줄평 (최상단, accent 강조)
+    if (oneliner) {
+      html += `<div class="oneliner-box">
+        <span class="oneliner-icon">💡</span>
+        <span class="oneliner-text">${escapeHtml(oneliner)}</span>
+      </div>`;
+    }
+
+    // 2. score_summary (3줄 핵심)
+    if (scoreSummary) {
+      html += `<div class="sw-section">
+        <div class="sw-title"><span class="sw-icon">📋</span>${escapeHtml(dict.rich_score_summary || 'Summary')}</div>
+        <div class="score-summary-box">${escapeHtml(scoreSummary)}</div>
+      </div>`;
+    }
+
+    // 3. 강점
+    if (strengths.length) {
+      const lis = strengths.map(s => `<li>${escapeHtml(typeof s === 'string' ? s : (s.item || s.text || String(s)))}</li>`).join('');
+      html += `<div class="sw-section">
+        <div class="sw-title t-strength"><span class="sw-icon">✓</span>${escapeHtml(dict.rich_strengths || 'Strengths')}</div>
+        <ul class="sw-list l-strength">${lis}</ul>
+      </div>`;
+    }
+
+    // 4. 약점
+    if (weaknesses.length) {
+      const lis = weaknesses.map(s => `<li>${escapeHtml(typeof s === 'string' ? s : (s.item || s.text || String(s)))}</li>`).join('');
+      html += `<div class="sw-section">
+        <div class="sw-title t-weakness"><span class="sw-icon">⚠</span>${escapeHtml(dict.rich_weaknesses || 'Weaknesses')}</div>
+        <ul class="sw-list l-weakness">${lis}</ul>
+      </div>`;
+    }
+
+    // 5. 누락 핵심 (각 항목 예상 점수 영향)
+    if (missing.length) {
+      const lis = missing.map(m => {
+        let ptBadge = '';
+        if (m.impact_pt != null && isFinite(m.impact_pt) && m.impact_pt > 0) {
+          const ptFmt = (dict.rich_impact_fmt || '−{n}pt').replace('{n}',
+            Number.isInteger(m.impact_pt) ? String(m.impact_pt) : m.impact_pt.toFixed(1));
+          ptBadge = `<span class="impact-pt">${escapeHtml(ptFmt)}</span>`;
+        }
+        return `<li>${escapeHtml(m.item)}${ptBadge}</li>`;
+      }).join('');
+      html += `<div class="sw-section">
+        <div class="sw-title t-missing"><span class="sw-icon">✕</span>${escapeHtml(dict.rich_missing_critical || 'Critical Misses')}</div>
+        <ul class="sw-list l-missing">${lis}</ul>
+      </div>`;
+    }
+
+    // 6. 다음 학습 actionable (번호 리스트)
+    if (actionable.length) {
+      const lis = actionable.map(s => `<li>${escapeHtml(typeof s === 'string' ? s : (s.item || s.text || String(s)))}</li>`).join('');
+      html += `<div class="sw-section">
+        <div class="sw-title t-actionable"><span class="sw-icon">📚</span>${escapeHtml(dict.rich_actionable || 'Next Study Actions')}</div>
+        <ul class="sw-list l-actionable">${lis}</ul>
+      </div>`;
+    }
+
+    return html;
+  }
+
+  // 평가 탭 메인 영역 — #ev-rich-summary 갱신
+  function renderRichSummary(notes) {
+    const root = document.getElementById('ev-rich-summary');
+    if (!root) return;
+    const html = buildRichSummaryHtml(notes);
+    if (!html) {
+      root.style.display = 'none';
+      root.innerHTML = '';
+    } else {
+      root.style.display = '';
+      root.innerHTML = html;
+    }
+  }
+
+  // ════════════════════════════════════════════════
   // Step 8 — Settings API wire (GET /PUT /api/settings)
   // ════════════════════════════════════════════════
   // 디폴트 (서버 default 와 동기화 — 마이그 v1 INSERT 와 1:1)
@@ -5517,6 +5886,9 @@
     setText('ev-note-strength', notes.strength || '—');
     setText('ev-note-caution',  notes.caution  || '—');
     setText('ev-note-missing',  notes.missing  || '—');
+
+    // Phase 3 — v6 채점 풍부 표시 (한줄평/강점/약점/누락/actionable)
+    renderRichSummary(notes);
 
     // Step 14 — Reference Diff 2열 분할 우선 시도. 데이터 없으면 fallback diff_html.
     const splitOk = renderDiffColumns(att, CURRENT_CASE_DATA);
@@ -6690,8 +7062,13 @@
         }
       }
 
-      // 평 카드 3개
+      // Phase 3 — v6 채점 풍부 표시 (한줄평/강점/약점/누락/actionable)
       const notes = att.eval_notes || {};
+      const richHtml = buildRichSummaryHtml(notes);
+      if (richHtml) {
+        html += `<div class="rich-summary">${richHtml}</div>`;
+      }
+      // 평 카드 3개 (구 스키마 — 호환성)
       html += `<div class="modal-note"><span class="note-tag">${escapeHtml(dict.fb_strength || 'Strength')}</span>${escapeHtml(notes.strength || '—')}</div>`;
       html += `<div class="modal-note warn"><span class="note-tag">${escapeHtml(dict.fb_caution || 'Caution')}</span>${escapeHtml(notes.caution || '—')}</div>`;
       html += `<div class="modal-note danger"><span class="note-tag">${escapeHtml(dict.fb_missing || 'Missing')}</span>${escapeHtml(notes.missing || '—')}</div>`;
