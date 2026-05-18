@@ -3217,16 +3217,31 @@
       return lines.length ? escapeHtml(lines.join('\n')).replace(/\n/g, '<br>') : noData;
     }
     if (level === 2) {
-      // Lv.2: case.mnemonic (Lv.4 번호 목록) — 두문자/핵심 단서
-      // 너무 길면 정신없으므로 첫 5개 정도만 보여주는 게 힌트 본 의도 (시안 v5 디자인 일치)
-      // R-09: 자르기만 함, 텍스트 추가/변형 X.
-      const items = (caseFull && Array.isArray(caseFull.mnemonic)) ? caseFull.mnemonic : [];
-      if (items.length === 0) return noData;
-      const top = items.slice(0, 6);  // 너무 많아도 6개로 제한
-      const truncated = items.length > 6
-        ? top.concat([`<span style="color:var(--text-dim);">... +${items.length - 6}</span>`])
-        : top;
-      return truncated.map((s, i) => i === top.length && items.length > 6 ? s : escapeHtml(s)).join('<br>');
+      // Lv.2: 두문자 — [blank2]X[/blank2] 태그 글자만 노출 (정답 본문 노출 X)
+      // - 다중 모드: card.mnemonic (해당 subq body+answer 추출) 우선
+      // - 단일 모드 fallback: caseFull.mnemonic (전체 .md 추출, list 또는 str)
+      // - 빈 결과면 noData (아무것도 노출 X — 두문자 없는 .md 정책)
+      // R-09: 태그 글자 그대로, 자의적 추가/변형 X.
+      let cardMnem = '';
+      if (card && typeof card.mnemonic === 'string') {
+        cardMnem = card.mnemonic.trim();
+      } else if (card && Array.isArray(card.mnemonic)) {
+        cardMnem = card.mnemonic.join(',');
+      }
+      if (cardMnem) {
+        return `<span class="mnemonic">${escapeHtml(cardMnem)}</span>`;
+      }
+      // 단일 모드 fallback — caseFull.mnemonic (list[str] 콤마 join)
+      let caseMnem = '';
+      if (caseFull && Array.isArray(caseFull.mnemonic)) {
+        caseMnem = caseFull.mnemonic.join(',');
+      } else if (caseFull && typeof caseFull.mnemonic === 'string') {
+        caseMnem = caseFull.mnemonic.trim();
+      }
+      if (caseMnem) {
+        return `<span class="mnemonic">${escapeHtml(caseMnem)}</span>`;
+      }
+      return noData;
     }
     if (level === 3) {
       // Lv.3: subq.body + subq.answer 합쳐서 조문 키워드 추출 (R-09: 원문에서 직접 grep, 가공 X)

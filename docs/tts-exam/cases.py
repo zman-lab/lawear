@@ -58,6 +58,32 @@ class CaseFileMissingError(Exception):
 _HEADER_RE = re.compile(r"^## (.+?)\s*$", re.MULTILINE)
 
 
+# `[blank2]X[/blank2]` 인라인 강조 태그 매칭 (글자 단위, non-greedy).
+# 예: `[blank2]무[/blank2]` → group1 = "무"
+#     `[blank2]단체[/blank2]` → group1 = "단체"
+# R-09: 자의적 해석 X — 태그 안 글자 그대로 추출, 정답 노출 방지를 위해 다른 텍스트는 사용 X.
+_BLANK2_TAG_RE = re.compile(r"\[blank2\]([\s\S]+?)\[/blank2\]")
+
+
+def _extract_blank2_chars(text: str) -> list[str]:
+    """`[blank2]X[/blank2]` 태그 안 글자(들)만 순서대로 추출.
+
+    Args:
+        text: 검색 대상 본문 (str). None/빈 문자열 OK.
+
+    Returns:
+        매칭된 태그 콘텐츠 list (순서 보존, 중복 제거 X).
+        예: ``"[blank2]무[/blank2]...[blank2]기[/blank2]"`` → ``["무", "기"]``
+        매칭 0건이면 빈 list.
+
+    R-09 (자의적 해석 금지): 태그 사이 raw 글자 그대로 — 두문자 줄임/추측 X.
+    Lv.2 힌트 노출에 사용 (정답 본문은 노출 X, 태그 콘텐츠만 시각 단서).
+    """
+    if not text:
+        return []
+    return [m.group(1) for m in _BLANK2_TAG_RE.finditer(text)]
+
+
 # ─── Step 24-2 다중 설문 정규식 3종 (8 .md 14 헤더 전수 100% 매칭) ───
 #
 # 패턴 A: `### 설문 1 (20점)`              — 민법 모고01_01, 민소 모고02_01/02
@@ -206,13 +232,17 @@ def parse_md_subqs(md_content: str) -> list[dict]:
 
     Returns:
         list[dict] — 각 카드 한 건:
-            ``{"key": str, "score_max": int | None, "body": str, "answer": str}``
+            ``{"key": str, "score_max": int | None, "body": str, "answer": str,
+              "mnemonic": str}``
 
         - ``key``: 정규화 키 (``"설문 1"`` / ``"설문 1 가"``).
         - ``score_max``: 헤더 ``(NN점)`` 캡처 (없으면 None).
         - ``body``:  ``### 설문 N`` 헤더 다음 줄 ~ 다음 헤더 직전.
         - ``answer``: ``### 설문 N 답안`` 헤더 다음 줄 ~ 다음 헤더 직전.
                      매칭되는 답안 헤더가 없으면 빈 문자열.
+        - ``mnemonic``: 해당 subq 의 body + answer 안 ``[blank2]X[/blank2]`` 콘텐츠
+                       콤마 join (예: ``"무,기,최,도"``). 매칭 0건이면 빈 문자열 ``""``.
+                       Lv.2 힌트 노출 전용 (정답 본문 노출 X, R-09 준수).
 
         **단일 설문 (legacy fallback)**: ``_SUBQ_HEADER_RE`` 매칭 0건 →
         빈 리스트 ``[]`` 반환. 호출자가 단일 설문 케이스로 판단.
@@ -258,12 +288,18 @@ def parse_md_subqs(md_content: str) -> list[dict]:
         else:
             answer = ""
 
+        # Lv.2 힌트 — body + answer 안 [blank2]X[/blank2] 콘텐츠만 콤마 join.
+        # R-09: 정답 본문 노출 X, 태그 글자만.
+        mnemonic_chars = _extract_blank2_chars(body) + _extract_blank2_chars(answer)
+        mnemonic = ",".join(mnemonic_chars)
+
         cards.append(
             {
                 "key": key,
                 "score_max": score_max,
                 "body": body,
                 "answer": answer,
+                "mnemonic": mnemonic,
             }
         )
     return cards
@@ -288,34 +324,27 @@ def parse_md_toc(md_content: str) -> str:
 
 
 def parse_md_mnemonic(md_content: str) -> list[str]:
-    """.md 본문에서 Lv.4 암기노트 번호 목록 추출.
+    """.md 본문 전체에서 ``[blank2]X[/blank2]`` 콘텐츠만 추출 (Lv.2 힌트 단일 모드용).
 
     Args:
         md_content: .md 본문 원문.
 
     Returns:
-        ``## Lv.4`` 섹션 안에 한 줄에 ``N. `` (반각 점 + 공백) 으로 시작하는
-        모든 줄 list (번호 prefix 포함, strip).
-        Lv.4 섹션이 없거나 번호 목록이 없으면 빈 list.
+        매칭된 태그 콘텐츠 list (순서 보존). 매칭 0건이면 빈 list.
+        예: ``["무", "기", "최", "도"]`` (미케03_27.md 117라인 답안)
+            ``["묵시"]`` (미케01_07.md 91라인)
+            ``[]`` (blank2 없는 .md)
 
-    예시 (모고01_01.md Lv.4):
-        ``["1. B 회사의 대출원리금 ...", "2. A 은행의 1999년 ...", ...]``
+    사용자 피드백 (2026-05-17 lawear-a519 Step 25):
+        - 기존 Lv.4 번호 목록 노출은 **정답 본문 노출** → 폐기.
+        - Lv.2 힌트는 ``[blank2]`` 태그 콘텐츠만 시각 단서로 노출 (정답 X).
+        - 두문자 없으면 (= blank2 0건) Lv.2 패널에 아무것도 표시 X.
+        - 단일 설문 모드 fallback 으로 사용 — 다중 설문은 ``parse_md_subqs`` 의
+          subq.mnemonic 필드를 직접 사용.
+
+    R-09 (자의적 해석 금지): 태그 안 글자 그대로 (요약/줄임/추측 X).
     """
-    # Lv.4 섹션만 슬라이스 (`^## Lv.4` ~ 다음 `^## ` 또는 EOF)
-    lv4_match = re.search(r"^## Lv\.4[^\n]*$", md_content, re.MULTILINE)
-    if not lv4_match:
-        return []
-    lv4_start = lv4_match.end()
-    next_h2 = re.search(r"^## ", md_content[lv4_start:], re.MULTILINE)
-    lv4_end = lv4_start + next_h2.start() if next_h2 else len(md_content)
-    lv4_body = md_content[lv4_start:lv4_end]
-
-    # 번호 목록 라인 ("1. ", "2. ", ...) 추출 — 순서 보존
-    items: list[str] = []
-    for line in lv4_body.split("\n"):
-        if re.match(r"^\s*\d+\.\s", line):
-            items.append(line.strip())
-    return items
+    return _extract_blank2_chars(md_content)
 
 
 def _resolve_md_path(case_path: str) -> Path:

@@ -339,23 +339,28 @@ class TestParseMdToc(unittest.TestCase):
 
 
 class TestParseMdMnemonic(unittest.TestCase):
-    """`parse_md_mnemonic` — Lv.4 번호 목록 추출."""
+    """`parse_md_mnemonic` — 전체 .md ``[blank2]X[/blank2]`` 콘텐츠만 추출.
 
-    def test_parse_md_mnemonic_count(self):
-        """모고01_01 — Lv.4 13 라인 (1~13)."""
-        md = _load("예비_민법/2026_minbeop_yebi_모고01_01.md")
-        items = cases_mod.parse_md_mnemonic(md)
-        self.assertEqual(len(items), 13)
-        self.assertTrue(items[0].startswith("1. "))
-        self.assertTrue(items[-1].startswith("13. "))
+    2026-05-17 lawear-a519 Step 25 사용자 피드백:
+        - 기존 Lv.4 번호 목록 추출 = **정답 본문 노출** → 폐기.
+        - 새 정책: ``[blank2]`` 태그 글자만 (정답 X).
+        - 두문자 없으면 (= blank2 0건) 빈 list.
 
-    def test_parse_md_mnemonic_no_lv4_returns_empty(self):
-        """Lv.4 섹션 없으면 빈 list."""
+    풀 커버리지는 ``test_step24_blank2.py`` 참조. 본 클래스는 회귀 sanity 만.
+    """
+
+    def test_parse_md_mnemonic_blank2_only(self):
+        """blank2 태그 → 콘텐츠 추출."""
+        md = "본문에 [blank2]무[/blank2]와 [blank2]기[/blank2] 단서."
+        self.assertEqual(cases_mod.parse_md_mnemonic(md), ["무", "기"])
+
+    def test_parse_md_mnemonic_no_blank2_returns_empty(self):
+        """blank2 없으면 빈 list (Lv.4 번호 목록 X)."""
         self.assertEqual(cases_mod.parse_md_mnemonic("## 원본\n본문"), [])
 
-    def test_parse_md_mnemonic_empty_lv4_returns_empty(self):
-        """Lv.4 섹션은 있지만 번호 목록이 없으면 빈 list."""
-        md = "## Lv.4 암기노트\n\n결론 없음\n"
+    def test_parse_md_mnemonic_lv4_number_list_ignored(self):
+        """Lv.4 번호 목록만 있고 blank2 없으면 빈 list (기존 동작 폐기)."""
+        md = "## Lv.4 암기노트\n\n1. 결론.\n2. 둘째.\n"
         self.assertEqual(cases_mod.parse_md_mnemonic(md), [])
 
 

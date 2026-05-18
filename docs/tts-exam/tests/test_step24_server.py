@@ -76,9 +76,9 @@ _MULTI_MD.write_text(
     "## 원본 (35점)\n\n"
     "### 사실관계\n공통 사실관계 본문.\n\n"
     "### 설문 1 (20점)\n첫 번째 설문 본문.\n\n"
-    "### 설문 1 답안\n첫 번째 답안 본문.\n\n"
+    "### 설문 1 답안\n첫 번째 답안 [blank2]보[/blank2]증, [blank2]필[/blank2]수.\n\n"
     "### 설문 2 (15점)\n두 번째 설문 본문.\n\n"
-    "### 설문 2 답안\n두 번째 답안 본문.\n\n"
+    "### 설문 2 답안\n두 번째 답안 [blank2]도[/blank2]달주의.\n\n"
     "## Lv.1 빠른복습\n\n"
     "### 목차\n"
     "설문 1 — 시효소멸\n"
@@ -767,10 +767,13 @@ class GetCaseDetailTest(ServerTestBase):
         self.assertIn("설문 1", body["toc"])
         self.assertIn("설문 2", body["toc"])
         self.assertIn("시효소멸", body["toc"])
-        # mnemonic (Lv.4 번호 목록)
+        # mnemonic (전체 .md [blank2]X[/blank2] 콘텐츠 — Lv.2 힌트, 정답 본문 X)
+        # 픽스처: 답안에 [blank2]보[/blank2] [blank2]필[/blank2] [blank2]도[/blank2] 3건.
         self.assertIn("mnemonic", body)
-        self.assertEqual(len(body["mnemonic"]), 3)
-        self.assertTrue(body["mnemonic"][0].startswith("1. "))
+        self.assertEqual(body["mnemonic"], ["보", "필", "도"])
+        # subqs[].mnemonic — 해당 subq body+answer 추출 콤마 join
+        self.assertEqual(body["subqs"][0]["mnemonic"], "보,필")
+        self.assertEqual(body["subqs"][1]["mnemonic"], "도")
 
     def test_get_case_single_fallback_empty_subqs(self):
         """단일 설문 (### 설문 N 헤더 0개) → subqs=[]."""

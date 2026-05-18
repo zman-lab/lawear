@@ -347,7 +347,8 @@ class ExamHandler(SimpleHTTPRequestHandler):
           - `subqs`:    `parse_md_subqs(md_body)` 결과 — 다중 설문 카드 list.
                         단일 설문 (헤더 0개) fallback → 빈 list `[]`.
           - `toc`:      `parse_md_toc(md_body)` — `### 목차` 본문 (없으면 "").
-          - `mnemonic`: `parse_md_mnemonic(md_body)` — Lv.4 번호 목록 list (없으면 []).
+          - `mnemonic`: `parse_md_mnemonic(md_body)` — 전체 .md `[blank2]X[/blank2]` 콘텐츠 list (없으면 []).
+                       Lv.2 힌트 단일 모드용. 다중 모드는 `subqs[].mnemonic` 사용 (해당 subq 추출).
 
         index.html 시험 페이지가 다중 카드 렌더 + 목차/두문자 사이드바 로딩에 사용.
         """
