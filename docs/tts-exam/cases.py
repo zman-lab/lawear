@@ -58,6 +58,33 @@ class CaseFileMissingError(Exception):
 _HEADER_RE = re.compile(r"^## (.+?)\s*$", re.MULTILINE)
 
 
+# ─── Step 24-2 다중 설문 정규식 3종 (8 .md 14 헤더 전수 100% 매칭) ───
+#
+# 패턴 A: `### 설문 1 (20점)`              — 민법 모고01_01, 민소 모고02_01/02
+# 패턴 B: `### 설문 (1) (12점)`            — 민소 모고01_01/02 (괄호 안 숫자)
+# 패턴 C: `### 설문 1 가 (12점)`           — 민법 모고02_01/02 (가/나 하위)
+#
+# `### 설문 N 답안` / `### 설문 N 가 답안` 은 `_SUBQ_HEADER_RE` 에 매칭 X
+# (정규식 끝의 `\s*$` 가 "답안" 잔여를 거부).
+_SUBQ_HEADER_RE = re.compile(
+    r"^### (설문\s+(?:\(\d+\)|\d+))(?:\s+([가-힣]))?\s*(?:\((\d+)\s*점\))?\s*$",
+    re.MULTILINE,
+)
+
+# `### 설문 N 답안` / `### 설문 (N) 답안` / `### 설문 N 가 답안` 등 답안 헤더.
+_SUBQ_ANSWER_HEADER_RE = re.compile(
+    r"^### (설문\s+(?:\(\d+\)|\d+))(?:\s+([가-힣]))?\s+답안\s*$",
+    re.MULTILINE,
+)
+
+# `### 사실관계` / `### 공통된 사실관계` / `### 기본적 사실관계` / `### 변형된 사실관계`.
+# group1=prefix(공통된|기본적|변형된) 또는 None(prefix 없음).
+_FACTS_HEADER_RE = re.compile(
+    r"^### (공통된|기본적|변형된)?\s*사실관계\s*$",
+    re.MULTILINE,
+)
+
+
 def parse_md_file(md_text: str) -> dict[str, str | None]:
     """.md 본문을 섹션별로 분리.
 
@@ -113,6 +140,182 @@ def parse_md_file(md_text: str) -> dict[str, str | None]:
         "lv4": lv4,
         "meta": meta,
     }
+
+
+# ─── Step 24-2 다중 설문 파싱 헬퍼 ───────────────────────────────────
+
+
+def normalize_subq_key(group1: str, group2: str | None) -> str:
+    """정규식 캡처 그룹 → 정규화된 subq key (`설문 N` / `설문 N 가`).
+
+    Args:
+        group1: `_SUBQ_HEADER_RE` 의 group1 (예: ``"설문 1"`` 또는 ``"설문 (1)"``).
+        group2: `_SUBQ_HEADER_RE` 의 group2 (예: ``"가"``, ``"나"`` 또는 None).
+
+    Returns:
+        패턴 A `### 설문 1 (20점)`  + group2=None → ``"설문 1"``
+        패턴 B `### 설문 (1) (12점)` + group2=None → ``"설문 1"`` (괄호 제거)
+        패턴 C `### 설문 1 가 (12점)`+ group2="가"  → ``"설문 1 가"``
+        패턴 B+C `### 설문 (1) 가 (12점)` (미래 대비) → ``"설문 1 가"``
+
+    정규화 정책 (dev-design archive #48 G-1 Q6 A 결정):
+        - DB attempt_criteria.subq_key TEXT + API JSON dict key 일관성 보장.
+        - 표기 변형(괄호/공백 N개)은 통일 — R-09 자의가 아니라 키 매칭용.
+    """
+    # group1 예: "설문 1" / "설문 (1)" — 공백으로 split 후 [1] 가 숫자 토큰
+    parts = group1.split()
+    if len(parts) < 2:
+        # 안전장치 (실제로는 정규식이 \s+ 강제하므로 도달 불가)
+        num_part = group1.strip()
+    else:
+        num_part = parts[1].strip("()")  # "(1)" → "1"
+    if group2:
+        return f"설문 {num_part} {group2}"
+    return f"설문 {num_part}"
+
+
+def _extract_section_body(md_text: str, header_line_pos: int, header_match_end: int) -> str:
+    """주어진 헤더 위치부터 다음 `^### ` 또는 `^## ` 헤더 전까지의 본문 추출.
+
+    Args:
+        md_text:           전체 .md 본문.
+        header_line_pos:   header match 의 `start()` (= 줄 시작).
+        header_match_end:  header match 의 `end()`.
+
+    Returns:
+        헤더 줄을 제외한 본문 (양옆 공백 strip).
+    """
+    # 다음 `### ` 또는 `## ` 헤더 찾기 (header_match_end 부터)
+    # `^### ` 우선 — `^## ` 도 동시 검사 (Lv 섹션 시작이면 종료)
+    next_h3 = re.search(r"^### ", md_text[header_match_end:], re.MULTILINE)
+    next_h2 = re.search(r"^## ", md_text[header_match_end:], re.MULTILINE)
+    candidates = []
+    if next_h3:
+        candidates.append(header_match_end + next_h3.start())
+    if next_h2:
+        candidates.append(header_match_end + next_h2.start())
+    body_end = min(candidates) if candidates else len(md_text)
+    return md_text[header_match_end:body_end].strip()
+
+
+def parse_md_subqs(md_content: str) -> list[dict]:
+    """다중 설문 .md → subq 카드 N개 분해.
+
+    Args:
+        md_content: .md 본문 원문 (`read_md_for_case` 결과).
+
+    Returns:
+        list[dict] — 각 카드 한 건:
+            ``{"key": str, "score_max": int | None, "body": str, "answer": str}``
+
+        - ``key``: 정규화 키 (``"설문 1"`` / ``"설문 1 가"``).
+        - ``score_max``: 헤더 ``(NN점)`` 캡처 (없으면 None).
+        - ``body``:  ``### 설문 N`` 헤더 다음 줄 ~ 다음 헤더 직전.
+        - ``answer``: ``### 설문 N 답안`` 헤더 다음 줄 ~ 다음 헤더 직전.
+                     매칭되는 답안 헤더가 없으면 빈 문자열.
+
+        **단일 설문 (legacy fallback)**: ``_SUBQ_HEADER_RE`` 매칭 0건 →
+        빈 리스트 ``[]`` 반환. 호출자가 단일 설문 케이스로 판단.
+
+    알고리즘:
+        1. `_SUBQ_HEADER_RE.finditer` 로 모든 문제 헤더 위치 수집.
+        2. `_SUBQ_ANSWER_HEADER_RE.finditer` 로 모든 답안 헤더 위치 수집.
+        3. `normalize_subq_key` 결과를 key 삼아 문제 헤더 ↔ 답안 헤더 짝 매칭.
+        4. 본문은 `_extract_section_body` 로 다음 헤더 직전까지 슬라이스.
+        5. 0건이면 [] 반환 (legacy).
+
+    8 .md 실측 분포 (dev-design #48 5-2):
+        - 패턴 A (4건): 민법 모고01_01 / 민소 모고02_01/02
+        - 패턴 B (2건): 민소 모고01_01/02
+        - 패턴 C (2건): 민법 모고02_01/02 (가/나 독립 카드)
+        - fallback (1건): 민법 모고01_02 (### 설문 N 헤더 0개)
+    """
+    # 1. 문제 헤더 수집
+    subq_headers = list(_SUBQ_HEADER_RE.finditer(md_content))
+    if not subq_headers:
+        # legacy fallback — 호출자가 단일 설문으로 처리
+        return []
+
+    # 2. 답안 헤더를 key 로 인덱싱
+    answer_by_key: dict[str, re.Match] = {}
+    for m in _SUBQ_ANSWER_HEADER_RE.finditer(md_content):
+        key = normalize_subq_key(m.group(1), m.group(2))
+        answer_by_key[key] = m
+
+    # 3. 카드 N개 생성
+    cards: list[dict] = []
+    for m in subq_headers:
+        g1 = m.group(1)
+        g2 = m.group(2)
+        score_str = m.group(3)
+        key = normalize_subq_key(g1, g2)
+        score_max = int(score_str) if score_str else None
+        body = _extract_section_body(md_content, m.start(), m.end())
+
+        ans_match = answer_by_key.get(key)
+        if ans_match:
+            answer = _extract_section_body(md_content, ans_match.start(), ans_match.end())
+        else:
+            answer = ""
+
+        cards.append(
+            {
+                "key": key,
+                "score_max": score_max,
+                "body": body,
+                "answer": answer,
+            }
+        )
+    return cards
+
+
+def parse_md_toc(md_content: str) -> str:
+    """.md 본문에서 `### 목차` 섹션 본문 추출.
+
+    Args:
+        md_content: .md 본문 원문.
+
+    Returns:
+        ``### 목차`` 헤더 다음 줄 ~ 다음 헤더 직전 본문 (strip).
+        헤더 없으면 빈 문자열.
+
+    `### 목차` 는 Lv.1 빠른복습 안의 `### 문제` ~ `### 답안` 사이에 위치.
+    """
+    m = re.search(r"^### 목차\s*$", md_content, re.MULTILINE)
+    if not m:
+        return ""
+    return _extract_section_body(md_content, m.start(), m.end())
+
+
+def parse_md_mnemonic(md_content: str) -> list[str]:
+    """.md 본문에서 Lv.4 암기노트 번호 목록 추출.
+
+    Args:
+        md_content: .md 본문 원문.
+
+    Returns:
+        ``## Lv.4`` 섹션 안에 한 줄에 ``N. `` (반각 점 + 공백) 으로 시작하는
+        모든 줄 list (번호 prefix 포함, strip).
+        Lv.4 섹션이 없거나 번호 목록이 없으면 빈 list.
+
+    예시 (모고01_01.md Lv.4):
+        ``["1. B 회사의 대출원리금 ...", "2. A 은행의 1999년 ...", ...]``
+    """
+    # Lv.4 섹션만 슬라이스 (`^## Lv.4` ~ 다음 `^## ` 또는 EOF)
+    lv4_match = re.search(r"^## Lv\.4[^\n]*$", md_content, re.MULTILINE)
+    if not lv4_match:
+        return []
+    lv4_start = lv4_match.end()
+    next_h2 = re.search(r"^## ", md_content[lv4_start:], re.MULTILINE)
+    lv4_end = lv4_start + next_h2.start() if next_h2 else len(md_content)
+    lv4_body = md_content[lv4_start:lv4_end]
+
+    # 번호 목록 라인 ("1. ", "2. ", ...) 추출 — 순서 보존
+    items: list[str] = []
+    for line in lv4_body.split("\n"):
+        if re.match(r"^\s*\d+\.\s", line):
+            items.append(line.strip())
+    return items
 
 
 def _resolve_md_path(case_path: str) -> Path:
