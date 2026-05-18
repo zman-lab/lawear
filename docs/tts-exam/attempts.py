@@ -1451,11 +1451,22 @@ def get_attempt(conn: sqlite3.Connection, attempt_id: int) -> dict[str, Any]:
     out = _attempt_row_to_dict(row)
 
     # case_title (시안 Reports / Reviewer Notes 등 표시용)
-    cur = conn.execute("SELECT title, file, case_no FROM cases WHERE id = ?", (out["case_id"],))
+    # e571-score-display — case_points 추가 (실제 시험 배점, 100점 환산용)
+    cur = conn.execute(
+        "SELECT title, file, case_no, points FROM cases WHERE id = ?",
+        (out["case_id"],),
+    )
     crow = cur.fetchone()
     if crow:
         out["case_title"] = crow["title"]
         out["case_short_id"] = f"{crow['file']}-{crow['case_no']}"
+        # case_points: cases.points (시험 배점) — legacy cases 면 None graceful
+        try:
+            out["case_points"] = crow["points"]
+        except (IndexError, KeyError):
+            out["case_points"] = None
+    else:
+        out["case_points"] = None
 
     # criteria (done 시만 — grading/error 시도 row 가 있을 수 있으나 비어있음)
     if out["db_status"] == DB_STATUS_DONE:
@@ -1598,7 +1609,8 @@ def list_attempts(
                a.is_stale, a.is_mock, a.error_code,
                c.title AS case_title, c.subject AS case_subject,
                c.subject_kor AS case_subject_kor,
-               c.file AS case_file, c.case_no AS case_no_str
+               c.file AS case_file, c.case_no AS case_no_str,
+               c.points AS case_points
           FROM attempts a
           LEFT JOIN cases c ON a.case_id = c.id
          WHERE {where_sql}
@@ -1623,6 +1635,12 @@ def list_attempts(
             except (TypeError, ValueError):
                 total_solve = None
 
+        # e571-score-display — case_points 노출 (legacy NULL 그대로)
+        try:
+            case_points_val = r["case_points"]
+        except (IndexError, KeyError):
+            case_points_val = None
+
         items.append(
             {
                 "id": r["id"],
@@ -1634,6 +1652,8 @@ def list_attempts(
                 else None,
                 "case_subject": r["case_subject"],
                 "case_subject_kor": r["case_subject_kor"],
+                # e571-score-display — 실제 시험 배점 (n/case_points 표시용)
+                "case_points": case_points_val,
                 "started_at": r["started_at"],
                 "submitted_at": r["submitted_at"],
                 "completed_at": r["completed_at"],

@@ -392,6 +392,7 @@ def overall(
     # Recent submissions (limit)
     # Step 24-7 — answer_subq / subq_elapsed / hints_used (마이그 v6) JOIN 추가 +
     #             4키 메타 (subq_count, hints_used_count, hint_steps_revealed_max, total_solve_sec) 노출.
+    # e571-score-display — c.points 추가 (실제 시험 배점 노출)
     recent_sql = """
         SELECT a.id AS attempt_id, a.case_id, a.started_at, a.submitted_at, a.completed_at,
                a.status, a.score_total, a.score_max, a.score_pct, a.grade,
@@ -399,7 +400,8 @@ def overall(
                a.answer_subq, a.subq_elapsed, a.hints_used,
                c.title AS case_title, c.subject AS case_subject,
                c.subject_kor AS case_subject_kor,
-               c.file AS case_file, c.case_no AS case_no
+               c.file AS case_file, c.case_no AS case_no,
+               c.points AS case_points
           FROM attempts a
           LEFT JOIN cases c ON a.case_id = c.id
          WHERE a.status IN (?, ?)
@@ -412,6 +414,12 @@ def overall(
     recent: list[dict[str, Any]] = []
     for r in cur.fetchall():
         meta = _subq_meta(r["answer_subq"], r["subq_elapsed"], r["hints_used"])
+        # e571-score-display — case_points 노출 (legacy NULL graceful)
+        try:
+            case_points_val = r["case_points"]
+        except (IndexError, KeyError):
+            case_points_val = None
+
         recent.append(
             {
                 "attempt_id": r["attempt_id"],
@@ -422,6 +430,8 @@ def overall(
                 "case_short_id": (
                     f"{r['case_file']}-{r['case_no']}" if r["case_file"] else None
                 ),
+                # e571-score-display — 실제 시험 배점 (n/case_points 표시용)
+                "case_points": case_points_val,
                 "started_at": r["started_at"],
                 "submitted_at": r["submitted_at"],
                 "completed_at": r["completed_at"],
@@ -800,13 +810,15 @@ def _case_criteria_avg(
 
 
 def _case_attempts_history(
-    conn: sqlite3.Connection, case_id: str
+    conn: sqlite3.Connection, case_id: str, case_points: int | None = None
 ) -> list[dict[str, Any]]:
     """case 의 시도 히스토리 (ASC 순, attempt_num 부여).
 
     main_miss: eval_notes_json.missing 첫 문장 또는 attempt_criteria 의 최저 코멘트.
 
     Step 24-7: answer_subq / subq_elapsed / hints_used JOIN + 4키 메타 노출.
+
+    e571-score-display: case_points 각 항목에 echo (UI 행단위 환산용).
     """
     sql = """
         SELECT id, started_at, submitted_at, completed_at, status, score_total, score_max,
@@ -855,6 +867,8 @@ def _case_attempts_history(
                 "score_total": r["score_total"],
                 "score_max": r["score_max"],
                 "score_pct": _round_pct(r["score_pct"]),
+                # e571-score-display — case_points echo (각 행 환산용)
+                "case_points": case_points,
                 "grade": r["grade"],
                 "main_miss": main_miss,
                 "is_stale": bool(r["is_stale"]),
@@ -951,6 +965,8 @@ def by_case(
                 "score_pct": _round_pct(r["score_pct"]),
                 "score_total": r["score_total"],
                 "score_max": r["score_max"],
+                # e571-score-display — case_points echo (각 행 환산용)
+                "case_points": case_points,
                 "grade": r["grade"],
                 "status": r["status"],
                 # Step 24-7 — 카드별 메타 4키
@@ -1015,7 +1031,8 @@ def by_case(
         conn, case_id, persistent_threshold=persistent_threshold
     )
     criteria_avg = _case_criteria_avg(conn, case_id)
-    history = _case_attempts_history(conn, case_id)
+    # e571-score-display — case_points 를 history 에 echo
+    history = _case_attempts_history(conn, case_id, case_points=case_points)
 
     return {
         "case_id": case_id,
