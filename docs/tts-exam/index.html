@@ -1263,18 +1263,44 @@
     font-size: 11px;
     left: 6px;
   }
-  /* 모달 내 rich-summary — 폰트/패딩 축소 */
+  /* e571-ui-eval-rework — 모달 내 rich-summary 가독성 강화 (폰트↑ 패딩↑ 줄간격↑) */
   .modal-grid .modal-eval .rich-summary {
-    padding: 10px 12px;
-    margin-top: 4px;
-    margin-bottom: 8px;
-    font-size: 11px;
+    padding: 12px 14px;
+    margin-top: 6px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    line-height: 1.65;
+    background: transparent;
+    border: none;
   }
   .modal-grid .modal-eval .rich-summary .oneliner-box {
-    padding: 8px 12px;
-    font-size: 12px;
+    padding: 10px 14px;
+    margin-bottom: 14px;
+    font-size: 13px;
+    line-height: 1.6;
   }
-  .modal-grid .modal-eval .rich-summary .sw-list li { font-size: 11px; }
+  .modal-grid .modal-eval .rich-summary .score-summary-box {
+    padding: 9px 13px;
+    margin-bottom: 14px;
+    font-size: 12.5px;
+    line-height: 1.65;
+  }
+  .modal-grid .modal-eval .rich-summary .sw-section {
+    margin-bottom: 14px;
+  }
+  .modal-grid .modal-eval .rich-summary .sw-section .sw-title {
+    font-size: 10.5px;
+    margin-bottom: 7px;
+  }
+  .modal-grid .modal-eval .rich-summary .sw-list li {
+    font-size: 12px;
+    line-height: 1.6;
+    padding: 6px 12px 6px 24px;
+    margin-bottom: 6px;
+  }
+  .modal-grid .modal-eval .rich-summary .sw-list.l-missing li {
+    padding-right: 64px;
+  }
   /* Step 24-7c — 시도별 추이 차트 (평가 모달 안, SVG 듀얼 라인 점수+풀이시간) */
   .attempt-trend-chart {
     background: var(--panel);
@@ -1455,9 +1481,10 @@
     border-color: var(--border);
     border-bottom-color: var(--panel);
   }
+  /* e571-ui-eval-rework — 그리드 비율 변경 (답안 1 : 평가지 1.4 — 평가지 비중↑) */
   .modal-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1.4fr;
     gap: 16px;
   }
   .modal-grid h5 {
@@ -1477,29 +1504,67 @@
     line-height: 1.7;
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: 60vh;
+    max-height: 62vh;
     overflow-y: auto;
   }
   .modal-grid .modal-answer .diff-match { background: rgba(78, 201, 176, 0.15); padding: 0 2px; border-radius: 2px; }
   .modal-grid .modal-answer .diff-partial { background: rgba(206, 145, 120, 0.18); color: var(--warn); padding: 0 3px; border-radius: 2px; }
   .modal-grid .modal-answer .diff-miss { background: rgba(209, 105, 105, 0.18); color: var(--danger); padding: 0 3px; border-radius: 2px; }
-  /* Step 16-2 — 우측 컬럼 컨테이너 (Eval 상단 + Origin 하단) */
-  .modal-grid .modal-right { display: flex; flex-direction: column; min-height: 0; max-height: 60vh; }
+  /* e571-ui-eval-rework — 답안 컬럼 (탭으로 mine/origin 전환) */
+  .modal-grid .modal-answer-col {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  /* 탭 헤더 (좌측 컬럼 상단) */
+  .modal-ans-tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-ans-tab {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid transparent;
+    border-bottom: none;
+    padding: 6px 14px;
+    font-size: 11px;
+    font-family: 'SF Mono', Consolas, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border-radius: 3px 3px 0 0;
+    margin-bottom: -1px;
+    transition: color 120ms, background 120ms;
+  }
+  .modal-ans-tab:hover { color: var(--text); }
+  .modal-ans-tab.active {
+    color: var(--accent);
+    background: var(--bg);
+    border-color: var(--border);
+    border-bottom-color: var(--bg);
+    font-weight: 600;
+  }
+  /* 탭 컨텐츠 — show/hide */
+  .modal-ans-pane { display: none; }
+  .modal-ans-pane.active { display: block; }
+  /* e571-ui-eval-rework — 평가지 영역 확장 (origin 하단 제거 → eval 가 모달 높이 거의 전체) */
+  .modal-grid .modal-right { display: flex; flex-direction: column; min-height: 0; }
   .modal-grid .modal-right h5 { flex: none; }
-  .modal-grid .modal-right .modal-eval { flex: 0 0 auto; max-height: 32vh; }
-  .modal-grid .modal-right .modal-origin { flex: 1 1 auto; min-height: 0; }
+  .modal-grid .modal-right .modal-eval { flex: 1 1 auto; min-height: 0; }
   .modal-grid .modal-eval {
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 3px;
-    padding: 10px 12px;
-    font-size: 12px;
-    line-height: 1.6;
-    max-height: 60vh;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.65;
+    max-height: 62vh;
     overflow-y: auto;
   }
-  /* Step 16-2 — 강사 원본 답안 본문 (모달 우측 하단) */
-  .modal-grid .modal-origin {
+  /* e571-ui-eval-rework — 원본 답안 본문 (좌측 탭 + 토글 패널 공용) */
+  .modal-origin {
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 3px;
@@ -1509,32 +1574,93 @@
     line-height: 1.7;
     white-space: pre-wrap;
     word-break: break-word;
-    max-height: 28vh;
+    max-height: 62vh;
     overflow-y: auto;
   }
+  .modal-origin.modal-origin-tab { max-height: 62vh; }
   /* 강조 태그 (em-*) — 시안 Eval Diff 와 동일 스타일 */
-  .modal-grid .modal-origin .em-red    { background: #d16969; color: #fff; padding: 0 3px; border-radius: 2px; }
-  .modal-grid .modal-origin .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
-  .modal-grid .modal-origin .em-bold   { font-weight: 700; color: var(--text-bright); }
-  .modal-grid .modal-origin .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
-  .modal-grid .modal-origin .em-blank  { background: #ffe066; color: #222; padding: 0 4px; border-radius: 2px; }
-  .modal-grid .modal-origin .em-blank2 { background: #d16969; color: #ffe066; padding: 0 4px; border-radius: 2px; }
+  .modal-origin .em-red    { background: #d16969; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .modal-origin .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .modal-origin .em-bold   { font-weight: 700; color: var(--text-bright); }
+  .modal-origin .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
+  .modal-origin .em-blank  { background: #ffe066; color: #222; padding: 0 4px; border-radius: 2px; }
+  .modal-origin .em-blank2 { background: #d16969; color: #ffe066; padding: 0 4px; border-radius: 2px; }
   /* 매칭/누락 형광펜 — 좌측 답안과 동일 색 */
-  .modal-grid .modal-origin .diff-match { background: rgba(78, 201, 176, 0.15); padding: 0 2px; border-radius: 2px; }
-  .modal-grid .modal-origin .diff-partial { background: rgba(206, 145, 120, 0.18); color: var(--warn); padding: 0 3px; border-radius: 2px; }
-  .modal-grid .modal-origin .diff-miss { background: rgba(209, 105, 105, 0.18); color: var(--danger); padding: 0 3px; border-radius: 2px; }
+  .modal-origin .diff-match { background: rgba(78, 201, 176, 0.15); padding: 0 2px; border-radius: 2px; }
+  .modal-origin .diff-partial { background: rgba(206, 145, 120, 0.18); color: var(--warn); padding: 0 3px; border-radius: 2px; }
+  .modal-origin .diff-miss { background: rgba(209, 105, 105, 0.18); color: var(--danger); padding: 0 3px; border-radius: 2px; }
+  /* e571-ui-eval-rework — 원문 비교 토글 (모달 하단 펼침/접힘) */
+  .modal-ref-toggle-row {
+    margin-top: 14px;
+    border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+  .modal-ref-toggle-btn {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 9px 14px;
+    font-size: 12px;
+    font-family: 'SF Mono', Consolas, monospace;
+    cursor: pointer;
+    transition: background 120ms, border-color 120ms;
+  }
+  .modal-ref-toggle-btn:hover {
+    background: var(--bg);
+    border-color: var(--accent-dim);
+  }
+  .modal-ref-toggle-btn .ref-toggle-icon { font-size: 14px; }
+  .modal-ref-toggle-btn .ref-toggle-label { flex: 1; text-align: left; }
+  .modal-ref-toggle-btn .ref-toggle-caret {
+    font-size: 11px;
+    color: var(--text-dim);
+    transition: transform 180ms;
+  }
+  .modal-ref-toggle-btn[aria-expanded="true"] .ref-toggle-caret { transform: rotate(180deg); }
+  .modal-ref-toggle-btn[aria-expanded="true"] {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+  .modal-ref-content[hidden] { display: none; }
+  .modal-ref-content {
+    margin-top: 10px;
+    animation: refContentFade 220ms ease-out;
+  }
+  @keyframes refContentFade {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .modal-ref-hint {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    background: rgba(86, 156, 214, 0.05);
+    border-left: 2px solid var(--accent-dim);
+    border-radius: 0 3px 3px 0;
+    line-height: 1.5;
+  }
+  .modal-ref-content .modal-origin {
+    max-height: 40vh;
+  }
+  /* e571-ui-eval-rework — 평가지 가독성 강화 (폰트↑ 간격↑) */
   .modal-grid .modal-eval .crit-row {
     display: grid;
-    grid-template-columns: 100px 1fr 60px;
-    gap: 8px;
+    grid-template-columns: 110px 1fr 70px;
+    gap: 10px;
     align-items: center;
-    padding: 4px 0;
-    font-size: 11px;
+    padding: 6px 0;
+    font-size: 12px;
   }
   .modal-grid .modal-eval .crit-row .bar-wrap {
-    height: 5px;
+    height: 6px;
     background: var(--panel-2);
-    border-radius: 1px;
+    border-radius: 2px;
     overflow: hidden;
   }
   .modal-grid .modal-eval .crit-row .bar-fill {
@@ -1547,33 +1673,81 @@
   .modal-grid .modal-eval .crit-row .num {
     text-align: right;
     font-family: 'SF Mono', Consolas, monospace;
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-dim);
   }
+  /* 평 카드(legacy strength/caution/missing) — 간격 확보 */
   .modal-grid .modal-eval .modal-note {
-    padding: 6px 10px;
-    margin: 6px 0;
-    border-left: 2px solid var(--accent);
+    padding: 8px 12px;
+    margin: 10px 0;
+    border-left: 3px solid var(--accent);
     background: rgba(86, 156, 214, 0.05);
-    font-size: 11px;
-    line-height: 1.6;
+    font-size: 12px;
+    line-height: 1.65;
+    border-radius: 0 3px 3px 0;
   }
   .modal-grid .modal-eval .modal-note.warn { border-left-color: var(--warn); background: rgba(206, 145, 120, 0.05); }
   .modal-grid .modal-eval .modal-note.danger { border-left-color: var(--danger); background: rgba(209, 105, 105, 0.05); }
   .modal-grid .modal-eval .modal-note .note-tag {
-    display: inline-block;
-    font-size: 9px;
+    display: block;
+    font-size: 10px;
     color: var(--text-dim);
     text-transform: uppercase;
-    letter-spacing: 0.3px;
-    margin-right: 6px;
+    letter-spacing: 0.4px;
+    margin-bottom: 4px;
     font-weight: 600;
+  }
+  /* e571-ui-eval-rework — pattern_warning 박스 (반복 약점 패턴 경고) */
+  .pattern-warn-box {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    background: rgba(209, 105, 105, 0.10);
+    border: 1px solid var(--danger);
+    border-left-width: 4px;
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin: 12px 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--text-bright);
+  }
+  .pattern-warn-box .pattern-warn-icon {
+    flex-shrink: 0;
+    font-size: 18px;
+    line-height: 1.2;
+  }
+  .pattern-warn-box .pattern-warn-body {
+    flex: 1;
+    min-width: 0;
+  }
+  .pattern-warn-box .pattern-warn-title {
+    font-size: 10px;
+    color: var(--danger);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .pattern-warn-box .pattern-warn-text {
+    color: var(--text);
+    word-break: break-word;
+  }
+  .modal-grid .modal-eval .pattern-warn-box {
+    font-size: 12px;
+    padding: 9px 12px;
   }
   /* Reports 행 클릭 가능 표시 */
   .case-history-table tbody tr.clickable { cursor: pointer; }
   .case-history-table tbody tr.clickable:hover { background: var(--panel-2); }
   @media (max-width: 720px) {
     .modal-grid { grid-template-columns: 1fr; }
+    /* e571-ui-eval-rework — 모바일: 답안 탭 max-height 축소, 토글 버튼 풀폭 유지 */
+    .modal-grid .modal-answer,
+    .modal-origin.modal-origin-tab,
+    .modal-grid .modal-eval { max-height: 48vh; }
+    .modal-ref-content .modal-origin { max-height: 32vh; }
+    .modal-ans-tab { padding: 6px 10px; font-size: 10.5px; }
   }
 
   /* Sub-tabs (Reports) */
@@ -2608,16 +2782,43 @@
       <!-- 타임스탬프 배지 (시도 N건이면 N개) -->
     </div>
     <div class="modal-body">
+      <!-- e571-ui-eval-rework — 모달 레이아웃 리워크
+           좌: 답안 영역 (탭: 내 답안 / 원본 답안)
+           우: 평가지 (확장)
+           아래: 원문 비교 (버튼 토글) -->
       <div class="modal-grid">
-        <div>
-          <h5 data-i18n="diff_col_mine">My Answer</h5>
-          <div class="modal-answer" id="attempt-modal-answer">—</div>
+        <div class="modal-answer-col">
+          <div class="modal-ans-tabs" role="tablist" aria-label="Answer view">
+            <button type="button" class="modal-ans-tab active" data-ans-tab="mine"
+                    role="tab" aria-selected="true" data-i18n="diff_col_mine">My Answer</button>
+            <button type="button" class="modal-ans-tab" data-ans-tab="origin"
+                    role="tab" aria-selected="false" data-i18n="diff_col_ref">Reference (Origin)</button>
+          </div>
+          <!-- 내 답안 (default 활성) -->
+          <div class="modal-ans-pane modal-ans-pane-mine active" data-ans-pane="mine">
+            <div class="modal-answer" id="attempt-modal-answer">—</div>
+          </div>
+          <!-- 원본 답안 (탭으로 전환) — 강조 태그 + 매칭 형광펜 유지 -->
+          <div class="modal-ans-pane modal-ans-pane-origin" data-ans-pane="origin">
+            <div class="modal-origin modal-origin-tab" id="attempt-modal-origin">—</div>
+          </div>
         </div>
         <div class="modal-right">
           <h5 data-i18n="modal_eval_panel">Evaluation</h5>
           <div class="modal-eval" id="attempt-modal-eval">—</div>
-          <h5 data-i18n="diff_col_ref" style="margin-top: 12px;">Reference (Origin)</h5>
-          <div class="modal-origin" id="attempt-modal-origin">—</div>
+        </div>
+      </div>
+      <!-- 원문 비교 토글 — 별도 워크트리(pattern-warning)와 충돌 없음 -->
+      <div class="modal-ref-toggle-row">
+        <button type="button" class="modal-ref-toggle-btn" id="modal-ref-toggle"
+                aria-expanded="false" aria-controls="modal-ref-content">
+          <span class="ref-toggle-icon">📄</span>
+          <span class="ref-toggle-label" data-i18n="modal_ref_toggle_show">Show reference comparison</span>
+          <span class="ref-toggle-caret">▼</span>
+        </button>
+        <div class="modal-ref-content" id="modal-ref-content" hidden>
+          <div class="modal-ref-hint" data-i18n="modal_ref_hint">Highlighted origin (match / partial / miss) — clean view available in the tab above.</div>
+          <div class="modal-origin" id="attempt-modal-origin-diff">—</div>
         </div>
       </div>
     </div>
@@ -2762,6 +2963,12 @@
       modal_load_failed: 'Failed to load attempt: {msg}',
       modal_no_answer: 'No answer recorded.',
       modal_no_eval: 'Not yet graded.',
+      // e571-ui-eval-rework — Reference toggle (Show / Hide) + tab hint
+      modal_ref_toggle_show: 'Show reference comparison',
+      modal_ref_toggle_hide: 'Hide reference comparison',
+      modal_ref_hint: 'Highlighted origin (match / partial / miss) — clean view available in the tab above.',
+      // e571-ui-eval-rework — pattern_warning header (legacy graceful)
+      rich_pattern_warning: 'Recurring Pattern Warning',
       // ⓘ 툴팁 의미 (기준별 평균)
       crit_case_apply_tip: 'How well student applies conclusion+reasoning to facts (case_apply, exact match X)',
       crit_mnem_tip: 'Lv.4 두문자 매칭 비율 (mnem)',
@@ -3003,6 +3210,12 @@
       modal_load_failed: '시도 로드 실패: {msg}',
       modal_no_answer: '답안 없음.',
       modal_no_eval: '아직 채점되지 않았습니다.',
+      // e571-ui-eval-rework — 원문 비교 토글 (펼침/접힘) + 탭 안내
+      modal_ref_toggle_show: '원문 비교 보기',
+      modal_ref_toggle_hide: '원문 비교 접기',
+      modal_ref_hint: '강조 형광펜(일치/부분/누락) 적용한 원본. 깨끗한 원문은 위쪽 탭에서 볼 수 있습니다.',
+      // e571-ui-eval-rework — pattern_warning 헤더 (legacy graceful)
+      rich_pattern_warning: '반복 약점 패턴 경고',
       // ⓘ 툴팁 의미 (기준별 평균)
       crit_case_apply_tip: '사안의 경우 — 수험생이 결론+근거로 사안에 논거 펼친 정도 (case_apply, 정확 매칭 X)',
       crit_mnem_tip: 'Lv.4 두문자 [blank2] 매칭 비율 (mnem)',
@@ -5005,8 +5218,21 @@
     const missing = missingRaw.map(normalizeMissingItem).filter(x => x.item);
     const actionable = normalizeItems(notes.next_study_actionable);
 
+    // e571-ui-eval-rework — pattern_warning 도 신규 키로 인정 (legacy 검사 회피)
+    const hasPatternWarning = (() => {
+      const pw = notes.pattern_warning;
+      if (pw == null) return false;
+      if (typeof pw === 'string') return pw.trim() !== '';
+      if (typeof pw === 'object') {
+        const t = (typeof pw.text === 'string') ? pw.text.trim()
+                : (typeof pw.message === 'string') ? pw.message.trim() : '';
+        return t !== '';
+      }
+      return false;
+    })();
     const hasAnyNew = !!(oneliner || scoreSummary
-      || strengths.length || weaknesses.length || missing.length || actionable.length);
+      || strengths.length || weaknesses.length || missing.length || actionable.length
+      || hasPatternWarning);
 
     // legacy 검사 — 신규 키 0개 + 구 키(strength/caution/missing) 중 하나라도 있으면 legacy
     const hasLegacy = !!(notes.strength || notes.caution || notes.missing);
@@ -5025,6 +5251,30 @@
       html += `<div class="oneliner-box">
         <span class="oneliner-icon">💡</span>
         <span class="oneliner-text">${escapeHtml(oneliner)}</span>
+      </div>`;
+    }
+
+    // 1.5 e571-ui-eval-rework — pattern_warning 박스 (반복 약점 패턴, 별도 워크트리에서 추가)
+    // notes.pattern_warning 또는 notes.eval_notes.pattern_warning 둘 다 graceful.
+    // null/빈문자/미존재 모두 hidden — legacy attempts 깨지지 않음.
+    const patternWarning = (() => {
+      const pw = notes.pattern_warning;
+      if (pw == null) return '';
+      if (typeof pw === 'string') return pw.trim();
+      if (typeof pw === 'object') {
+        // 객체 {text:..., severity:...} 등 미래 확장 대비
+        if (typeof pw.text === 'string') return pw.text.trim();
+        if (typeof pw.message === 'string') return pw.message.trim();
+      }
+      return '';
+    })();
+    if (patternWarning) {
+      html += `<div class="pattern-warn-box">
+        <span class="pattern-warn-icon">🔥</span>
+        <div class="pattern-warn-body">
+          <div class="pattern-warn-title">${escapeHtml(dict.rich_pattern_warning || 'Recurring Pattern Warning')}</div>
+          <div class="pattern-warn-text">${escapeHtml(patternWarning)}</div>
+        </div>
       </div>`;
     }
 
@@ -7380,6 +7630,88 @@
     caseData: null, // GET /api/cases/{id} 응답 (origin, lv1, lv4, points 등)
   };
 
+  // ─── e571-ui-eval-rework — 모달 답안 탭 + 원문 비교 토글 ───
+  // localStorage 키 (펼침 상태 사용자 선호 보존)
+  const MODAL_REF_TOGGLE_KEY = 'mockup_modal_ref_open';
+
+  // 답안 탭 전환: tab='mine' or 'origin'
+  function switchAnswerTab(tab) {
+    const validTab = (tab === 'origin') ? 'origin' : 'mine';
+    const modal = document.getElementById('attempt-modal');
+    if (!modal) return;
+    modal.querySelectorAll('.modal-ans-tab').forEach(btn => {
+      const isActive = btn.dataset.ansTab === validTab;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    modal.querySelectorAll('.modal-ans-pane').forEach(pane => {
+      const isActive = pane.dataset.ansPane === validTab;
+      pane.classList.toggle('active', isActive);
+    });
+  }
+
+  // 모달 열 때마다 기본 '내 답안'으로 리셋 (탭 상태는 모달간 persist 안 함)
+  function resetAnswerTabToMine() {
+    switchAnswerTab('mine');
+  }
+
+  // 원문 비교 토글 펼침/접힘
+  function toggleReferenceDiff(forceOpen) {
+    const btn = document.getElementById('modal-ref-toggle');
+    const content = document.getElementById('modal-ref-content');
+    if (!btn || !content) return;
+    const dict = I18N[currentLang] || {};
+    const willOpen = (typeof forceOpen === 'boolean')
+      ? forceOpen
+      : (btn.getAttribute('aria-expanded') !== 'true');
+    btn.setAttribute('aria-expanded', willOpen ? 'true' : 'false');
+    if (willOpen) {
+      content.removeAttribute('hidden');
+    } else {
+      content.setAttribute('hidden', '');
+    }
+    const labelEl = btn.querySelector('.ref-toggle-label');
+    if (labelEl) {
+      // applyI18n 호환 — data-i18n 키 자체를 토글 (언어 전환 시에도 라벨 유지)
+      const newKey = willOpen ? 'modal_ref_toggle_hide' : 'modal_ref_toggle_show';
+      labelEl.dataset.i18n = newKey;
+      labelEl.textContent = dict[newKey] || (willOpen
+        ? 'Hide reference comparison'
+        : 'Show reference comparison');
+    }
+    // 사용자 선호 보존
+    try {
+      localStorage.setItem(MODAL_REF_TOGGLE_KEY, willOpen ? '1' : '0');
+    } catch (e) { /* ignore quota / private mode */ }
+  }
+
+  // 페이지 로드 / 모달 재오픈 시 사용자 마지막 선호 복원
+  function restoreReferenceToggleState() {
+    let pref = null;
+    try { pref = localStorage.getItem(MODAL_REF_TOGGLE_KEY); } catch (e) { pref = null; }
+    // default: 접힘 (사용자가 명시적으로 펼친 적 없으면 collapsed)
+    toggleReferenceDiff(pref === '1');
+  }
+
+  // 이벤트 wire — DOMContentLoaded 후 1회 (탭 버튼 + 토글 버튼)
+  function wireModalEvalRework() {
+    const modal = document.getElementById('attempt-modal');
+    if (!modal) return;
+    // 답안 탭 클릭
+    modal.querySelectorAll('.modal-ans-tab[data-ans-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchAnswerTab(btn.dataset.ansTab);
+      });
+    });
+    // 원문 비교 토글 클릭
+    const toggleBtn = document.getElementById('modal-ref-toggle');
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => toggleReferenceDiff());
+    }
+    // 초기 라벨 (collapsed 기본)
+    restoreReferenceToggleState();
+  }
+
   // yyyyMMdd_HHmm 포맷 (사용자 명시) — Step 19-1 fmtSeoul 위임
   function fmtTimestampBadge(iso) {
     return fmtSeoul(iso, { style: 'badge' });
@@ -7424,6 +7756,8 @@
       });
     }
     if (closeBtn) closeBtn.addEventListener('click', closeAttemptModal);
+    // e571-ui-eval-rework — 답안 탭 + 원문 비교 토글 wire (모달 1회 초기화)
+    wireModalEvalRework();
   })();
 
   // 모달 헤더/탭 갱신
@@ -7467,7 +7801,9 @@
   function renderModalAttemptBody(att) {
     const ansEl = document.getElementById('attempt-modal-answer');
     const evEl  = document.getElementById('attempt-modal-eval');
+    // e571-ui-eval-rework — origin 2곳: 좌측 탭(clean) + 하단 토글(diff comparison)
     const originEl = document.getElementById('attempt-modal-origin');
+    const originDiffEl = document.getElementById('attempt-modal-origin-diff');
     const dict = I18N[currentLang] || {};
     if (!ansEl || !evEl) return;
 
@@ -7543,10 +7879,28 @@
       if (richHtml) {
         html += `<div class="rich-summary">${richHtml}</div>`;
       }
-      // 평 카드 3개 (구 스키마 — 호환성)
-      html += `<div class="modal-note"><span class="note-tag">${escapeHtml(dict.fb_strength || 'Strength')}</span>${escapeHtml(notes.strength || '—')}</div>`;
-      html += `<div class="modal-note warn"><span class="note-tag">${escapeHtml(dict.fb_caution || 'Caution')}</span>${escapeHtml(notes.caution || '—')}</div>`;
-      html += `<div class="modal-note danger"><span class="note-tag">${escapeHtml(dict.fb_missing || 'Missing')}</span>${escapeHtml(notes.missing || '—')}</div>`;
+      // e571-ui-eval-rework — 평 카드 3개(legacy 호환): 신규 키 없을 때만 표시.
+      //   * 신규 키(strengths/weaknesses/missing_critical 등)가 있으면 중복 노출 회피
+      //   * legacy 키(strength/caution/missing)는 신규 attempts 가 풍부 표시로 대체하기 전 데이터 보존
+      //   * 비어있는 '—' 카드 줄줄이 노출 방지 — 실제 값 있는 카드만 표시
+      const hasNewContent = !!(notes.next_study_oneliner || notes.score_summary
+        || (Array.isArray(notes.strengths) && notes.strengths.length)
+        || (Array.isArray(notes.weaknesses) && notes.weaknesses.length)
+        || (Array.isArray(notes.missing_critical) && notes.missing_critical.length)
+        || (Array.isArray(notes.next_study_actionable) && notes.next_study_actionable.length)
+        || notes.pattern_warning);
+      const hasLegacyContent = !!(notes.strength || notes.caution || notes.missing);
+      if (!hasNewContent && hasLegacyContent) {
+        if (notes.strength) {
+          html += `<div class="modal-note"><span class="note-tag">${escapeHtml(dict.fb_strength || 'Strength')}</span>${escapeHtml(notes.strength)}</div>`;
+        }
+        if (notes.caution) {
+          html += `<div class="modal-note warn"><span class="note-tag">${escapeHtml(dict.fb_caution || 'Caution')}</span>${escapeHtml(notes.caution)}</div>`;
+        }
+        if (notes.missing) {
+          html += `<div class="modal-note danger"><span class="note-tag">${escapeHtml(dict.fb_missing || 'Missing')}</span>${escapeHtml(notes.missing)}</div>`;
+        }
+      }
     } else if (att.status === 'failed' || att.db_status === 'error') {
       html += `<div style="color: var(--danger); font-size: 12px;">
         Error: ${escapeHtml(att.error_code || '—')}<br>
@@ -7557,20 +7911,22 @@
     }
     evEl.innerHTML = html;
 
-    // Step 16-2 — 우측 하단: 강사 원본 답안 본문
+    // e571-ui-eval-rework — 원본 답안 본문 (좌측 탭 + 하단 토글 패널 동시 렌더)
     //   * 캐시된 MODAL_STATE.caseData.origin 사용 (loadCaseDataForModal 가 준비)
     //   * 강조 태그 색 보존 (renderEmphasisInline) + 매칭 형광펜 (highlightDiffSegments)
-    if (originEl) {
-      const caseData = MODAL_STATE.caseData || {};
-      const refText = (typeof caseData.origin === 'string') ? caseData.origin : null;
-      if (refText) {
-        const emphasised = renderEmphasisInline(refText);
-        const segments = Array.isArray(att.diff_segments) ? att.diff_segments : [];
-        originEl.innerHTML = highlightDiffSegments(emphasised, segments);
-      } else {
-        originEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.diff_col_ref_missing || 'No origin reference available.')}</span>`;
-      }
+    //   * 두 곳 동일 HTML — 탭은 깨끗하게 읽기용, 토글은 동일 데이터 펼침 보기
+    const caseData = MODAL_STATE.caseData || {};
+    const refText = (typeof caseData.origin === 'string') ? caseData.origin : null;
+    let originHtml = '';
+    if (refText) {
+      const emphasised = renderEmphasisInline(refText);
+      const segments = Array.isArray(att.diff_segments) ? att.diff_segments : [];
+      originHtml = highlightDiffSegments(emphasised, segments);
+    } else {
+      originHtml = `<span style="color: var(--text-dim);">${escapeHtml(dict.diff_col_ref_missing || 'No origin reference available.')}</span>`;
     }
+    if (originEl) originEl.innerHTML = originHtml;
+    if (originDiffEl) originDiffEl.innerHTML = originHtml;
 
     // 헤더 갱신
     const titleEl = document.getElementById('attempt-modal-title');
@@ -7634,11 +7990,13 @@
     const ansEl = document.getElementById('attempt-modal-answer');
     const evEl  = document.getElementById('attempt-modal-eval');
     const originEl = document.getElementById('attempt-modal-origin');
+    const originDiffEl = document.getElementById('attempt-modal-origin-diff');
     const dict = I18N[currentLang] || {};
     const loadingHtml = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_loading || 'Loading…')}</span>`;
     if (ansEl) ansEl.innerHTML = loadingHtml;
     if (evEl) evEl.innerHTML = loadingHtml;
     if (originEl) originEl.innerHTML = loadingHtml;
+    if (originDiffEl) originDiffEl.innerHTML = loadingHtml;
     try {
       const r = await fetch(`${API_BASE}/api/attempts/${encodeURIComponent(attemptId)}`, {
         headers: { 'Accept': 'application/json' },
@@ -7665,14 +8023,20 @@
     MODAL_STATE.currentAttemptId = focusAttemptId || null;
     MODAL_STATE.caseData = null;  // Step 16-2 — 케이스 바뀌면 caseData 캐시 무효화
     openAttemptModal();
+    // e571-ui-eval-rework — 모달 열림 시 답안 탭은 항상 '내 답안'으로 초기화
+    resetAnswerTabToMine();
+    // 토글 상태는 localStorage 선호 복원
+    restoreReferenceToggleState();
     const ansEl = document.getElementById('attempt-modal-answer');
     const evEl  = document.getElementById('attempt-modal-eval');
     const originEl = document.getElementById('attempt-modal-origin');
+    const originDiffEl = document.getElementById('attempt-modal-origin-diff');
     const dict = I18N[currentLang] || {};
     const loadingHtml = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_loading || 'Loading…')}</span>`;
     if (ansEl) ansEl.innerHTML = loadingHtml;
     if (evEl) evEl.innerHTML = loadingHtml;
     if (originEl) originEl.innerHTML = loadingHtml;
+    if (originDiffEl) originDiffEl.innerHTML = loadingHtml;
 
     try {
       // 같은 케이스의 모든 시도 리스트 (limit 충분히 크게)
@@ -7686,6 +8050,7 @@
         if (ansEl) ansEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_attempts || 'No attempts.')}</span>`;
         if (evEl) evEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_attempts || 'No attempts.')}</span>`;
         if (originEl) originEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_attempts || 'No attempts.')}</span>`;
+        if (originDiffEl) originDiffEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_attempts || 'No attempts.')}</span>`;
         return;
       }
       // 최신순(DESC)으로 표시
