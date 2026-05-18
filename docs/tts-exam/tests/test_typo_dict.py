@@ -150,9 +150,19 @@ class TestApplyStaticReplacements(unittest.TestCase):
         # 제103조 인접에 "아기" 가 있어도 보호되어 그대로 (preserve_terms 매칭)
         text = "제103조 아기 무효"
         corrected, corrections = tc.apply_static_replacements(text, d)
-        # preserve_terms (제103조) 가 ±5자 윈도우에 있어 보호
+        # preserve_terms (제103조) 가 ±15자 윈도우에 있어 보호
         self.assertEqual(corrected, text)
         self.assertEqual(corrections, [])
+
+    def test_replace_far_from_조문번호_applies(self):
+        """조문 번호 멀리 떨어진 위치는 정상 치환 (윈도우 밖)."""
+        d = tc.load_typo_dict()
+        # 30자 이상 떨어진 곳의 오타는 보호되지 않음
+        text = "민법 일반론은 다음과 같이 정리할 수 있다. 그러나 통정표시는 무효이다."
+        corrected, corrections = tc.apply_static_replacements(text, d)
+        # "통정표시" 가 윈도우 밖 — 정상 치환
+        self.assertIn("통정허위표시", corrected)
+        self.assertEqual(len(corrections), 1)
 
     def test_replace_longest_key_first(self):
         """긴 키 우선 매칭 — '통정 허위 표시' (사전에는 키로 등록) > '통정'."""
