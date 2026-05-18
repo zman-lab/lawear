@@ -52,6 +52,81 @@ def _solve_elapsed_sec(started_at: str | None, submitted_at: str | None) -> floa
     except (ValueError, TypeError):
         return None
 
+
+# Step 24-7 — 카드별 dict JSON 역직렬화 + 힌트/카드 메타.
+# attempts._deserialize_subq_dicts / _compute_hint_meta 와 동일 로직 —
+# Reports 는 attempts 모듈에 직접 의존하지 않으므로 복제 (반복은 _solve_elapsed_sec 패턴 따라감).
+def _load_subq_dict(j: str | None) -> dict | None:
+    """JSON 문자열 → dict (legacy NULL/빈 → None). dict 외 타입은 None."""
+    if not j:
+        return None
+    try:
+        obj = json.loads(j)
+    except (TypeError, json.JSONDecodeError):
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
+def _hint_meta(hints_used: dict | None) -> dict[str, int]:
+    """hints_used → {count, steps_max}. attempts._compute_hint_meta 와 동일.
+
+    - count:     모든 카드의 사용된 힌트 step 총 개수 (1~5 범위만 누적).
+    - steps_max: 모든 카드 중 최대 노출 step (1~5 범위만 비교, 없으면 0).
+    """
+    count = 0
+    steps_max = 0
+    if not isinstance(hints_used, dict):
+        return {"count": count, "steps_max": steps_max}
+    for steps in hints_used.values():
+        if not isinstance(steps, list):
+            continue
+        for s in steps:
+            try:
+                si = int(s)
+            except (TypeError, ValueError):
+                continue
+            if 1 <= si <= 5:
+                count += 1
+                if si > steps_max:
+                    steps_max = si
+    return {"count": count, "steps_max": steps_max}
+
+
+def _subq_meta(
+    answer_subq_json: str | None,
+    subq_elapsed_json: str | None,
+    hints_used_json: str | None,
+) -> dict[str, Any]:
+    """카드별 3종 JSON 컬럼 → 4키 메타 (Reports 히스토리/recent 패널용).
+
+    Returns:
+        {
+          "subq_count": int,           # answer_subq 카드 개수 (legacy 단일 0)
+          "hints_used_count": int,     # 모든 카드의 힌트 step 누적 (1~5)
+          "hint_steps_revealed_max": int,  # 모든 카드 중 최대 노출 step (0~5)
+          "total_solve_sec": int|None, # subq_elapsed 합산 (legacy 단일 None)
+        }
+    """
+    ans_subq = _load_subq_dict(answer_subq_json)
+    elap = _load_subq_dict(subq_elapsed_json)
+    hints = _load_subq_dict(hints_used_json)
+    hm = _hint_meta(hints)
+    subq_count_val = len(ans_subq) if isinstance(ans_subq, dict) and ans_subq else 0
+    total_solve: int | None = None
+    if isinstance(elap, dict) and elap:
+        try:
+            total_solve = sum(
+                int(v) for v in elap.values() if isinstance(v, (int, float))
+            )
+        except (TypeError, ValueError):
+            total_solve = None
+    return {
+        "subq_count": int(subq_count_val),
+        "hints_used_count": int(hm["count"]),
+        "hint_steps_revealed_max": int(hm["steps_max"]),
+        "total_solve_sec": total_solve,
+    }
+
 # Reports 에서 "submitted" 로 카운트하는 status (grading 제외)
 SUBMITTED_STATUSES: tuple[str, ...] = (DB_STATUS_DONE, DB_STATUS_ERROR)
 
@@ -315,10 +390,13 @@ def overall(
         )
 
     # Recent submissions (limit)
+    # Step 24-7 — answer_subq / subq_elapsed / hints_used (마이그 v6) JOIN 추가 +
+    #             4키 메타 (subq_count, hints_used_count, hint_steps_revealed_max, total_solve_sec) 노출.
     recent_sql = """
         SELECT a.id AS attempt_id, a.case_id, a.started_at, a.submitted_at, a.completed_at,
                a.status, a.score_total, a.score_max, a.score_pct, a.grade,
                a.is_stale, a.is_mock, a.error_code,
+               a.answer_subq, a.subq_elapsed, a.hints_used,
                c.title AS case_title, c.subject AS case_subject,
                c.subject_kor AS case_subject_kor,
                c.file AS case_file, c.case_no AS case_no
@@ -333,6 +411,7 @@ def overall(
     )
     recent: list[dict[str, Any]] = []
     for r in cur.fetchall():
+        meta = _subq_meta(r["answer_subq"], r["subq_elapsed"], r["hints_used"])
         recent.append(
             {
                 "attempt_id": r["attempt_id"],
@@ -357,6 +436,11 @@ def overall(
                 "solve_elapsed_sec": _solve_elapsed_sec(
                     r["started_at"], r["submitted_at"]
                 ),
+                # Step 24-7 — 카드별 메타 4키
+                "subq_count": meta["subq_count"],
+                "hints_used_count": meta["hints_used_count"],
+                "hint_steps_revealed_max": meta["hint_steps_revealed_max"],
+                "total_solve_sec": meta["total_solve_sec"],
             }
         )
 
@@ -721,11 +805,14 @@ def _case_attempts_history(
     """case 의 시도 히스토리 (ASC 순, attempt_num 부여).
 
     main_miss: eval_notes_json.missing 첫 문장 또는 attempt_criteria 의 최저 코멘트.
+
+    Step 24-7: answer_subq / subq_elapsed / hints_used JOIN + 4키 메타 노출.
     """
     sql = """
         SELECT id, started_at, submitted_at, completed_at, status, score_total, score_max,
                score_pct, grade, eval_notes_json, error_code, error_message,
-               is_stale, is_mock
+               is_stale, is_mock,
+               answer_subq, subq_elapsed, hints_used
           FROM attempts
          WHERE case_id = ?
          ORDER BY submitted_at ASC, id ASC
@@ -756,6 +843,7 @@ def _case_attempts_history(
             if isinstance(em, str) and em.strip():
                 main_miss = f"[error] {em[:200]}"
 
+        meta = _subq_meta(r["answer_subq"], r["subq_elapsed"], r["hints_used"])
         history.append(
             {
                 "attempt_id": r["id"],
@@ -775,6 +863,11 @@ def _case_attempts_history(
                 "solve_elapsed_sec": _solve_elapsed_sec(
                     r["started_at"], r["submitted_at"]
                 ),
+                # Step 24-7 — 카드별 메타 4키
+                "subq_count": meta["subq_count"],
+                "hints_used_count": meta["hints_used_count"],
+                "hint_steps_revealed_max": meta["hint_steps_revealed_max"],
+                "total_solve_sec": meta["total_solve_sec"],
             }
         )
     return history
@@ -836,10 +929,12 @@ def by_case(
         case_points = case_row["points"]
 
     # 시도별 추이 (status='done' 만 — score 있는 시도)
+    # Step 24-7 — answer_subq / subq_elapsed / hints_used 메타 노출 (trend 라인 위 toolltip 용).
     trend: list[dict[str, Any]] = []
     cur = conn.execute(
         """
-        SELECT id, submitted_at, score_total, score_max, score_pct, grade, status
+        SELECT id, submitted_at, score_total, score_max, score_pct, grade, status,
+               answer_subq, subq_elapsed, hints_used
           FROM attempts
          WHERE case_id = ? AND status = ?
          ORDER BY submitted_at ASC, id ASC
@@ -847,6 +942,7 @@ def by_case(
         (case_id, DB_STATUS_DONE),
     )
     for idx, r in enumerate(cur.fetchall(), start=1):
+        meta = _subq_meta(r["answer_subq"], r["subq_elapsed"], r["hints_used"])
         trend.append(
             {
                 "attempt_num": idx,
@@ -857,6 +953,11 @@ def by_case(
                 "score_max": r["score_max"],
                 "grade": r["grade"],
                 "status": r["status"],
+                # Step 24-7 — 카드별 메타 4키
+                "subq_count": meta["subq_count"],
+                "hints_used_count": meta["hints_used_count"],
+                "hint_steps_revealed_max": meta["hint_steps_revealed_max"],
+                "total_solve_sec": meta["total_solve_sec"],
             }
         )
 

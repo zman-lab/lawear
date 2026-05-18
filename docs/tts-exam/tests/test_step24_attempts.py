@@ -821,5 +821,120 @@ class GetAttemptDoneSubqTest(unittest.TestCase):
         self.assertEqual(len(got["criteria"]), 9)
 
 
+# ─── Step 24-9 — list_attempts 1:1 fallback 4키 노출 (legacy answer_text) ──
+
+
+class ListAttemptsLegacyFallback4KeysTest(unittest.TestCase):
+    """Step 24-9 — `list_attempts` 결과의 legacy attempt 4키 메타 0/None.
+
+    검증 대상:
+    1. legacy answer_text 단일 모드 attempt — subq_count=0, hints_used_count=0,
+       hint_steps_revealed_max=0, total_solve_sec=None.
+    2. 다중 + legacy 혼합 페이지 — 각 row 가 본인의 4키 상태 정확히 노출.
+    3. answer_subq=None / subq_elapsed=None / hints_used=None DB 직접 시드 시 동일.
+    """
+
+    def setUp(self) -> None:
+        self.tmpdir = tempfile.TemporaryDirectory()
+        self.db_path = str(Path(self.tmpdir.name) / "exam_list.db")
+        _build_db(self.db_path)
+        self.conn = db_mod.get_conn(self.db_path)
+        _seed_case(self.conn, "tc-legacy")
+
+    def tearDown(self) -> None:
+        try:
+            self.conn.close()
+        except sqlite3.Error:
+            pass
+        self.tmpdir.cleanup()
+
+    def _seed_legacy_attempt(self) -> int:
+        """answer_text 만 있는 legacy attempt 직접 시드."""
+        cur = self.conn.execute(
+            """
+            INSERT INTO attempts
+            (case_id, answer_text, submitted_at, status, weights_json,
+             answer_subq, subq_elapsed, hints_used)
+            VALUES (?, ?, ?, ?, ?, NULL, NULL, NULL)
+            """,
+            ("tc-legacy", "legacy answer body", "2026-05-19T10:00:00Z",
+             "done", "{}"),
+        )
+        self.conn.commit()
+        return int(cur.lastrowid)
+
+    def _seed_multi_attempt(self) -> int:
+        """다중 설문 attempt 직접 시드."""
+        cur = self.conn.execute(
+            """
+            INSERT INTO attempts
+            (case_id, answer_text, submitted_at, status, weights_json,
+             answer_subq, subq_elapsed, hints_used)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("tc-legacy", "multi joined", "2026-05-19T11:00:00Z",
+             "done", "{}",
+             '{"설문 1": "ans 1", "설문 2": "ans 2"}',
+             '{"설문 1": 100, "설문 2": 200}',
+             '{"설문 1": [1, 2], "설문 2": [1, 2, 3]}'),
+        )
+        self.conn.commit()
+        return int(cur.lastrowid)
+
+    def test_legacy_attempt_4keys_zero_none(self):
+        """legacy NULL fallback — 4키 0/None."""
+        self._seed_legacy_attempt()
+        result = attempts_mod.list_attempts(self.conn)
+        self.assertEqual(len(result["attempts"]), 1)
+        a = result["attempts"][0]
+        self.assertEqual(a["subq_count"], 0)
+        self.assertEqual(a["hints_used_count"], 0)
+        self.assertEqual(a["hint_steps_revealed_max"], 0)
+        self.assertIsNone(a["total_solve_sec"])
+
+    def test_mixed_legacy_and_multi_keys_correct(self):
+        """legacy + 다중 혼합 — 각 row 본인 상태 노출 (페이지 ORDER submitted_at DESC)."""
+        self._seed_legacy_attempt()  # 10:00:00Z
+        self._seed_multi_attempt()   # 11:00:00Z — DESC 정렬에서 첫 번째
+        result = attempts_mod.list_attempts(self.conn)
+        self.assertEqual(len(result["attempts"]), 2)
+        # multi 가 더 늦어서 첫 번째
+        multi = result["attempts"][0]
+        legacy = result["attempts"][1]
+        self.assertEqual(multi["subq_count"], 2)
+        self.assertEqual(multi["hints_used_count"], 5, "[1,2] + [1,2,3]")
+        self.assertEqual(multi["hint_steps_revealed_max"], 3)
+        self.assertEqual(multi["total_solve_sec"], 300)
+        # legacy 4키 0/None
+        self.assertEqual(legacy["subq_count"], 0)
+        self.assertEqual(legacy["hints_used_count"], 0)
+        self.assertEqual(legacy["hint_steps_revealed_max"], 0)
+        self.assertIsNone(legacy["total_solve_sec"])
+
+    def test_legacy_invalid_subq_elapsed_returns_none(self):
+        """subq_elapsed JSON 손상 / 비 dict → total_solve_sec=None 안전."""
+        # answer_subq 는 정상이지만 subq_elapsed 가 list 라면 dict 가 아니어서
+        # _deserialize_subq_dicts 가 None 반환 → total_solve_sec None.
+        self.conn.execute(
+            """
+            INSERT INTO attempts
+            (case_id, answer_text, submitted_at, status, weights_json,
+             answer_subq, subq_elapsed, hints_used)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            ("tc-legacy", "answer", "2026-05-19T12:00:00Z",
+             "done", "{}",
+             '{"설문 1": "ans"}',
+             '[60, 90]',  # list (dict 아님)
+             None),
+        )
+        self.conn.commit()
+        result = attempts_mod.list_attempts(self.conn)
+        self.assertEqual(len(result["attempts"]), 1)
+        a = result["attempts"][0]
+        self.assertEqual(a["subq_count"], 1)
+        self.assertIsNone(a["total_solve_sec"], "list 형 subq_elapsed → None")
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -364,5 +364,183 @@ class TestParseMdMnemonic(unittest.TestCase):
         self.assertEqual(cases_mod.parse_md_mnemonic(md), [])
 
 
+# ─── Step 24-9 — 다중 설문 7건 매트릭스 + 1:1 fallback 정밀 검증 ──────
+
+
+class TestParseMdSubqs7MdMatrix(unittest.TestCase):
+    """Step 24-9 — 8 .md 의 7 다중 + 1 fallback 매트릭스 1:1 검증.
+
+    dev-design archive #48 §5-2 표 — 모고 .md 8건 카드 분포:
+        - 민법 모고01_01: 2 카드 (패턴 A — 설문 1/2)
+        - 민법 모고01_02: 0 카드 (fallback — `### 설문 N` 헤더 없음)
+        - 민법 모고02_01: 2 카드 (패턴 C — 설문 1 가/나)
+        - 민법 모고02_02: 2 카드 (패턴 C — 설문 2 가/나)
+        - 민소 모고01_01: 2 카드 (패턴 B — 설문 (1)/(2))
+        - 민소 모고01_02: 2 카드 (패턴 B — 설문 (3)/(4))
+        - 민소 모고02_01: 2 카드 (패턴 A — 설문 1/2)
+        - 민소 모고02_02: 2 카드 (패턴 A — 설문 3/4)
+    """
+
+    # (파일 경로, 예상 카드 수, 예상 key 리스트, 예상 score_max 리스트)
+    MATRIX = [
+        ("예비_민법/2026_minbeop_yebi_모고01_01.md", 2,
+         ["설문 1", "설문 2"], [20, 15]),
+        ("예비_민법/2026_minbeop_yebi_모고02_01.md", 2,
+         ["설문 1 가", "설문 1 나"], [12, 10]),
+        ("예비_민법/2026_minbeop_yebi_모고02_02.md", 2,
+         ["설문 2 가", "설문 2 나"], [12, 16]),
+        ("예비_민소/2026_minso_yebi_모고01_01.md", 2,
+         ["설문 1", "설문 2"], [12, 15]),
+        ("예비_민소/2026_minso_yebi_모고01_02.md", 2,
+         ["설문 3", "설문 4"], [8, 15]),
+        ("예비_민소/2026_minso_yebi_모고02_01.md", 2,
+         ["설문 1", "설문 2"], [13, 13]),
+        ("예비_민소/2026_minso_yebi_모고02_02.md", 2,
+         ["설문 3", "설문 4"], [12, 12]),
+    ]
+
+    def test_7md_card_count_and_keys(self):
+        """7 다중 .md — 카드 수 + key + score_max 모두 매칭."""
+        for rel, exp_n, exp_keys, exp_scores in self.MATRIX:
+            with self.subTest(md=rel):
+                md = _load(rel)
+                cards = cases_mod.parse_md_subqs(md)
+                self.assertEqual(
+                    len(cards), exp_n,
+                    f"{rel} 카드 수 mismatch: 기대={exp_n} 실측={len(cards)}",
+                )
+                self.assertEqual(
+                    [c["key"] for c in cards], exp_keys,
+                    f"{rel} key 순서/내용 mismatch",
+                )
+                self.assertEqual(
+                    [c["score_max"] for c in cards], exp_scores,
+                    f"{rel} score_max mismatch",
+                )
+
+    def test_7md_body_and_answer_nonempty(self):
+        """7 다중 .md — 모든 카드 body / answer 비어있지 않음."""
+        for rel, _exp_n, _exp_keys, _exp_scores in self.MATRIX:
+            with self.subTest(md=rel):
+                md = _load(rel)
+                cards = cases_mod.parse_md_subqs(md)
+                for c in cards:
+                    self.assertTrue(
+                        c["body"].strip(),
+                        f"{rel} / {c['key']} body 비어있음 (정규식 결함)",
+                    )
+                    self.assertTrue(
+                        c["answer"].strip(),
+                        f"{rel} / {c['key']} answer 비어있음 (답안 헤더 매칭 실패)",
+                    )
+
+
+class TestParseMdSubqs1to1Fallback(unittest.TestCase):
+    """Step 24-9 — 1:1 fallback (legacy answer_text 단일 모드) 3 시나리오.
+
+    parse_md_subqs() 가 빈 list 를 반환할 때 호출자(attempts.create_attempt /
+    grader.grade_attempt)가 legacy answer_text 단일 모드로 fallback 하는지
+    상위 호출자 측면에서 검증.
+
+    fallback 트리거:
+    1. `### 설문 N` 헤더 0건 .md (민법 모고01_02 — 실제 fallback 케이스)
+    2. 빈 md_content (edge case)
+    3. 텍스트만 있고 헤더 0개 .md (edge case)
+    """
+
+    def test_fallback_minbeop_모고01_02_헤더_0개(self):
+        """민법 모고01_02 — `### 설문 N` 0개 → parse_md_subqs []."""
+        md = _load("예비_민법/2026_minbeop_yebi_모고01_02.md")
+        cards = cases_mod.parse_md_subqs(md)
+        self.assertEqual(
+            cards, [],
+            "민법 모고01_02 는 fallback (single answer_text 모드) 케이스",
+        )
+
+    def test_fallback_empty_md_content(self):
+        """빈 .md 본문 → fallback (빈 list)."""
+        self.assertEqual(cases_mod.parse_md_subqs(""), [])
+        self.assertEqual(cases_mod.parse_md_subqs("\n\n\n"), [])
+
+    def test_fallback_md_without_subq_headers(self):
+        """`### 설문 N` 없는 본문 → fallback."""
+        md = (
+            "## 원본 (17점)\n\n"
+            "### 사실관계\n"
+            "본문 사실관계.\n\n"
+            "### 결론\n결론.\n"
+        )
+        self.assertEqual(cases_mod.parse_md_subqs(md), [])
+
+
+class TestSubqHeaderRegexEdgeCases(unittest.TestCase):
+    """Step 24-9 — `_SUBQ_HEADER_RE` 엣지 / 거부 케이스 보강.
+
+    기존 `TestSubqHeaderRegex` 가 14 헤더 정상 매칭을 다루므로,
+    여기는 거부/유사 패턴 / 다중 매칭 충돌 검증.
+    """
+
+    def test_rejects_subq_n_with_extra_korean_after_score(self):
+        """`### 설문 1 (20점) 추가 잡설` → 매칭 X (\\s*$ 강제)."""
+        self.assertIsNone(
+            cases_mod._SUBQ_HEADER_RE.match("### 설문 1 (20점) 추가 잡설")
+        )
+
+    def test_rejects_h2_h4(self):
+        """`## 설문 1` / `#### 설문 1` → 매칭 X (`### ` 강제)."""
+        self.assertIsNone(cases_mod._SUBQ_HEADER_RE.match("## 설문 1"))
+        self.assertIsNone(cases_mod._SUBQ_HEADER_RE.match("#### 설문 1"))
+
+    def test_accepts_no_score_suffix(self):
+        """점수 없이 `### 설문 1` 도 매칭 (`(NN점)` 옵션)."""
+        m = cases_mod._SUBQ_HEADER_RE.match("### 설문 1")
+        self.assertIsNotNone(m)
+        self.assertEqual(m.group(1), "설문 1")
+        self.assertIsNone(m.group(2))
+        self.assertIsNone(m.group(3))
+
+    def test_finditer_multiline_count(self):
+        """finditer — multiline 본문에서 헤더 개수 매칭."""
+        md = (
+            "## 원본\n"
+            "### 사실관계\n본문.\n"
+            "### 설문 1 (20점)\n질문 1.\n"
+            "### 설문 1 답안\n답 1.\n"
+            "### 설문 2 (15점)\n질문 2.\n"
+            "### 설문 2 답안\n답 2.\n"
+        )
+        matches = list(cases_mod._SUBQ_HEADER_RE.finditer(md))
+        self.assertEqual(len(matches), 2, "설문 N 헤더 2개 (답안 헤더는 매칭 X)")
+
+
+class TestFactsHeaderRegexEdgeCases(unittest.TestCase):
+    """Step 24-9 — `_FACTS_HEADER_RE` 4종 prefix 엣지 검증."""
+
+    def test_facts_no_prefix(self):
+        """`### 사실관계` — prefix None."""
+        m = cases_mod._FACTS_HEADER_RE.match("### 사실관계")
+        self.assertIsNotNone(m)
+        self.assertIsNone(m.group(1))
+
+    def test_facts_with_3prefixes(self):
+        """`### 공통된/기본적/변형된 사실관계` — prefix 매칭."""
+        for prefix in ("공통된", "기본적", "변형된"):
+            with self.subTest(prefix=prefix):
+                m = cases_mod._FACTS_HEADER_RE.match(f"### {prefix} 사실관계")
+                self.assertIsNotNone(m)
+                self.assertEqual(m.group(1), prefix)
+
+    def test_facts_rejects_wrong_prefix(self):
+        """`### 알려지지 않은 사실관계` 같은 임의 prefix → 매칭 X."""
+        self.assertIsNone(
+            cases_mod._FACTS_HEADER_RE.match("### 알려진 사실관계"),
+        )
+
+    def test_facts_rejects_non_facts_word(self):
+        """`### 결론` / `### 사안` → 매칭 X."""
+        self.assertIsNone(cases_mod._FACTS_HEADER_RE.match("### 결론"))
+        self.assertIsNone(cases_mod._FACTS_HEADER_RE.match("### 사안"))
+
+
 if __name__ == "__main__":
     unittest.main()
