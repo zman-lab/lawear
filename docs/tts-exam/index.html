@@ -868,6 +868,13 @@
   #rv-notes-section.hidden { display: none; }
   /* 단일 모드 중복 표시 fix — 위쪽 Inquiry 섹션 숨김 (가상 카드 안에 본문이 들어가므로 중복 방지) */
   .section.hidden { display: none; }
+  /* 단일 모드 카드 라벨 중복 hide:
+     - 헤더: sub-id="단일" + sub-title="단일" 중복 → sub-title 숨김 (sub-id 유지)
+     - 본문: "설문 · 단일" inquiry-label 숨김 (단일 카드는 라벨 불필요)
+     다중 모드 (.sub-card 일반)는 그대로 — "설문 1 가" 등 식별 라벨 필수. */
+  .sub-card.single-mode .sub-card-header .sub-title { display: none; }
+  .sub-card.single-mode .sub-inquiry .inquiry-label { display: none; }
+  .sub-card.single-mode .sub-inquiry { padding-top: 12px; }
 
   /* Evaluation */
   .score-overview {
@@ -4156,8 +4163,11 @@
       const lv2Extra = lv2Enabled
         ? ''
         : ` disabled title="${escapeHtml(I18N[currentLang].hint_lv2_disabled_tip || '')}"`;
+      // 단일 모드: 카드 1개뿐이고 key='단일' — 헤더 sub-title("단일" 중복) + 본문 inquiry-label("설문 · 단일") 양쪽 hide.
+      // 다중 모드: "설문 1 가" 등 식별자 라벨 필수 → 표시 유지.
+      const singleModeClass = isSingleMode ? ' single-mode' : '';
       return `
-        <div class="sub-card${isActive ? ' active' : ''}" data-card-id="${escapeHtml(cid)}">
+        <div class="sub-card${isActive ? ' active' : ''}${singleModeClass}" data-card-id="${escapeHtml(cid)}">
           <div class="sub-card-header" data-card-id="${escapeHtml(cid)}">
             <span class="sub-id">${escapeHtml(cid)}</span>
             <span class="sub-title">${subTitle}</span>
