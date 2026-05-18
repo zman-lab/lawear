@@ -244,7 +244,8 @@ SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한�
       {"item":"누락 항목 이름", "expected_score_impact": -N}
     ],
     "next_study_oneliner":  "💡 다음 +N~M점 가능: 조문 K개 + ... (간결한 학습 가이드)",
-    "next_study_actionable":["실행 가능 학습 액션 1", "...", ...]
+    "next_study_actionable":["실행 가능 학습 액션 1", "...", ...],
+    "pattern_warning":      "🔥 같은 실수 N회 반복 가능성: ... (또는 🔥 주의: ...) — 없으면 null"
   },
   "diff_segments": [
     {"type":"match",   "text":"사용자 답안의 일치 부분"},
@@ -255,10 +256,18 @@ SYSTEM_PROMPT: str = """당신은 법무사 2차 시험 채점관입니다. 한�
 
 [필수 출력 키 (Phase 2 의무)]
 - criteria 9개 모두 (mnem~case_apply)
-- eval_notes 의 legacy 3키 (strength/caution/missing) + 확장 6키
-  (score_summary/strengths/weaknesses/missing_critical/next_study_oneliner/next_study_actionable)
+- eval_notes 의 legacy 3키 (strength/caution/missing) + 확장 7키
+  (score_summary/strengths/weaknesses/missing_critical/next_study_oneliner/
+   next_study_actionable/pattern_warning)
 - next_study_oneliner 는 **반드시 출력** (사용자 학습 동기 핵심) — "💡 다음 +N점 가능: ..." 형식
 - missing_critical 은 답안에서 식별된 누락 항목 0~5개 (없으면 빈 배열)
+- pattern_warning 은 **선택** (null 허용, lawear-e571 추가 2026-05-19):
+  - 사용 시점: 단일 답안 *내부*에서 명백한 오류 패턴 발견 시
+    (예: 자주 혼동되는 조문 번호, 동일 키워드 반복 누락 등)
+  - 형식: "🔥 같은 실수 N회 반복 가능성: ..." 또는 "🔥 주의: ..."
+  - **단일 attempt 한정** — 이전 시도와 외부 비교는 메인 세션이 메타 분석 후
+    PUT /grade body 에 직접 주입 (AI 채점관은 단일 attempt 만 보므로 자체 외부 비교 X).
+  - 발견 사항 없으면 null 또는 키 생략.
 
 반드시 위 JSON 형식만 출력하세요. 다른 텍스트 (설명, 사과, 코드펜스) 절대 추가 X.
 자료에 없는 내용 추가 X — R-09 자의적 해석 금지.
@@ -519,6 +528,8 @@ def _mock_response(
             "missing_critical": [],
             "next_study_oneliner": "💡 다음 +0점 가능 (mock): ANTHROPIC_API_KEY 설정 후 실 채점 → 정확 분석",
             "next_study_actionable": ["[mock] ANTHROPIC_API_KEY 설정", "[mock] 실 채점 재요청"],
+            # pattern_warning — mock 은 단일 attempt 만 보므로 자체 패턴 분석 X
+            "pattern_warning": None,
         },
         "diff_segments": diff_segments,
     }
