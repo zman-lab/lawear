@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Hint UX Prototype</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #1e1e1e;
+    --panel: #252526;
+    --panel-2: #2d2d30;
+    --panel-3: #333337;
+    --border: #3e3e42;
+    --border-light: #464647;
+    --text: #cccccc;
+    --text-dim: #858585;
+    --text-bright: #e8e8e8;
+    --accent: #569cd6;
+    --accent-dim: #4a7ba8;
+    --success: #4ec9b0;
+    --warn: #ce9178;
+    --danger: #d16969;
+    --link: #9cdcfe;
+    --hint-1: #4ec9b0;
+    --hint-2: #569cd6;
+    --hint-3: #c586c0;
+    --hint-4: #ce9178;
+    --hint-5: #d16969;
+  }
+  html, body { height: 100%; }
+  body {
+    font-family: -apple-system, 'Segoe UI', 'Pretendard', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 13px;
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+  }
+
+  /* ─── Mock banner ─── */
+  .mock-banner {
+    background: rgba(86, 156, 214, 0.08);
+    border-bottom: 1px solid var(--accent-dim);
+    color: var(--text-dim);
+    font-size: 11px;
+    padding: 4px 12px;
+    text-align: center;
+    flex-shrink: 0;
+  }
+  .mock-banner b { color: var(--accent); }
+  .mock-banner kbd {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 2px;
+    font-size: 10px;
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--text);
+  }
+
+  /* ─── Top bar ─── */
+  .topbar {
+    height: 40px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    padding: 0 14px;
+    gap: 16px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .topbar .brand {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-bright);
+    letter-spacing: 0.3px;
+  }
+  .topbar .brand span { color: var(--text-dim); font-weight: 400; }
+  .topbar .case-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  .topbar .right {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+  .topbar .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--success);
+    display: inline-block;
+    margin-right: 4px;
+  }
+  .icon-btn {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 4px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--accent); }
+  .icon-btn.active { background: var(--accent-dim); color: #fff; border-color: var(--accent); }
+
+  /* ─── Counter (sticky right) ─── */
+  .counter-bar {
+    position: sticky;
+    top: 40px;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    z-index: 90;
+    flex-shrink: 0;
+  }
+  .counter-bar .counter-block {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  .counter-bar .counter-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .counter-bar .counter-value {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 18px;
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+  .counter-bar .counter-value.over { color: var(--warn); }
+  .counter-bar .counter-suggested {
+    font-size: 11px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  .counter-bar .progress-wrap {
+    flex: 1;
+    height: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+  .counter-bar .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--success));
+    width: 0%;
+    transition: width 0.3s, background 0.3s;
+  }
+  .counter-bar .progress-fill.over {
+    background: linear-gradient(90deg, var(--warn), var(--danger));
+  }
+  .counter-bar .toolbar {
+    display: flex;
+    gap: 6px;
+  }
+
+  /* ─── Flash overlay for over-time ─── */
+  .flash-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(209, 105, 105, 0.35);
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0;
+  }
+  .flash-overlay.flash {
+    animation: flashRed 1s ease-out;
+  }
+  @keyframes flashRed {
+    0%   { opacity: 0; }
+    20%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ─── Main layout ─── */
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 18px;
+    padding: 18px;
+    max-width: 1500px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .main-col { min-width: 0; }
+  .side-col { min-width: 0; }
+
+  /* ─── Big problem (sticky top) ─── */
+  .big-problem {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 14px;
+    position: sticky;
+    top: 96px;
+    z-index: 50;
+    max-height: calc(100vh - 120px);
+    display: flex;
+    flex-direction: column;
+  }
+  .big-problem-header {
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    background: var(--panel-2);
+    border-radius: 4px 4px 0 0;
+    flex-shrink: 0;
+  }
+  .big-problem-header .title {
+    font-size: 13px;
+    color: var(--text-bright);
+    font-weight: 500;
+    flex: 1;
+  }
+  .big-problem-header .pill {
+    font-size: 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  .big-problem-header .pill.score { color: var(--accent); border-color: var(--accent-dim); }
+  .big-problem-header .pill.suggested { color: var(--warn); }
+  .big-problem-header .toggle-icon {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: 'SF Mono', Consolas, monospace;
+    width: 18px;
+    text-align: center;
+    transition: transform 0.15s;
+  }
+  .big-problem.collapsed .toggle-icon { transform: rotate(-90deg); }
+  .big-problem.collapsed .big-problem-body { display: none; }
+  .big-problem-body {
+    padding: 12px 16px;
+    line-height: 1.75;
+    color: var(--text);
+    font-size: 13px;
+    overflow-y: auto;
+    flex: 1;
+  }
+  .big-problem-body .label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    margin-top: 10px;
+  }
+  .big-problem-body .label:first-child { margin-top: 0; }
+  .big-problem-body p { margin-bottom: 6px; }
+  .big-problem-body .inquiry-list {
+    list-style: none;
+    padding-left: 0;
+  }
+  .big-problem-body .inquiry-list li {
+    background: var(--bg);
+    border-left: 2px solid var(--accent-dim);
+    padding: 6px 10px;
+    margin-bottom: 4px;
+    border-radius: 0 2px 2px 0;
+  }
+  .big-problem-body .inquiry-list li .inq-id {
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--accent);
+    font-size: 11px;
+    margin-right: 6px;
+  }
+
+  /* ─── Sub-question cards ─── */
+  .cards-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .cards-toolbar .right { margin-left: auto; display: flex; gap: 6px; }
+
+  .sub-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    transition: border-color 0.15s;
+  }
+  .sub-card.active { border-color: var(--accent-dim); }
+  .sub-card.graded { border-left: 3px solid var(--success); }
+  .sub-card-header {
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 4px 4px 0 0;
+  }
+  .sub-card-header:hover { background: var(--panel-3); }
+  .sub-card-header .sub-id {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .sub-card-header .sub-title {
+    font-size: 13px;
+    color: var(--text-bright);
+    font-weight: 500;
+    flex: 1;
+  }
+  .sub-card-header .meta-pill {
+    font-size: 10px;
+    font-family: 'SF Mono', Consolas, monospace;
+    padding: 2px 8px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    background: var(--bg);
+  }
+  .sub-card-header .meta-pill.score { color: var(--accent); border-color: var(--accent-dim); }
+  .sub-card-header .meta-pill.elapsed { color: var(--text); }
+  .sub-card-header .meta-pill.elapsed.over { color: var(--warn); border-color: var(--warn); }
+  .sub-card-header .meta-pill.graded { color: var(--success); border-color: var(--success); }
+  .sub-card-header .meta-pill.hint-count { color: var(--hint-3); border-color: var(--hint-3); }
+  .sub-card-header .toggle-icon {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: 'SF Mono', Consolas, monospace;
+    width: 18px;
+    text-align: center;
+    transition: transform 0.15s;
+  }
+  .sub-card.collapsed .toggle-icon { transform: rotate(-90deg); }
+  .sub-card.collapsed .sub-card-body { display: none; }
+  .sub-card-body { padding: 12px 14px; }
+
+  /* ─── Inquiry text inside card ─── */
+  .sub-inquiry {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    line-height: 1.7;
+    font-size: 12.5px;
+    color: var(--text);
+  }
+  .sub-inquiry .inquiry-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  /* ─── Hint controls ─── */
+  .hint-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+  .hint-bar .hint-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+  }
+  .hint-btn {
+    background: var(--panel);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 5px 11px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+  }
+  .hint-btn:hover { border-color: var(--accent); color: var(--text); }
+  .hint-btn.revealed {
+    background: rgba(86, 156, 214, 0.12);
+    color: var(--text-bright);
+  }
+  .hint-btn.revealed[data-level="1"] { border-color: var(--hint-1); color: var(--hint-1); }
+  .hint-btn.revealed[data-level="2"] { border-color: var(--hint-2); color: var(--hint-2); }
+  .hint-btn.revealed[data-level="3"] { border-color: var(--hint-3); color: var(--hint-3); }
+  .hint-btn.revealed[data-level="4"] { border-color: var(--hint-4); color: var(--hint-4); }
+  .hint-btn.revealed[data-level="5"] { border-color: var(--hint-5); color: var(--hint-5); }
+  .hint-btn .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+  .hint-btn.revealed .badge-dot { background: currentColor; }
+  .hint-bar .spacer { flex: 1; }
+  .hint-bar .hint-count-info {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+
+  /* ─── Hint reveal panels (toggles persist) ─── */
+  .hint-panels-wrap { margin-bottom: 10px; }
+  .hint-panels-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .hint-panels-header:hover { border-color: var(--accent); color: var(--text); }
+  .hint-panels-header .chev {
+    display: inline-block;
+    width: 10px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 10px;
+    transition: transform 0.15s;
+  }
+  .hint-panels-wrap.expanded .hint-panels-header .chev { color: var(--accent); }
+  .hint-panels-header .spacer { flex: 1; }
+  .hint-panels-header .hp-count {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .hint-panels {
+    margin-top: 4px;
+    max-height: 380px;
+    overflow-y: auto;
+    display: none;
+  }
+  .hint-panels-wrap.expanded .hint-panels { display: block; }
+  .hint-panel {
+    background: var(--bg);
+    border-left: 3px solid var(--border);
+    padding: 6px 12px;
+    margin-bottom: 4px;
+    border-radius: 0 3px 3px 0;
+    font-size: 12.5px;
+    line-height: 1.35;
+    display: none;
+  }
+  .hint-panel.shown { display: block; }
+  .hint-panel:last-child { margin-bottom: 0; }
+  .hint-panel[data-level="1"] { border-left-color: var(--hint-1); }
+  .hint-panel[data-level="2"] { border-left-color: var(--hint-2); }
+  .hint-panel[data-level="3"] { border-left-color: var(--hint-3); }
+  .hint-panel[data-level="4"] { border-left-color: var(--hint-4); }
+  .hint-panel[data-level="5"] { border-left-color: var(--hint-5); }
+  .hint-panel .hint-head {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .hint-panel[data-level="1"] .hint-head { color: var(--hint-1); }
+  .hint-panel[data-level="2"] .hint-head { color: var(--hint-2); }
+  .hint-panel[data-level="3"] .hint-head { color: var(--hint-3); }
+  .hint-panel[data-level="4"] .hint-head { color: var(--hint-4); }
+  .hint-panel[data-level="5"] .hint-head { color: var(--hint-5); }
+  .hint-panel .hint-body {
+    color: var(--text);
+    white-space: pre-wrap;
+    line-height: 1.35;
+  }
+  .hint-panel .hint-body code {
+    background: var(--panel);
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--link);
+  }
+  .hint-panel .mnemonic {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 13px;
+    color: var(--hint-3);
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 2px;
+    display: block;
+    width: fit-content;
+    margin-bottom: 3px;
+    line-height: 1.25;
+    letter-spacing: -0.1px;
+  }
+
+  /* ─── Answer area ─── */
+  .answer-block {
+    margin-bottom: 8px;
+  }
+  .answer-block textarea {
+    width: 100%;
+    min-height: 160px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    font-family: 'SF Mono', Consolas, 'Pretendard', monospace;
+    font-size: 13px;
+    line-height: 1.65;
+    border-radius: 3px;
+    resize: vertical;
+  }
+  .answer-block textarea:focus { outline: none; border-color: var(--accent); }
+  .answer-block .answer-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .answer-block .info { margin-right: auto; font-family: 'SF Mono', Consolas, monospace; }
+  .btn {
+    background: var(--panel-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 5px 12px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 12px;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary {
+    background: var(--accent-dim);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn.primary:hover { background: var(--accent); color: #fff; }
+  .btn.small { padding: 3px 8px; font-size: 11px; }
+
+  /* ─── Grade result ─── */
+  .grade-result {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--success);
+    border-radius: 3px;
+    padding: 10px 14px;
+    margin-top: 8px;
+    font-size: 12px;
+    display: none;
+  }
+  .grade-result.shown { display: block; }
+  .grade-result .grade-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .grade-result .grade-score {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 17px;
+    color: var(--success);
+    font-weight: 500;
+  }
+  .grade-result .grade-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .grade-result .grade-comment {
+    color: var(--text);
+    line-height: 1.65;
+  }
+
+  /* ─── Side: history panel ─── */
+  .side-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    position: sticky;
+    top: 96px;
+  }
+  .side-card-header {
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--border);
+    border-radius: 4px 4px 0 0;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .side-card-body { padding: 8px 0; }
+
+  .history-row {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .history-row:hover { background: var(--panel-2); }
+  .history-row:last-child { border-bottom: none; }
+  .history-row.best { background: rgba(78, 201, 176, 0.06); }
+  .history-row .row-1 {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 3px;
+  }
+  .history-row .attempt-no {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .history-row .attempt-score {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 14px;
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+  .history-row .attempt-pct {
+    font-size: 11px;
+    color: var(--success);
+  }
+  .history-row .attempt-pct.low { color: var(--warn); }
+  .history-row .attempt-pct.bad { color: var(--danger); }
+  .history-row .row-2 {
+    display: flex;
+    gap: 10px;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  .history-row .pill-mini {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+  .history-row .pill-mini.hint-zero { color: var(--success); border-color: var(--success); }
+  .history-row .pill-mini.hint-low { color: var(--warn); }
+  .history-row .pill-mini.hint-high { color: var(--danger); border-color: var(--danger); }
+  .history-row .pill-mini.elapsed-over { color: var(--warn); }
+
+  /* ─── Side: card progress summary ─── */
+  .progress-summary {
+    padding: 4px 0;
+  }
+  .progress-summary .ps-row {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+    padding: 6px 14px;
+    align-items: center;
+    font-size: 11px;
+    border-bottom: 1px solid var(--border);
+  }
+  .progress-summary .ps-row:last-child { border-bottom: none; }
+  .progress-summary .ps-row .ps-label { color: var(--text); }
+  .progress-summary .ps-row .ps-label .ps-sub {
+    color: var(--text-dim);
+    font-size: 10px;
+    margin-left: 6px;
+  }
+  .progress-summary .ps-row .ps-val {
+    font-family: 'SF Mono', Consolas, monospace;
+    color: var(--text-dim);
+    font-size: 11px;
+  }
+  .progress-summary .ps-row .ps-val.done { color: var(--success); }
+  .progress-summary .ps-row .ps-val.partial { color: var(--warn); }
+
+  /* ─── Scrollbar ─── */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: #424242; border-radius: 0; }
+  ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+
+  /* ─── Responsive fallback ─── */
+  @media (max-width: 980px) {
+    .main { grid-template-columns: 1fr; }
+    .side-card { position: relative; top: 0; }
+    .big-problem { position: relative; top: 0; max-height: none; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mock-banner">
+  <b data-i18n="mock_label">HINT UX PROTOTYPE</b> ·
+  <span data-i18n="hint_stealth">위장 토글: <kbd>Z</kbd></span> ·
+  <span data-i18n="hint_focus">집중 모드(다른 카드 접기): <kbd>F</kbd></span> ·
+  <span data-i18n="hint_hint">힌트: <kbd>H</kbd> (활성 카드 다음 단계)</span>
+</div>
+
+<div class="topbar">
+  <div class="brand"><span data-i18n="brand">Hint UX Prototype</span> <span>· v0.1</span></div>
+  <div class="case-meta" data-i18n="case_meta">YBI01-01 · Civil Law · Prep · 35 pt</div>
+  <div class="right">
+    <button id="stealth-btn" class="icon-btn" title="Stealth (Z)">👀 <span data-i18n="stealth_label">Stealth</span></button>
+    <button id="lang-btn" class="icon-btn" title="Language">🌐 <span data-i18n="lang_label">EN</span></button>
+    <span><span class="status-dot"></span><span data-i18n="status_connected">Mock</span></span>
+    <span>lawear-a519</span>
+  </div>
+</div>
+
+<div class="counter-bar">
+  <div class="counter-block">
+    <div class="counter-label" data-i18n="lbl_total">Total</div>
+    <div class="counter-value" id="counter-total">00:00</div>
+  </div>
+  <div class="counter-suggested" id="counter-suggested" data-i18n="suggested_total">권장 35:00</div>
+  <div class="progress-wrap"><div class="progress-fill" id="progress-fill"></div></div>
+  <div class="counter-block">
+    <div class="counter-label" data-i18n="lbl_active">Active</div>
+    <div class="counter-value" id="counter-active">00:00</div>
+  </div>
+  <div class="toolbar">
+    <button class="icon-btn" id="btn-pause" data-i18n="btn_pause">Pause</button>
+    <button class="icon-btn" id="btn-reset" data-i18n="btn_reset">Reset</button>
+  </div>
+</div>
+
+<div class="main">
+
+  <!-- ─── MAIN COL ─── -->
+  <div class="main-col">
+
+    <!-- ─── Big problem (sticky) ─── -->
+    <div class="big-problem" id="big-problem">
+      <div class="big-problem-header" id="big-problem-header">
+        <span class="title" data-i18n="big_title">큰문제 · YBI01-01 · 연대보증채무 시효소멸 + 변제자대위</span>
+        <span class="pill score" data-i18n="big_score">35점</span>
+        <span class="pill suggested" data-i18n="big_suggested">권장 35분</span>
+        <span class="toggle-icon">▼</span>
+      </div>
+      <div class="big-problem-body">
+        <div class="label" data-i18n="lbl_fact">사실관계</div>
+        <p>A 은행은 1997년 10월 20일 B 주식회사에 다가구주택 건축 자금으로 6억 원을 대출하면서, 이행기를 주택이 완공되어 분양이 완료된 때로 정하였다. B 회사는 위 대출금 채무를 담보하기 위하여 C에게 연대보증채무를 부담해줄 것을 부탁하였고, 이에 C는 같은 날 A 은행에 대하여 연대보증채무를 부담하기로 약정하였다.</p>
+        <p>그러나 A 은행이 담보가 부족하다고 하여 B 회사는 D에게 부탁하여 D 소유의 Y 토지(시가 3억 원 상당)와 B 회사 소유의 X 토지(시가 6억 원 상당)에 대하여 A 은행 명의로 저당권을 설정해주었다. B 회사는 계획대로 다가구주택을 건축하여 1998년 10월 20일 9세대 전부 분양을 완료하였고, A 은행은 이 사실을 1999년 2월 15일 알게 되었다.</p>
+
+        <div class="label" data-i18n="lbl_inquiry">설문</div>
+        <ul class="inquiry-list">
+          <li>
+            <span class="inq-id">설문 1</span>
+            <span data-i18n="inq_1">A 은행은 1999년 6월 15일 B 회사를 상대로 위 대출원리금의 지급을 구하는 소를 제기하여, 6억 6,000만 원 전부 승소판결을 받았고 2000년 3월 25일 확정되었으나, B 회사 자산 부재로 변제받지 못했다. A 은행이 2005년 6월경 C를 상대로 보증채무 이행의 소를 제기하자, C는 보증채무가 소멸되었다고 주장한다. C의 주장은 타당한가? (20점)</span>
+          </li>
+          <li>
+            <span class="inq-id">설문 2</span>
+            <span data-i18n="inq_2">B 회사는 2000년 6월 15일 X 토지를 E에게 매도, 같은 해 8월 15일 이전등기를 넘겼다. A 은행의 경매신청 직전 2000년 10월 15일 E가 대출원리금을 모두 변제하였다. 2001년 2월 15일 E는 C에게 보증채무 이행청구의 소를 제기하고, D를 상대로 저당권에 기한 경매신청을 하였다. E의 C와 D에 대한 청구 및 신청은 각 인용될 수 있는가? (15점)</span>
+          </li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- ─── Cards toolbar ─── -->
+    <div class="cards-toolbar">
+      <span data-i18n="cards_label">하위 설문 카드 (2)</span>
+      <div class="right">
+        <button class="btn small" id="btn-expand-all" data-i18n="btn_expand">모두 펼침</button>
+        <button class="btn small" id="btn-focus-active" data-i18n="btn_focus">활성만</button>
+      </div>
+    </div>
+
+    <!-- ─── Sub-card 1 ─── -->
+    <div class="sub-card active" data-card-id="1" data-score="20" data-suggested-sec="1200">
+      <div class="sub-card-header">
+        <span class="sub-id">설문 1</span>
+        <span class="sub-title" data-i18n="card1_title">C의 주장 당부 (시효소멸 + 제165조 연장)</span>
+        <span class="meta-pill score">20점</span>
+        <span class="meta-pill" data-i18n="card1_suggest">권장 20분</span>
+        <span class="meta-pill elapsed" id="elapsed-1">00:00</span>
+        <span class="meta-pill hint-count" id="hint-count-1">힌트 0/5</span>
+        <span class="toggle-icon">▼</span>
+      </div>
+      <div class="sub-card-body">
+
+        <div class="sub-inquiry">
+          <span class="inquiry-label" data-i18n="inq_label">설문 1</span>
+          <span data-i18n="card1_inquiry">A 은행이 1999년 6월 15일 B 회사를 상대로 소제기, 2000년 3월 25일 승소확정되었으나 B 회사 자산 부재로 변제받지 못함. A 은행이 2005년 6월경 C를 상대로 보증채무 이행을 구하자, C는 보증채무가 소멸되었다고 주장한다. C의 주장은 타당한가?</span>
+        </div>
+
+        <div class="hint-bar">
+          <span class="hint-label" data-i18n="hint_label">힌트</span>
+          <button class="hint-btn" data-card="1" data-level="1"><span class="badge-dot"></span><span data-i18n="hint_lv1">1. 목차</span></button>
+          <button class="hint-btn" data-card="1" data-level="2"><span class="badge-dot"></span><span data-i18n="hint_lv2">2. 두문자</span></button>
+          <button class="hint-btn" data-card="1" data-level="3"><span class="badge-dot"></span><span data-i18n="hint_lv3">3. 조문+키워드</span></button>
+          <button class="hint-btn" data-card="1" data-level="4"><span class="badge-dot"></span><span data-i18n="hint_lv4">4. 결론+근거</span></button>
+          <button class="hint-btn" data-card="1" data-level="5"><span class="badge-dot"></span><span data-i18n="hint_lv5">5. 전체답안</span></button>
+          <span class="spacer"></span>
+          <span class="hint-count-info" id="hint-info-1">0회 사용</span>
+        </div>
+
+        <div class="hint-panels-wrap" id="hint-panels-wrap-1">
+        <div class="hint-panels-header" data-card="1">
+          <span class="chev">▶</span>
+          <span data-i18n="hint_panel_label">힌트 패널</span>
+          <span class="spacer"></span>
+          <span class="hp-count" id="hp-count-1">0/5</span>
+        </div>
+        <div class="hint-panels" id="hint-panels-1">
+          <div class="hint-panel" data-level="1">
+            <div class="hint-head"><span class="badge-dot"></span><span data-i18n="hint_lv1_head">1단계 · 목차</span></div>
+            <div class="hint-body">
+1. B 회사 대출원리금 채무의 시효소멸 여부
+2. C의 연대보증채무의 시효소멸 여부
+            </div>
+          </div>
+          <div class="hint-panel" data-level="2">
+            <div class="hint-head"><span class="badge-dot"></span><span data-i18n="hint_lv2_head">2단계 · 핵심 단서</span></div>
+            <div class="hint-body"><div class="mnemonic">상,기,중,165, 종전</div><span data-i18n="hint_lv2_body">1. 상사시효 5년
+2. 기산점 분양완료
+3. 중단 소제기+판결확정
+4. 제165조 10년 연장 (주채무)
+5. 종전 5년 (연대보증, 판례)</span></div>
+          </div>
+          <div class="hint-panel" data-level="3">
+            <div class="hint-head"><span class="badge-dot"></span><span data-i18n="hint_lv3_head">3단계 · 조문 + 핵심 키워드</span></div>
+            <div class="hint-body">
+1. <code>상법 제64조</code> — 상사시효 5년
+2. <code>제166조 제1항</code> — 권리행사 시 / 불확정기한부
+3. <code>제168조 1호, 민사소송법 제265조</code> — 시효중단(소제기)
+4. <code>제178조 제2항</code> — 판결확정 시 새로 진행
+5. <code>제165조</code> — 판결확정 채권 10년 연장
+6. <code>제440조</code> — 주채무자 시효중단 보증인 효력
+7. <span data-i18n="hint_lv3_judg">판례</span>: 제165조 10년 연장은 당사자간만 효력 / 연대보증인엔 종전 시효기간 그대로
+            </div>
+          </div>
+          <div class="hint-panel" data-level="4">
+            <div class="hint-head"><span class="badge-dot"></span><span data-i18n="hint_lv4_head">4단계 · 결론 + 주요 근거</span></div>
+            <div class="hint-body">
+<strong data-i18n="hint_lv4_concl">결론: C의 주장은 타당하다 (청구기각).</strong>
+
+근거:
+1. B 회사 대출원리금 — 상사시효 5년 (상법 §64), 기산점 1998.10.20.
+2. 소제기 (1999.6.15.) 시 시효중단 → 판결확정 2000.3.25. → 제165조에 의해 10년 연장. 따라서 주채무는 2005.6.경 시효소멸 X.
+3. C의 연대보증채무 — 보조적 상행위, 상사시효 5년. 제440조로 시효중단은 인정.
+4. 판례: <span data-i18n="hint_lv4_judg">제165조 10년 연장 효과는 판결당사자(주채무자)간만 발생. 연대보증인에게 미치지 않음.</span>
+5. 따라서 C의 연대보증채무는 종전 5년 그대로 → 2005.6.경 이미 시효소멸 → C 주장 타당.
+            </div>
+          </div>
+          <div class="hint-panel" data-level="5">
+            <div class="hint-head"><span class="badge-dot"></span><span data-i18n="hint_lv5_head">5단계 · 전체 답안 (full reveal)</span></div>
+            <div class="hint-body">
+<strong>I. 결론</strong>
+C의 주장은 타당하다.
+
+<strong>II. 근거</strong>
+
+(1) 문제점
+연대보증인 C의 채무 소멸 여부와 관련하여 먼저 B 회사 대출원리금 채무의 소멸시효 완성 여부, 다음으로 보증채무의 소멸 여부를 살핀다.
+
+(2) B 회사 대출원리금 채무의 시효소멸 여부
+B 회사의 채권은 상행위로 인한 채권이므로 <code>상법 제64조</code>에 의해 상사시효 5년이 적용된다. 소멸시효는 권리를 행사할 수 있는 때부터 진행하고(<code>제166조 제1항</code>), 불확정기한부 채무는 그 기한이 객관적으로 도래한 때로부터 진행한다. 따라서 분양완료된 1998.10.20.이 기산점이다.
+
+A 은행이 1999.6.15. 소제기 → 2000.3.25. 승소확정. 5년 시효완성 전 소제기로 <code>제168조 1호</code> 및 <code>민사소송법 제265조</code>에 의해 중단. <code>제178조 제2항</code>에 의해 판결확정 시 새로 진행. <code>제165조</code>에 의해 판결로 확정된 채권의 소멸시효는 10년으로 연장.
+
+따라서 2005.6.경은 10년 경과 전 → 주채무자 B 회사의 채무는 시효소멸 X.
+
+(3) C의 연대보증채무의 시효소멸 여부
+C의 연대보증도 보증채무로 부종성은 단순보증과 동일. A 은행과 C의 보증계약은 보조적 상행위에 해당 → 5년의 상사시효.
+
+<code>제440조</code>에 의해 주채무자에 대한 시효중단은 보증인에게 효력. 따라서 C의 연대보증채무 역시 시효중단되어 2000.3.26.부터 다시 진행.
+
+그러나 판례: 제165조의 10년 연장 효과는 판결당사자간에 한하여 발생, 연대보증인에 대한 채권의 소멸시효는 종전과 같다. 따라서 C의 연대보증채무는 판결확정일로부터 종전과 같이 5년의 시효기간이 적용된다.
+
+(4) 사안의 경우
+2005.6.경은 종전 5년 시효기간 경과 후 → C의 연대보증채무는 시효로 소멸. 따라서 C의 주장은 이유 있고, 법원은 청구기각의 판결을 하여야 한다.
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <div class="answer-block">
+          <textarea placeholder="설문 1 답안 작성. 결론 + 근거 순으로 작성하세요." data-i18n-ph="answer_ph"></textarea>
+          <div class="answer-toolbar">
+            <span class="info" data-card-info="1">0자 · 진척 0%</span>
+            <button class="btn small" data-action="save">저장</button>
+            <button class="btn small primary" data-action="grade" data-card="1">채점</button>
+          </div>
+          <div class="grade-result" id="grade-1">
+            <div class="grade-head">
+              <span class="grade-score">--/20</span>
+              <span class="grade-label">힌트 -- 회 · -- 분</span>
+            </div>
+            <div class="grade-comment"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ─── Sub-card 2 ─── -->
+    <div class="sub-card" data-card-id="2" data-score="15" data-suggested-sec="900">
+      <div class="sub-card-header">
+        <span class="sub-id">설문 2</span>
+        <span class="sub-title" data-i18n="card2_title">E의 C·D에 대한 청구 가부 (변제자대위 §482)</span>
+        <span class="meta-pill score">15점</span>
+        <span class="meta-pill" data-i18n="card2_suggest">권장 15분</span>
+        <span class="meta-pill elapsed" id="elapsed-2">00:00</span>
+        <span class="meta-pill hint-count" id="hint-count-2">힌트 0/5</span>
+        <span class="toggle-icon">▼</span>
+      </div>
+      <div class="sub-card-body">
+
+        <div class="sub-inquiry">
+          <span class="inquiry-label" data-i18n="inq_label">설문 2</span>
+          <span data-i18n="card2_inquiry">B 회사가 2000.6. X 토지를 E에게 매도·이전등기. 2000.10.15. E가 대출원리금을 모두 변제. 2001.2.15. E가 C에게 보증채무 이행청구 + D에게 저당권 경매신청. E의 C와 D에 대한 청구 및 신청은 각 인용될 수 있는가?</span>
+        </div>
+
+        <div class="hint-bar">
+          <span class="hint-label" data-i18n="hint_label">힌트</span>
+          <button class="hint-btn" data-card="2" data-level="1"><span class="badge-dot"></span><span data-i18n="hint_lv1">1. 목차</span></button>
+          <button class="hint-btn" data-card="2" data-level="2"><span class="badge-dot"></span><span data-i18n="hint_lv2">2. 두문자</span></button>
+          <button class="hint-btn" data-card="2" data-level="3"><span class="badge-dot"></span><span data-i18n="hint_lv3">3. 조문+키워드</span></button>
+          <button class="hint-btn" data-card="2" data-level="4"><span class="badge-dot"></span><span data-i18n="hint_lv4">4. 결론+근거</span></button>
+          <button class="hint-btn" data-card="2" data-level="5"><span class="badge-dot"></span><span data-i18n="hint_lv5">5. 전체답안</span></button>
+          <span class="spacer"></span>
+          <span class="hint-count-info" id="hint-info-2">0회 사용</span>
+        </div>
+
+        <div class="hint-panels-wrap" id="hint-panels-wrap-2">
+        <div class="hint-panels-header" data-card="2">
+          <span class="chev">▶</span>
+          <span data-i18n="hint_panel_label">힌트 패널</span>
+          <span class="spacer"></span>
+          <span class="hp-count" id="hp-count-2">0/5</span>
+        </div>
+        <div class="hint-panels" id="hint-panels-2">
+          <div class="hint-panel" data-level="1">
+            <div class="hint-head"><span class="badge-dot"></span><span data-i18n="hint_lv1_head">1단계 · 목차</span></div>
+            <div class="hint-body">
+1. 변제자대위의 요건과 효과
+2. 법정대위자 상호간 효과 — E의 C에 대한 청구
+3. 법정대위자 상호간 효과 — E의 D에 대한 신청
+            </div>
+          </div>
+          <div class="hint-panel" data-level="2">
+            <div class="hint-head"><span class="badge-dot"></span><span data-i18n="hint_lv2_head">2단계 · 핵심 단서</span></div>
+            <div class="hint-body"><div class="mnemonic">출,구,정 / 보,물</div><span data-i18n="hint_lv2_body_2">1. 出재 (대위 요건, §481)
+2. 求상권 (대위 요건, §481)
+3. 正당한 이익 (대위 요건, §481)
+4. 제3취득자 → 保증인 대위 X (§482 ②2호)
+5. 제3취득자 → 物상보증인 대위 X (판례 비대칭)</span></div>
+          </div>
+          <div class="hint-panel" data-level="3">
+            <div class="hint-head"><span class="badge-dot"></span><span data-i18n="hint_lv3_head">3단계 · 조문 + 핵심 키워드</span></div>
+            <div class="hint-body">
+1. <code>제481조</code> — 변제자의 법정대위 요건
+2. <code>제482조 제2항 제2호</code> — 제3취득자는 보증인에 대하여 대위 X
+3. <code>제482조 제2항 제5호</code> — 물상보증인·보증인 상호간 인원수 비례
+4. <code>제370조, 제341조</code> — 물상보증인 구상권
+5. <span data-i18n="hint_lv3_judg2">판례</span>: 물상보증인 ≒ 보증인. 제3취득자 → 물상보증인 대위 X (비대칭)
+            </div>
+          </div>
+          <div class="hint-panel" data-level="4">
+            <div class="hint-head"><span class="badge-dot"></span><span data-i18n="hint_lv4_head">4단계 · 결론 + 주요 근거</span></div>
+            <div class="hint-body">
+<strong data-i18n="hint_lv4_concl_2">결론: E의 C와 D에 대한 청구·신청은 모두 인용될 수 없다.</strong>
+
+근거:
+1. E는 저당물의 제3취득자로 §481 요건(출재+구상권+정당한 이익) 충족 → 채권자 대위.
+2. C(연대보증인)에 대한 청구: §482 ②2호 — 제3취득자는 보증인에 대하여 대위하지 못한다 → 인용 X.
+3. D(물상보증인)에 대한 신청: <span data-i18n="hint_lv4_judg_2">판례에 의해 물상보증인은 보증인과 마찬가지로 취급(§370 준용) → 제3취득자는 물상보증인에 대하여도 대위 X → 인용 X.</span>
+            </div>
+          </div>
+          <div class="hint-panel" data-level="5">
+            <div class="hint-head"><span class="badge-dot"></span><span data-i18n="hint_lv5_head">5단계 · 전체 답안 (full reveal)</span></div>
+            <div class="hint-body">
+<strong>I. 결론</strong>
+E의 C와 D에 대한 청구 및 신청은 모두 인용될 수 없다.
+
+<strong>II. 근거</strong>
+
+(1) 문제점
+X 토지의 제3취득자인 E가 B 회사의 채무를 변제하였는바, E가 연대보증인 C와 물상보증인 D에 대하여 변제자대위권을 행사할 수 있는지가 문제이다.
+
+(2) 변제자대위의 요건과 효과
+구상권의 실효성 확보를 위해 변제자의 구상권 범위 내에서 채권자가 가지고 있던 채권 및 담보가 당연히 변제자에게 이전된다. <code>제481조</code>에 의해 변제자대위가 성립하기 위해서는 ① 제3자 또는 공동채무자의 출재로 채권자가 만족을 얻고, ② 변제자가 구상권을 가지며, ③ 변제할 정당한 이익이 있어야 한다.
+
+사안에서 E는 저당물의 제3취득자로 전액 변제하여 만족을 주었고, 변제하지 않으면 소유권을 상실할 위험이 있는 정당한 이익자이므로 채권자를 대위한다.
+
+(3) E의 C에 대한 청구의 가부
+<code>제482조 제2항 제2호</code>: 제3취득자는 보증인에 대하여 채권자를 대위하지 못한다. 따라서 E의 C에 대한 보증채무 이행청구는 인용될 수 없다.
+
+(4) E의 D에 대한 신청의 가부
+판례: <code>제370조</code>가 <code>제341조</code>를 준용하므로 물상보증인이 변제 또는 담보권 실행으로 소유권을 잃은 때에는 보증채무에 관한 규정에 의하여 채무자에 대한 구상권을 가지고, <code>제482조 제2항 제5호</code>에 따르면 물상보증인과 보증인은 인원수 비례로 채권자를 대위한다. 즉 물상보증인 ≒ 보증인.
+
+위 규정 종합 시, 물상보증인은 채무자로부터 담보부동산을 취득한 제3자에 대하여 출재 전액 대위가 가능한 반면, 제3취득자는 물상보증인에 대하여 대위할 수 없다(비대칭). 부동산 가액 비례 대위를 허용하면 본래 전액 대위 가능한 물상보증인이 우연한 사정으로 가액 비례로만 대위하게 되는 반면, 담보부담을 각오한 제3자가 뜻하지 않은 이득을 얻게 되어 부당.
+
+따라서 E의 D에 대한 경매신청도 인용될 수 없다.
+
+(5) 사안의 결론
+1. E의 C에 대한 보증채무 이행청구: 인용 X.
+2. E의 D에 대한 경매신청: 인용 X.
+            </div>
+          </div>
+        </div>
+        </div>
+
+        <div class="answer-block">
+          <textarea placeholder="설문 2 답안 작성. C에 대한 청구 + D에 대한 신청 순으로 작성하세요." data-i18n-ph="answer_ph"></textarea>
+          <div class="answer-toolbar">
+            <span class="info" data-card-info="2">0자 · 진척 0%</span>
+            <button class="btn small" data-action="save">저장</button>
+            <button class="btn small primary" data-action="grade" data-card="2">채점</button>
+          </div>
+          <div class="grade-result" id="grade-2">
+            <div class="grade-head">
+              <span class="grade-score">--/15</span>
+              <span class="grade-label">힌트 -- 회 · -- 분</span>
+            </div>
+            <div class="grade-comment"></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ─── SIDE COL ─── -->
+  <div class="side-col">
+
+    <div class="side-card">
+      <div class="side-card-header">
+        <span data-i18n="side_progress">진행 요약</span>
+      </div>
+      <div class="side-card-body">
+        <div class="progress-summary" id="progress-summary">
+          <div class="ps-row">
+            <div class="ps-label">설문 1 <span class="ps-sub" data-i18n="ps_sub_1">20점 / 권장 20분</span></div>
+            <div class="ps-val partial" id="ps-val-1">진행 중</div>
+          </div>
+          <div class="ps-row">
+            <div class="ps-label">설문 2 <span class="ps-sub" data-i18n="ps_sub_2">15점 / 권장 15분</span></div>
+            <div class="ps-val" id="ps-val-2">대기</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-card">
+      <div class="side-card-header">
+        <span data-i18n="side_history">시도 히스토리</span>
+        <span style="margin-left:auto;font-size:10px;font-family:'SF Mono',monospace;color:var(--text-dim)">YBI01-01</span>
+      </div>
+      <div class="side-card-body">
+        <div class="history-row best">
+          <div class="row-1">
+            <span class="attempt-no">#04</span>
+            <span class="attempt-score">31/35</span>
+            <span class="attempt-pct">(88%)</span>
+          </div>
+          <div class="row-2">
+            <span class="pill-mini hint-zero" data-i18n="hint_n_0">힌트 0회</span>
+            <span class="pill-mini">32:18</span>
+            <span data-i18n="row_date_4">2026-05-16 21:45</span>
+          </div>
+        </div>
+        <div class="history-row">
+          <div class="row-1">
+            <span class="attempt-no">#03</span>
+            <span class="attempt-score">28/35</span>
+            <span class="attempt-pct">(80%)</span>
+          </div>
+          <div class="row-2">
+            <span class="pill-mini hint-low" data-i18n="hint_n_2">힌트 2회</span>
+            <span class="pill-mini">28:42</span>
+            <span data-i18n="row_date_3">2026-05-14 09:12</span>
+          </div>
+        </div>
+        <div class="history-row">
+          <div class="row-1">
+            <span class="attempt-no">#02</span>
+            <span class="attempt-score">22/35</span>
+            <span class="attempt-pct low">(62%)</span>
+          </div>
+          <div class="row-2">
+            <span class="pill-mini hint-low" data-i18n="hint_n_3">힌트 3회</span>
+            <span class="pill-mini elapsed-over">42:05</span>
+            <span data-i18n="row_date_2">2026-05-09 22:10</span>
+          </div>
+        </div>
+        <div class="history-row">
+          <div class="row-1">
+            <span class="attempt-no">#01</span>
+            <span class="attempt-score">17/35</span>
+            <span class="attempt-pct bad">(48%)</span>
+          </div>
+          <div class="row-2">
+            <span class="pill-mini hint-high" data-i18n="hint_n_5">힌트 5회</span>
+            <span class="pill-mini elapsed-over">58:30</span>
+            <span data-i18n="row_date_1">2026-04-30 18:55</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="side-card">
+      <div class="side-card-header">
+        <span data-i18n="side_summary">요약</span>
+      </div>
+      <div class="side-card-body">
+        <div class="progress-summary">
+          <div class="ps-row">
+            <div class="ps-label" data-i18n="sum_attempts">시도 횟수</div>
+            <div class="ps-val">4</div>
+          </div>
+          <div class="ps-row">
+            <div class="ps-label" data-i18n="sum_best">최고 점수</div>
+            <div class="ps-val done">31/35 (88%)</div>
+          </div>
+          <div class="ps-row">
+            <div class="ps-label" data-i18n="sum_last">최근 점수</div>
+            <div class="ps-val done">31/35 (88%)</div>
+          </div>
+          <div class="ps-row">
+            <div class="ps-label" data-i18n="sum_avg_hint">평균 힌트 사용</div>
+            <div class="ps-val partial">2.5회</div>
+          </div>
+          <div class="ps-row">
+            <div class="ps-label" data-i18n="sum_avg_time">평균 소요</div>
+            <div class="ps-val">40:24</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="flash-overlay" id="flash-overlay"></div>
+
+<script>
+  // ─── i18n dict ───────────────────────────────────
+  const I18N = {
+    en: {
+      mock_label: 'HINT UX PROTOTYPE',
+      hint_stealth: '<span>Stealth: <kbd>Z</kbd></span>',
+      hint_focus:   '<span>Focus (collapse others): <kbd>F</kbd></span>',
+      hint_hint:    '<span>Hint: <kbd>H</kbd> (active card · next level)</span>',
+      brand: 'Hint UX Prototype',
+      case_meta: 'YBI01-01 · Civil Law · Prep · 35 pt',
+      stealth_label: 'Stealth',
+      lang_label: 'EN',
+      status_connected: 'Mock',
+      lbl_total: 'Total',
+      lbl_active: 'Active',
+      suggested_total: 'suggested 35:00',
+      btn_pause: 'Pause',
+      btn_reset: 'Reset',
+      big_title: 'Case · YBI01-01 · Suretyship extinctive prescription + Subrogation by payment',
+      big_score: '35 pt',
+      big_suggested: 'suggested 35 min',
+      lbl_fact: 'Facts',
+      lbl_inquiry: 'Inquiries',
+      inq_1: 'Bank A filed against B on 1999-06-15, obtained final judgment 2000-03-25 but received no payment. In June 2005 A sued surety C; C argues the suretyship has lapsed. Is C\'s argument sound? (20 pt)',
+      inq_2: 'B sold land X to E on 2000-06-15, transferred title 2000-08-15. Before A\'s auction, E paid in full on 2000-10-15. On 2001-02-15 E sued surety C and filed mortgage auction against D. Can E\'s claims against C and D be granted? (15 pt)',
+      cards_label: 'Sub-question cards (2)',
+      btn_expand: 'Expand all',
+      btn_focus: 'Active only',
+      card1_title: 'Validity of C\'s argument (prescription + §165 extension)',
+      card1_suggest: 'suggested 20 min',
+      card1_inquiry: 'Bank A sued B on 1999-06-15, obtained final judgment 2000-03-25 but received no payment. In June 2005 A sued surety C; C argues that the suretyship has lapsed. Is C\'s argument sound?',
+      inq_label: 'Inquiry',
+      hint_label: 'Hint',
+      hint_panel_label: 'Hint Panel',
+      hint_lv1: '1. Outline',
+      hint_lv2: '2. Mnemonic',
+      hint_lv3: '3. Article + Keyword',
+      hint_lv4: '4. Conclusion + Reason',
+      hint_lv5: '5. Full Reveal',
+      hint_lv1_head: 'Lv.1 · Outline',
+      hint_lv2_head: 'Lv.2 · Key Cues',
+      hint_lv3_head: 'Lv.3 · Article + Keyword',
+      hint_lv4_head: 'Lv.4 · Conclusion + Reason',
+      hint_lv5_head: 'Lv.5 · Full Reveal',
+      hint_lv2_body: '1. Commercial prescription 5y\n2. Start: sale completion\n3. Interruption: suit + final judgment\n4. §165 10y extension (principal)\n5. Original 5y (surety, case law)',
+      hint_lv2_body_2: '1. Outlay (req, §481)\n2. Claim (req, §481)\n3. Legitimate interest (req, §481)\n4. 3rd-purchaser → surety: no subrogation (§482 ② No.2)\n5. 3rd-purchaser → real surety: no subrogation (case law asymmetry)',
+      hint_lv3_judg: 'Case law',
+      hint_lv3_judg2: 'Case law',
+      hint_lv4_concl: 'Conclusion: C\'s argument is sound (claim dismissed).',
+      hint_lv4_concl_2: 'Conclusion: Neither E\'s claim against C nor against D can be granted.',
+      hint_lv4_judg: '§165 10-year extension only between judgment parties; not surety.',
+      hint_lv4_judg_2: 'Case law: real surety ≈ surety (§370 mutatis); 3rd-purchaser cannot subrogate against real surety either.',
+      answer_ph: 'Write your answer. Conclusion first, then reasoning.',
+      card2_title: 'E\'s claims against C·D (subrogation by payment §482)',
+      card2_suggest: 'suggested 15 min',
+      card2_inquiry: 'B sold land X to E on 2000-06, transferred title. On 2000-10-15 E paid the loan in full. On 2001-02-15 E sued surety C and filed mortgage auction against D. Can E\'s claims be granted?',
+      side_progress: 'Progress',
+      side_history: 'Attempt history',
+      side_summary: 'Summary',
+      ps_sub_1: '20 pt / sug. 20m',
+      ps_sub_2: '15 pt / sug. 15m',
+      hint_n_0: 'hint 0',
+      hint_n_2: 'hint 2',
+      hint_n_3: 'hint 3',
+      hint_n_5: 'hint 5',
+      row_date_1: '2026-04-30 18:55',
+      row_date_2: '2026-05-09 22:10',
+      row_date_3: '2026-05-14 09:12',
+      row_date_4: '2026-05-16 21:45',
+      sum_attempts: 'Attempts',
+      sum_best: 'Best',
+      sum_last: 'Last',
+      sum_avg_hint: 'Avg. hints',
+      sum_avg_time: 'Avg. time',
+    },
+    ko: {
+      mock_label: '힌트 UX 시안',
+      hint_stealth: '<span>위장: <kbd>Z</kbd></span>',
+      hint_focus:   '<span>집중(다른 카드 접기): <kbd>F</kbd></span>',
+      hint_hint:    '<span>힌트: <kbd>H</kbd> (활성 카드 · 다음 단계)</span>',
+      brand: '힌트 UX 시안',
+      case_meta: 'YBI01-01 · 민법 · 예비 · 35점',
+      stealth_label: '위장',
+      lang_label: '한',
+      status_connected: '시안',
+      lbl_total: '총 경과',
+      lbl_active: '현재 카드',
+      suggested_total: '권장 35:00',
+      btn_pause: '일시정지',
+      btn_reset: '초기화',
+      big_title: '큰문제 · YBI01-01 · 연대보증채무 시효소멸 + 변제자대위',
+      big_score: '35점',
+      big_suggested: '권장 35분',
+      lbl_fact: '사실관계',
+      lbl_inquiry: '설문',
+      inq_1: 'A 은행이 1999.6.15. B 회사를 상대로 소제기, 2000.3.25. 승소확정되었으나 B 자산 부재로 변제받지 못함. A 은행이 2005.6.경 C에게 보증채무 이행을 구하자 C는 보증채무 소멸을 주장한다. C의 주장은 타당한가? (20점)',
+      inq_2: 'B 회사가 2000.6.15. X 토지를 E에게 매도·이전등기. 2000.10.15. E가 대출원리금을 모두 변제. 2001.2.15. E가 C에게 보증채무 이행청구 + D에게 저당권 경매신청. E의 C와 D에 대한 청구·신청은 인용될 수 있는가? (15점)',
+      cards_label: '하위 설문 카드 (2)',
+      btn_expand: '모두 펼침',
+      btn_focus: '활성만',
+      card1_title: 'C의 주장 당부 (시효소멸 + 제165조 연장)',
+      card1_suggest: '권장 20분',
+      card1_inquiry: 'A 은행이 1999.6.15. B 회사를 상대로 소제기, 2000.3.25. 승소확정되었으나 B 자산 부재로 변제받지 못함. A 은행이 2005.6.경 C를 상대로 보증채무 이행을 구하자, C는 보증채무가 소멸되었다고 주장한다. C의 주장은 타당한가?',
+      inq_label: '설문 1',
+      hint_label: '힌트',
+      hint_panel_label: '힌트 패널',
+      hint_lv1: '1. 목차',
+      hint_lv2: '2. 두문자',
+      hint_lv3: '3. 조문+키워드',
+      hint_lv4: '4. 결론+근거',
+      hint_lv5: '5. 전체답안',
+      hint_lv1_head: '1단계 · 목차',
+      hint_lv2_head: '2단계 · 핵심 단서',
+      hint_lv3_head: '3단계 · 조문 + 핵심 키워드',
+      hint_lv4_head: '4단계 · 결론 + 주요 근거',
+      hint_lv5_head: '5단계 · 전체 답안 (full reveal)',
+      hint_lv2_body: '1. 상사시효 5년\n2. 기산점 분양완료\n3. 중단 소제기+판결확정\n4. 제165조 10년 연장 (주채무)\n5. 종전 5년 (연대보증, 판례)',
+      hint_lv2_body_2: '1. 出재 (대위 요건, §481)\n2. 求상권 (대위 요건, §481)\n3. 正당한 이익 (대위 요건, §481)\n4. 제3취득자 → 保증인 대위 X (§482 ②2호)\n5. 제3취득자 → 物상보증인 대위 X (판례 비대칭)',
+      hint_lv3_judg: '판례',
+      hint_lv3_judg2: '판례',
+      hint_lv4_concl: '결론: C의 주장은 타당하다 (청구기각).',
+      hint_lv4_concl_2: '결론: E의 C와 D에 대한 청구·신청은 모두 인용될 수 없다.',
+      hint_lv4_judg: '제165조 10년 연장 효과는 판결당사자(주채무자)간만 발생. 연대보증인에게 미치지 않음.',
+      hint_lv4_judg_2: '판례에 의해 물상보증인은 보증인과 마찬가지로 취급(§370 준용) → 제3취득자는 물상보증인에 대하여도 대위 X → 인용 X.',
+      answer_ph: '답안을 작성하세요. 결론 → 근거 순으로 작성합니다.',
+      card2_title: 'E의 C·D에 대한 청구 가부 (변제자대위 §482)',
+      card2_suggest: '권장 15분',
+      card2_inquiry: 'B 회사가 2000.6. X 토지를 E에게 매도·이전등기. 2000.10.15. E가 대출원리금을 모두 변제. 2001.2.15. E가 C에게 보증채무 이행청구 + D에게 저당권 경매신청. E의 C와 D에 대한 청구 및 신청은 각 인용될 수 있는가?',
+      side_progress: '진행 요약',
+      side_history: '시도 히스토리',
+      side_summary: '요약',
+      ps_sub_1: '20점 / 권장 20분',
+      ps_sub_2: '15점 / 권장 15분',
+      hint_n_0: '힌트 0회',
+      hint_n_2: '힌트 2회',
+      hint_n_3: '힌트 3회',
+      hint_n_5: '힌트 5회',
+      row_date_1: '2026-04-30 18:55',
+      row_date_2: '2026-05-09 22:10',
+      row_date_3: '2026-05-14 09:12',
+      row_date_4: '2026-05-16 21:45',
+      sum_attempts: '시도 횟수',
+      sum_best: '최고 점수',
+      sum_last: '최근 점수',
+      sum_avg_hint: '평균 힌트 사용',
+      sum_avg_time: '평균 소요',
+    },
+  };
+
+  let currentLang  = localStorage.getItem('hint_lang') || 'ko';
+  let stealthMode  = localStorage.getItem('hint_stealth') === 'true';
+
+  function applyI18n() {
+    const dict = I18N[currentLang];
+    document.querySelectorAll('[data-i18n]').forEach(el => {
+      const k = el.dataset.i18n;
+      if (dict[k] !== undefined) el.innerHTML = dict[k];
+    });
+    document.querySelectorAll('[data-i18n-ph]').forEach(el => {
+      const k = el.dataset.i18nPh;
+      if (dict[k] !== undefined) el.placeholder = dict[k];
+    });
+    document.getElementById('lang-btn').querySelector('span').textContent = dict.lang_label;
+  }
+
+  function applyStealth(target) {
+    // Stealth ON: English + collapse big problem
+    currentLang = target ? 'en' : 'ko';
+    document.getElementById('big-problem').classList.toggle('collapsed', target);
+    const btn = document.getElementById('stealth-btn');
+    btn.classList.toggle('active', target);
+    btn.firstChild.nodeValue = target ? '🔓 ' : '👀 ';
+    localStorage.setItem('hint_stealth', target);
+    localStorage.setItem('hint_lang', currentLang);
+    applyI18n();
+  }
+
+  function toggleStealth() {
+    stealthMode = !stealthMode;
+    applyStealth(stealthMode);
+  }
+
+  // ─── Timer state ─────────────────────────────────
+  // Total counter: counts up while page is active (and unpaused).
+  // Active counter: only the currently-active card.
+  // Card-level elapsed: each card has its own running counter when active.
+  const TIMER = {
+    paused: false,
+    totalSec: 0,
+    activeCardId: '1',
+    cardSec: { '1': 0, '2': 0 },
+    overFiredTotal: false,
+    overFiredCard: { '1': false, '2': false },
+  };
+
+  const HINT_USED = { '1': new Set(), '2': new Set() };
+
+  const SUGGESTED_TOTAL_SEC = 35 * 60;
+
+  function fmtTime(s) {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+  }
+
+  function getCard(cardId) {
+    return document.querySelector(`.sub-card[data-card-id="${cardId}"]`);
+  }
+
+  function suggestedSecOf(cardId) {
+    const c = getCard(cardId);
+    return parseInt(c.dataset.suggestedSec, 10);
+  }
+
+  function flashOver() {
+    const f = document.getElementById('flash-overlay');
+    f.classList.remove('flash');
+    void f.offsetWidth; // force reflow
+    f.classList.add('flash');
+  }
+
+  function updateTimers() {
+    if (TIMER.paused) return;
+    TIMER.totalSec += 1;
+    TIMER.cardSec[TIMER.activeCardId] = (TIMER.cardSec[TIMER.activeCardId] || 0) + 1;
+
+    // ─── Total display
+    const totalEl = document.getElementById('counter-total');
+    totalEl.textContent = fmtTime(TIMER.totalSec);
+    const fill = document.getElementById('progress-fill');
+    const pct = Math.min(100, (TIMER.totalSec / SUGGESTED_TOTAL_SEC) * 100);
+    fill.style.width = pct + '%';
+    if (TIMER.totalSec > SUGGESTED_TOTAL_SEC) {
+      totalEl.classList.add('over');
+      fill.classList.add('over');
+      if (!TIMER.overFiredTotal) {
+        TIMER.overFiredTotal = true;
+        flashOver();
+      }
+    }
+
+    // ─── Active card display
+    const activeEl = document.getElementById('counter-active');
+    activeEl.textContent = fmtTime(TIMER.cardSec[TIMER.activeCardId]);
+    if (TIMER.cardSec[TIMER.activeCardId] > suggestedSecOf(TIMER.activeCardId)) {
+      activeEl.classList.add('over');
+    } else {
+      activeEl.classList.remove('over');
+    }
+
+    // ─── Per-card elapsed pills
+    ['1', '2'].forEach(id => {
+      const el = document.getElementById('elapsed-' + id);
+      const sec = TIMER.cardSec[id] || 0;
+      el.textContent = fmtTime(sec);
+      const over = sec > suggestedSecOf(id);
+      el.classList.toggle('over', over);
+      if (over && !TIMER.overFiredCard[id]) {
+        TIMER.overFiredCard[id] = true;
+        // Only flash if this card is active (to avoid double-flash for non-running cards — they don't increment anyway)
+        if (id === TIMER.activeCardId) flashOver();
+      }
+    });
+  }
+
+  setInterval(updateTimers, 1000);
+
+  // ─── Card open/close + active tracking ────────────
+  function setActiveCard(cardId) {
+    TIMER.activeCardId = cardId;
+    document.querySelectorAll('.sub-card').forEach(c => {
+      c.classList.toggle('active', c.dataset.cardId === cardId);
+    });
+    updateProgressSummary();
+  }
+
+  document.querySelectorAll('.sub-card-header').forEach(h => {
+    h.addEventListener('click', () => {
+      const card = h.parentElement;
+      const id = card.dataset.cardId;
+      const wasCollapsed = card.classList.contains('collapsed');
+      card.classList.toggle('collapsed');
+      // If we just opened this card, make it active.
+      if (wasCollapsed) setActiveCard(id);
+    });
+  });
+
+  // ─── Big problem collapse ─────────────────────────
+  document.getElementById('big-problem-header').addEventListener('click', () => {
+    document.getElementById('big-problem').classList.toggle('collapsed');
+  });
+
+  // ─── Cards toolbar ────────────────────────────────
+  document.getElementById('btn-expand-all').addEventListener('click', () => {
+    document.querySelectorAll('.sub-card').forEach(c => c.classList.remove('collapsed'));
+  });
+  document.getElementById('btn-focus-active').addEventListener('click', () => {
+    document.querySelectorAll('.sub-card').forEach(c => {
+      c.classList.toggle('collapsed', c.dataset.cardId !== TIMER.activeCardId);
+    });
+  });
+
+  // ─── Pause / Reset ────────────────────────────────
+  document.getElementById('btn-pause').addEventListener('click', () => {
+    TIMER.paused = !TIMER.paused;
+    const b = document.getElementById('btn-pause');
+    b.classList.toggle('active', TIMER.paused);
+    b.querySelector('span') ? b.querySelector('span').textContent : null;
+    b.textContent = TIMER.paused ? (currentLang === 'ko' ? '재개' : 'Resume') : I18N[currentLang].btn_pause;
+  });
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    if (!confirm(currentLang === 'ko' ? '카운터를 초기화하시겠습니까?' : 'Reset all counters?')) return;
+    TIMER.totalSec = 0;
+    TIMER.cardSec = { '1': 0, '2': 0 };
+    TIMER.overFiredTotal = false;
+    TIMER.overFiredCard = { '1': false, '2': false };
+    document.getElementById('counter-total').classList.remove('over');
+    document.getElementById('progress-fill').classList.remove('over');
+    updateTimers(); // initial paint
+  });
+
+  // ─── Hint panels expand/collapse (per-card) ───────
+  function expandHintPanels(cardId) {
+    const wrap = document.getElementById(`hint-panels-wrap-${cardId}`);
+    if (!wrap) return;
+    wrap.classList.add('expanded');
+    const chev = wrap.querySelector('.hint-panels-header .chev');
+    if (chev) chev.textContent = '▼';
+  }
+  function collapseHintPanels(cardId) {
+    const wrap = document.getElementById(`hint-panels-wrap-${cardId}`);
+    if (!wrap) return;
+    wrap.classList.remove('expanded');
+    const chev = wrap.querySelector('.hint-panels-header .chev');
+    if (chev) chev.textContent = '▶';
+  }
+  function toggleHintPanels(cardId) {
+    const wrap = document.getElementById(`hint-panels-wrap-${cardId}`);
+    if (!wrap) return;
+    if (wrap.classList.contains('expanded')) collapseHintPanels(cardId);
+    else expandHintPanels(cardId);
+  }
+
+  document.querySelectorAll('.hint-panels-header').forEach(h => {
+    h.addEventListener('click', () => {
+      toggleHintPanels(h.dataset.card);
+    });
+  });
+
+  // ─── Hint reveal (toggle persistent) ──────────────
+  function revealHint(cardId, level) {
+    const btn = document.querySelector(`.hint-btn[data-card="${cardId}"][data-level="${level}"]`);
+    const panel = document.querySelector(`#hint-panels-${cardId} .hint-panel[data-level="${level}"]`);
+    if (!btn || !panel) return;
+
+    if (parseInt(level, 10) === 5 && !btn.classList.contains('revealed')) {
+      const msg = currentLang === 'ko'
+        ? '전체 답안을 보시겠습니까? (5단계는 일종의 "포기" 단계입니다.)'
+        : 'Reveal full answer? (Lv.5 is essentially "give up".)';
+      if (!confirm(msg)) return;
+    }
+
+    btn.classList.add('revealed');
+    panel.classList.add('shown');
+    HINT_USED[cardId].add(parseInt(level, 10));
+    expandHintPanels(cardId); // auto-expand panel when a hint is revealed
+    updateHintCount(cardId);
+    updateProgressSummary();
+  }
+
+  document.querySelectorAll('.hint-btn').forEach(b => {
+    b.addEventListener('click', () => {
+      const cardId = b.dataset.card;
+      const level = b.dataset.level;
+      revealHint(cardId, level);
+    });
+  });
+
+  function updateHintCount(cardId) {
+    const n = HINT_USED[cardId].size;
+    const pill = document.getElementById(`hint-count-${cardId}`);
+    if (pill) pill.textContent = (currentLang === 'ko' ? '힌트 ' : 'hint ') + n + '/5';
+    const info = document.getElementById(`hint-info-${cardId}`);
+    if (info) info.textContent = n + (currentLang === 'ko' ? '회 사용' : ' used');
+    const hp = document.getElementById(`hp-count-${cardId}`);
+    if (hp) hp.textContent = n + '/5';
+  }
+
+  // ─── Textarea char count + progress ───────────────
+  function updateCharInfo(cardId) {
+    const card = getCard(cardId);
+    const ta = card.querySelector('textarea');
+    const info = card.querySelector(`.info[data-card-info="${cardId}"]`);
+    if (!ta || !info) return;
+    const chars = ta.value.length;
+    // mock target: 600 chars for card1 (20 pt), 500 for card2 (15 pt)
+    const targetChars = cardId === '1' ? 600 : 500;
+    const pct = Math.min(100, Math.round((chars / targetChars) * 100));
+    info.textContent = chars + (currentLang === 'ko' ? '자 · 진척 ' : ' chars · progress ') + pct + '%';
+    return pct;
+  }
+
+  document.querySelectorAll('.sub-card textarea').forEach(ta => {
+    const card = ta.closest('.sub-card');
+    const id = card.dataset.cardId;
+    ta.addEventListener('input', () => {
+      updateCharInfo(id);
+      updateProgressSummary();
+    });
+  });
+
+  // ─── Save / Grade buttons ─────────────────────────
+  document.querySelectorAll('[data-action="save"]').forEach(b => {
+    b.addEventListener('click', () => {
+      const card = b.closest('.sub-card');
+      const id = card.dataset.cardId;
+      alert((currentLang === 'ko' ? '저장됨 · 설문 ' : 'Saved · sub-question ') + id + (currentLang === 'ko' ? ' (시안)' : ' (mock)'));
+    });
+  });
+
+  document.querySelectorAll('[data-action="grade"]').forEach(b => {
+    b.addEventListener('click', () => {
+      const card = b.closest('.sub-card');
+      const id = card.dataset.cardId;
+      const ta = card.querySelector('textarea');
+      const chars = ta.value.length;
+      const hintCount = HINT_USED[id].size;
+      const score = parseInt(card.dataset.score, 10);
+      const elapsedMin = Math.round((TIMER.cardSec[id] || 0) / 60 * 10) / 10;
+
+      // Mock grading: 60% baseline + min(40, chars / 15) - hint*4
+      let mockPct = Math.min(95, 60 + Math.min(40, chars / 15) - hintCount * 4);
+      if (chars < 50) mockPct = 0;
+      const got = Math.round((mockPct / 100) * score);
+
+      const grade = card.querySelector('.grade-result');
+      grade.classList.add('shown');
+      grade.querySelector('.grade-score').textContent = got + '/' + score;
+      grade.querySelector('.grade-label').textContent =
+        (currentLang === 'ko' ? '힌트 ' : 'hint ') + hintCount +
+        (currentLang === 'ko' ? '회 · ' : ' · ') + elapsedMin +
+        (currentLang === 'ko' ? '분 (시안)' : 'm (mock)');
+      grade.querySelector('.grade-comment').textContent = chars < 50
+        ? (currentLang === 'ko' ? '답안이 너무 짧습니다.' : 'Answer too short.')
+        : (currentLang === 'ko'
+            ? `기준 점수 ${score} 중 ${got}점. 힌트 ${hintCount}회 사용. 채점 결과는 시안용 더미입니다.`
+            : `${got}/${score}. ${hintCount} hints used. Mock grading.`);
+      card.classList.add('graded');
+      const head = card.querySelector('.sub-card-header');
+      // Add "graded" pill if not yet
+      if (!head.querySelector('.meta-pill.graded')) {
+        const p = document.createElement('span');
+        p.className = 'meta-pill graded';
+        p.textContent = currentLang === 'ko' ? '채점 ' + got + '/' + score : 'graded ' + got + '/' + score;
+        head.insertBefore(p, head.querySelector('.toggle-icon'));
+      } else {
+        head.querySelector('.meta-pill.graded').textContent =
+          (currentLang === 'ko' ? '채점 ' : 'graded ') + got + '/' + score;
+      }
+      updateProgressSummary();
+    });
+  });
+
+  // ─── Progress summary ─────────────────────────────
+  function updateProgressSummary() {
+    ['1', '2'].forEach(id => {
+      const card = getCard(id);
+      const ta = card.querySelector('textarea');
+      const chars = ta.value.length;
+      const elapsed = TIMER.cardSec[id] || 0;
+      const targetChars = id === '1' ? 600 : 500;
+      const pct = Math.min(100, Math.round((chars / targetChars) * 100));
+      const el = document.getElementById('ps-val-' + id);
+      const graded = card.classList.contains('graded');
+
+      let text, cls;
+      if (graded) {
+        const score = card.querySelector('.grade-result .grade-score').textContent;
+        text = (currentLang === 'ko' ? '채점 ' : 'graded ') + score;
+        cls = 'done';
+      } else if (chars === 0) {
+        text = (currentLang === 'ko' ? '대기' : 'pending');
+        cls = '';
+      } else {
+        text = pct + (currentLang === 'ko' ? '% · ' : '% · ') + fmtTime(elapsed);
+        cls = pct >= 100 ? 'done' : 'partial';
+      }
+      el.textContent = text;
+      el.classList.remove('done', 'partial');
+      if (cls) el.classList.add(cls);
+    });
+  }
+
+  // ─── Lang toggle ──────────────────────────────────
+  document.getElementById('lang-btn').addEventListener('click', () => {
+    currentLang = currentLang === 'en' ? 'ko' : 'en';
+    localStorage.setItem('hint_lang', currentLang);
+    applyI18n();
+    // Re-render dynamic labels
+    ['1', '2'].forEach(updateHintCount);
+    ['1', '2'].forEach(updateCharInfo);
+    updateProgressSummary();
+    const b = document.getElementById('btn-pause');
+    b.textContent = TIMER.paused
+      ? (currentLang === 'ko' ? '재개' : 'Resume')
+      : I18N[currentLang].btn_pause;
+  });
+
+  // ─── Stealth toggle ───────────────────────────────
+  document.getElementById('stealth-btn').addEventListener('click', toggleStealth);
+
+  // ─── Keyboard shortcuts ───────────────────────────
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const k = e.key.toLowerCase();
+    if (k === 'z') { toggleStealth(); e.preventDefault(); }
+    else if (k === 'f') {
+      document.getElementById('btn-focus-active').click();
+      e.preventDefault();
+    }
+    else if (k === 'h') {
+      // Reveal next hint level on active card
+      const id = TIMER.activeCardId;
+      const used = HINT_USED[id];
+      for (let lv = 1; lv <= 5; lv++) {
+        if (!used.has(lv)) { revealHint(id, String(lv)); break; }
+      }
+      e.preventDefault();
+    }
+    else if (k === '1' || k === '2') {
+      setActiveCard(k);
+      // Auto-expand picked card
+      getCard(k).classList.remove('collapsed');
+      e.preventDefault();
+    }
+  });
+
+  // ─── Init ─────────────────────────────────────────
+  applyStealth(stealthMode);
+  applyI18n();
+  updateTimers(); // initial 00:00 paint with no increment (paused=false but first tick will run in 1s)
+  ['1', '2'].forEach(updateHintCount);
+  ['1', '2'].forEach(updateCharInfo);
+  updateProgressSummary();
+</script>
+
+</body>
+</html>
