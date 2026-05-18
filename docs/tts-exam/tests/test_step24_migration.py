@@ -67,19 +67,19 @@ class TestMigrationV6Idempotent(unittest.TestCase):
     def test_init_db_first_run_reaches_v6(self):
         """깨끗한 DB → v6 까지 적용."""
         final = db_mod.init_db(self.db_path)
-        self.assertEqual(final, 6, "init_db 1회 호출 후 user_version=6")
+        self.assertEqual(final, db_mod.TARGET_SCHEMA_VERSION, f"init_db 1회 호출 후 user_version={db_mod.TARGET_SCHEMA_VERSION}")
 
     def test_init_db_idempotent_second_call_noop(self):
         """init_db 두 번 호출 → 동일 결과 (멱등)."""
         v1 = db_mod.init_db(self.db_path)
         v2 = db_mod.init_db(self.db_path)
-        self.assertEqual(v1, 6)
-        self.assertEqual(v2, 6, "재호출도 v6 유지 (멱등)")
+        self.assertEqual(v1, db_mod.TARGET_SCHEMA_VERSION)
+        self.assertEqual(v2, db_mod.TARGET_SCHEMA_VERSION, "재호출도 TARGET 유지 (멱등)")
 
     def test_init_db_third_call_still_noop(self):
         """3회 호출도 v6 유지 — 가드 견고성."""
         for _ in range(3):
-            self.assertEqual(db_mod.init_db(self.db_path), 6)
+            self.assertEqual(db_mod.init_db(self.db_path), db_mod.TARGET_SCHEMA_VERSION)
 
 
 class TestMigrationV6Schema(unittest.TestCase):
