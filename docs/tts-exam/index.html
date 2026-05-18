@@ -21,6 +21,13 @@
     --warn: #ce9178;
     --danger: #d16969;
     --link: #9cdcfe;
+    /* Step 24-6 시안 v5 — 힌트 5단계 색상 (녹→청→자→주→적) */
+    --panel-3: #333337;
+    --hint-1: #4ec9b0;
+    --hint-2: #569cd6;
+    --hint-3: #c586c0;
+    --hint-4: #ce9178;
+    --hint-5: #d16969;
   }
   html, body { height: 100%; }
   body {
@@ -387,6 +394,471 @@
     border-color: #4ec9b0;
   }
   #btn-exam-start.running:hover { border-color: #4ec9b0; color: #4ec9b0; }
+
+  /* ════════════════════════════════════════════════
+     Step 24-6 — 시안 v5 이식 (카드 + 카운터 + 힌트)
+     ════════════════════════════════════════════════ */
+
+  /* ─── Sticky 카운터 바 (topbar 아래) ─── */
+  #timer-bar {
+    position: sticky;
+    top: 36px;  /* topbar height */
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+    padding: 7px 14px;
+    display: none;  /* 카드 모드일 때만 표시 */
+    align-items: center;
+    gap: 16px;
+    z-index: 90;
+    flex-shrink: 0;
+  }
+  #timer-bar.active { display: flex; }
+  #timer-bar .counter-block {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+  }
+  #timer-bar .counter-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  #timer-bar .counter-value {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 16px;
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+  #timer-bar .counter-value.over { color: var(--warn); }
+  #timer-bar .counter-suggested {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  #timer-bar .progress-wrap {
+    flex: 1;
+    height: 6px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    min-width: 80px;
+  }
+  #timer-bar .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), var(--success));
+    width: 0%;
+    transition: width 0.3s, background 0.3s;
+  }
+  #timer-bar .progress-fill.over {
+    background: linear-gradient(90deg, var(--warn), var(--danger));
+  }
+  #timer-bar .toolbar { display: flex; gap: 6px; }
+
+  /* Flash overlay for over-time */
+  .flash-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(209, 105, 105, 0.35);
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0;
+  }
+  .flash-overlay.flash { animation: flashRed 1s ease-out; }
+  @keyframes flashRed {
+    0%   { opacity: 0; }
+    20%  { opacity: 1; }
+    100% { opacity: 0; }
+  }
+
+  /* ─── Cards toolbar ─── */
+  .cards-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .cards-toolbar .right { margin-left: auto; display: flex; gap: 6px; }
+
+  /* ─── Sub-question card ─── */
+  .sub-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    transition: border-color 0.15s;
+  }
+  .sub-card.active { border-color: var(--accent-dim); }
+  .sub-card.graded { border-left: 3px solid var(--success); }
+  .sub-card-header {
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    border-radius: 4px 4px 0 0;
+    flex-wrap: wrap;
+  }
+  .sub-card-header:hover { background: var(--panel-3); }
+  .sub-card-header .sub-id {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--accent);
+  }
+  .sub-card-header .sub-title {
+    font-size: 13px;
+    color: var(--text-bright);
+    font-weight: 500;
+    flex: 1;
+    min-width: 200px;
+  }
+  .sub-card-header .meta-pill {
+    font-size: 10px;
+    font-family: 'SF Mono', Consolas, monospace;
+    padding: 2px 8px;
+    border-radius: 2px;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    background: var(--bg);
+  }
+  .sub-card-header .meta-pill.score { color: var(--accent); border-color: var(--accent-dim); }
+  .sub-card-header .meta-pill.elapsed { color: var(--text); }
+  .sub-card-header .meta-pill.elapsed.over { color: var(--warn); border-color: var(--warn); }
+  .sub-card-header .meta-pill.graded { color: var(--success); border-color: var(--success); }
+  .sub-card-header .meta-pill.hint-count { color: var(--hint-3); border-color: var(--hint-3); }
+  .sub-card-header .toggle-icon {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-family: 'SF Mono', Consolas, monospace;
+    width: 18px;
+    text-align: center;
+    transition: transform 0.15s;
+  }
+  .sub-card.collapsed .toggle-icon { transform: rotate(-90deg); }
+  .sub-card.collapsed .sub-card-body { display: none; }
+  .sub-card-body { padding: 12px 14px; }
+
+  /* ─── Inquiry text inside card ─── */
+  .sub-inquiry {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    line-height: 1.7;
+    font-size: 12.5px;
+    color: var(--text);
+    white-space: pre-wrap;
+  }
+  .sub-inquiry .inquiry-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    display: block;
+  }
+
+  /* ─── Hint buttons (5 levels) ─── */
+  .hint-bar {
+    display: flex;
+    gap: 4px;
+    margin-bottom: 6px;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 8px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+  }
+  .hint-bar .hint-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-right: 6px;
+  }
+  .hint-btn {
+    background: var(--panel);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 5px 11px;
+    border-radius: 14px;
+    cursor: pointer;
+    font-size: 11px;
+    font-family: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    transition: all 0.15s;
+  }
+  .hint-btn:hover { border-color: var(--accent); color: var(--text); }
+  .hint-btn.revealed {
+    background: rgba(86, 156, 214, 0.12);
+    color: var(--text-bright);
+  }
+  .hint-btn.revealed[data-level="1"] { border-color: var(--hint-1); color: var(--hint-1); }
+  .hint-btn.revealed[data-level="2"] { border-color: var(--hint-2); color: var(--hint-2); }
+  .hint-btn.revealed[data-level="3"] { border-color: var(--hint-3); color: var(--hint-3); }
+  .hint-btn.revealed[data-level="4"] { border-color: var(--hint-4); color: var(--hint-4); }
+  .hint-btn.revealed[data-level="5"] { border-color: var(--hint-5); color: var(--hint-5); }
+  .hint-btn .badge-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+  }
+  .hint-btn.revealed .badge-dot { background: currentColor; }
+  .hint-bar .spacer { flex: 1; }
+  .hint-bar .hint-count-info {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+
+  /* ─── Hint reveal panels ─── */
+  .hint-panels-wrap { margin-bottom: 10px; }
+  .hint-panels-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    user-select: none;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .hint-panels-header:hover { border-color: var(--accent); color: var(--text); }
+  .hint-panels-header .chev {
+    display: inline-block;
+    width: 10px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 10px;
+    transition: transform 0.15s;
+  }
+  .hint-panels-wrap.expanded .hint-panels-header .chev { color: var(--accent); }
+  .hint-panels-header .spacer { flex: 1; }
+  .hint-panels-header .hp-count {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .hint-panels {
+    margin-top: 4px;
+    max-height: 380px;
+    overflow-y: auto;
+    display: none;
+  }
+  .hint-panels-wrap.expanded .hint-panels { display: block; }
+  .hint-panel {
+    background: var(--bg);
+    border-left: 3px solid var(--border);
+    padding: 6px 12px;
+    margin-bottom: 4px;
+    border-radius: 0 3px 3px 0;
+    font-size: 12.5px;
+    line-height: 1.35;
+    display: none;
+    white-space: pre-wrap;
+  }
+  .hint-panel.shown { display: block; }
+  .hint-panel:last-child { margin-bottom: 0; }
+  .hint-panel[data-level="1"] { border-left-color: var(--hint-1); }
+  .hint-panel[data-level="2"] { border-left-color: var(--hint-2); }
+  .hint-panel[data-level="3"] { border-left-color: var(--hint-3); }
+  .hint-panel[data-level="4"] { border-left-color: var(--hint-4); }
+  .hint-panel[data-level="5"] { border-left-color: var(--hint-5); }
+  .hint-panel .hint-head {
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 3px;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+  }
+  .hint-panel[data-level="1"] .hint-head { color: var(--hint-1); }
+  .hint-panel[data-level="2"] .hint-head { color: var(--hint-2); }
+  .hint-panel[data-level="3"] .hint-head { color: var(--hint-3); }
+  .hint-panel[data-level="4"] .hint-head { color: var(--hint-4); }
+  .hint-panel[data-level="5"] .hint-head { color: var(--hint-5); }
+  .hint-panel .hint-body {
+    color: var(--text);
+    line-height: 1.35;
+  }
+  .hint-panel .hint-body code {
+    background: var(--panel);
+    padding: 1px 5px;
+    border-radius: 2px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--link);
+  }
+  .hint-panel .mnemonic {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 13px;
+    color: var(--hint-3);
+    background: var(--panel);
+    padding: 2px 6px;
+    border-radius: 2px;
+    display: block;
+    width: fit-content;
+    margin-bottom: 3px;
+    line-height: 1.25;
+    letter-spacing: -0.1px;
+  }
+
+  /* ─── Card answer textarea + grade result ─── */
+  .sub-answer-block { margin-bottom: 8px; }
+  .sub-answer-block textarea {
+    width: 100%;
+    min-height: 140px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 10px 12px;
+    font-family: 'SF Mono', Consolas, 'Pretendard', monospace;
+    font-size: 13px;
+    line-height: 1.65;
+    border-radius: 3px;
+    resize: vertical;
+  }
+  .sub-answer-block textarea:focus { outline: none; border-color: var(--accent); }
+  .sub-answer-block .sub-answer-toolbar {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+    align-items: center;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .sub-answer-block .info { margin-right: auto; font-family: 'SF Mono', Consolas, monospace; }
+  .sub-grade-result {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--success);
+    border-radius: 3px;
+    padding: 10px 14px;
+    margin-top: 8px;
+    font-size: 12px;
+    display: none;
+  }
+  .sub-grade-result.shown { display: block; }
+  .sub-grade-result .grade-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 6px;
+  }
+  .sub-grade-result .grade-score {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 17px;
+    color: var(--success);
+    font-weight: 500;
+  }
+  .sub-grade-result .grade-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .sub-grade-result .grade-comment {
+    color: var(--text);
+    line-height: 1.65;
+  }
+
+  /* ─── History panel rows (시도 히스토리) ─── */
+  #rv-history-card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    margin-bottom: 12px;
+    display: none;
+  }
+  #rv-history-card.shown { display: block; }
+  #rv-history-card .side-card-header {
+    padding: 10px 14px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--border);
+    border-radius: 4px 4px 0 0;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #rv-history-card .side-card-body { padding: 8px 0; }
+  .history-row {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.1s;
+  }
+  .history-row:hover { background: var(--panel-2); }
+  .history-row:last-child { border-bottom: none; }
+  .history-row.best { background: rgba(78, 201, 176, 0.06); }
+  .history-row .row-1 {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    margin-bottom: 3px;
+    flex-wrap: wrap;
+  }
+  .history-row .attempt-no {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+  .history-row .attempt-score {
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 14px;
+    color: var(--text-bright);
+    font-weight: 500;
+  }
+  .history-row .attempt-pct { font-size: 11px; color: var(--success); }
+  .history-row .attempt-pct.low { color: var(--warn); }
+  .history-row .attempt-pct.bad { color: var(--danger); }
+  .history-row .row-2 {
+    display: flex;
+    gap: 10px;
+    font-size: 10.5px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+    flex-wrap: wrap;
+  }
+  .history-row .pill-mini {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 1px 6px;
+    border-radius: 2px;
+  }
+  .history-row .pill-mini.hint-zero { color: var(--success); border-color: var(--success); }
+  .history-row .pill-mini.hint-low { color: var(--warn); }
+  .history-row .pill-mini.hint-high { color: var(--danger); border-color: var(--danger); }
+  .history-row .pill-mini.elapsed-over { color: var(--warn); }
+
+  /* 카드 영역 컨테이너 */
+  #rv-cards-section { display: none; }
+  #rv-cards-section.active { display: block; }
+  /* 카드 모드일 때 기존 Notes 섹션 숨김 */
+  #rv-notes-section.hidden { display: none; }
 
   /* Evaluation */
   .score-overview {
@@ -1136,6 +1608,26 @@
   </div>
 </div>
 
+<!-- Step 24-6 시안 v5 — Sticky timer bar (Review 탭 + 카드 모드에서만 표시) -->
+<div id="timer-bar">
+  <div class="counter-block">
+    <div class="counter-label" data-i18n="lbl_total">Total</div>
+    <div class="counter-value" id="counter-total">00:00</div>
+  </div>
+  <div class="counter-suggested" id="counter-suggested">권장 --:--</div>
+  <div class="progress-wrap"><div class="progress-fill" id="progress-fill"></div></div>
+  <div class="counter-block">
+    <div class="counter-label" data-i18n="lbl_active">Active</div>
+    <div class="counter-value" id="counter-active">00:00</div>
+  </div>
+  <div class="toolbar">
+    <button class="icon-btn" id="btn-pause" data-i18n="btn_pause">Pause</button>
+    <button class="icon-btn" id="btn-counter-reset" data-i18n="btn_counter_reset">Reset</button>
+  </div>
+</div>
+
+<div class="flash-overlay" id="flash-overlay"></div>
+
 <div class="main">
 
   <!-- Sidebar -->
@@ -1191,7 +1683,32 @@
           </div>
         </div>
 
-        <div class="section" data-collapsible>
+        <!-- Step 24-6 시안 v5 — 카드 모드 (subqs.length > 0 일 때 활성, single textarea 대체) -->
+        <div id="rv-cards-section">
+          <!-- 시도 히스토리 (subqs 모드 + attempts 있을 때 표시) -->
+          <div id="rv-history-card">
+            <div class="side-card-header">
+              <span data-i18n="side_history">시도 히스토리</span>
+              <span id="rv-history-count" style="margin-left:auto;font-size:10px;font-family:'SF Mono',monospace;color:var(--text-dim)"></span>
+            </div>
+            <div class="side-card-body" id="rv-history-body"></div>
+          </div>
+
+          <div class="cards-toolbar">
+            <span id="rv-cards-label" data-i18n-fmt="cards_label">하위 설문 카드 (0)</span>
+            <div class="right">
+              <button class="btn small" id="btn-expand-all" data-i18n="btn_expand">모두 펼침</button>
+              <button class="btn small" id="btn-focus-active" data-i18n="btn_focus">활성만</button>
+              <button class="btn" id="btn-submit-cards" data-i18n="btn_submit">Submit for Evaluation</button>
+            </div>
+          </div>
+          <div id="rv-cards-container">
+            <!-- 카드 N개 동적 삽입 (renderSubqCards) -->
+          </div>
+        </div>
+
+        <!-- 단일 모드 (legacy fallback: subqs.length === 0) -->
+        <div id="rv-notes-section" class="section" data-collapsible>
           <div class="section-header">
             <span data-i18n="sec_notes">Reviewer Notes</span>
             <span class="badge" data-i18n="badge_required">required</span>
@@ -1887,6 +2404,30 @@
       regrade_in_progress: 'Grading still in progress — please wait.',
       // Step 18 — Regrade 버튼 영구 비활성화 (사용자 결정: 답안 재작성으로 다시 Submit 권장)
       btn_regrade_disabled_tooltip: 'Disabled — Resubmit a new answer instead; attempts accumulate in score graph',
+      // Step 24-6 시안 v5 — 카드/카운터/힌트
+      lbl_total: 'Total', lbl_active: 'Active',
+      btn_pause: 'Pause', btn_counter_reset: 'Reset',
+      cards_label: 'Sub-question cards ({n})',
+      btn_expand: 'Expand all', btn_focus: 'Active only',
+      hint_label: 'Hint', hint_panel_label: 'Hint Panel',
+      hint_lv1: '1. Outline', hint_lv2: '2. Mnemonic', hint_lv3: '3. Article+Keyword', hint_lv4: '4. Conclusion+Reason', hint_lv5: '5. Full Reveal',
+      hint_lv1_head: 'Lv.1 · Outline', hint_lv2_head: 'Lv.2 · Mnemonic',
+      hint_lv3_head: 'Lv.3 · Article + Keyword', hint_lv4_head: 'Lv.4 · Conclusion + Reason', hint_lv5_head: 'Lv.5 · Full Reveal',
+      hint_n_used: '{n} used',
+      hint_count_fmt: 'hint {n}/5',
+      hint_no_content: '(no data — see Lv.4 in TTS notes)',
+      hint_lv5_confirm: 'Reveal full answer? (Lv.5 is essentially "give up".)',
+      side_history: 'Attempt History',
+      history_empty: 'No attempts yet.',
+      history_attempt_no: '#{n}',
+      sub_inquiry: 'Inquiry',
+      sub_answer_ph: 'Write your answer. Conclusion first, then reasoning.',
+      btn_pause_resume: 'Resume',
+      counter_reset_confirm: 'Reset all counters?',
+      cards_pending: 'Pending',
+      cards_progress: '{p}% · {t}',
+      cards_graded: 'graded {got}/{max}',
+      cards_subq_label: 'Sub-question {key}',
     },
     ko: {
       mock_label: '시안',
@@ -2064,6 +2605,30 @@
       regrade_in_progress: '아직 채점 진행 중입니다 — 잠시 후 다시 시도하세요.',
       // Step 18 — 재채점 버튼 영구 비활성화 (사용자 결정: 답안 재작성으로 다시 Submit 권장)
       btn_regrade_disabled_tooltip: '비활성화 — 답안 재작성으로 다시 Submit하세요. 시도가 누적되어 점수 그래프에 표시됩니다',
+      // Step 24-6 시안 v5 — 카드/카운터/힌트
+      lbl_total: '총 경과', lbl_active: '현재 카드',
+      btn_pause: '일시정지', btn_counter_reset: '초기화',
+      cards_label: '하위 설문 카드 ({n})',
+      btn_expand: '모두 펼침', btn_focus: '활성만',
+      hint_label: '힌트', hint_panel_label: '힌트 패널',
+      hint_lv1: '1. 목차', hint_lv2: '2. 두문자', hint_lv3: '3. 조문+키워드', hint_lv4: '4. 결론+근거', hint_lv5: '5. 전체답안',
+      hint_lv1_head: '1단계 · 목차', hint_lv2_head: '2단계 · 핵심 단서',
+      hint_lv3_head: '3단계 · 조문 + 핵심 키워드', hint_lv4_head: '4단계 · 결론 + 주요 근거', hint_lv5_head: '5단계 · 전체 답안 (full reveal)',
+      hint_n_used: '{n}회 사용',
+      hint_count_fmt: '힌트 {n}/5',
+      hint_no_content: '(데이터 없음 — TTS Lv.4 참고)',
+      hint_lv5_confirm: '전체 답안을 보시겠습니까? (5단계는 일종의 "포기" 단계입니다.)',
+      side_history: '시도 히스토리',
+      history_empty: '시도 기록 없음.',
+      history_attempt_no: '#{n}',
+      sub_inquiry: '설문',
+      sub_answer_ph: '답안을 작성하세요. 결론 → 근거 순으로 작성합니다.',
+      btn_pause_resume: '재개',
+      counter_reset_confirm: '카운터를 초기화하시겠습니까?',
+      cards_pending: '대기',
+      cards_progress: '{p}% · {t}',
+      cards_graded: '채점 {got}/{max}',
+      cards_subq_label: '설문 {key}',
     },
   };
 
@@ -2431,21 +2996,846 @@
   });
 
   // ─── 키보드 단축키 ──────────────────────────────
+  // Step 24-6: Z(스텔스), B(사이드바), 1~4(탭), F(focus active card), H(다음 힌트 단계),
+  //            카드 모드에서 카드 N개 인덱스 키 (Shift+1/2/... — 탭 키와 충돌 회피)
   document.addEventListener('keydown', e => {
     if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     if (e.metaKey || e.ctrlKey || e.altKey) return;
     const k = e.key.toLowerCase();
+    const inCardsMode = isCardsMode();
+
     if (k === 'z') { toggleStealth(); e.preventDefault(); }
     else if (k === 'b') {
       const sb = document.getElementById('sidebar');
       sb.classList.toggle('collapsed');
       document.getElementById('sidebar-toggle').textContent = sb.classList.contains('collapsed') ? '›' : '‹';
     }
+    // Shift + 숫자: 카드 모드일 때 카드 N번 활성화 (탭 키와 충돌 회피)
+    else if (e.shiftKey && inCardsMode && /^[0-9]$/.test(k)) {
+      const cardEls = document.querySelectorAll('#rv-cards-container .sub-card');
+      const idx = parseInt(k, 10) - 1;
+      if (idx >= 0 && idx < cardEls.length) {
+        const cid = cardEls[idx].dataset.cardId;
+        setActiveCard(cid);
+        cardEls[idx].classList.remove('collapsed');
+        e.preventDefault();
+      }
+    }
     else if (['1','2','3','4'].includes(k)) {
       const map = { '1': 'review', '2': 'evaluation', '3': 'reports', '4': 'settings' };
       document.querySelector(`.tab-btn[data-tab="${map[k]}"]`).click();
     }
+    else if (k === 'f' && inCardsMode) {
+      const btn = document.getElementById('btn-focus-active');
+      if (btn) btn.click();
+      e.preventDefault();
+    }
+    else if (k === 'h' && inCardsMode) {
+      // 활성 카드 다음 힌트 단계 노출
+      const id = TIMER.activeCardId;
+      if (id) {
+        const used = HINT_USED[id] || new Set();
+        for (let lv = 1; lv <= 5; lv++) {
+          if (!used.has(lv)) { revealHint(id, String(lv)); break; }
+        }
+        e.preventDefault();
+      }
+    }
   });
+
+  // ════════════════════════════════════════════════
+  // Step 24-6 시안 v5 — 카드 + 카운터 + 힌트 시스템
+  // ════════════════════════════════════════════════
+  //
+  // 데이터 흐름:
+  //   GET /api/cases/{id} → c.subqs[] / c.toc / c.mnemonic
+  //     ↓
+  //   renderSubqCards(c) → 카드 N개 DOM 생성 (subqs.length>0) or 단일 fallback
+  //     ↓
+  //   타이머 (TIMER + setInterval 1초) → activeCard 만 elapsed 증가
+  //     ↓
+  //   힌트 5단계 (Lv.1 toc / Lv.2 mnemonic / Lv.3 articles / Lv.4 answer-snippet / Lv.5 full)
+  //     ↓
+  //   Submit → answer_subq + subq_elapsed + hints_used → POST /api/attempts
+  //
+  // R-09 (자의적 해석 금지): 힌트 내용은 case 데이터에서 직접 추출, AI 가공 X.
+  //                          데이터 없으면 "(데이터 없음)" 표시.
+
+  const TIMER = {
+    paused: false,
+    totalSec: 0,
+    suggestedTotalSec: 0,
+    activeCardId: null,
+    cardSec: {},        // {cardId: int}
+    suggestedSec: {},   // {cardId: int}
+    overFiredTotal: false,
+    overFiredCard: {},  // {cardId: bool}
+  };
+  const HINT_USED = {};   // {cardId: Set<int>}
+  let CURRENT_SUBQ_CARDS = null;  // 현재 카드 데이터 list (subqs 응답)
+  let CURRENT_CASE_FULL = null;   // 현재 case 응답 전체 (toc/mnemonic 접근용)
+  let __timer_interval_id = null; // setInterval id
+
+  function isCardsMode() {
+    const sec = document.getElementById('rv-cards-section');
+    return !!(sec && sec.classList.contains('active'));
+  }
+
+  function fmtCounter(s) {
+    // MM:SS 또는 HH:MM:SS
+    const sec = Math.max(0, Math.floor(s));
+    const h = Math.floor(sec / 3600);
+    const m = Math.floor((sec % 3600) / 60);
+    const ss = sec % 60;
+    if (h > 0) return `${h}:${pad2(m)}:${pad2(ss)}`;
+    return `${pad2(m)}:${pad2(ss)}`;
+  }
+
+  function getCardEl(cardId) {
+    return document.querySelector(`#rv-cards-container .sub-card[data-card-id="${cardId}"]`);
+  }
+
+  function suggestedSecOf(cardId) {
+    return TIMER.suggestedSec[cardId] || 0;
+  }
+
+  function flashOver() {
+    const f = document.getElementById('flash-overlay');
+    if (!f) return;
+    f.classList.remove('flash');
+    void f.offsetWidth;  // force reflow
+    f.classList.add('flash');
+  }
+
+  function tickTimer() {
+    if (TIMER.paused) return;
+    TIMER.totalSec += 1;
+    if (TIMER.activeCardId) {
+      TIMER.cardSec[TIMER.activeCardId] = (TIMER.cardSec[TIMER.activeCardId] || 0) + 1;
+    }
+
+    // Total display
+    const totalEl = document.getElementById('counter-total');
+    if (totalEl) totalEl.textContent = fmtCounter(TIMER.totalSec);
+    const fill = document.getElementById('progress-fill');
+    if (fill && TIMER.suggestedTotalSec > 0) {
+      const pct = Math.min(100, (TIMER.totalSec / TIMER.suggestedTotalSec) * 100);
+      fill.style.width = pct + '%';
+    }
+    if (TIMER.suggestedTotalSec > 0 && TIMER.totalSec > TIMER.suggestedTotalSec) {
+      if (totalEl) totalEl.classList.add('over');
+      if (fill) fill.classList.add('over');
+      if (!TIMER.overFiredTotal) {
+        TIMER.overFiredTotal = true;
+        flashOver();
+      }
+    }
+
+    // Active card display
+    const activeEl = document.getElementById('counter-active');
+    if (TIMER.activeCardId && activeEl) {
+      const curSec = TIMER.cardSec[TIMER.activeCardId] || 0;
+      activeEl.textContent = fmtCounter(curSec);
+      const sug = suggestedSecOf(TIMER.activeCardId);
+      if (sug > 0 && curSec > sug) activeEl.classList.add('over');
+      else activeEl.classList.remove('over');
+    } else if (activeEl) {
+      activeEl.textContent = '00:00';
+      activeEl.classList.remove('over');
+    }
+
+    // 카드별 elapsed pill 갱신
+    (CURRENT_SUBQ_CARDS || []).forEach(card => {
+      const cid = card.key;
+      const pill = document.getElementById('elapsed-' + cssEscapeId(cid));
+      const sec = TIMER.cardSec[cid] || 0;
+      if (pill) pill.textContent = fmtCounter(sec);
+      const sug = suggestedSecOf(cid);
+      const over = sug > 0 && sec > sug;
+      if (pill) pill.classList.toggle('over', over);
+      if (over && !TIMER.overFiredCard[cid]) {
+        TIMER.overFiredCard[cid] = true;
+        if (cid === TIMER.activeCardId) flashOver();
+      }
+    });
+  }
+
+  function startTimerIfNeeded() {
+    if (__timer_interval_id) return;
+    __timer_interval_id = setInterval(tickTimer, 1000);
+  }
+
+  function stopTimerInterval() {
+    if (__timer_interval_id) {
+      clearInterval(__timer_interval_id);
+      __timer_interval_id = null;
+    }
+  }
+
+  function resetTimer() {
+    TIMER.paused = false;
+    TIMER.totalSec = 0;
+    TIMER.activeCardId = null;
+    TIMER.cardSec = {};
+    TIMER.overFiredTotal = false;
+    TIMER.overFiredCard = {};
+    const totalEl = document.getElementById('counter-total');
+    const activeEl = document.getElementById('counter-active');
+    const fill = document.getElementById('progress-fill');
+    if (totalEl) { totalEl.textContent = '00:00'; totalEl.classList.remove('over'); }
+    if (activeEl) { activeEl.textContent = '00:00'; activeEl.classList.remove('over'); }
+    if (fill) { fill.style.width = '0%'; fill.classList.remove('over'); }
+  }
+
+  // CSS selector 안전화 (subq key 에 공백/한글 포함 → escape)
+  function cssEscapeId(s) {
+    return String(s).replace(/[^a-zA-Z0-9_-]/g, c => '_' + c.charCodeAt(0));
+  }
+
+  // ─── 카드 데이터 → 5단계 힌트 본문 추출 ───
+  // R-09: case 응답 데이터에서 직접 추출, AI 가공 X.
+  function extractArticleTokens(text) {
+    // 간단 grep — "제NN조", "§NN" 패턴 추출 (자의적 텍스트 추가 X)
+    if (!text) return [];
+    const matches = text.match(/제\s*\d+\s*조(\s*제\s*\d+\s*항)?|§\s*\d+/g) || [];
+    const dedup = Array.from(new Set(matches.map(s => s.trim())));
+    return dedup.slice(0, 12);  // 너무 많으면 12개로 자름
+  }
+
+  function buildHintContent(card, level, caseFull) {
+    // level: 1~5 정수. 반환: HTML string (escape 처리됨)
+    const dictKey = `hint_no_content`;
+    const noData = `<em style="color: var(--text-dim);">${escapeHtml(I18N[currentLang][dictKey] || '(no data)')}</em>`;
+
+    if (level === 1) {
+      // Lv.1: case.toc 또는 card.body 의 첫 줄들
+      const toc = (caseFull && caseFull.toc) || '';
+      if (toc.trim()) return escapeHtml(toc).replace(/\n/g, '<br>');
+      // fallback — body 첫 부분
+      const body = card.body || '';
+      const lines = body.split('\n').filter(l => l.trim()).slice(0, 3);
+      return lines.length ? escapeHtml(lines.join('\n')).replace(/\n/g, '<br>') : noData;
+    }
+    if (level === 2) {
+      // Lv.2: case.mnemonic (Lv.4 번호 목록) — 자의적 가공 X
+      const items = (caseFull && Array.isArray(caseFull.mnemonic)) ? caseFull.mnemonic : [];
+      if (items.length === 0) return noData;
+      return escapeHtml(items.join('\n')).replace(/\n/g, '<br>');
+    }
+    if (level === 3) {
+      // Lv.3: subq.body 에서 조문 키워드 추출 + body 헤더 라인
+      const tokens = extractArticleTokens(card.body || '');
+      const tokList = tokens.length
+        ? tokens.map(t => `<code>${escapeHtml(t)}</code>`).join(' · ')
+        : noData;
+      return tokList;
+    }
+    if (level === 4) {
+      // Lv.4: subq.answer 앞부분 (결론 + 처음 N문장)
+      const ans = (card.answer || '').trim();
+      if (!ans) return noData;
+      // 줄바꿈 기준 처음 10줄까지
+      const head = ans.split('\n').slice(0, 10).join('\n');
+      return escapeHtml(head).replace(/\n/g, '<br>');
+    }
+    if (level === 5) {
+      // Lv.5: subq.answer 전체
+      const ans = card.answer || '';
+      if (!ans.trim()) return noData;
+      return escapeHtml(ans).replace(/\n/g, '<br>');
+    }
+    return noData;
+  }
+
+  // ─── 카드 렌더링 ───
+  function renderSubqCards(caseData) {
+    const sec = document.getElementById('rv-cards-section');
+    const notesSec = document.getElementById('rv-notes-section');
+    const container = document.getElementById('rv-cards-container');
+    const labelEl = document.getElementById('rv-cards-label');
+    const timerBar = document.getElementById('timer-bar');
+    const sugEl = document.getElementById('counter-suggested');
+    if (!sec || !container) return;
+
+    const subqs = Array.isArray(caseData && caseData.subqs) ? caseData.subqs : [];
+    CURRENT_CASE_FULL = caseData;
+    CURRENT_SUBQ_CARDS = subqs;
+
+    // 모드 분기: 카드 0건 → 단일 모드 (기존 textarea)
+    if (subqs.length === 0) {
+      sec.classList.remove('active');
+      if (notesSec) notesSec.classList.remove('hidden');
+      if (timerBar) timerBar.classList.remove('active');
+      stopTimerInterval();
+      resetTimer();
+      container.innerHTML = '';
+      return;
+    }
+
+    // 카드 모드 활성
+    sec.classList.add('active');
+    if (notesSec) notesSec.classList.add('hidden');
+    if (timerBar) timerBar.classList.add('active');
+
+    // 권장 시간: 1점 = 1분 (사용자 명시)
+    const points = caseData.points || 0;
+    TIMER.suggestedTotalSec = points * 60;
+    TIMER.suggestedSec = {};
+    for (const card of subqs) {
+      TIMER.suggestedSec[card.key] = (card.score_max || 0) * 60;
+    }
+    if (sugEl) {
+      sugEl.textContent = currentLang === 'ko'
+        ? `권장 ${fmtCounter(TIMER.suggestedTotalSec)}`
+        : `sug. ${fmtCounter(TIMER.suggestedTotalSec)}`;
+    }
+
+    // 히스토리 패널 reset (loadAttemptsHistory 가 채움)
+    const histCard = document.getElementById('rv-history-card');
+    const histBody = document.getElementById('rv-history-body');
+    if (histBody) histBody.innerHTML = '';
+    if (histCard) histCard.classList.remove('shown');
+
+    // 카드 HTML 생성
+    const html = subqs.map((card, idx) => {
+      const cid = card.key;
+      const idSafe = cssEscapeId(cid);
+      const score = (card.score_max != null) ? card.score_max : '—';
+      const sugMin = card.score_max ? card.score_max + (currentLang === 'ko' ? '분' : 'm') : '—';
+      const subqLabel = (I18N[currentLang].sub_inquiry || 'Inquiry') + ' · ' + escapeHtml(cid);
+      const subTitle = escapeHtml(cid);
+      const isActive = idx === 0;
+      return `
+        <div class="sub-card${isActive ? ' active' : ''}" data-card-id="${escapeHtml(cid)}">
+          <div class="sub-card-header" data-card-id="${escapeHtml(cid)}">
+            <span class="sub-id">${escapeHtml(cid)}</span>
+            <span class="sub-title">${subTitle}</span>
+            <span class="meta-pill score">${escapeHtml(String(score))}${currentLang === 'ko' ? '점' : ' pt'}</span>
+            <span class="meta-pill">${currentLang === 'ko' ? '권장 ' : 'sug. '}${escapeHtml(sugMin)}</span>
+            <span class="meta-pill elapsed" id="elapsed-${idSafe}">00:00</span>
+            <span class="meta-pill hint-count" id="hint-count-${idSafe}">${(I18N[currentLang].hint_count_fmt || 'hint {n}/5').replace('{n}', '0')}</span>
+            <span class="toggle-icon">▼</span>
+          </div>
+          <div class="sub-card-body">
+            <div class="sub-inquiry">
+              <span class="inquiry-label">${escapeHtml(subqLabel)}</span>
+              ${escapeHtml(card.body || '').replace(/\n/g, '<br>')}
+            </div>
+            <div class="hint-bar">
+              <span class="hint-label">${I18N[currentLang].hint_label || '힌트'}</span>
+              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="1"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv1 || '1. 목차'}</span></button>
+              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="2"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv2 || '2. 두문자'}</span></button>
+              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="3"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv3 || '3. 조문+키워드'}</span></button>
+              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="4"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv4 || '4. 결론+근거'}</span></button>
+              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="5"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv5 || '5. 전체답안'}</span></button>
+              <span class="spacer"></span>
+              <span class="hint-count-info" id="hint-info-${idSafe}">${(I18N[currentLang].hint_n_used || '{n}회 사용').replace('{n}', '0')}</span>
+            </div>
+            <div class="hint-panels-wrap" id="hint-panels-wrap-${idSafe}">
+              <div class="hint-panels-header" data-card="${escapeHtml(cid)}">
+                <span class="chev">▶</span>
+                <span>${I18N[currentLang].hint_panel_label || '힌트 패널'}</span>
+                <span class="spacer"></span>
+                <span class="hp-count" id="hp-count-${idSafe}">0/5</span>
+              </div>
+              <div class="hint-panels" id="hint-panels-${idSafe}">
+                ${[1,2,3,4,5].map(lv => `
+                  <div class="hint-panel" data-level="${lv}">
+                    <div class="hint-head"><span class="badge-dot"></span><span>${I18N[currentLang]['hint_lv' + lv + '_head'] || ('Lv.' + lv)}</span></div>
+                    <div class="hint-body">${buildHintContent(card, lv, caseData)}</div>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+            <div class="sub-answer-block">
+              <textarea data-card-textarea="${escapeHtml(cid)}" placeholder="${escapeHtml(I18N[currentLang].sub_answer_ph || '답안')}"></textarea>
+              <div class="sub-answer-toolbar">
+                <span class="info" data-card-info="${escapeHtml(cid)}">0${currentLang === 'ko' ? '자 · 진척 ' : ' chars · '}0%</span>
+              </div>
+              <div class="sub-grade-result" id="sub-grade-${idSafe}">
+                <div class="grade-head">
+                  <span class="grade-score">--/--</span>
+                  <span class="grade-label">--</span>
+                </div>
+                <div class="grade-comment"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    container.innerHTML = html;
+    if (labelEl) {
+      const tmpl = I18N[currentLang].cards_label || '하위 설문 카드 ({n})';
+      labelEl.textContent = tmpl.replace('{n}', subqs.length);
+    }
+
+    // 카드별 상태 초기화
+    HINT_USED && Object.keys(HINT_USED).forEach(k => delete HINT_USED[k]);
+    TIMER.cardSec = {};
+    TIMER.overFiredCard = {};
+    for (const card of subqs) {
+      HINT_USED[card.key] = new Set();
+      TIMER.cardSec[card.key] = 0;
+      TIMER.overFiredCard[card.key] = false;
+    }
+    TIMER.activeCardId = subqs[0] ? subqs[0].key : null;
+    TIMER.totalSec = 0;
+    TIMER.overFiredTotal = false;
+    TIMER.paused = false;
+    document.getElementById('counter-total').textContent = '00:00';
+    document.getElementById('counter-active').textContent = '00:00';
+    document.getElementById('counter-total').classList.remove('over');
+    document.getElementById('counter-active').classList.remove('over');
+    const fill = document.getElementById('progress-fill');
+    if (fill) { fill.style.width = '0%'; fill.classList.remove('over'); }
+
+    // draft 복원
+    restoreCardDrafts(caseData.id);
+    // 카드별 chars 진척 초기화
+    for (const card of subqs) updateCardCharInfo(card.key);
+    // 카운트 표시 초기화
+    for (const card of subqs) updateHintCount(card.key);
+
+    // 이벤트 wire (카드 헤더 클릭, 힌트 버튼, 힌트 패널 헤더, textarea input)
+    wireSubqCardEvents();
+
+    // 타이머 시작
+    startTimerIfNeeded();
+
+    // 히스토리 panel 로드 (별도 fetch)
+    loadAttemptsHistoryForCase(caseData.id);
+  }
+
+  function wireSubqCardEvents() {
+    // 카드 헤더 클릭 — 접기/펼치기 + active
+    document.querySelectorAll('#rv-cards-container .sub-card-header').forEach(h => {
+      h.addEventListener('click', () => {
+        const card = h.parentElement;
+        const id = card.dataset.cardId;
+        const wasCollapsed = card.classList.contains('collapsed');
+        card.classList.toggle('collapsed');
+        if (wasCollapsed) setActiveCard(id);
+      });
+    });
+    // 힌트 버튼
+    document.querySelectorAll('#rv-cards-container .hint-btn').forEach(b => {
+      b.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cid = b.dataset.card;
+        const lv = b.dataset.level;
+        revealHint(cid, lv);
+      });
+    });
+    // 힌트 패널 토글
+    document.querySelectorAll('#rv-cards-container .hint-panels-header').forEach(h => {
+      h.addEventListener('click', () => {
+        toggleHintPanels(h.dataset.card);
+      });
+    });
+    // textarea input — chars 진척 + draft 저장
+    document.querySelectorAll('#rv-cards-container textarea[data-card-textarea]').forEach(ta => {
+      const cid = ta.dataset.cardTextarea;
+      ta.addEventListener('input', () => {
+        updateCardCharInfo(cid);
+        scheduleCardDraftSave(CURRENT_CASE_ID, cid);
+      });
+    });
+  }
+
+  function setActiveCard(cardId) {
+    TIMER.activeCardId = cardId;
+    document.querySelectorAll('#rv-cards-container .sub-card').forEach(c => {
+      c.classList.toggle('active', c.dataset.cardId === cardId);
+    });
+  }
+
+  function revealHint(cardId, level) {
+    const lvInt = parseInt(level, 10);
+    const idSafe = cssEscapeId(cardId);
+    const btn = document.querySelector(`#rv-cards-container .hint-btn[data-card="${cssQuoteAttr(cardId)}"][data-level="${lvInt}"]`);
+    const panel = document.querySelector(`#hint-panels-${idSafe} .hint-panel[data-level="${lvInt}"]`);
+    if (!btn || !panel) return;
+    if (lvInt === 5 && !btn.classList.contains('revealed')) {
+      const msg = I18N[currentLang].hint_lv5_confirm || 'Reveal Lv.5?';
+      if (!confirm(msg)) return;
+    }
+    btn.classList.add('revealed');
+    panel.classList.add('shown');
+    if (!HINT_USED[cardId]) HINT_USED[cardId] = new Set();
+    HINT_USED[cardId].add(lvInt);
+    expandHintPanels(cardId);
+    updateHintCount(cardId);
+  }
+
+  // attribute selector 용 escape — CSS attr selector 는 따옴표 안전 문자만
+  // attribute 값 안의 따옴표/특수문자가 들어가면 안전하지 않음. subq key 는 [a-zA-Z0-9 가-힣]만이라 큰 문제 없지만 예방.
+  function cssQuoteAttr(s) {
+    return String(s).replace(/"/g, '\\"');
+  }
+
+  function expandHintPanels(cardId) {
+    const idSafe = cssEscapeId(cardId);
+    const wrap = document.getElementById(`hint-panels-wrap-${idSafe}`);
+    if (!wrap) return;
+    wrap.classList.add('expanded');
+    const chev = wrap.querySelector('.hint-panels-header .chev');
+    if (chev) chev.textContent = '▼';
+  }
+  function collapseHintPanels(cardId) {
+    const idSafe = cssEscapeId(cardId);
+    const wrap = document.getElementById(`hint-panels-wrap-${idSafe}`);
+    if (!wrap) return;
+    wrap.classList.remove('expanded');
+    const chev = wrap.querySelector('.hint-panels-header .chev');
+    if (chev) chev.textContent = '▶';
+  }
+  function toggleHintPanels(cardId) {
+    const idSafe = cssEscapeId(cardId);
+    const wrap = document.getElementById(`hint-panels-wrap-${idSafe}`);
+    if (!wrap) return;
+    if (wrap.classList.contains('expanded')) collapseHintPanels(cardId);
+    else expandHintPanels(cardId);
+  }
+
+  function updateHintCount(cardId) {
+    const idSafe = cssEscapeId(cardId);
+    const n = (HINT_USED[cardId] || new Set()).size;
+    const pill = document.getElementById('hint-count-' + idSafe);
+    if (pill) {
+      const tmpl = I18N[currentLang].hint_count_fmt || 'hint {n}/5';
+      pill.textContent = tmpl.replace('{n}', n);
+    }
+    const info = document.getElementById('hint-info-' + idSafe);
+    if (info) {
+      const tmpl = I18N[currentLang].hint_n_used || '{n}회 사용';
+      info.textContent = tmpl.replace('{n}', n);
+    }
+    const hp = document.getElementById('hp-count-' + idSafe);
+    if (hp) hp.textContent = n + '/5';
+  }
+
+  function updateCardCharInfo(cardId) {
+    const ta = document.querySelector(`#rv-cards-container textarea[data-card-textarea="${cssQuoteAttr(cardId)}"]`);
+    const info = document.querySelector(`#rv-cards-container .info[data-card-info="${cssQuoteAttr(cardId)}"]`);
+    if (!ta || !info) return;
+    const chars = (ta.value || '').length;
+    const card = (CURRENT_SUBQ_CARDS || []).find(c => c.key === cardId);
+    const targetChars = (card && card.score_max) ? card.score_max * 30 : 500;  // 1점=30자 추정
+    const pct = Math.min(100, Math.round((chars / targetChars) * 100));
+    info.textContent = chars + (currentLang === 'ko' ? '자 · 진척 ' : ' chars · ') + pct + '%';
+  }
+
+  // ─── draft 저장/복원 (카드별) ───
+  function cardsDraftKey(caseId) {
+    return `lawear_exam_card_drafts_${caseId || 'unknown'}`;
+  }
+  let __cardDraftTimer = null;
+  function scheduleCardDraftSave(caseId, cardId) {
+    if (!caseId) return;
+    clearTimeout(__cardDraftTimer);
+    __cardDraftTimer = setTimeout(() => {
+      try {
+        const all = {};
+        document.querySelectorAll('#rv-cards-container textarea[data-card-textarea]').forEach(ta => {
+          all[ta.dataset.cardTextarea] = ta.value || '';
+        });
+        localStorage.setItem(cardsDraftKey(caseId), JSON.stringify({
+          drafts: all,
+          hints: serializeHintsUsed(),
+          elapsed: { ...TIMER.cardSec },
+          total: TIMER.totalSec,
+          t: nowSeoul('time'),
+        }));
+      } catch (e) { /* ignore */ }
+    }, 1000);
+  }
+  function restoreCardDrafts(caseId) {
+    if (!caseId) return;
+    try {
+      const raw = localStorage.getItem(cardsDraftKey(caseId));
+      if (!raw) return;
+      const obj = JSON.parse(raw);
+      if (!obj || typeof obj !== 'object') return;
+      const drafts = obj.drafts || {};
+      const hints = obj.hints || {};
+      const elapsed = obj.elapsed || {};
+      document.querySelectorAll('#rv-cards-container textarea[data-card-textarea]').forEach(ta => {
+        const cid = ta.dataset.cardTextarea;
+        if (typeof drafts[cid] === 'string') ta.value = drafts[cid];
+      });
+      // 힌트 복원 (UI 상태)
+      Object.keys(hints).forEach(cid => {
+        const arr = hints[cid] || [];
+        if (!HINT_USED[cid]) HINT_USED[cid] = new Set();
+        arr.forEach(lv => {
+          const lvI = parseInt(lv, 10);
+          if (!lvI) return;
+          HINT_USED[cid].add(lvI);
+          const idSafe = cssEscapeId(cid);
+          const btn = document.querySelector(`#rv-cards-container .hint-btn[data-card="${cssQuoteAttr(cid)}"][data-level="${lvI}"]`);
+          const panel = document.querySelector(`#hint-panels-${idSafe} .hint-panel[data-level="${lvI}"]`);
+          if (btn) btn.classList.add('revealed');
+          if (panel) panel.classList.add('shown');
+        });
+        if (arr.length > 0) expandHintPanels(cid);
+        updateHintCount(cid);
+      });
+      // elapsed 복원
+      Object.keys(elapsed).forEach(cid => {
+        if (typeof elapsed[cid] === 'number') TIMER.cardSec[cid] = elapsed[cid];
+      });
+      if (typeof obj.total === 'number') TIMER.totalSec = obj.total;
+    } catch (e) { /* ignore */ }
+  }
+  function clearCardDrafts(caseId) {
+    if (!caseId) return;
+    try { localStorage.removeItem(cardsDraftKey(caseId)); } catch (e) { /* ignore */ }
+  }
+
+  function serializeHintsUsed() {
+    const out = {};
+    Object.keys(HINT_USED || {}).forEach(cid => {
+      const s = HINT_USED[cid];
+      if (s && s.size > 0) out[cid] = Array.from(s).sort((a, b) => a - b);
+    });
+    return out;
+  }
+
+  // ─── timer-bar 버튼 wire ───
+  document.addEventListener('DOMContentLoaded', () => {
+    // pause
+    const pauseBtn = document.getElementById('btn-pause');
+    if (pauseBtn) {
+      pauseBtn.addEventListener('click', () => {
+        TIMER.paused = !TIMER.paused;
+        pauseBtn.classList.toggle('active', TIMER.paused);
+        pauseBtn.textContent = TIMER.paused
+          ? (I18N[currentLang].btn_pause_resume || 'Resume')
+          : (I18N[currentLang].btn_pause || 'Pause');
+      });
+    }
+    // reset
+    const resetBtn = document.getElementById('btn-counter-reset');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', () => {
+        const msg = I18N[currentLang].counter_reset_confirm || 'Reset all counters?';
+        if (!confirm(msg)) return;
+        resetTimer();
+        // 카드별 elapsed pill / hint count 갱신
+        (CURRENT_SUBQ_CARDS || []).forEach(card => {
+          const idSafe = cssEscapeId(card.key);
+          const pill = document.getElementById('elapsed-' + idSafe);
+          if (pill) {
+            pill.textContent = '00:00';
+            pill.classList.remove('over');
+          }
+        });
+      });
+    }
+    // expand-all
+    const expBtn = document.getElementById('btn-expand-all');
+    if (expBtn) {
+      expBtn.addEventListener('click', () => {
+        document.querySelectorAll('#rv-cards-container .sub-card').forEach(c => c.classList.remove('collapsed'));
+      });
+    }
+    // focus-active
+    const focBtn = document.getElementById('btn-focus-active');
+    if (focBtn) {
+      focBtn.addEventListener('click', () => {
+        document.querySelectorAll('#rv-cards-container .sub-card').forEach(c => {
+          c.classList.toggle('collapsed', c.dataset.cardId !== TIMER.activeCardId);
+        });
+      });
+    }
+    // submit-cards
+    const subBtn = document.getElementById('btn-submit-cards');
+    if (subBtn) {
+      subBtn.addEventListener('click', () => submitAttemptCards());
+    }
+  });
+
+  // ─── 카드 모드 submit ───
+  async function submitAttemptCards() {
+    if (!CURRENT_CASE_ID) return;
+    // 답안 수집
+    const answer_subq = {};
+    const subq_elapsed = {};
+    const hints_used = serializeHintsUsed();
+    let anyAnswer = false;
+    (CURRENT_SUBQ_CARDS || []).forEach(card => {
+      const ta = document.querySelector(`#rv-cards-container textarea[data-card-textarea="${cssQuoteAttr(card.key)}"]`);
+      const txt = (ta && ta.value || '').trim();
+      if (txt) anyAnswer = true;
+      answer_subq[card.key] = txt;
+      subq_elapsed[card.key] = TIMER.cardSec[card.key] || 0;
+    });
+    if (!anyAnswer) {
+      alert(I18N[currentLang].err_submit_empty || 'Please enter your answer first.');
+      return;
+    }
+
+    // 즉시 Evaluation 탭 전환
+    const evTab = document.querySelector('.tab-btn[data-tab="evaluation"]');
+    if (evTab) evTab.click();
+
+    const cachedMode = (window.SETTINGS_CACHE && window.SETTINGS_CACHE.grading_mode) || 'manual';
+    const initialState = (cachedMode === 'auto') ? 'grading' : 'pending_grade';
+    setEvHeader(CURRENT_CASE_ID, I18N[currentLang].info_submitted || 'Grading…', 'status_in_review');
+    if (initialState === 'grading') {
+      const eEl = document.getElementById('ev-elapsed');
+      if (eEl) eEl.textContent = '0.0s';
+    } else {
+      const eEl = document.getElementById('ev-pending-elapsed');
+      if (eEl) eEl.textContent = '0.0s';
+    }
+    setEvSection(initialState);
+    stopPolling();
+
+    const subCardBtn = document.getElementById('btn-submit-cards');
+    if (subCardBtn) subCardBtn.disabled = true;
+    try {
+      const startedIso = getExamStarted(CURRENT_CASE_ID);
+      const payload = {
+        case_id: CURRENT_CASE_ID,
+        answer_subq: answer_subq,
+        subq_elapsed: subq_elapsed,
+        hints_used: hints_used,
+        submitted_at: new Date().toISOString(),
+      };
+      if (startedIso) payload.started_at = startedIso;
+
+      const r = await fetch(`${API_BASE}/api/attempts`, {
+        method: 'POST',
+        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const body = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        const code = body.error_code || ('http_' + r.status);
+        const msg  = body.message || I18N[currentLang].err_submit_failed;
+        renderEvaluationError({
+          case_id: CURRENT_CASE_ID,
+          error_code: code,
+          error_message: msg,
+        });
+        return;
+      }
+      if (body.warning) {
+        showToast(I18N[currentLang].toast_pending_warning || 'API key missing — fell back to manual grading.', 'error');
+      }
+      CURRENT_ATTEMPT_ID = body.attempt_id;
+      // 성공 후 클리어
+      clearCardDrafts(CURRENT_CASE_ID);
+      clearExamStarted(CURRENT_CASE_ID);
+      updateExamStartBtn();
+      // 카드 textarea 비우기 + 힌트 reset + timer reset
+      document.querySelectorAll('#rv-cards-container textarea[data-card-textarea]').forEach(ta => {
+        ta.value = '';
+      });
+      Object.keys(HINT_USED).forEach(cid => {
+        if (HINT_USED[cid] && HINT_USED[cid].clear) HINT_USED[cid].clear();
+        const idSafe = cssEscapeId(cid);
+        document.querySelectorAll(`#rv-cards-container .hint-btn[data-card="${cssQuoteAttr(cid)}"]`).forEach(b => b.classList.remove('revealed'));
+        document.querySelectorAll(`#hint-panels-${idSafe} .hint-panel`).forEach(p => p.classList.remove('shown'));
+        updateHintCount(cid);
+      });
+      resetTimer();
+      (CURRENT_SUBQ_CARDS || []).forEach(card => updateCardCharInfo(card.key));
+      // 폴링 시작
+      pollAttempt(CURRENT_ATTEMPT_ID);
+    } catch (err) {
+      console.error('submitAttemptCards failed:', err);
+      renderEvaluationError({
+        case_id: CURRENT_CASE_ID,
+        error_code: 'submit_failed',
+        error_message: err.message || I18N[currentLang].err_submit_failed,
+      });
+    } finally {
+      if (subCardBtn) subCardBtn.disabled = false;
+    }
+  }
+
+  // ─── 히스토리 패널 로드 (GET /api/attempts?case_id=...) ───
+  async function loadAttemptsHistoryForCase(caseId) {
+    if (!caseId) return;
+    try {
+      const url = `${API_BASE}/api/attempts?case_id=${encodeURIComponent(caseId)}&limit=10`;
+      const r = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!r.ok) return;
+      const d = await r.json();
+      const arr = Array.isArray(d.attempts) ? d.attempts : [];
+      renderHistoryPanel(arr);
+    } catch (e) {
+      console.warn('loadAttemptsHistoryForCase failed:', e);
+    }
+  }
+  function renderHistoryPanel(attempts) {
+    const card = document.getElementById('rv-history-card');
+    const body = document.getElementById('rv-history-body');
+    const cnt = document.getElementById('rv-history-count');
+    if (!card || !body) return;
+    if (!attempts || attempts.length === 0) {
+      body.innerHTML = `<div style="padding: 12px; color: var(--text-dim); font-size: 11px;">${I18N[currentLang].history_empty || '시도 기록 없음.'}</div>`;
+      if (cnt) cnt.textContent = '';
+      card.classList.add('shown');
+      return;
+    }
+    // best score 표시
+    let best = -1;
+    for (const a of attempts) {
+      if (typeof a.score_pct === 'number' && a.score_pct > best) best = a.score_pct;
+    }
+    const rows = attempts.map((a, idx) => {
+      const isBest = (typeof a.score_pct === 'number' && a.score_pct === best && best > 0);
+      const numFmt = I18N[currentLang].history_attempt_no || '#{n}';
+      const nlabel = numFmt.replace('{n}', String(attempts.length - idx).padStart(2, '0'));
+      const score = (a.score_total != null && a.score_max != null) ? `${a.score_total}/${a.score_max}` : '—';
+      const pct = (a.score_pct != null) ? `(${Number(a.score_pct).toFixed(0)}%)` : '';
+      const pctCls = (a.score_pct == null) ? '' : (a.score_pct >= 80 ? '' : a.score_pct >= 60 ? 'low' : 'bad');
+      const hn = a.hints_used_count || 0;
+      const hCls = hn === 0 ? 'hint-zero' : hn <= 2 ? 'hint-low' : 'hint-high';
+      const elapsed = (a.total_solve_sec != null) ? fmtCounter(a.total_solve_sec) : ((a.solve_elapsed_sec != null) ? fmtCounter(a.solve_elapsed_sec) : '—');
+      const elapsedOver = (TIMER.suggestedTotalSec > 0 && a.total_solve_sec != null && a.total_solve_sec > TIMER.suggestedTotalSec);
+      const dateStr = a.submitted_at ? fmtSeoul(a.submitted_at, { style: 'full' }) : '—';
+      const subqInfo = (a.subq_count > 0) ? `· ${a.subq_count}${currentLang === 'ko' ? '카드' : ' cards'}` : '';
+      return `
+        <div class="history-row${isBest ? ' best' : ''}" data-attempt-id="${a.id}">
+          <div class="row-1">
+            <span class="attempt-no">${escapeHtml(nlabel)}</span>
+            <span class="attempt-score">${escapeHtml(score)}</span>
+            <span class="attempt-pct${pctCls ? ' ' + pctCls : ''}">${escapeHtml(pct)}</span>
+          </div>
+          <div class="row-2">
+            <span class="pill-mini ${hCls}">${currentLang === 'ko' ? '힌트 ' : 'hint '}${hn}${currentLang === 'ko' ? '회' : ''}</span>
+            <span class="pill-mini${elapsedOver ? ' elapsed-over' : ''}">${escapeHtml(elapsed)}</span>
+            <span>${escapeHtml(dateStr)}</span>
+            <span style="color: var(--text-dim);">${escapeHtml(subqInfo)}</span>
+          </div>
+        </div>
+      `;
+    }).join('');
+    body.innerHTML = rows;
+    if (cnt) cnt.textContent = caseShortIdForCount(attempts) + ` · ${attempts.length}`;
+    card.classList.add('shown');
+    // 히스토리 row 클릭 → 모달
+    body.querySelectorAll('.history-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const aid = parseInt(row.dataset.attemptId, 10);
+        if (aid && typeof openAttemptModal === 'function' && typeof loadAndShowAttemptInModal === 'function') {
+          openAttemptModal();
+          loadAndShowAttemptInModal(aid);
+        }
+      });
+    });
+  }
+  function caseShortIdForCount(attempts) {
+    if (!attempts || attempts.length === 0) return '';
+    const first = attempts[0];
+    return first.case_short_id || first.case_id || '';
+  }
 
   // ─── 초기화 ─────────────────────────────────────
   applyStealth(stealthMode);
@@ -2701,11 +4091,20 @@
           inqEl.textContent = I18N[currentLang].err_load;
         }
       }
+
+      // Step 24-6 — 카드 모드 렌더 (subqs.length > 0) or 단일 모드 fallback
+      try {
+        renderSubqCards(c);
+      } catch (e) {
+        console.warn('renderSubqCards failed:', e);
+      }
     } catch (err) {
       console.error('loadCase failed:', err);
       CURRENT_CASE_DATA = null;
       if (bgEl) bgEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
       if (inqEl) inqEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
+      // 실패 시 카드 모드 종료 (단일 모드로 복귀)
+      try { renderSubqCards({ subqs: [] }); } catch (e2) { /* ignore */ }
     }
 
     // Step 23 — 케이스 진입 시 자동 시작 + 시작 버튼 상태 갱신
