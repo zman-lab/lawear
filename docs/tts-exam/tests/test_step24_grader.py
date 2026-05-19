@@ -252,7 +252,10 @@ def test_grade_attempt_subq_multi_card() -> None:
 
     # 점수 필드
     assert 0.0 <= result["score_pct"] <= 100.0, f"pct out of range: {result['score_pct']}"
-    assert result["grade"] in ("A", "B", "C", "F")
+    # lawear-e571 (2026-05-19) — V2 grade (10단계) 도 허용.
+    _V1 = ("A", "B", "C", "F")
+    _V2 = ("A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "F")
+    assert result["grade"] in _V1 or result["grade"] in _V2, f"grade: {result['grade']}"
     assert result["score_max"] > 0
 
 

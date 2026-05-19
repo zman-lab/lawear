@@ -297,11 +297,21 @@ class InjectGradeTest(unittest.TestCase):
         os.unlink(self.tmp.name)
 
     def test_inject_grade_marks_attempt_completed(self) -> None:
-        """정상 입력 → status='done' (client 라벨 'completed', Step 21 v5 9기준)."""
+        """정상 입력 → status='done' (client 라벨 'completed', Step 21 v5 9기준).
+
+        lawear-e571 (2026-05-19): grade 는 V2 (10단계) 동적 재계산.
+        payload pct=82.47 → V2 "A+" (V1 grade 입력 'B' 는 무시 — score_pct 기준 재계산).
+        grade_v1 = score_pct 기반 V1 변환 (82.47 → A).
+        """
         with db_mod.get_conn(self.tmp.name) as conn:
             out = attempts_mod.inject_grade(conn, self.attempt_id, _full_grade_payload())
             self.assertEqual(out["status"], "completed")
-            self.assertEqual(out["grade"], "B")
+            # V2 grade — score_pct=82.47 → "A+" (80 임계 이상)
+            self.assertEqual(out["grade"], "A+")
+            # V1 grade — DB 저장 enum (입력 'B' 가 V1 enum 이라 그대로 'B' 유지)
+            self.assertEqual(out["grade_v1"], "B")
+            # 합격선 표시 (60+ → True)
+            self.assertTrue(out["is_pass"])
             # Step 20 v4: 소수점 2자리 (실제 시험 형식)
             self.assertAlmostEqual(out["score_total"], 14.78, places=2)
             self.assertEqual(len(out["criteria"]), 9)

@@ -220,7 +220,11 @@ class TestGradeMockToleranceV2(unittest.TestCase):
             case_meta, user_answer,
             force_mock=True,
         )
-        self.assertEqual(result["grade"] in ("A", "B", "C", "F"), True)
+        # lawear-e571 (2026-05-19) — V2 grade (10단계) 도 허용.
+        _V1 = ("A", "B", "C", "F")
+        _V2 = ("A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "F")
+        self.assertTrue(result["grade"] in _V1 or result["grade"] in _V2,
+                        f"grade: {result['grade']}")
 
 
 if __name__ == "__main__":

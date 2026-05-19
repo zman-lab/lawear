@@ -110,6 +110,35 @@ def _utcnow_iso() -> str:
     return _dt.datetime.now(_dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _recompute_grade_v2(score_pct: float | None) -> str:
+    """score_pct → V2 grade letter (10단계) — API 응답용.
+
+    lawear-e571 (2026-05-19) — DB grade 컬럼은 legacy V1 (A/B/C/F enum).
+    API 응답 시 score_pct 기준으로 V2 grade (A+/A/A-/B+/B/B-/C+/C/C-/F) 동적 재계산.
+
+    Args:
+        score_pct: attempts.score_pct (0~100). None → "F".
+
+    Returns:
+        V2 grade letter.
+    """
+    return grader_mod.compute_grade_v2(score_pct)
+
+
+# 합격선 (실제 시험 합격 기준 — lawear-e571, 2026-05-19 사용자 결정)
+PASS_LINE_PCT: float = 60.0
+
+
+def _is_pass(score_pct: float | None) -> bool:
+    """score_pct >= 60.0 → 합격 (시각화용 배지 조건)."""
+    if score_pct is None:
+        return False
+    try:
+        return float(score_pct) >= PASS_LINE_PCT
+    except (TypeError, ValueError):
+        return False
+
+
 def _load_weights(conn: sqlite3.Connection) -> dict[str, int]:
     """settings 테이블에서 weights 로드. 실패 시 DEFAULT_WEIGHTS."""
     try:
@@ -450,7 +479,10 @@ def _save_grade_result(db_path: str, attempt_id: int, result: dict[str, Any]) ->
                 float(result.get("score_total") or 0.0),
                 float(result.get("score_max") or 0.0),
                 float(result.get("score_pct") or 0.0),
-                result.get("grade") or "F",
+                # lawear-e571 (2026-05-19) — grader 가 V2 grade (A+/A/A-/B+/...) 반환할 수 있음.
+                # DB grade 컬럼은 V1 enum (A/B/C/F) 만 허용 → _to_v1_grade 변환.
+                # API 응답에서는 _attempt_row_to_dict 가 score_pct 기준 V2 grade 재계산.
+                grader_mod._to_v1_grade(result.get("grade") or "F"),
                 result.get("model") or "unknown",
                 eval_notes_json,
                 diff_json,
@@ -1193,12 +1225,28 @@ def inject_grade(
         ) from e
 
     # grade enum 검증 (DB CHECK 와 동일)
+    # lawear-e571 (2026-05-19) — V2 grade (A+/A/A-/B+/B/B-/C+/C/C-) 도 입력 허용.
+    # 단 DB 저장은 V1 enum (A/B/C/F) 강제 — grader_mod._to_v1_grade 변환.
     grade_raw = payload["grade"]
-    if not isinstance(grade_raw, str) or grade_raw.upper() not in ("A", "B", "C", "F", "ERROR"):
+    if not isinstance(grade_raw, str):
         raise GradeInjectionError(
-            f"grade must be one of A/B/C/F/ERROR, got {grade_raw!r}"
+            f"grade must be a string, got {grade_raw!r}"
         )
-    grade = grade_raw.upper()
+    grade_input = grade_raw.upper().strip()
+    _V1_ENUM = ("A", "B", "C", "F", "ERROR")
+    _V2_ENUM = ("A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "F", "ERROR")
+    if grade_input not in _V1_ENUM and grade_input not in _V2_ENUM:
+        raise GradeInjectionError(
+            f"grade must be one of "
+            f"V1 {_V1_ENUM} or V2 {_V2_ENUM}, got {grade_raw!r}"
+        )
+    # DB 저장은 V1 enum 강제 (CHECK 호환). V2 grade 는 응답 시 score_pct 기준 재계산.
+    if grade_input in ("ERROR",):
+        grade = "ERROR"
+    elif grade_input in _V1_ENUM:
+        grade = grade_input
+    else:
+        grade = grader_mod._to_v1_grade(grade_input)
 
     model = payload.get("model")
     if not isinstance(model, str) or not model.strip():
@@ -1460,7 +1508,11 @@ def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         out["score_total"] = row["score_total"]
         out["score_max"] = row["score_max"]
         out["score_pct"] = row["score_pct"]
-        out["grade"] = row["grade"]
+        # lawear-e571 (2026-05-19) — DB grade 는 legacy V1 (A/B/C/F), 응답은 V2 (10단계) 재계산.
+        # legacy attempts 도 V2 grade 가 score_pct 기준으로 일관 표시됨.
+        out["grade"] = _recompute_grade_v2(row["score_pct"])
+        out["grade_v1"] = row["grade"]  # 디버그/하위호환용 (legacy A/B/C/F)
+        out["is_pass"] = _is_pass(row["score_pct"])  # 합격선 (60+) 시각화용
         out["model"] = row["model"]
         # Step 14 — 시안 Reference Diff 2열 분할(내 답안 vs Lv.1)을 위해 done 응답에도 answer_text 포함.
         # pending_grade 와 대칭. R-09 — 원문 그대로 (가공 X).

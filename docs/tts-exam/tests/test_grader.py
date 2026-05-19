@@ -117,8 +117,10 @@ def test_mock_total_score_pct_grade() -> None:
     assert isinstance(result["score_pct"], (int, float)), "score_pct must be numeric"
     assert 0.0 <= result["score_pct"] <= 100.0, f"pct out of range: {result['score_pct']}"
 
-    # grade in A/B/C/F
-    assert result["grade"] in ("A", "B", "C", "F"), f"unknown grade: {result['grade']}"
+    # lawear-e571 (2026-05-19) — V2 grade (10단계) 도 허용.
+    _V1 = ("A", "B", "C", "F")
+    _V2 = ("A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "F")
+    assert result["grade"] in _V1 or result["grade"] in _V2, f"unknown grade: {result['grade']}"
 
 
 def test_mock_eval_notes_three_blocks() -> None:
@@ -244,7 +246,8 @@ def test_compute_score_basic() -> None:
     # 8개 비-miss 항목 모두 만점 → weighted_sum = 87 (v6 합)
     assert abs(total - 87.0) < 0.01, f"total={total}"
     assert pct == 100.0, f"pct={pct}"
-    assert grade_letter == "A"
+    # lawear-e571 (2026-05-19) — V2 grade (10단계). pct=100 → "A+".
+    assert grade_letter == "A+", f"V2 grade for pct=100: {grade_letter}"
 
     # 빵점 (모든 score=0, miss=-5)
     zero = [
