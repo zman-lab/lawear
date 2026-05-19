@@ -2285,15 +2285,6 @@
 
         <!-- Step 24-6 시안 v5 — 카드 모드 (subqs.length > 0 일 때 활성, single textarea 대체) -->
         <div id="rv-cards-section">
-          <!-- 시도 히스토리 (subqs 모드 + attempts 있을 때 표시) -->
-          <div id="rv-history-card">
-            <div class="side-card-header">
-              <span data-i18n="side_history">시도 히스토리</span>
-              <span id="rv-history-count" style="margin-left:auto;font-size:10px;font-family:'SF Mono',monospace;color:var(--text-dim)"></span>
-            </div>
-            <div class="side-card-body" id="rv-history-body"></div>
-          </div>
-
           <div class="cards-toolbar">
             <span id="rv-cards-label" data-i18n-fmt="cards_label">하위 설문 카드 (0)</span>
             <div class="right">
@@ -2324,6 +2315,15 @@
               <button class="btn primary" id="btn-submit" data-i18n="btn_submit">Submit for Evaluation</button>
             </div>
           </div>
+        </div>
+
+        <!-- e571 — 시도 히스토리 (review tab 맨 아래로 이동, 카드 모드/단일 모드 둘 다 표시) -->
+        <div id="rv-history-card">
+          <div class="side-card-header">
+            <span data-i18n="side_history">시도 히스토리</span>
+            <span id="rv-history-count" style="margin-left:auto;font-size:10px;font-family:'SF Mono',monospace;color:var(--text-dim)"></span>
+          </div>
+          <div class="side-card-body" id="rv-history-body"></div>
         </div>
       </div>
 
