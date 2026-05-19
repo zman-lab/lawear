@@ -31,11 +31,34 @@ import json
 import sqlite3
 from typing import Any
 
+import grader as grader_mod
+
 # ─── 상수 ────────────────────────────────────────────────────────────────
 
 DB_STATUS_GRADING: str = "grading"
 DB_STATUS_DONE: str = "done"
 DB_STATUS_ERROR: str = "error"
+
+# lawear-e571 (2026-05-19) — 합격선 (실제 시험 합격 기준).
+PASS_LINE_PCT: float = 60.0
+
+
+def _recompute_grade_v2(score_pct: float | None) -> str:
+    """score_pct → V2 grade letter (10단계) — API 응답용.
+
+    DB grade 컬럼은 legacy V1 (A/B/C/F). reports.py 응답은 V2 (A+/A/A-/B+/B/B-/C+/C/C-/F).
+    """
+    return grader_mod.compute_grade_v2(score_pct)
+
+
+def _is_pass(score_pct: float | None) -> bool:
+    """score_pct >= 60.0 → 합격."""
+    if score_pct is None:
+        return False
+    try:
+        return float(score_pct) >= PASS_LINE_PCT
+    except (TypeError, ValueError):
+        return False
 
 
 # Step 23 — 사용자 풀이 시간 (submitted_at - started_at).
@@ -463,7 +486,10 @@ def overall(
                 "score_total": r["score_total"],
                 "score_max": r["score_max"],
                 "score_pct": _round_pct(r["score_pct"]),
-                "grade": r["grade"],
+                # lawear-e571 (2026-05-19) — V2 grade 동적 재계산 (legacy V1 호환).
+                "grade": _recompute_grade_v2(r["score_pct"]),
+                "grade_v1": r["grade"],  # 디버그/하위호환
+                "is_pass": _is_pass(r["score_pct"]),  # 60+ 합격선
                 "is_stale": bool(r["is_stale"]),
                 "is_mock": bool(r["is_mock"]),
                 "error_code": r["error_code"],
@@ -896,7 +922,10 @@ def _case_attempts_history(
                 "score_pct": _round_pct(r["score_pct"]),
                 # e571-score-display — case_points echo (각 행 환산용)
                 "case_points": case_points,
-                "grade": r["grade"],
+                # lawear-e571 (2026-05-19) — V2 grade 동적 재계산.
+                "grade": _recompute_grade_v2(r["score_pct"]),
+                "grade_v1": r["grade"],
+                "is_pass": _is_pass(r["score_pct"]),
                 "main_miss": main_miss,
                 "is_stale": bool(r["is_stale"]),
                 "is_mock": bool(r["is_mock"]),
@@ -999,7 +1028,10 @@ def by_case(
                 "score_max": r["score_max"],
                 # e571-score-display — case_points echo (각 행 환산용)
                 "case_points": case_points,
-                "grade": r["grade"],
+                # lawear-e571 (2026-05-19) — V2 grade 동적 재계산.
+                "grade": _recompute_grade_v2(r["score_pct"]),
+                "grade_v1": r["grade"],
+                "is_pass": _is_pass(r["score_pct"]),
                 "status": r["status"],
                 # Step 24-7 — 카드별 메타 4키
                 "subq_count": meta["subq_count"],

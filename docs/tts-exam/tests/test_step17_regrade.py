@@ -199,7 +199,8 @@ class ResetGradeTest(unittest.TestCase):
                 conn, self.attempt_id, _full_grade_payload()
             )
         self.assertEqual(out["status"], "completed")
-        self.assertEqual(out["grade"], "B")
+        # lawear-e571 (2026-05-19): V2 grade — score_pct=82.47 → "A+".
+        self.assertEqual(out["grade"], "A+")
 
     # ── 404 케이스 ──
 

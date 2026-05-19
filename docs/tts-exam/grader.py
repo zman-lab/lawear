@@ -116,12 +116,84 @@ DEFAULT_WEIGHTS_V5: dict[str, int] = {
 DEFAULT_WEIGHTS: dict[str, int] = dict(DEFAULT_WEIGHTS_V6)
 
 # Grade threshold (dev-design #48 §5-4 + dev-impl-plan #51 Q9)
-GRADE_THRESHOLDS: list[tuple[float, str]] = [
+#
+# V1 (legacy, 보존):
+#   기존 attempts.grade 컬럼 호환용 — A/B/C/F 4단계.
+#   90+ A / 70+ B / 50+ C / else F.
+#
+# V2 (lawear-e571, 2026-05-19 사용자 결정):
+#   - 강사가 70+ 잘 안 주는 빡빡 채점 vs 우리 채점이 후한 편 → 임계 조정.
+#   - 60점 = 합격선 (실제 시험 합격 기준).
+#   - 10단계 임계 (A+/A/A-/B+/B/B-/C+/C/C-/F).
+#   - 80+ A+ "환상적" / 75+ A / 70+ A- "실제 시험 만점급" / 65+ B+
+#   - 60+ B "합격선 정중앙" / 55+ B- "커트 근처, 합격 가능" / 50+ C+ / 45+ C / 40+ C- / 0+ F.
+#   - DB 컬럼은 V1 enum (A/B/C/F)만 허용 — V2 grade는 API 응답에서 동적 재계산.
+GRADE_THRESHOLDS_V1: list[tuple[float, str]] = [
     (90.0, "A"),
     (70.0, "B"),
     (50.0, "C"),
     (0.0, "F"),
 ]
+
+GRADE_THRESHOLDS_V2: list[tuple[float, str]] = [
+    (80.0, "A+"),
+    (75.0, "A"),
+    (70.0, "A-"),
+    (65.0, "B+"),
+    (60.0, "B"),
+    (55.0, "B-"),
+    (50.0, "C+"),
+    (45.0, "C"),
+    (40.0, "C-"),
+    (0.0, "F"),
+]
+
+# DEFAULT = V2 (신규 채점부터 적용 — _compute_score grade letter 도 V2 사용)
+# 단, DB 저장 단계에서 _to_v1_grade 로 변환되어 enum 호환 유지.
+GRADE_THRESHOLDS: list[tuple[float, str]] = GRADE_THRESHOLDS_V2
+
+
+def compute_grade_v2(score_pct: float | None) -> str:
+    """score_pct → V2 grade letter (10단계).
+
+    Args:
+        score_pct: 0~100 사이 백분율. None 또는 NaN → "F" (안전 fallback).
+
+    Returns:
+        "A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "F" 중 하나.
+    """
+    if score_pct is None:
+        return "F"
+    try:
+        pct = float(score_pct)
+    except (TypeError, ValueError):
+        return "F"
+    if pct != pct:  # NaN check
+        return "F"
+    for threshold, g in GRADE_THRESHOLDS_V2:
+        if pct >= threshold:
+            return g
+    return "F"
+
+
+def _to_v1_grade(grade_v2: str) -> str:
+    """V2 grade (10단계) → V1 grade (A/B/C/F) — DB CHECK 호환.
+
+    매핑:
+      A+/A/A- → A (V1 90+ 호환 X — 실제 V2 70+ 가 V1 A 보다 낮으나 enum 호환 위해 A 통일)
+      B+/B/B- → B
+      C+/C/C- → C
+      F → F
+
+    NOTE: DB grade 컬럼은 legacy. API 응답에서는 V2 grade 가 동적 재계산되어 노출됨.
+    """
+    if grade_v2.startswith("A"):
+        return "A"
+    if grade_v2.startswith("B"):
+        return "B"
+    if grade_v2.startswith("C"):
+        return "C"
+    return "F"
 
 
 # ─── 예외 ──────────────────────────────────────────────────────────────
@@ -467,10 +539,16 @@ def _compute_score(
       total = Σ weighted_i + miss.score (음수)
       score_max = Σ weight_i (= 100 가정, 단 합 검증은 호출자 책임)
       pct = total / score_max * 100  (0~100 클램프)
-      grade: 90+ A / 70+ B / 50+ C / else F
+
+    grade: V2 임계 (lawear-e571, 2026-05-19) — 10단계.
+      80+ A+ / 75+ A / 70+ A- / 65+ B+ / 60+ B (합격선) /
+      55+ B- / 50+ C+ / 45+ C / 40+ C- / else F.
+
+      NOTE: DB 저장 시 _to_v1_grade 로 변환되어 enum (A/B/C/F) 호환.
+      API 응답에서는 attempts._recompute_grade_v2 가 score_pct 기준 V2 grade 재계산.
 
     Returns:
-        (total, score_max, pct, grade)
+        (total, score_max, pct, grade) — grade 는 V2 letter (10단계).
     """
     by_key = {c["key"]: c for c in criteria if c.get("key") in CRITERION_KEYS}
 
