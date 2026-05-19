@@ -1119,6 +1119,18 @@
   .diff-col .diff-col-body .em-blank  { background: #ffe066; color: #222; padding: 0 4px; border-radius: 2px; }
   .diff-col .diff-col-body .em-blank2 { background: #d16969; color: #ffe066; padding: 0 4px; border-radius: 2px; }
 
+  /* lawear-e571 (2026-05-19) — 강조 태그 글로벌 폴백 ([red]/[blue]/[bold]/[u]/[blank]/[blank2])
+     case 본문/사실관계/설문 카드/힌트 패널 등 어떤 컨테이너에서도 작동.
+     본문 영역은 진한 형광펜 대신 가독성 우선 톤 (글자색+옅은 배경) 사용.
+     Reference Diff / Modal Origin 의 강조 디스플레이는 더 위 선택자(.diff-col/.modal-origin)가
+     우선이라 기존 진한 톤 유지 (한 글로벌 정의로 케이스 본문 가독성 ↑). */
+  .em-red    { color: #f87171; }
+  .em-blue   { color: #93c5fd; }
+  .em-bold   { font-weight: 700; color: var(--text-bright); }
+  .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; text-decoration-color: var(--accent-dim); }
+  .em-blank  { background: rgba(86, 156, 214, 0.18); padding: 0 3px; border-radius: 2px; }
+  .em-blank2 { background: rgba(251, 191, 36, 0.18); padding: 0 3px; border-radius: 2px; font-weight: 600; color: #fbbf24; }
+
   /* Step 15-2 — 우측 컬럼 = 상단(eval-summary 평 카드) + 하단(eval-reference 원본 본문) */
   .eval-right-stack { display: flex; flex-direction: column; gap: 12px; min-height: 120px; }
   .eval-summary {
@@ -4120,12 +4132,13 @@
 
     if (level === 1) {
       // Lv.1: case.toc 또는 card.body 의 첫 줄들
+      // lawear-e571 (2026-05-19) — 강조 태그 변환 추가 (평문 노출 fix)
       const toc = (caseFull && caseFull.toc) || '';
-      if (toc.trim()) return escapeHtml(toc).replace(/\n/g, '<br>');
+      if (toc.trim()) return applyEmphasisTags(escapeHtml(toc)).replace(/\n/g, '<br>');
       // fallback — body 첫 부분
       const body = card.body || '';
       const lines = body.split('\n').filter(l => l.trim()).slice(0, 3);
-      return lines.length ? escapeHtml(lines.join('\n')).replace(/\n/g, '<br>') : noData;
+      return lines.length ? applyEmphasisTags(escapeHtml(lines.join('\n'))).replace(/\n/g, '<br>') : noData;
     }
     if (level === 2) {
       // Lv.2: 두문자 — [blank2]X[/blank2] 태그 글자만 노출 (정답 본문 노출 X)
@@ -4166,17 +4179,19 @@
     }
     if (level === 4) {
       // Lv.4: subq.answer 앞부분 (결론 + 처음 N문장)
+      // lawear-e571 (2026-05-19) — 강조 태그 변환 추가 (평문 노출 fix)
       const ans = (card.answer || '').trim();
       if (!ans) return noData;
       // 줄바꿈 기준 처음 10줄까지
       const head = ans.split('\n').slice(0, 10).join('\n');
-      return escapeHtml(head).replace(/\n/g, '<br>');
+      return applyEmphasisTags(escapeHtml(head)).replace(/\n/g, '<br>');
     }
     if (level === 5) {
       // Lv.5: subq.answer 전체
+      // lawear-e571 (2026-05-19) — 강조 태그 변환 추가 (평문 노출 fix)
       const ans = card.answer || '';
       if (!ans.trim()) return noData;
-      return escapeHtml(ans).replace(/\n/g, '<br>');
+      return applyEmphasisTags(escapeHtml(ans)).replace(/\n/g, '<br>');
     }
     return noData;
   }
@@ -4303,7 +4318,7 @@
             <span class="toggle-icon">▼</span>
           </div>
           <div class="sub-card-body">
-            <div class="sub-inquiry"><span class="inquiry-label">${escapeHtml(subqLabel)}</span><span class="inquiry-body">${escapeHtml((card.body || '').trim()).replace(/\n/g, '<br>')}</span></div>
+            <div class="sub-inquiry"><span class="inquiry-label">${escapeHtml(subqLabel)}</span><span class="inquiry-body">${applyEmphasisTags(escapeHtml((card.body || '').trim())).replace(/\n/g, '<br>')}</span></div>
             <div class="hint-bar">
               <span class="hint-label">${I18N[currentLang].hint_label || '힌트'}</span>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="1"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv1 || '1. 목차'}</span></button>
@@ -5194,8 +5209,11 @@
     };
   }
 
-  // 원본 텍스트 → 안전한 HTML (escape + 줄바꿈 + **bold** 만 인식)
+  // 원본 텍스트 → 안전한 HTML (escape + 줄바꿈 + **bold** + 강조 태그 인식)
   // R-09 — 원문 그대로 보존 (Markdown 풀파싱 X, bold 헤더만 가독성 강조).
+  // lawear-e571 (2026-05-19) — 강조 태그 ([red]/[blue]/[bold]/[u]/[blank]/[blank2]) 변환 추가.
+  //   사실관계/설문 본문에 들어있는 강조 태그가 평문 노출되는 문제 fix.
+  //   escape 가 먼저 적용되므로 태그는 [red] → [red] 그대로 유지 (대괄호는 escape 대상 X).
   function renderOriginText(raw) {
     if (!raw) return '';
     const escaped = String(raw)
@@ -5205,9 +5223,34 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
     // **bold** → <strong>bold</strong> (마크다운 bold만 인식, 다른 마크다운은 raw 유지)
-    const withBold = escaped.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+    let html = escaped.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+    // 강조 태그 ([red]X[/red] 등) → <span class="em-*">X</span>
+    //   대괄호([])는 escapeHtml 대상이 아니므로 위 escape 통과 후에도 패턴 그대로.
+    html = applyEmphasisTags(html);
     // 줄바꿈 보존
-    return withBold.replace(/\n/g, '<br>');
+    return html.replace(/\n/g, '<br>');
+  }
+
+  // lawear-e571 (2026-05-19) — 이미 escape 된 HTML 에 강조 태그 ([red]X[/red] 등) 패턴만 span 으로 변환.
+  //   renderEmphasisInline 과 달리 입력이 이미 escape 된 상태라고 가정 (이중 escape 회피).
+  //   순서: red → blue → bold → u → blank2 → blank (blank2 가 blank 의 substring 매칭 회피 위해 먼저).
+  function applyEmphasisTags(htmlEscaped) {
+    if (htmlEscaped == null) return '';
+    let html = String(htmlEscaped);
+    const tagMap = [
+      ['red', 'em-red'],
+      ['blue', 'em-blue'],
+      ['bold', 'em-bold'],
+      ['u', 'em-u'],
+      ['blank2', 'em-blank2'],
+      ['blank', 'em-blank'],
+    ];
+    for (const [tag, cls] of tagMap) {
+      // 비탐욕 매칭, 다중 줄 허용. 본문 안 [/x] 가 ]/x로 escape 되지 않으므로 안전.
+      const re = new RegExp('\\[' + tag + '\\]([\\s\\S]*?)\\[\\/' + tag + '\\]', 'g');
+      html = html.replace(re, '<span class="' + cls + '">$1</span>');
+    }
+    return html;
   }
 
   // ─── 필터 클릭 → reloadCases (active 토글은 시안 핸들러가 담당) ───
@@ -6344,25 +6387,10 @@
   // ─── Step 14 — Reference Diff 2열 분할 렌더 헬퍼 ───
   // Lv.4 강조 태그 인라인 렌더링 (R-28 [red][blue][bold][u][blank][blank2])
   // 입력은 plain text — 먼저 HTML escape 한 뒤 태그를 span 으로 치환.
+  // lawear-e571 (2026-05-19) — applyEmphasisTags 와 동일 로직 (escape 만 추가). 글로벌 인덱스 적용.
   function renderEmphasisInline(text) {
     if (text == null) return '';
-    let html = escapeHtml(String(text));
-    // 강조 태그는 escape 후 형태로 매칭: [red]…[/red] etc.
-    // [/x] 가 ]/x로 escape 되지 않으므로 안전.
-    const tagMap = [
-      ['red', 'em-red'],
-      ['blue', 'em-blue'],
-      ['bold', 'em-bold'],
-      ['u', 'em-u'],
-      ['blank2', 'em-blank2'],
-      ['blank', 'em-blank'],
-    ];
-    for (const [tag, cls] of tagMap) {
-      // 비탐욕 매칭, 다중 줄 허용
-      const re = new RegExp('\\[' + tag + '\\]([\\s\\S]*?)\\[\\/' + tag + '\\]', 'g');
-      html = html.replace(re, '<span class="' + cls + '">$1</span>');
-    }
-    return html;
+    return applyEmphasisTags(escapeHtml(String(text)));
   }
 
   // Step 15-3 + 19-2 — diff_segments → 형광펜 강조 (특정 클래스로 표시)
