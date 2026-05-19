@@ -241,5 +241,69 @@ class TestDictEntryCount(unittest.TestCase):
         self.assertEqual(tc.dict_entry_count(empty), 0)
 
 
+class TestV1_1AddedStaticReplacements(unittest.TestCase):
+    """lawear-9bdc/typo-system-v2 — 신규 35 항목 매칭 검증.
+
+    게시판 #1949 사용자 명시 STT 오타 (att 25 변제자대위 + att 16 시효이익 + 조문번호 STT).
+    """
+
+    def setUp(self) -> None:
+        tc.clear_cache()
+
+    def test_v1_1_version_bump(self):
+        d = tc.load_typo_dict(force_reload=True)
+        self.assertEqual(d["version"], "1.1", f"version 1.1 expected, got {d['version']!r}")
+
+    def test_v1_1_entry_count_163_plus(self):
+        """v1.1 = v1.0 (128, k!=v 필터 후) + 신규 35 = 163. 차후 추가 시 더 늘 수 있음."""
+        n = tc.dict_entry_count()
+        self.assertGreaterEqual(n, 163, f"v1.1 163+ entries, 실측 {n}")
+
+    def test_v1_1_added_replacements(self):
+        cases = [
+            ("둑은 공동 채무자", "또는 공동 채무자"),
+            ("출제로 인한 손해", "출재로 인한 손해"),
+            ("변제자 대의권 행사", "변제자 대위권 행사"),
+            ("울산보증인", "물상보증인"),
+            ("울산 보증인", "물상 보증인"),
+            ("물산보증인", "물상보증인"),
+            ("지혜에 있다", "지위에 있다"),
+            ("보증 시험에 관한", "보증 채무에 관한"),
+            ("부상권 행사", "구상권 행사"),
+            ("직권 설정자", "질권 설정자"),
+            ("질문의 소유권", "질물의 소유권"),
+            ("제372주에 따라", "제372조에 따라"),
+            ("중요한다", "준용한다"),
+            ("비의 채무", "B의 채무"),
+            ("거리를 취득한", "목적물을 취득한"),
+            ("견제하거나", "변제하거나"),
+            ("CU", "시효이익"),
+            ("CEO", "시효이익"),
+            ("co", "시효이익"),
+            ("할례는이", "판례는"),
+            ("최모", "채무"),
+            ("후기", "포기"),
+            ("보기는", "포기는"),
+            ("경험식", "경험칙"),
+            ("근자당권", "근저당권"),
+            ("이주행", "이중"),
+            ("단순 통치", "단순 통지"),
+            ("징수", "증서"),
+            ("확정이자", "확정일자"),
+            ("양수 구매", "양수금"),
+            ("통제", "통지"),
+            ("최 162조", "제162조"),
+            ("최 163주", "제163조"),
+            ("최 166주", "제166조"),
+        ]
+        for inp, expected in cases:
+            with self.subTest(inp=inp):
+                corrected, _ = tc.correct(inp)
+                self.assertEqual(
+                    corrected, expected,
+                    f"{inp!r} → {corrected!r}, expected {expected!r}"
+                )
+
+
 if __name__ == "__main__":
     unittest.main()

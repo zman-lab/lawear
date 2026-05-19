@@ -423,6 +423,63 @@ def _grade_async(
         )
 
 
+def _merge_initial_typo_corrections(
+    conn: sqlite3.Connection,
+    attempt_id: int,
+    eval_notes: dict[str, Any],
+) -> None:
+    """lawear-9bdc/typo-system-v2 — POST 시점 typo_corrections 머지 (덮어쓰기 방지).
+
+    POST /attempts 시점에 typo_corrector(정적) + ai_corrector(Claude) 가 누적한 초기 corrections 가
+    grader 결과 UPDATE 로 손실되지 않도록, 기존 attempts.eval_notes_json 에서 read 후 머지.
+
+    중복 from 은 grader 결과(=새 결과) 우선 — POST 시점 결과는 추가만.
+    in-place: ``eval_notes['typo_corrections']`` 갱신 (없으면 추가, 빈 list 면 None).
+
+    Args:
+        conn:        attempts 테이블 read 가능한 conn (read-only).
+        attempt_id:  attempt 행 ID.
+        eval_notes:  grader/inject 결과의 normalized eval_notes dict (in-place 수정).
+    """
+    try:
+        row = conn.execute(
+            "SELECT eval_notes_json FROM attempts WHERE id = ?", (attempt_id,)
+        ).fetchone()
+    except sqlite3.Error:
+        return
+    if not row:
+        return
+    raw = row["eval_notes_json"] if "eval_notes_json" in row.keys() else row[0]
+    if not raw:
+        return
+    try:
+        existing = json.loads(raw)
+    except (json.JSONDecodeError, TypeError):
+        return
+    if not isinstance(existing, dict):
+        return
+    existing_typo = existing.get("typo_corrections")
+    if not isinstance(existing_typo, list) or not existing_typo:
+        return
+
+    new_typo = eval_notes.get("typo_corrections")
+    if not isinstance(new_typo, list):
+        new_typo = []
+    seen_from: set[str] = {
+        c.get("from") for c in new_typo
+        if isinstance(c, dict) and isinstance(c.get("from"), str) and c.get("from")
+    }
+    merged: list[dict[str, Any]] = list(new_typo)
+    for c in existing_typo:
+        if not isinstance(c, dict):
+            continue
+        f = c.get("from")
+        if isinstance(f, str) and f and f not in seen_from:
+            merged.append(c)
+            seen_from.add(f)
+    eval_notes["typo_corrections"] = merged if merged else None
+
+
 def _save_grade_result(db_path: str, attempt_id: int, result: dict[str, Any]) -> None:
     """채점 결과를 단일 트랜잭션으로 저장.
 
@@ -442,13 +499,16 @@ def _save_grade_result(db_path: str, attempt_id: int, result: dict[str, Any]) ->
             eval_notes_normalized = _normalize_eval_notes({})
     else:
         eval_notes_normalized = _normalize_eval_notes({})
-    eval_notes_json = json.dumps(eval_notes_normalized, ensure_ascii=False)
     diff_json = json.dumps(result.get("diff_segments", []), ensure_ascii=False)
     criteria = result.get("criteria") or []
     is_mock_int = 1 if result.get("is_mock") else 0
 
     conn = db_mod.get_conn(db_path)
     try:
+        # lawear-9bdc/typo-system-v2 — POST 시점 typo_corrections 머지 (BEGIN 전 read)
+        _merge_initial_typo_corrections(conn, attempt_id, eval_notes_normalized)
+        eval_notes_json = json.dumps(eval_notes_normalized, ensure_ascii=False)
+
         try:
             conn.execute("BEGIN IMMEDIATE")
         except sqlite3.OperationalError:
@@ -653,6 +713,49 @@ def create_attempt(
         )
         answer_text = joined
 
+    # lawear-9bdc/typo-system-v2 — POST 시점 STT 오타 1+2 패스 교정 (graceful).
+    #   1. typo_corrector (정적 사전 typo_dict.json) → static_corrs
+    #   2. ai_corrector (Claude API, ANTHROPIC_API_KEY 있을 때) → ai_corrs
+    #   3. answer_text = 교정본 (사용자 정책 확정 — 원본 보존 X)
+    #   4. eval_notes_initial.typo_corrections = static + ai (누적, grader 가 머지)
+    # 예외 발생/모듈 import 실패 시 모두 graceful — 원본 answer_text 그대로.
+    typo_corrections_initial: list[dict[str, Any]] = []
+    try:
+        import typo_corrector as _tc_initial
+        corrected_static, static_corrs_initial = _tc_initial.correct(answer_text)
+        if static_corrs_initial:
+            typo_corrections_initial.extend(static_corrs_initial)
+            answer_text = corrected_static
+    except Exception as e:
+        print(
+            f"[CreateAttempt] typo_corrector skipped: {type(e).__name__}: {e}",
+            file=sys.stderr,
+        )
+
+    try:
+        import ai_corrector as _aic_initial
+        if _aic_initial.is_available():
+            corrected_ai, ai_corrs_initial = _aic_initial.correct_with_ai(
+                answer_text,
+                static_corrections=typo_corrections_initial,
+            )
+            if ai_corrs_initial:
+                typo_corrections_initial.extend(ai_corrs_initial)
+                answer_text = corrected_ai
+    except Exception as e:
+        print(
+            f"[CreateAttempt] ai_corrector skipped: {type(e).__name__}: {e}",
+            file=sys.stderr,
+        )
+
+    # eval_notes_initial — typo_corrections 있을 때만 JSON 직렬화 (없으면 NULL 컬럼)
+    eval_notes_initial_json: str | None = None
+    if typo_corrections_initial:
+        eval_notes_initial_json = json.dumps(
+            {"typo_corrections": typo_corrections_initial},
+            ensure_ascii=False,
+        )
+
     # case_meta 로드 (.md 본문 포함) — 미존재 시 CaseNotFoundError → 404
     case_meta = cases_mod.get_case(conn, case_id)
 
@@ -684,13 +787,13 @@ def create_attempt(
         answer_subq, subq_elapsed, hints_used
     )
 
-    # INSERT attempts (마이그 v6 신규 컬럼 3 포함)
+    # INSERT attempts (마이그 v6 신규 컬럼 3 + lawear-9bdc/typo-system-v2 eval_notes_json 초기 저장)
     cur = conn.execute(
         """
         INSERT INTO attempts
           (case_id, answer_text, started_at, submitted_at, status, weights_json, is_stale,
-           answer_subq, subq_elapsed, hints_used)
-        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?)
+           answer_subq, subq_elapsed, hints_used, eval_notes_json)
+        VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
         """,
         (
             case_id,
@@ -702,6 +805,7 @@ def create_attempt(
             ans_json,
             elap_json,
             hints_json,
+            eval_notes_initial_json,
         ),
     )
     conn.commit()
@@ -1211,6 +1315,8 @@ def inject_grade(
         criteria_by_subq[None] = _normalize_criteria(payload["criteria"])
 
     eval_notes_normalized = _normalize_eval_notes(payload["eval_notes"])
+    # lawear-9bdc/typo-system-v2 — POST 시점 typo_corrections 머지 (PUT /grade 덮어쓰기 방지)
+    _merge_initial_typo_corrections(conn, int(attempt_id), eval_notes_normalized)
     diff_segments_normalized = _normalize_diff_segments(payload.get("diff_segments"))
 
     # total/max/pct 숫자 검증
