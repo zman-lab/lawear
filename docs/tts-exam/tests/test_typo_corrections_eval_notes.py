@@ -305,5 +305,107 @@ class TestTypoCorrectionsRoundTrip(unittest.TestCase):
                 attempts_mod.inject_grade(conn, attempt_id, payload)
 
 
+class TestMergeInitialTypoCorrections(unittest.TestCase):
+    """lawear-9bdc/typo-system-v2 — _merge_initial_typo_corrections 단위 검증.
+
+    POST 시점 typo_corrections (typo_corrector + ai_corrector) 가 grader 결과 UPDATE 로
+    덮어쓰이지 않도록 머지하는 헬퍼. 중복 from 은 grader(새) 우선.
+    """
+
+    def setUp(self) -> None:
+        self.conn = sqlite3.connect(":memory:")
+        self.conn.row_factory = sqlite3.Row
+        self.conn.execute(
+            "CREATE TABLE attempts (id INTEGER PRIMARY KEY, eval_notes_json TEXT)"
+        )
+
+    def tearDown(self) -> None:
+        self.conn.close()
+
+    def test_merge_preserves_post_corrs(self):
+        """기존 POST corrections + grader 결과 → 둘 다 누적."""
+        initial = {"typo_corrections": [
+            {"from": "둑은", "to": "또는", "source": "static_dict"},
+            {"from": "AI오타", "to": "AI교정", "source": "ai"},
+        ]}
+        self.conn.execute(
+            "INSERT INTO attempts (id, eval_notes_json) VALUES (?, ?)",
+            (42, json.dumps(initial, ensure_ascii=False)),
+        )
+        grader_notes = {"typo_corrections": [
+            {"from": "LLM오타", "to": "LLM교정", "source": "grader"}
+        ]}
+        attempts_mod._merge_initial_typo_corrections(self.conn, 42, grader_notes)
+        merged = grader_notes["typo_corrections"]
+        self.assertIsNotNone(merged)
+        froms = {c["from"] for c in merged}
+        self.assertEqual(froms, {"둑은", "AI오타", "LLM오타"})
+
+    def test_merge_no_existing_unchanged(self):
+        """기존 eval_notes 비어있으면 변화 없음."""
+        self.conn.execute(
+            "INSERT INTO attempts (id, eval_notes_json) VALUES (?, NULL)", (1,)
+        )
+        grader_notes = {
+            "typo_corrections": [{"from": "x", "to": "y", "source": "grader"}]
+        }
+        attempts_mod._merge_initial_typo_corrections(self.conn, 1, grader_notes)
+        self.assertEqual(len(grader_notes["typo_corrections"]), 1)
+        self.assertEqual(grader_notes["typo_corrections"][0]["from"], "x")
+
+    def test_merge_dedupe_from_grader_wins(self):
+        """동일 from 은 grader(새) 우선, POST(기존) skip."""
+        initial = {"typo_corrections": [
+            {"from": "X", "to": "OLD_TO", "source": "static_dict"}
+        ]}
+        self.conn.execute(
+            "INSERT INTO attempts (id, eval_notes_json) VALUES (?, ?)",
+            (1, json.dumps(initial, ensure_ascii=False)),
+        )
+        grader_notes = {"typo_corrections": [
+            {"from": "X", "to": "NEW_TO", "source": "grader"}
+        ]}
+        attempts_mod._merge_initial_typo_corrections(self.conn, 1, grader_notes)
+        merged = grader_notes["typo_corrections"]
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["to"], "NEW_TO")
+
+    def test_merge_attempt_not_found_graceful(self):
+        """존재 안 하는 attempt_id 머지 → 변화 없음."""
+        grader_notes = {
+            "typo_corrections": [{"from": "x", "to": "y", "source": "grader"}]
+        }
+        attempts_mod._merge_initial_typo_corrections(self.conn, 9999, grader_notes)
+        self.assertEqual(len(grader_notes["typo_corrections"]), 1)
+
+    def test_merge_invalid_json_graceful(self):
+        """기존 eval_notes_json 이 invalid JSON 이면 변화 없음."""
+        self.conn.execute(
+            "INSERT INTO attempts (id, eval_notes_json) VALUES (?, ?)",
+            (1, "not-json"),
+        )
+        grader_notes = {
+            "typo_corrections": [{"from": "x", "to": "y", "source": "grader"}]
+        }
+        attempts_mod._merge_initial_typo_corrections(self.conn, 1, grader_notes)
+        self.assertEqual(len(grader_notes["typo_corrections"]), 1)
+
+    def test_merge_grader_notes_no_typo_key(self):
+        """grader 결과에 typo_corrections 키 자체가 없을 때 기존만 살림."""
+        initial = {"typo_corrections": [
+            {"from": "POST키", "to": "교정", "source": "static_dict"}
+        ]}
+        self.conn.execute(
+            "INSERT INTO attempts (id, eval_notes_json) VALUES (?, ?)",
+            (5, json.dumps(initial, ensure_ascii=False)),
+        )
+        grader_notes: dict = {}  # typo_corrections 키 없음
+        attempts_mod._merge_initial_typo_corrections(self.conn, 5, grader_notes)
+        self.assertIn("typo_corrections", grader_notes)
+        merged = grader_notes["typo_corrections"]
+        self.assertEqual(len(merged), 1)
+        self.assertEqual(merged[0]["from"], "POST키")
+
+
 if __name__ == "__main__":
     unittest.main()

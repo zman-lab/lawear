@@ -1852,6 +1852,18 @@
     font-size: 12px;
     padding: 9px 12px;
   }
+  /* lawear-9bdc/typo-system-v2 — 답안 본문 내 인라인 오타 교정 밑줄 (점선 + 툴팁) */
+  .typo-corrected {
+    text-decoration: underline dotted;
+    text-decoration-color: var(--info, #6ea8fe);
+    text-decoration-thickness: 1.5px;
+    text-underline-offset: 3px;
+    cursor: help;
+  }
+  .typo-corrected:hover {
+    background: rgba(110, 168, 254, 0.14);
+    border-radius: 2px;
+  }
   /* Reports 행 클릭 가능 표시 */
   .case-history-table tbody tr.clickable { cursor: pointer; }
   .case-history-table tbody tr.clickable:hover { background: var(--panel-2); }
@@ -6434,6 +6446,38 @@
     return out;
   }
 
+  // lawear-9bdc/typo-system-v2 — 답안 본문에 typo_corrections 인라인 밑줄 적용
+  //   * 입력: 이미 highlightDiffSegments 적용된 HTML + eval_notes.typo_corrections list
+  //   * 동작: 각 correction.to 텍스트를 HTML 태그 밖 영역에서만 .typo-corrected span 으로 감쌈
+  //   * position 정보 없는 경우 단순 string replace (모든 매칭) — 글 #1949 명세
+  //   * 중복 from|to 제거 + 긴 to 우선 (substring 충돌 방지)
+  function applyTypoCorrections(html, corrections) {
+    if (!Array.isArray(corrections) || corrections.length === 0) return html;
+    const seen = new Set();
+    const items = [];
+    for (const c of corrections) {
+      const from = (c && typeof c.from === 'string') ? c.from : '';
+      const to = (c && typeof c.to === 'string') ? c.to : '';
+      if (!from || !to || from === to) continue;
+      const key = from + '|' + to;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push({ from, to });
+    }
+    items.sort((a, b) => b.to.length - a.to.length);
+    let result = html;
+    for (const { from, to } of items) {
+      const escapedTo = escapeHtml(to);
+      if (!escapedTo) continue;
+      const safeFromAttr = escapeHtml(from).replace(/"/g, '&quot;');
+      const wrapped = `<span class="typo-corrected" title="원본: ${safeFromAttr}">${escapedTo}</span>`;
+      // HTML 태그 밖 텍스트 영역에서만 replace (속성/태그 보호, diff-span 안 텍스트는 그대로)
+      const parts = result.split(/(<[^>]*>)/);
+      result = parts.map(p => p.startsWith('<') ? p : p.split(escapedTo).join(wrapped)).join('');
+    }
+    return result;
+  }
+
   // Step 19-2 — diff_segments 의 사람 작성 요약에서 매칭 후보 생성 (긴 → 짧은 순)
   //   입력 예: "청구의 병합 (객관적+관련적) — 정확"
   //   1) phrase 분리: 괄호/연결자 제거 → ["청구의 병합", "객관적", "관련적"]
@@ -6535,11 +6579,14 @@
 
     const segments = Array.isArray(att.diff_segments) ? att.diff_segments : [];
 
-    // 좌측 — 내 답안 (escape + 매칭 강조)
+    // 좌측 — 내 답안 (escape + 매칭 강조 + lawear-9bdc/typo-system-v2 typo 인라인 밑줄)
     if (myText) {
       const escaped = escapeHtml(myText);
       const highlighted = highlightDiffSegments(escaped, segments);
-      mineEl.innerHTML = highlighted ||
+      const typoCorrs = (att && att.eval_notes && Array.isArray(att.eval_notes.typo_corrections))
+        ? att.eval_notes.typo_corrections : [];
+      const withTypo = applyTypoCorrections(highlighted, typoCorrs);
+      mineEl.innerHTML = withTypo ||
         '<span class="dim">' + escapeHtml(I18N[currentLang].ev_diff_empty) + '</span>';
       if (mineSubEl) {
         const tmpl = I18N[currentLang].diff_col_mine_sub_fmt || '{n} chars';
@@ -8170,11 +8217,14 @@
     const dict = I18N[currentLang] || {};
     if (!ansEl || !evEl) return;
 
-    // 좌 — 답안 본문 + 매칭 강조 (Reports 와 동일 형광펜)
+    // 좌 — 답안 본문 + 매칭 강조 (Reports 와 동일 형광펜) + lawear-9bdc/typo-system-v2 typo 인라인 밑줄
     const ans = (att && typeof att.answer_text === 'string') ? att.answer_text : '';
     if (ans) {
       const escaped = escapeHtml(ans);
-      ansEl.innerHTML = highlightDiffSegments(escaped, Array.isArray(att.diff_segments) ? att.diff_segments : []);
+      const highlighted = highlightDiffSegments(escaped, Array.isArray(att.diff_segments) ? att.diff_segments : []);
+      const typoCorrs = (att && att.eval_notes && Array.isArray(att.eval_notes.typo_corrections))
+        ? att.eval_notes.typo_corrections : [];
+      ansEl.innerHTML = applyTypoCorrections(highlighted, typoCorrs);
     } else {
       ansEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_answer || 'No answer recorded.')}</span>`;
     }
