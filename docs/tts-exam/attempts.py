@@ -1451,6 +1451,11 @@ def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "hints_used_count": hint_meta["count"],
         "hint_steps_revealed_max": hint_meta["steps_max"],
     }
+    # lawear-e571 (2026-05-19) — total_solve_sec fallback (단건 get_attempt 누락 fix).
+    # list_attempts 와 동일 로직: subq_elapsed 합 우선, 0 또는 None 시 solve_elapsed_sec fallback.
+    out["total_solve_sec"] = _compute_total_solve_sec(
+        subq_elapsed_val, out["solve_elapsed_sec"]
+    )
     if db_status == DB_STATUS_DONE:
         out["score_total"] = row["score_total"]
         out["score_max"] = row["score_max"]
