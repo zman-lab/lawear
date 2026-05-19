@@ -340,6 +340,48 @@ typo_corrections 사전 매칭 후에도 남은 표기 차이는 *의미*가 통
   위 4건은 민법 비법인사단 케이스 채점 시 반드시 확인. 다른 과목/케이스는
   원본 답안에 명시된 핵심 논점을 식별해 missing_critical 에 채워주세요.
 
+[엄격화 v3 — 사용자 데이터 기반 5룰 (2026-05-19, lawear-e571 att 20/21 정정 후 추가)]
+사용자 자체 채점이 AI 채점보다 엄격함을 발견 (att 20: 80→39, att 21: 83.3→56).
+다음 5룰을 반드시 적용 — 후하게 주는 패턴을 차단하기 위함:
+
+1) N요건 명시 누락 (3요건/4요건 사례, 답안에 요건사실 자체 미명시):
+   - outline -5점 이상 차감 / sem -5점 이상 차감
+   - 예시 케이스:
+     - 양수금 사례 → 3요건 (채권 성립 / 양도계약 / 대항요건) 모두 명시 의무
+     - 이행불능 사례 → 4요건 (i ~ iv) 모두 명시 의무
+     - 변경판례 사례 → 4요건 (보존관리의무 / 계약상 의무 / 상당인과관계 / 제393조 범위) 모두 명시 의무
+     - 부당이득 사례 → 4요건 모두 명시 의무
+   - 단순 결론 OK만으로 만점 X — 요건사실 자체를 답안에 적어야 만점 인정.
+   - missing_critical 에 누락 요건 항목 명시 + miss 감점 추가.
+
+2) 조문 0개 인용 — articles max 20% 엄격 적용 (절대 룰):
+   - 사용자 답안에 "제XXX조" 인용 0건 → articles score ≤ max × 0.20
+   - 예: max=15 → score 최대 3 (한도 엄수, 후하게 4~8점 X)
+   - 기존 [엄격화 — articles 임계] 와 동일한 룰이지만, **이 한도를 반드시 지킬 것**.
+     이전 채점에서 0개 인용에 4~8점 준 패턴이 발견됨 — 절대 금지.
+   - 원본에 조문이 0개인 케이스는 max=0 처리 (articles 자체 N/A).
+
+3) 변경판례 결론 한 줄만 매칭 + N요건 근거 누락:
+   - 예: 답안이 "임대인이 주장 증명해야 한다" (결론만) 적고 4요건 근거 X → sem 60% 이하 (max 15 → score ≤ 9)
+   - 결론 한 줄 매칭만으로 변경판례 만점 X — 4요건 (또는 N요건) 근거를 답안에 명시해야 만점급 인정.
+   - 변경판례는 결론 외에 *판례 변경 사유*와 *N요건 근거*가 핵심.
+
+4) 원본 답안의 법리 흐름 (원칙/단서 구조, N요건 분리) 답안에 흐름 자체 누락:
+   - sem -5점 이상 차감 / outline -3점 이상 차감
+   - 단순 키워드 매칭 X — 법리 흐름 구조를 평가:
+     - 원칙 진술 → 단서/예외 → 사안 적용 흐름
+     - N요건 → 각 요건별 분리 진술 → 사안 사실관계 매칭
+   - 단순 결론 + 단편 키워드 나열은 흐름 누락으로 간주.
+
+5) 사안 적용에서 결론만 명시 + 정답의 N요건/판례를 사안 대비 분석 X:
+   - case_apply 50% 이하 (max 7 → score ≤ 3.5)
+   - 결론 한 줄만으로 case_apply 만점 X.
+   - 만점급 조건: 정답의 N요건 / 판례 법리를 사안의 일자·인물·사실관계에 대비 분석.
+     - 예: "X가 Y에게 …한 행위는 ㅇ요건 충족, ㅁ요건 미충족이므로 …" 형태.
+
+위 5룰은 모든 과목/케이스에 일관 적용 (민법/민소/형법/형소/부등 공통).
+구조적 누락 (요건/조문/흐름)을 발견했을 때 *반드시* 점수 차감 + missing_critical / weaknesses 에 명시.
+
 [출력 형식 — JSON only (코드펜스 없이 raw JSON 만)]
 {
   "criteria": [
@@ -608,19 +650,33 @@ def _mock_response(
     """API 키 미설정 또는 mock 모드 시 디폴트 응답.
 
     Generates a deterministic but realistic-looking mock:
-    - 각 기준 score = max * 0.7 (rich/case_apply 는 1, miss 는 0)
+    - 엄격 룰 v3 (2026-05-19) 반영: articles 0개 패턴 / case_apply 결론만 패턴 가정.
+    - 각 기준 score 보수적 (mnem/color/under/outline/sem 는 max*0.5, rich/case_apply 는 max*0.3)
     - eval_notes 는 자료 일반 안내 문구
     - diff_segments 는 user_answer 의 첫 100자 (match 1개) — 자의 X
     """
-    # 기준별 mock score
+    # 기준별 mock score (엄격 룰 v3 반영 — 보수적)
     def _mock_criterion(key: str, max_val: float, comment: str) -> dict[str, Any]:
         if key == "miss":
             score = 0.0
-        elif key in ("rich", "case_apply"):
-            # Lv.1 수준 가정 (Step 21 v5: case_apply 도 동일하게 보수적 mock)
-            score = 1.0
+        elif key == "articles":
+            # 엄격 룰 v3-2: 조문 0개 가정 → max * 0.20 (한도)
+            score = round(max_val * 0.20, 1)
+        elif key == "case_apply":
+            # 엄격 룰 v3-5: 결론만 가정 → max * 0.30 (한도 50% 이하)
+            score = round(max_val * 0.30, 1)
+        elif key in ("sem",):
+            # 엄격 룰 v3-3,4: 흐름/요건 누락 가정 → max * 0.50
+            score = round(max_val * 0.50, 1)
+        elif key == "outline":
+            # 엄격 룰 v3-1,4: 요건/흐름 누락 가정 → max * 0.50
+            score = round(max_val * 0.50, 1)
+        elif key == "rich":
+            # 보수적 풍부함
+            score = round(max_val * 0.35, 1)
         else:
-            score = round(max_val * 0.7, 1)
+            # mnem / color / under — 보조 키
+            score = round(max_val * 0.55, 1)
         return {
             "key": key,
             "score": score,
@@ -632,12 +688,12 @@ def _mock_response(
         _mock_criterion("mnem", 4.0, "[mock] 두문자 풀이형 키워드 부분 반영"),
         _mock_criterion("color", 12.0, "[mock] 색 강조 키워드 일부 반영"),
         _mock_criterion("under", 2.0, "[mock] 밑줄 강조 일부 반영"),
-        _mock_criterion("outline", 3.0, "[mock] 목차 구조 Lv.1 기준 부분 일치"),
-        _mock_criterion("sem", 10.0, "[mock] 의미 유사도 양호"),
-        _mock_criterion("rich", 2.0, "[mock] 원본 대비 풍부함 중간 (Step 21 v5: 20→15)"),
+        _mock_criterion("outline", 3.0, "[mock] 목차 구조 부분 일치 (요건 누락 가능)"),
+        _mock_criterion("sem", 10.0, "[mock] 의미 유사도 — 법리 흐름 일부 누락 가능"),
+        _mock_criterion("rich", 2.0, "[mock] 원본 대비 풍부함 보수적"),
         _mock_criterion("miss", 0.0, "[mock] 일부 논점 누락 가능 — 실 채점 필요"),
-        _mock_criterion("articles", 3.0, "[mock] 원본 조문 일부 명시 (Step 20)"),
-        _mock_criterion("case_apply", 2.0, "[mock] 사안의 경우 결론+근거 적용 일부 반영 (Step 21 신설)"),
+        _mock_criterion("articles", 3.0, "[mock] 조문 0개 가정 — max 20% 이하 (엄격 v3-2)"),
+        _mock_criterion("case_apply", 2.0, "[mock] 사안 적용 결론만 가정 — max 50% 이하 (엄격 v3-5)"),
     ]
     # diff_segments — user_answer 앞 100자 match (자의 텍스트 생성 X)
     head = (user_answer or "").strip()[:120]
