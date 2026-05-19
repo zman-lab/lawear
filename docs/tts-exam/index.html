@@ -1864,6 +1864,13 @@
     background: rgba(110, 168, 254, 0.14);
     border-radius: 2px;
   }
+  /* lawear-9bdc/typo-handoff — 개발 단계 fallback (answer_text 원본 + 메인 세션 식별 corrections). 옅은 빨강 hint. */
+  .typo-corrected-orig {
+    text-decoration-color: rgba(209, 105, 105, 0.75);
+  }
+  .typo-corrected-orig:hover {
+    background: rgba(209, 105, 105, 0.10);
+  }
   /* Reports 행 클릭 가능 표시 */
   .case-history-table tbody tr.clickable { cursor: pointer; }
   .case-history-table tbody tr.clickable:hover { background: var(--panel-2); }
@@ -6452,6 +6459,11 @@
   //   * position 정보 없는 경우 단순 string replace (모든 매칭) — 글 #1949 명세
   //   * 중복 from|to 제거 + 긴 to 우선 (substring 충돌 방지)
   function applyTypoCorrections(html, corrections) {
+    // lawear-9bdc/typo-handoff (2026-05-19) — to/from 자동 전환:
+    //   * 1차: answer_text 에 `to` 있으면 wrap (운영 — ai_corrector / POST 시점 typo_corrector 적용된 교정본)
+    //   * 2차 fallback: `to` 없고 `from` 있으면 `from` wrap (개발 — 메인 세션이 채점 시 식별, answer_text 원본)
+    //   * to wrap → title="원본: {from}" / from wrap → title="교정: {to}"
+    //   * 추가 CSS hook: .typo-corrected-orig (개발 단계 식별용 — 같은 점선 밑줄 + 다른 색 옵션)
     if (!Array.isArray(corrections) || corrections.length === 0) return html;
     const seen = new Set();
     const items = [];
@@ -6464,16 +6476,30 @@
       seen.add(key);
       items.push({ from, to });
     }
-    items.sort((a, b) => b.to.length - a.to.length);
+    // 긴 키 우선 — to / from 중 더 긴 것 기준 (substring 충돌 방지)
+    items.sort((a, b) => Math.max(b.to.length, b.from.length) - Math.max(a.to.length, a.from.length));
     let result = html;
     for (const { from, to } of items) {
       const escapedTo = escapeHtml(to);
-      if (!escapedTo) continue;
-      const safeFromAttr = escapeHtml(from).replace(/"/g, '&quot;');
-      const wrapped = `<span class="typo-corrected" title="원본: ${safeFromAttr}">${escapedTo}</span>`;
-      // HTML 태그 밖 텍스트 영역에서만 replace (속성/태그 보호, diff-span 안 텍스트는 그대로)
-      const parts = result.split(/(<[^>]*>)/);
-      result = parts.map(p => p.startsWith('<') ? p : p.split(escapedTo).join(wrapped)).join('');
+      const escapedFrom = escapeHtml(from);
+      if (!escapedTo || !escapedFrom) continue;
+      const safeFromAttr = escapedFrom.replace(/"/g, '&quot;');
+      const safeToAttr = escapedTo.replace(/"/g, '&quot;');
+      const wrappedTo = `<span class="typo-corrected" title="원본: ${safeFromAttr}">${escapedTo}</span>`;
+      const wrappedFrom = `<span class="typo-corrected typo-corrected-orig" title="교정: ${safeToAttr}">${escapedFrom}</span>`;
+      // 1차: to 매칭 (운영/POST 시점 교정본)
+      let parts = result.split(/(<[^>]*>)/);
+      result = parts.map(p => {
+        if (p.startsWith('<') || p.indexOf(escapedTo) < 0) return p;
+        return p.split(escapedTo).join(wrappedTo);
+      }).join('');
+      // 2차 fallback: from 매칭 (개발 단계 — answer_text 원본 + 메인 식별 corrections)
+      //   1차에서 만든 wrappedTo span 안의 텍스트는 태그 split 으로 분리됨 — from 매칭 안 됨 (속성/내부 안전)
+      parts = result.split(/(<[^>]*>)/);
+      result = parts.map(p => {
+        if (p.startsWith('<') || p.indexOf(escapedFrom) < 0) return p;
+        return p.split(escapedFrom).join(wrappedFrom);
+      }).join('');
     }
     return result;
   }
