@@ -168,6 +168,47 @@ def _solve_elapsed_sec(
         return None
 
 
+def _compute_total_solve_sec(
+    subq_elapsed: dict | None,
+    solve_elapsed_sec: float | None,
+) -> int | None:
+    """lawear-e571 (2026-05-19) — total_solve_sec 계산 + fallback.
+
+    우선순위:
+        1) subq_elapsed (dict) 의 값 합산 > 0  → 그 합 (카드별 트래킹 정상)
+        2) subq_elapsed 합 == 0 이고 solve_elapsed_sec > 0 → solve_elapsed_sec fallback
+           (단일 카드 모드 ``{"단일": 0}`` 또는 다중 카드 트래킹 누락 시 — UI 0초 방지)
+        3) 그 외 → None (legacy attempts — 트래킹 데이터 없음)
+
+    Args:
+        subq_elapsed: ``{subq_key: int 초}`` 카드별 풀이 시간. None / 빈 dict 허용.
+        solve_elapsed_sec: ``_solve_elapsed_sec()`` 결과 (submitted-started, float|None).
+
+    Returns:
+        int (초) 또는 None.
+    """
+    # 1) subq_elapsed 합산
+    if isinstance(subq_elapsed, dict) and subq_elapsed:
+        try:
+            s = sum(
+                int(v) for v in subq_elapsed.values()
+                if isinstance(v, (int, float))
+            )
+        except (TypeError, ValueError):
+            s = 0
+        if s > 0:
+            return s
+        # subq_elapsed 합=0 → fallback 단계 진입
+        if isinstance(solve_elapsed_sec, (int, float)) and solve_elapsed_sec > 0:
+            return int(round(solve_elapsed_sec))
+        return None  # 둘 다 0 → None (UI 비표시)
+
+    # 2) subq_elapsed 없음 → solve_elapsed_sec 단독 fallback
+    #    (legacy 호환 — 기존엔 None 반환. fallback 활성화는 명시 컨텍스트가 있을 때만)
+    #    NOTE: subq_elapsed=None 인 순수 legacy attempt 는 기존 동작 유지 (None).
+    return None
+
+
 def _client_status(db_status: str) -> str:
     return CLIENT_STATUS_MAP.get(db_status, db_status)
 
@@ -1680,12 +1721,11 @@ def list_attempts(
         hint_meta_row = _compute_hint_meta(hints)
         subq_count_val = len(ans_subq) if isinstance(ans_subq, dict) and ans_subq else 0
         # total_solve_sec — 카드별 elapsed 합산 (legacy 단일 → None)
-        total_solve = None
-        if isinstance(elap, dict) and elap:
-            try:
-                total_solve = sum(int(v) for v in elap.values() if isinstance(v, (int, float)))
-            except (TypeError, ValueError):
-                total_solve = None
+        # lawear-e571/grader-tune-fallback (2026-05-19): subq_elapsed 합=0이고
+        # solve_elapsed_sec(submitted-started)>0 → 트래킹 누락 시 solve_elapsed_sec fallback.
+        # 단일 카드 모드("단일": 0) 또는 다중 카드 트래킹 실패 시 UI 0초 표시 방지.
+        solve_elapsed_val = _solve_elapsed_sec(r["started_at"], r["submitted_at"])
+        total_solve = _compute_total_solve_sec(elap, solve_elapsed_val)
 
         # e571-score-display — case_points 노출 (legacy NULL 그대로)
         try:
@@ -1718,9 +1758,7 @@ def list_attempts(
                 "is_stale": bool(r["is_stale"]),
                 "is_mock": bool(r["is_mock"]),
                 "error_code": r["error_code"],
-                "solve_elapsed_sec": _solve_elapsed_sec(
-                    r["started_at"], r["submitted_at"]
-                ),
+                "solve_elapsed_sec": solve_elapsed_val,
                 # Step 24-3 메타 (히스토리 패널 표시용)
                 "subq_count": subq_count_val,
                 "hints_used_count": hint_meta_row["count"],

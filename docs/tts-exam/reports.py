@@ -96,15 +96,22 @@ def _subq_meta(
     answer_subq_json: str | None,
     subq_elapsed_json: str | None,
     hints_used_json: str | None,
+    started_at: str | None = None,
+    submitted_at: str | None = None,
 ) -> dict[str, Any]:
     """카드별 3종 JSON 컬럼 → 4키 메타 (Reports 히스토리/recent 패널용).
+
+    lawear-e571/grader-tune-fallback (2026-05-19) — started_at/submitted_at 인자 추가:
+    - subq_elapsed 합 == 0 이고 solve_elapsed_sec(submitted-started) > 0 → solve_elapsed_sec fallback
+    - 단일 카드 모드 ``{"단일": 0}`` 또는 다중 카드 트래킹 누락 시 UI 0초 표시 방지.
+    - 기본값 None 으로 호환 유지 — 기존 호출자(3-arg)는 fallback 적용 안 됨.
 
     Returns:
         {
           "subq_count": int,           # answer_subq 카드 개수 (legacy 단일 0)
           "hints_used_count": int,     # 모든 카드의 힌트 step 누적 (1~5)
           "hint_steps_revealed_max": int,  # 모든 카드 중 최대 노출 step (0~5)
-          "total_solve_sec": int|None, # subq_elapsed 합산 (legacy 단일 None)
+          "total_solve_sec": int|None, # subq_elapsed 합산 + fallback (legacy 단일 None)
         }
     """
     ans_subq = _load_subq_dict(answer_subq_json)
@@ -112,6 +119,10 @@ def _subq_meta(
     hints = _load_subq_dict(hints_used_json)
     hm = _hint_meta(hints)
     subq_count_val = len(ans_subq) if isinstance(ans_subq, dict) and ans_subq else 0
+
+    # lawear-e571 fallback: solve_elapsed_sec 사전 계산 (None 가능)
+    solve_elapsed: float | None = _solve_elapsed_sec(started_at, submitted_at)
+
     total_solve: int | None = None
     if isinstance(elap, dict) and elap:
         try:
@@ -119,6 +130,16 @@ def _subq_meta(
                 int(v) for v in elap.values() if isinstance(v, (int, float))
             )
         except (TypeError, ValueError):
+            total_solve = None
+        # fallback: subq 합 == 0 이고 solve_elapsed_sec > 0 → solve_elapsed_sec
+        if (
+            total_solve == 0
+            and isinstance(solve_elapsed, (int, float))
+            and solve_elapsed > 0
+        ):
+            total_solve = int(round(solve_elapsed))
+        elif total_solve == 0:
+            # 둘 다 0 → None (UI 비표시)
             total_solve = None
     return {
         "subq_count": int(subq_count_val),
@@ -413,7 +434,10 @@ def overall(
     )
     recent: list[dict[str, Any]] = []
     for r in cur.fetchall():
-        meta = _subq_meta(r["answer_subq"], r["subq_elapsed"], r["hints_used"])
+        meta = _subq_meta(
+            r["answer_subq"], r["subq_elapsed"], r["hints_used"],
+            started_at=r["started_at"], submitted_at=r["submitted_at"],
+        )
         # e571-score-display — case_points 노출 (legacy NULL graceful)
         try:
             case_points_val = r["case_points"]
@@ -855,7 +879,10 @@ def _case_attempts_history(
             if isinstance(em, str) and em.strip():
                 main_miss = f"[error] {em[:200]}"
 
-        meta = _subq_meta(r["answer_subq"], r["subq_elapsed"], r["hints_used"])
+        meta = _subq_meta(
+            r["answer_subq"], r["subq_elapsed"], r["hints_used"],
+            started_at=r["started_at"], submitted_at=r["submitted_at"],
+        )
         history.append(
             {
                 "attempt_id": r["id"],
@@ -944,10 +971,12 @@ def by_case(
 
     # 시도별 추이 (status='done' 만 — score 있는 시도)
     # Step 24-7 — answer_subq / subq_elapsed / hints_used 메타 노출 (trend 라인 위 toolltip 용).
+    # lawear-e571 (2026-05-19) — started_at 추가: _subq_meta total_solve_sec fallback 용.
     trend: list[dict[str, Any]] = []
     cur = conn.execute(
         """
-        SELECT id, submitted_at, score_total, score_max, score_pct, grade, status,
+        SELECT id, started_at, submitted_at, score_total, score_max, score_pct,
+               grade, status,
                answer_subq, subq_elapsed, hints_used
           FROM attempts
          WHERE case_id = ? AND status = ?
@@ -956,7 +985,10 @@ def by_case(
         (case_id, DB_STATUS_DONE),
     )
     for idx, r in enumerate(cur.fetchall(), start=1):
-        meta = _subq_meta(r["answer_subq"], r["subq_elapsed"], r["hints_used"])
+        meta = _subq_meta(
+            r["answer_subq"], r["subq_elapsed"], r["hints_used"],
+            started_at=r["started_at"], submitted_at=r["submitted_at"],
+        )
         trend.append(
             {
                 "attempt_num": idx,
