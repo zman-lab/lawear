@@ -563,7 +563,8 @@
     line-height: 1.7;
     font-size: 12.5px;
     color: var(--text);
-    white-space: pre-wrap;
+    /* white-space 기본값(normal) — 템플릿 들여쓰기 공백 collapse.
+       본문 줄바꿈은 builder 에서 `\n → <br>` 변환으로 보존. */
   }
   .sub-inquiry .inquiry-label {
     font-size: 10px;
@@ -572,6 +573,12 @@
     letter-spacing: 0.5px;
     margin-bottom: 4px;
     display: block;
+  }
+  .sub-inquiry .inquiry-body {
+    /* 본문 wrap — 내부에 다중 공백/탭이 있다면 보존, 단 앞뒤 들여쓰기 영향 X
+       (template literal 안 들여쓰기는 span 바깥에 위치하도록 builder 구성). */
+    white-space: pre-wrap;
+    word-break: break-word;
   }
 
   /* ─── Hint buttons (5 levels) ─── */
@@ -4217,10 +4224,7 @@
             <span class="toggle-icon">▼</span>
           </div>
           <div class="sub-card-body">
-            <div class="sub-inquiry">
-              <span class="inquiry-label">${escapeHtml(subqLabel)}</span>
-              ${escapeHtml(card.body || '').replace(/\n/g, '<br>')}
-            </div>
+            <div class="sub-inquiry"><span class="inquiry-label">${escapeHtml(subqLabel)}</span><span class="inquiry-body">${escapeHtml((card.body || '').trim()).replace(/\n/g, '<br>')}</span></div>
             <div class="hint-bar">
               <span class="hint-label">${I18N[currentLang].hint_label || '힌트'}</span>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="1"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv1 || '1. 목차'}</span></button>
