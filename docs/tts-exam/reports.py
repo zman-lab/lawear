@@ -39,8 +39,9 @@ DB_STATUS_GRADING: str = "grading"
 DB_STATUS_DONE: str = "done"
 DB_STATUS_ERROR: str = "error"
 
-# lawear-e571 (2026-05-19) — 합격선 (실제 시험 합격 기준).
-PASS_LINE_PCT: float = 60.0
+# lawear-2e42 (2026-05-20) — 합격선 상향 (A- 73점, 실제 시험 합격 기준).
+# 이전 lawear-e571 (60점, B) → 사용자 결정 2026-05-20 합격선 A- 73점.
+PASS_LINE_PCT: float = 73.0
 
 
 def _recompute_grade_v2(score_pct: float | None) -> str:
@@ -52,7 +53,7 @@ def _recompute_grade_v2(score_pct: float | None) -> str:
 
 
 def _is_pass(score_pct: float | None) -> bool:
-    """score_pct >= 60.0 → 합격."""
+    """score_pct >= 73.0 (A-) → 합격."""
     if score_pct is None:
         return False
     try:
@@ -489,7 +490,7 @@ def overall(
                 # lawear-e571 (2026-05-19) — V2 grade 동적 재계산 (legacy V1 호환).
                 "grade": _recompute_grade_v2(r["score_pct"]),
                 "grade_v1": r["grade"],  # 디버그/하위호환
-                "is_pass": _is_pass(r["score_pct"]),  # 60+ 합격선
+                "is_pass": _is_pass(r["score_pct"]),  # 73+ 합격선 (A-)
                 "is_stale": bool(r["is_stale"]),
                 "is_mock": bool(r["is_mock"]),
                 "error_code": r["error_code"],

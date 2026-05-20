@@ -125,12 +125,12 @@ def _recompute_grade_v2(score_pct: float | None) -> str:
     return grader_mod.compute_grade_v2(score_pct)
 
 
-# 합격선 (실제 시험 합격 기준 — lawear-e571, 2026-05-19 사용자 결정)
-PASS_LINE_PCT: float = 60.0
+# 합격선 (실제 시험 합격 기준 — lawear-2e42, 2026-05-20 사용자 결정 60→73 상향)
+PASS_LINE_PCT: float = 73.0
 
 
 def _is_pass(score_pct: float | None) -> bool:
-    """score_pct >= 60.0 → 합격 (시각화용 배지 조건)."""
+    """score_pct >= 73.0 (A-) → 합격 (시각화용 배지 조건)."""
     if score_pct is None:
         return False
     try:

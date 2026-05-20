@@ -121,12 +121,12 @@ DEFAULT_WEIGHTS: dict[str, int] = dict(DEFAULT_WEIGHTS_V6)
 #   기존 attempts.grade 컬럼 호환용 — A/B/C/F 4단계.
 #   90+ A / 70+ B / 50+ C / else F.
 #
-# V2 (lawear-e571, 2026-05-19 사용자 결정):
-#   - 강사가 70+ 잘 안 주는 빡빡 채점 vs 우리 채점이 후한 편 → 임계 조정.
-#   - 60점 = 합격선 (실제 시험 합격 기준).
+# V2 (lawear-2e42, 2026-05-20 사용자 결정 — 합격선 A- 73 상향):
+#   - 이전 lawear-e571 (2026-05-19, 60점 B 합격선) → A- 73점 합격선으로 상향.
+#   - 73점 = 합격선 (실제 시험 합격 기준, V2 A-).
 #   - 10단계 임계 (A+/A/A-/B+/B/B-/C+/C/C-/F).
-#   - 80+ A+ "환상적" / 75+ A / 70+ A- "실제 시험 만점급" / 65+ B+
-#   - 60+ B "합격선 정중앙" / 55+ B- "커트 근처, 합격 가능" / 50+ C+ / 45+ C / 40+ C- / 0+ F.
+#   - 80+ A+ "환상적" / 75+ A / 73+ A- "합격선" / 65+ B+ "근접 불합격"
+#   - 60+ B / 55+ B- / 50+ C+ / 45+ C / 40+ C- / 0+ F (이하 모두 불합격).
 #   - DB 컬럼은 V1 enum (A/B/C/F)만 허용 — V2 grade는 API 응답에서 동적 재계산.
 GRADE_THRESHOLDS_V1: list[tuple[float, str]] = [
     (90.0, "A"),
@@ -138,7 +138,7 @@ GRADE_THRESHOLDS_V1: list[tuple[float, str]] = [
 GRADE_THRESHOLDS_V2: list[tuple[float, str]] = [
     (80.0, "A+"),
     (75.0, "A"),
-    (70.0, "A-"),
+    (73.0, "A-"),  # 합격선 (lawear-2e42 2026-05-20, 사용자 결정)
     (65.0, "B+"),
     (60.0, "B"),
     (55.0, "B-"),
@@ -582,8 +582,8 @@ def _compute_score(
       score_max = Σ weight_i (= 100 가정, 단 합 검증은 호출자 책임)
       pct = total / score_max * 100  (0~100 클램프)
 
-    grade: V2 임계 (lawear-e571, 2026-05-19) — 10단계.
-      80+ A+ / 75+ A / 70+ A- / 65+ B+ / 60+ B (합격선) /
+    grade: V2 임계 (lawear-2e42, 2026-05-20) — 10단계.
+      80+ A+ / 75+ A / 73+ A- (합격선) / 65+ B+ / 60+ B /
       55+ B- / 50+ C+ / 45+ C / 40+ C- / else F.
 
       NOTE: DB 저장 시 _to_v1_grade 로 변환되어 enum (A/B/C/F) 호환.

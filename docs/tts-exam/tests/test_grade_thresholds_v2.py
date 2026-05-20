@@ -36,28 +36,29 @@ class TestGradeThresholdsV2Boundaries(unittest.TestCase):
         # 80 직전
         self.assertEqual(grader.compute_grade_v2(79.999), "A")
 
-    def test_aminus_boundary_70(self) -> None:
-        """70.0 → A- / 74.99 → A-."""
-        self.assertEqual(grader.compute_grade_v2(70.0), "A-")
-        self.assertEqual(grader.compute_grade_v2(74.99), "A-")
+    def test_aminus_boundary_73(self) -> None:
+        """73.0 → A- (합격선) / 74.99 → A- (lawear-2e42 2026-05-20: 70→73 상향)."""
         self.assertEqual(grader.compute_grade_v2(73.0), "A-")
+        self.assertEqual(grader.compute_grade_v2(74.99), "A-")
+        self.assertEqual(grader.compute_grade_v2(73.5), "A-")
 
     def test_bplus_boundary_65(self) -> None:
-        """65.0 → B+ / 69.99 → B+."""
+        """65.0 → B+ / 72.99 → B+ (lawear-2e42 2026-05-20: A- 70→73 상향)."""
         self.assertEqual(grader.compute_grade_v2(65.0), "B+")
-        self.assertEqual(grader.compute_grade_v2(69.99), "B+")
+        self.assertEqual(grader.compute_grade_v2(72.99), "B+")
+        self.assertEqual(grader.compute_grade_v2(70.0), "B+")
 
-    def test_b_pass_line_60(self) -> None:
-        """60.0 → B (합격선 정중앙) / 64.99 → B."""
+    def test_b_boundary_60(self) -> None:
+        """60.0 → B / 64.99 → B (불합격, lawear-2e42 2026-05-20: 합격선 73)."""
         self.assertEqual(grader.compute_grade_v2(60.0), "B")
         self.assertEqual(grader.compute_grade_v2(64.99), "B")
-        self.assertEqual(grader.compute_grade_v2(63.0), "B")  # att 6 예시
+        self.assertEqual(grader.compute_grade_v2(63.0), "B")
 
     def test_bminus_boundary_55(self) -> None:
-        """55.0 → B- / 59.99 → B- (합격선 직전)."""
+        """55.0 → B- / 59.99 → B- (불합격)."""
         self.assertEqual(grader.compute_grade_v2(55.0), "B-")
         self.assertEqual(grader.compute_grade_v2(59.99), "B-")
-        self.assertEqual(grader.compute_grade_v2(56.7), "B-")  # att 17 예시
+        self.assertEqual(grader.compute_grade_v2(56.7), "B-")
 
     def test_cplus_boundary_50(self) -> None:
         """50.0 → C+ / 54.99 → C+."""

@@ -1,9 +1,9 @@
-"""60점 합격선 시각화 (lawear-e571, 2026-05-19).
+"""73점 합격선 (A-) 시각화 (lawear-2e42, 2026-05-20, 사용자 결정 60→73 상향).
 
 핵심:
-- score_pct >= 60.0 → is_pass=True (합격 배지 조건).
+- score_pct >= 73.0 → is_pass=True (합격 배지 조건, V2 A-).
 - API 응답 (_attempt_row_to_dict + reports.py 3종) 모두 is_pass 노출.
-- 합격선 직전/직후 경계: 59.99 → False, 60.0 → True.
+- 합격선 직전/직후 경계: 72.99 → False, 73.0 → True.
 """
 from __future__ import annotations
 
@@ -37,23 +37,23 @@ if str(cases_mod.BASE_PATH) != _TEST_BASE:
 
 
 class TestIsPassFunction(unittest.TestCase):
-    """attempts._is_pass + reports._is_pass — 60점 합격선 헬퍼."""
+    """attempts._is_pass + reports._is_pass — 73점 합격선 헬퍼 (A-)."""
 
-    def test_is_pass_60_true(self) -> None:
-        """60.0 정확 → True (합격선 정중앙)."""
-        self.assertTrue(attempts_mod._is_pass(60.0))
-        self.assertTrue(reports_mod._is_pass(60.0))
+    def test_is_pass_73_true(self) -> None:
+        """73.0 정확 → True (합격선 = A-)."""
+        self.assertTrue(attempts_mod._is_pass(73.0))
+        self.assertTrue(reports_mod._is_pass(73.0))
 
-    def test_is_pass_above_60_true(self) -> None:
-        """60+ → True."""
-        for pct in [60.01, 65.0, 70.0, 80.0, 100.0]:
+    def test_is_pass_above_73_true(self) -> None:
+        """73+ → True."""
+        for pct in [73.01, 75.0, 80.0, 90.0, 100.0]:
             with self.subTest(pct=pct):
                 self.assertTrue(attempts_mod._is_pass(pct))
                 self.assertTrue(reports_mod._is_pass(pct))
 
-    def test_is_pass_below_60_false(self) -> None:
-        """60 미만 → False (불합격)."""
-        for pct in [59.99, 55.0, 50.0, 30.0, 0.0]:
+    def test_is_pass_below_73_false(self) -> None:
+        """73 미만 → False (불합격, B+ 이하)."""
+        for pct in [72.99, 70.0, 65.0, 60.0, 55.0, 50.0, 30.0, 0.0]:
             with self.subTest(pct=pct):
                 self.assertFalse(attempts_mod._is_pass(pct))
                 self.assertFalse(reports_mod._is_pass(pct))
@@ -69,9 +69,9 @@ class TestIsPassFunction(unittest.TestCase):
         self.assertFalse(reports_mod._is_pass("xyz"))  # type: ignore
 
     def test_pass_line_constant(self) -> None:
-        """PASS_LINE_PCT = 60.0 (양 모듈 동일)."""
-        self.assertEqual(attempts_mod.PASS_LINE_PCT, 60.0)
-        self.assertEqual(reports_mod.PASS_LINE_PCT, 60.0)
+        """PASS_LINE_PCT = 73.0 (양 모듈 동일, lawear-2e42 2026-05-20)."""
+        self.assertEqual(attempts_mod.PASS_LINE_PCT, 73.0)
+        self.assertEqual(reports_mod.PASS_LINE_PCT, 73.0)
 
 
 # ─── 통합: _attempt_row_to_dict 가 is_pass 노출 ─────
@@ -126,7 +126,7 @@ def _seed_done_attempt(conn, case_id: str, score_pct: float, grade_v1: str = "B"
 
 
 class TestAttemptResponseIsPass(unittest.TestCase):
-    """get_attempt 응답에 is_pass 필드 노출 (60+ 합격선)."""
+    """get_attempt 응답에 is_pass 필드 노출 (73+ 합격선 A-)."""
 
     def setUp(self) -> None:
         self.tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
@@ -136,22 +136,22 @@ class TestAttemptResponseIsPass(unittest.TestCase):
     def tearDown(self) -> None:
         os.unlink(self.tmp.name)
 
-    def test_attempt_pct_60_is_pass_true(self) -> None:
-        """score_pct=60 → is_pass=True + grade='B' (V2)."""
+    def test_attempt_pct_73_is_pass_true(self) -> None:
+        """score_pct=73 → is_pass=True + grade='A-' (V2)."""
         with db_mod.get_conn(self.tmp.name) as conn:
-            attempt_id = _seed_done_attempt(conn, "TC_PASS", 60.0, "B")
+            attempt_id = _seed_done_attempt(conn, "TC_PASS", 73.0, "A")
             out = attempts_mod.get_attempt(conn, attempt_id)
-        self.assertTrue(out["is_pass"], "60.0 should be pass")
-        self.assertEqual(out["grade"], "B", "V2 grade for 60.0 = B")
-        self.assertEqual(out["grade_v1"], "B")
+        self.assertTrue(out["is_pass"], "73.0 should be pass (A-)")
+        self.assertEqual(out["grade"], "A-", "V2 grade for 73.0 = A-")
+        self.assertEqual(out["grade_v1"], "A")
 
-    def test_attempt_pct_59_is_pass_false(self) -> None:
-        """score_pct=59.99 → is_pass=False + grade='B-' (V2)."""
+    def test_attempt_pct_72_is_pass_false(self) -> None:
+        """score_pct=72.99 → is_pass=False + grade='B+' (V2, 불합격)."""
         with db_mod.get_conn(self.tmp.name) as conn:
-            attempt_id = _seed_done_attempt(conn, "TC_PASS", 59.99, "B")
+            attempt_id = _seed_done_attempt(conn, "TC_PASS", 72.99, "A")
             out = attempts_mod.get_attempt(conn, attempt_id)
-        self.assertFalse(out["is_pass"], "59.99 should NOT pass")
-        self.assertEqual(out["grade"], "B-", "V2 grade for 59.99 = B-")
+        self.assertFalse(out["is_pass"], "72.99 should NOT pass")
+        self.assertEqual(out["grade"], "B+", "V2 grade for 72.99 = B+")
 
     def test_attempt_pct_80_aplus(self) -> None:
         """score_pct=80 → A+ (V2) + is_pass=True."""
@@ -203,7 +203,7 @@ class TestReportsResponseIsPass(unittest.TestCase):
     def test_by_case_trend_has_is_pass(self) -> None:
         """GET /api/reports/by-case → trend[] 에 is_pass + V2 grade."""
         with db_mod.get_conn(self.tmp.name) as conn:
-            _seed_done_attempt(conn, "TC_PASS", 60.0, "B")  # 합격
+            _seed_done_attempt(conn, "TC_PASS", 73.0, "A")  # 합격 (A-, 합격선)
             _seed_done_attempt(conn, "TC_PASS", 55.0, "C")  # 불합격
             out = reports_mod.by_case(conn, "TC_PASS")
         self.assertEqual(len(out["trend"]), 2)
@@ -214,7 +214,7 @@ class TestReportsResponseIsPass(unittest.TestCase):
     def test_by_case_history_has_is_pass(self) -> None:
         """GET /api/reports/by-case → history[] 에 is_pass + V2 grade."""
         with db_mod.get_conn(self.tmp.name) as conn:
-            _seed_done_attempt(conn, "TC_PASS", 65.0, "B")  # B+ (V2)
+            _seed_done_attempt(conn, "TC_PASS", 65.0, "B")  # B+ (V2, 불합격)
             out = reports_mod.by_case(conn, "TC_PASS")
         self.assertGreaterEqual(len(out["history"]), 1)
         for h in out["history"]:
@@ -222,7 +222,7 @@ class TestReportsResponseIsPass(unittest.TestCase):
             self.assertIn("grade", h)
             if abs(h["score_pct"] - 65.0) < 0.01:
                 self.assertEqual(h["grade"], "B+")
-                self.assertTrue(h["is_pass"])
+                self.assertFalse(h["is_pass"])  # B+ 65 < 73 합격선
 
 
 if __name__ == "__main__":
