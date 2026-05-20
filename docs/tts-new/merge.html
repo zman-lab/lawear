@@ -386,6 +386,10 @@
   /* 강조 표시 (P-12 R-28) */
   .tts-red    { color: #ff6b6b; font-weight: 500; }
   .tts-blue   { color: #4dabf7; font-weight: 500; }
+  .tts-purple  { color: #a371f7; font-weight: 500; }
+  .tts-violet  { color: #cc5de8; font-weight: 500; }
+  .tts-magenta { color: #ff7eb6; font-weight: 500; }
+  .tts-indigo  { color: #7c8fff; font-weight: 500; }
   .tts-bold   { color: #ffd43b; font-weight: 700; }
   .tts-underline { text-decoration: underline; text-decoration-color: #adb5bd; text-decoration-thickness: 2px; }
   .tts-blank  { background: #ffd43b; color: #1971c2; padding: 0 6px; border-radius: 3px; font-weight: 600; }
@@ -398,6 +402,10 @@
   /* 위장 모드 — 강조 표시 모두 무효화 */
   body.stealth .tts-red,
   body.stealth .tts-blue,
+  body.stealth .tts-purple,
+  body.stealth .tts-violet,
+  body.stealth .tts-magenta,
+  body.stealth .tts-indigo,
   body.stealth .tts-bold,
   body.stealth .tts-underline,
   body.stealth .tts-blank,
@@ -461,6 +469,10 @@
   .em-btn { font-weight: 600; min-width: 56px; }
   .em-btn.em-red { color: #ff6b6b; }
   .em-btn.em-blue { color: #4dabf7; }
+  .em-btn.em-purple  { color: #a371f7; }
+  .em-btn.em-violet  { color: #cc5de8; }
+  .em-btn.em-magenta { color: #ff7eb6; }
+  .em-btn.em-indigo  { color: #7c8fff; }
   .em-btn.em-bold { color: #ffd43b; font-weight: 700; }
   .em-btn.em-underline { color: #adb5bd; text-decoration: underline; }
   .em-btn.em-blank { background: #ffd43b; color: #1971c2; border-color: #fab005; }
@@ -537,6 +549,10 @@
       <span class="label">강조:</span>
       <button class="em-btn em-red" onclick="wrapEmphasis('red')" title="빨강 [red]">red</button>
       <button class="em-btn em-blue" onclick="wrapEmphasis('blue')" title="파랑 [blue]">blue</button>
+      <button class="em-btn em-purple" onclick="wrapEmphasis('purple')" title="보라 [purple]">purple</button>
+      <button class="em-btn em-violet" onclick="wrapEmphasis('violet')" title="자주 [violet]">violet</button>
+      <button class="em-btn em-magenta" onclick="wrapEmphasis('magenta')" title="마젠타 [magenta]">magenta</button>
+      <button class="em-btn em-indigo" onclick="wrapEmphasis('indigo')" title="남보라 [indigo]">indigo</button>
       <button class="em-btn em-bold" onclick="wrapEmphasis('bold')" title="굵게 [bold]">bold</button>
       <button class="em-btn em-underline" onclick="wrapEmphasis('u')" title="밑줄 [u]">underline</button>
       <button class="em-btn em-blank" onclick="wrapEmphasis('blank')" title="빈칸 [blank] — 노랑 배경/파랑 글씨">blank</button>
@@ -689,7 +705,7 @@ function displayFileKor(fileKor, fileCode) {
 // ─────────── 강조 렌더링 ───────────
 function renderMd(md) {
   const placeholders = [];
-  const tagRe = /\[(red|blue|bold|u|blank2|blank)\]((?:(?!\[(?:red|blue|bold|u|blank2|blank)\])[\s\S])*?)\[\/\1\]/g;
+  const tagRe = /\[(red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\]((?:(?!\[(?:red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\])[\s\S])*?)\[\/\1\]/g;
   let escaped = md;
   let prev;
   let iter = 0;
@@ -1483,6 +1499,10 @@ function stripEmphasis(text) {
   return text
     .replace(/\[red\]([\s\S]+?)\[\/red\]/g, '$1')
     .replace(/\[blue\]([\s\S]+?)\[\/blue\]/g, '$1')
+    .replace(/\[purple\]([\s\S]+?)\[\/purple\]/g, '$1')
+    .replace(/\[violet\]([\s\S]+?)\[\/violet\]/g, '$1')
+    .replace(/\[magenta\]([\s\S]+?)\[\/magenta\]/g, '$1')
+    .replace(/\[indigo\]([\s\S]+?)\[\/indigo\]/g, '$1')
     .replace(/\[bold\]([\s\S]+?)\[\/bold\]/g, '$1')
     .replace(/\[u\]([\s\S]+?)\[\/u\]/g, '$1')
     .replace(/\[blank2\]([\s\S]+?)\[\/blank2\]/g, '$1')
@@ -1643,7 +1663,7 @@ function wrapEmphasis(tag) {
   const end = ta.selectionEnd;
   if (start === end) { setSaveStatus('텍스트를 먼저 선택하세요', 'error'); return; }
   const selected = ta.value.substring(start, end);
-  const allTags = ['red', 'blue', 'bold', 'u', 'blank2', 'blank'];
+  const allTags = ['red', 'blue', 'purple', 'violet', 'magenta', 'indigo', 'bold', 'u', 'blank2', 'blank'];
   let cleaned = selected;
   for (const t of allTags) {
     const re = new RegExp(`\\[${t}\\]([\\s\\S]+?)\\[\\/${t}\\]`, 'g');

@@ -1745,6 +1745,30 @@
       "pdfPath": null,
       "points": null,
       "userCase": null
+    },
+    {
+      "case": "민법 PDF 원문",
+      "id": "2026_index_minbeop_pdf_raw",
+      "path": "두문자/_pdf_원문_민법.md",
+      "pdfPath": null,
+      "points": null,
+      "subject": "index",
+      "subjectKor": "두문자",
+      "title": "강사 두문자 정본 PDF 원문 정리 (이혁준 민법 1~6 — 127 항목)",
+      "type": "library",
+      "userCase": null
+    },
+    {
+      "case": "민소 PDF 원문",
+      "id": "2026_index_minso_pdf_raw",
+      "path": "두문자/_pdf_원문_민소.md",
+      "pdfPath": null,
+      "points": null,
+      "subject": "index",
+      "subjectKor": "두문자",
+      "title": "강사 두문자 정본 PDF 원문 정리 (이혁준 민소 1~4 — 106 항목)",
+      "type": "library",
+      "userCase": null
     }
   ]
 }
