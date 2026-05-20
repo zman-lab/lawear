@@ -394,6 +394,20 @@
   .tts-underline { text-decoration: underline; text-decoration-color: #adb5bd; text-decoration-thickness: 2px; }
   .tts-blank  { background: #ffd43b; color: #1971c2; padding: 0 6px; border-radius: 3px; font-weight: 600; }
   .tts-blank2 { background: #c92a2a; color: #ffd43b; padding: 0 6px; border-radius: 3px; font-weight: 600; }
+  /* 신규: em 시스템 (라이브러리 두문자 뎁스 L1~L4, 배경+흰글, 자동 굵게) */
+  .tts-em1 { background: #c92a2a; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .tts-em2 { background: #f59f00; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .tts-em3 { background: #1971c2; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .tts-em4 { background: #6741d9; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  /* 신규: 의미 5종 (케이스/Lv.4용, 폰트색만, 자동 굵게) */
+  .tts-con    { color: #ff6b6b; font-weight: 700; }
+  .tts-fact   { color: #ff922b; font-weight: 700; }
+  .tts-case   { color: #51cf66; font-weight: 700; }
+  .tts-bridge { color: #339af0; font-weight: 700; }
+  .tts-key    { color: #9775fa; font-weight: 700; }
+  /* 신규: 여분 2종 (사용자 자유, 자동 굵게) */
+  .tts-free1 { color: #ddc9a3; font-weight: 700; } /* 베이지 */
+  .tts-free2 { color: #b197fc; font-weight: 700; } /* 라벤더 */
 
   /* 위장 모드 — 좌측 패널 한글 노출 부분 숨김 (case-title, case-meta) */
   body.stealth .case-item .case-title { display: none; }
@@ -409,7 +423,18 @@
   body.stealth .tts-bold,
   body.stealth .tts-underline,
   body.stealth .tts-blank,
-  body.stealth .tts-blank2 {
+  body.stealth .tts-blank2,
+  body.stealth .tts-em1,
+  body.stealth .tts-em2,
+  body.stealth .tts-em3,
+  body.stealth .tts-em4,
+  body.stealth .tts-con,
+  body.stealth .tts-fact,
+  body.stealth .tts-case,
+  body.stealth .tts-bridge,
+  body.stealth .tts-key,
+  body.stealth .tts-free1,
+  body.stealth .tts-free2 {
     color: inherit !important;
     background: transparent !important;
     font-weight: normal !important;
@@ -477,6 +502,20 @@
   .em-btn.em-underline { color: #adb5bd; text-decoration: underline; }
   .em-btn.em-blank { background: #ffd43b; color: #1971c2; border-color: #fab005; }
   .em-btn.em-blank2 { background: #c92a2a; color: #ffd43b; border-color: #a51e1e; }
+  /* 신규 em 시스템 버튼 */
+  .em-btn.em-em1 { background: #c92a2a; color: #fff; border-color: #a51e1e; }
+  .em-btn.em-em2 { background: #f59f00; color: #fff; border-color: #d18e00; }
+  .em-btn.em-em3 { background: #1971c2; color: #fff; border-color: #155a9c; }
+  .em-btn.em-em4 { background: #6741d9; color: #fff; border-color: #5333b8; }
+  /* 신규 의미 5종 버튼 */
+  .em-btn.em-con    { color: #ff6b6b; font-weight: 700; }
+  .em-btn.em-fact   { color: #ff922b; font-weight: 700; }
+  .em-btn.em-case   { color: #51cf66; font-weight: 700; }
+  .em-btn.em-bridge { color: #339af0; font-weight: 700; }
+  .em-btn.em-key    { color: #9775fa; font-weight: 700; }
+  /* 신규 여분 2종 버튼 */
+  .em-btn.em-free1 { color: #ddc9a3; font-weight: 700; }
+  .em-btn.em-free2 { color: #b197fc; font-weight: 700; }
   .em-btn.em-clear { color: var(--danger); }
   .save-btn {
     background: var(--success-strong) !important; color: #fff !important;
@@ -557,6 +596,20 @@
       <button class="em-btn em-underline" onclick="wrapEmphasis('u')" title="밑줄 [u]">underline</button>
       <button class="em-btn em-blank" onclick="wrapEmphasis('blank')" title="빈칸 [blank] — 노랑 배경/파랑 글씨">blank</button>
       <button class="em-btn em-blank2" onclick="wrapEmphasis('blank2')" title="빈칸2 [blank2] — 빨강 배경/노랑 글씨">blank2</button>
+      <!-- 신규 em 시스템 (라이브러리 두문자 L1~L4) -->
+      <button class="em-btn em-em1" onclick="wrapEmphasis('em1')" title="em1 — 메인 두문자 (빨/흰)">em1</button>
+      <button class="em-btn em-em2" onclick="wrapEmphasis('em2')" title="em2 — 메인 풀이 (노/흰)">em2</button>
+      <button class="em-btn em-em3" onclick="wrapEmphasis('em3')" title="em3 — 풀이형 보조 (파/흰)">em3</button>
+      <button class="em-btn em-em4" onclick="wrapEmphasis('em4')" title="em4 — 풀이형 키워드 (보/흰)">em4</button>
+      <!-- 신규 의미 5종 (Lv.4 케이스) -->
+      <button class="em-btn em-con" onclick="wrapEmphasis('con')" title="결론 [con]">결론</button>
+      <button class="em-btn em-fact" onclick="wrapEmphasis('fact')" title="요건 사실 [fact]">요건</button>
+      <button class="em-btn em-case" onclick="wrapEmphasis('case')" title="중요 판례 [case]">판례</button>
+      <button class="em-btn em-bridge" onclick="wrapEmphasis('bridge')" title="브릿지 [bridge]">브릿지</button>
+      <button class="em-btn em-key" onclick="wrapEmphasis('key')" title="핵심 [key]">핵심</button>
+      <!-- 신규 여분 2종 -->
+      <button class="em-btn em-free1" onclick="wrapEmphasis('free1')" title="여분1 [free1] 베이지">free1</button>
+      <button class="em-btn em-free2" onclick="wrapEmphasis('free2')" title="여분2 [free2] 라벤더">free2</button>
       <button class="em-btn em-clear" onclick="wrapEmphasis('clear')" title="강조 제거">제거</button>
       <button class="save-btn" id="save-btn" onclick="saveFile()" title="저장 (Ctrl+S / Cmd+S)">💾 저장</button>
       <span class="save-status" id="save-status"></span>
@@ -705,7 +758,7 @@ function displayFileKor(fileKor, fileCode) {
 // ─────────── 강조 렌더링 ───────────
 function renderMd(md) {
   const placeholders = [];
-  const tagRe = /\[(red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\]((?:(?!\[(?:red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\])[\s\S])*?)\[\/\1\]/g;
+  const tagRe = /\[(em1|em2|em3|em4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\]((?:(?!\[(?:em1|em2|em3|em4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\])[\s\S])*?)\[\/\1\]/g;
   let escaped = md;
   let prev;
   let iter = 0;
@@ -1506,7 +1559,18 @@ function stripEmphasis(text) {
     .replace(/\[bold\]([\s\S]+?)\[\/bold\]/g, '$1')
     .replace(/\[u\]([\s\S]+?)\[\/u\]/g, '$1')
     .replace(/\[blank2\]([\s\S]+?)\[\/blank2\]/g, '$1')
-    .replace(/\[blank\]([\s\S]+?)\[\/blank\]/g, '$1');
+    .replace(/\[blank\]([\s\S]+?)\[\/blank\]/g, '$1')
+    .replace(/\[em1\]([\s\S]+?)\[\/em1\]/g, '$1')
+    .replace(/\[em2\]([\s\S]+?)\[\/em2\]/g, '$1')
+    .replace(/\[em3\]([\s\S]+?)\[\/em3\]/g, '$1')
+    .replace(/\[em4\]([\s\S]+?)\[\/em4\]/g, '$1')
+    .replace(/\[con\]([\s\S]+?)\[\/con\]/g, '$1')
+    .replace(/\[fact\]([\s\S]+?)\[\/fact\]/g, '$1')
+    .replace(/\[case\]([\s\S]+?)\[\/case\]/g, '$1')
+    .replace(/\[bridge\]([\s\S]+?)\[\/bridge\]/g, '$1')
+    .replace(/\[key\]([\s\S]+?)\[\/key\]/g, '$1')
+    .replace(/\[free1\]([\s\S]+?)\[\/free1\]/g, '$1')
+    .replace(/\[free2\]([\s\S]+?)\[\/free2\]/g, '$1');
 }
 
 function extractCaseNum(filename) {
@@ -1663,7 +1727,7 @@ function wrapEmphasis(tag) {
   const end = ta.selectionEnd;
   if (start === end) { setSaveStatus('텍스트를 먼저 선택하세요', 'error'); return; }
   const selected = ta.value.substring(start, end);
-  const allTags = ['red', 'blue', 'purple', 'violet', 'magenta', 'indigo', 'bold', 'u', 'blank2', 'blank'];
+  const allTags = ['em1', 'em2', 'em3', 'em4', 'con', 'fact', 'case', 'bridge', 'key', 'free1', 'free2', 'red', 'blue', 'purple', 'violet', 'magenta', 'indigo', 'bold', 'u', 'blank2', 'blank'];
   let cleaned = selected;
   for (const t of allTags) {
     const re = new RegExp(`\\[${t}\\]([\\s\\S]+?)\\[\\/${t}\\]`, 'g');
