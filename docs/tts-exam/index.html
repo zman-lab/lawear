@@ -3021,6 +3021,7 @@
       toast_path_copy_failed: 'Copy failed',
       // sections
       sec_background: 'Background', sec_inquiry: 'Inquiry', sec_notes: 'Reviewer Notes',
+      sec_background_external: '(Background facts in separate case — this is a modified inquiry only)',
       sec_eval_notes: 'Evaluation Notes', sec_diff: 'Reference Diff',
       badge_readonly: 'read-only', badge_required: 'required', badge_vs_lv1: 'vs Lv.1',
       notes_ph: 'Enter reviewer notes. Press the mic button for voice input.',
@@ -3282,6 +3283,7 @@
       toast_path_copied: '경로 복사됨',
       toast_path_copy_failed: '복사 실패',
       sec_background: '사실관계', sec_inquiry: '문제', sec_notes: '검토 의견',
+      sec_background_external: '(공통사실관계 별도 — 본 케이스는 변형 설문만)',
       sec_eval_notes: '평가 메모', sec_diff: '레퍼런스 비교',
       badge_readonly: '읽기전용', badge_required: '필수', badge_vs_lv1: 'Lv.1 대비',
       notes_ph: '검토 의견을 입력하세요. 마이크 버튼으로 음성 입력 가능.',
@@ -5216,10 +5218,15 @@
       }
       if (ptsEl) ptsEl.textContent = `${c.points} pt`;
       // Background / Inquiry: 원본 섹션을 사실관계 / 문제 로 split (Step 22 — 다중 설문 통합)
+      // lawear-2e42 (2026-05-20): mogo 변형 설문은 공통사실관계가 별도 case (mogo01_01) — facts 빈 게 정상.
+      //   facts 빈 + question 있으면 '공통사실관계 별도 안내', 둘 다 빈 경우만 err_load.
       const { facts, question } = splitOriginFactsQuestion(c.origin || '');
       if (bgEl) {
         if (facts) {
           bgEl.innerHTML = renderOriginText(facts);
+        } else if (question) {
+          // 변형 설문 등 공통사실관계가 별도 case에 있는 경우
+          bgEl.innerHTML = `<span style="color: var(--text-dim); font-style: italic;">${I18N[currentLang].sec_background_external}</span>`;
         } else {
           bgEl.textContent = I18N[currentLang].err_load;
         }
