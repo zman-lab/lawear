@@ -256,6 +256,61 @@
   #content li { line-height: 1.6; margin-bottom: 4px; }
   #content blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: var(--text-dim); margin: 8px 0; }
 
+  /* 라이브러리(두문자) 접펼 항목 — 각 ###을 한 줄 요약 + details */
+  #content details.lib-item {
+    margin: 4px 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+  }
+  #content details.lib-item > summary {
+    cursor: pointer;
+    padding: 8px 12px;
+    list-style: none;
+    line-height: 1.6;
+    user-select: none;
+  }
+  #content details.lib-item > summary::-webkit-details-marker { display: none; }
+  #content details.lib-item > summary::before {
+    content: '▶';
+    display: inline-block;
+    width: 14px;
+    color: var(--accent);
+    font-size: 10px;
+    transition: transform 0.15s;
+  }
+  #content details.lib-item[open] > summary::before { transform: rotate(90deg); }
+  #content details.lib-item > summary .lib-num {
+    color: var(--accent);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  #content details.lib-item > summary .lib-cat {
+    color: var(--text-bright);
+    font-weight: 500;
+    margin-right: 6px;
+  }
+  #content details.lib-item > summary .lib-sep {
+    color: var(--text-dim);
+    margin: 0 4px;
+  }
+  #content details.lib-item > summary .lib-template { color: var(--text); }
+  #content details.lib-item > summary .lib-title {
+    color: var(--text-dim);
+    font-size: 12px;
+    margin-left: 8px;
+  }
+  #content details.lib-item > .lib-body {
+    padding: 4px 16px 12px 28px;
+    border-top: 1px solid var(--border);
+  }
+  #content details.lib-item > .lib-body h3 {
+    margin-top: 8px;
+    margin-bottom: 4px;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
   .compare-table { table-layout: fixed; width: 100%; }
   .compare-table th { width: 33.33%; text-align: center; }
   .compare-table td { font-size: 12px; line-height: 1.5; }
@@ -658,6 +713,113 @@ function renderMd(md) {
     });
   }
   return recover(html);
+}
+
+// ─────────── 라이브러리 collapsible (각 ### → details) ───────────
+// renderMd() 결과 HTML 받아서 각 <h3>를 <details><summary>로 변환
+// summary: {순번}. {## 카테고리} - {두문자 본문 템플릿(태그 보존)} [###번호 ###제목]
+// 부록 영역(## 부록 이후)은 변환 X
+function makeLibraryCollapsible(html) {
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+
+  let counter = 0;
+  let currentH2 = '';
+  let inAppendix = false;
+
+  const children = Array.from(tmp.children);
+  for (let i = 0; i < children.length; i++) {
+    const el = children[i];
+
+    // 부록 진입 감지 (h1/h2 안에 "부록" 포함)
+    if ((el.tagName === 'H1' || el.tagName === 'H2') && el.textContent.includes('부록')) {
+      inAppendix = true;
+    }
+    if (el.tagName === 'H2' && !el.textContent.includes('부록')) {
+      currentH2 = el.textContent.trim().replace(/^\d+\.\s*/, '');
+      inAppendix = false;
+    }
+    if (el.tagName === 'H1' && !el.textContent.includes('부록')) {
+      inAppendix = false;
+    }
+
+    if (el.tagName !== 'H3' || inAppendix) continue;
+
+    counter++;
+    const h3Text = el.textContent.trim();
+    const h3NumMatch = h3Text.match(/^(\d+(?:-\d+)?)\.\s*(.+)/);
+    const h3Num = h3NumMatch ? h3NumMatch[1] : '';
+    const h3Title = h3NumMatch ? h3NumMatch[2] : h3Text;
+
+    // h3 다음 요소들 수집 (다음 h1/h2/h3/hr 또는 끝까지)
+    const followingElements = [];
+    let j = i + 1;
+    while (j < children.length && !['H1', 'H2', 'H3', 'HR'].includes(children[j].tagName)) {
+      followingElements.push(children[j]);
+      j++;
+    }
+
+    // 두문자 본문 추출 (우선순위: 본문 템플릿 코드블록 > 두문자 라벨)
+    let bodyTemplateHtml = '';
+    outer: for (const fol of followingElements) {
+      if (fol.tagName !== 'UL' && fol.tagName !== 'OL') continue;
+      const lis = fol.querySelectorAll(':scope > li');
+      for (const li of lis) {
+        const strong = li.querySelector(':scope > strong, :scope > p > strong');
+        if (!strong) continue;
+        const label = strong.textContent.trim();
+        if (label === '본문 템플릿' || label.startsWith('본문 템플릿')) {
+          const codeBlock = li.querySelector('pre code, code');
+          if (codeBlock) { bodyTemplateHtml = codeBlock.innerHTML; break outer; }
+        }
+      }
+    }
+    if (!bodyTemplateHtml) {
+      outer2: for (const fol of followingElements) {
+        if (fol.tagName !== 'UL' && fol.tagName !== 'OL') continue;
+        const lis = fol.querySelectorAll(':scope > li');
+        for (const li of lis) {
+          const strong = li.querySelector(':scope > strong, :scope > p > strong');
+          if (!strong) continue;
+          const label = strong.textContent.trim();
+          if (label === '두문자' || label.startsWith('두문자')) {
+            bodyTemplateHtml = li.innerHTML
+              .replace(/^<strong>[^<]*<\/strong>:\s*/, '')
+              .replace(/^<p><strong>[^<]*<\/strong>:\s*/, '')
+              .replace(/<\/p>$/, '');
+            break outer2;
+          }
+        }
+      }
+    }
+
+    // details + summary 생성
+    const details = document.createElement('details');
+    details.className = 'lib-item';
+    const summary = document.createElement('summary');
+    summary.innerHTML =
+      `<span class="lib-num">${counter}.</span>` +
+      `<span class="lib-cat">${escapeHtml(currentH2)}</span>` +
+      `<span class="lib-sep">-</span>` +
+      `<span class="lib-template">${bodyTemplateHtml || escapeHtml(h3Title)}</span>` +
+      `<span class="lib-title">[${escapeHtml(h3Num)} ${escapeHtml(h3Title)}]</span>`;
+    details.appendChild(summary);
+
+    const body = document.createElement('div');
+    body.className = 'lib-body';
+    body.appendChild(el.cloneNode(true));
+    followingElements.forEach(fol => body.appendChild(fol.cloneNode(true)));
+    details.appendChild(body);
+
+    el.parentNode.insertBefore(details, el);
+    el.remove();
+    followingElements.forEach(fol => fol.remove());
+
+    // 인덱스 점프 (j-1, 그 다음 i++ 되어 j 위치 시작)
+    i = j - 1;
+  }
+
+  return tmp.innerHTML;
 }
 
 // ─────────── 위장 UI 적용 ───────────
@@ -1214,7 +1376,7 @@ function renderContent() {
     content.innerHTML = headerHtml + uploadBarHtml + '<div id="mdContent"></div>';
     if (editorWrap) content.appendChild(editorWrap);
     const target = document.getElementById('mdContent');
-    target.innerHTML = renderMd(fullContent || '');
+    target.innerHTML = makeLibraryCollapsible(renderMd(fullContent || ''));
     bindLibraryUpload();
     return;
   }
