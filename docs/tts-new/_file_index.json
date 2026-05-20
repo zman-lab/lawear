@@ -29,20 +29,6 @@
       "userCase": null
     },
     {
-      "id": "2026_minbeop_yebi_mogo01_03",
-      "subject": "minbeop",
-      "subjectKor": "민법",
-      "category": "예비",
-      "file": "모고01",
-      "fileKor": "민법_예비_모고_01",
-      "case": "03",
-      "title": "2026_minbeop_yebi_모고01_03",
-      "path": "2026_예비_민법/2026_minbeop_yebi_모고01_03.md",
-      "pdfPath": "예비_민법/민법_예비_모고_01.pdf",
-      "points": null,
-      "userCase": null
-    },
-    {
       "id": "2026_minbeop_yebi_mogo02_01",
       "subject": "minbeop",
       "subjectKor": "민법",
@@ -68,34 +54,6 @@
       "path": "2026_예비_민법/2026_minbeop_yebi_모고02_02.md",
       "pdfPath": "예비_민법/민법_예비_모고_02.pdf",
       "points": 28,
-      "userCase": null
-    },
-    {
-      "id": "2026_minbeop_yebi_mogo02_03",
-      "subject": "minbeop",
-      "subjectKor": "민법",
-      "category": "예비",
-      "file": "모고02",
-      "fileKor": "민법_예비_모고_02",
-      "case": "03",
-      "title": "2026_minbeop_yebi_모고02_03",
-      "path": "2026_예비_민법/2026_minbeop_yebi_모고02_03.md",
-      "pdfPath": "예비_민법/민법_예비_모고_02.pdf",
-      "points": null,
-      "userCase": null
-    },
-    {
-      "id": "2026_minbeop_yebi_mogo02_04",
-      "subject": "minbeop",
-      "subjectKor": "민법",
-      "category": "예비",
-      "file": "모고02",
-      "fileKor": "민법_예비_모고_02",
-      "case": "04",
-      "title": "2026_minbeop_yebi_모고02_04",
-      "path": "2026_예비_민법/2026_minbeop_yebi_모고02_04.md",
-      "pdfPath": "예비_민법/민법_예비_모고_02.pdf",
-      "points": null,
       "userCase": null
     },
     {
@@ -1681,34 +1639,6 @@
       "userCase": null
     },
     {
-      "id": "2026_minso_yebi_mogo01_03",
-      "subject": "minso",
-      "subjectKor": "민소",
-      "category": "예비",
-      "file": "모고01",
-      "fileKor": "민소_예비_모고_01",
-      "case": "03",
-      "title": "2026_minso_yebi_모고01_03",
-      "path": "2026_예비_민소/2026_minso_yebi_모고01_03.md",
-      "pdfPath": "예비_민소/민소_예비_모고_01.pdf",
-      "points": null,
-      "userCase": null
-    },
-    {
-      "id": "2026_minso_yebi_mogo01_04",
-      "subject": "minso",
-      "subjectKor": "민소",
-      "category": "예비",
-      "file": "모고01",
-      "fileKor": "민소_예비_모고_01",
-      "case": "04",
-      "title": "2026_minso_yebi_모고01_04",
-      "path": "2026_예비_민소/2026_minso_yebi_모고01_04.md",
-      "pdfPath": "예비_민소/민소_예비_모고_01.pdf",
-      "points": null,
-      "userCase": null
-    },
-    {
       "id": "2026_minso_yebi_mogo02_01",
       "subject": "minso",
       "subjectKor": "민소",
@@ -1734,34 +1664,6 @@
       "path": "2026_예비_민소/2026_minso_yebi_모고02_02.md",
       "pdfPath": "예비_민소/민소_예비_모고_02.pdf",
       "points": 24,
-      "userCase": null
-    },
-    {
-      "id": "2026_minso_yebi_mogo02_03",
-      "subject": "minso",
-      "subjectKor": "민소",
-      "category": "예비",
-      "file": "모고02",
-      "fileKor": "민소_예비_모고_02",
-      "case": "03",
-      "title": "2026_minso_yebi_모고02_03",
-      "path": "2026_예비_민소/2026_minso_yebi_모고02_03.md",
-      "pdfPath": "예비_민소/민소_예비_모고_02.pdf",
-      "points": 12,
-      "userCase": null
-    },
-    {
-      "id": "2026_minso_yebi_mogo02_04",
-      "subject": "minso",
-      "subjectKor": "민소",
-      "category": "예비",
-      "file": "모고02",
-      "fileKor": "민소_예비_모고_02",
-      "case": "04",
-      "title": "2026_minso_yebi_모고02_04",
-      "path": "2026_예비_민소/2026_minso_yebi_모고02_04.md",
-      "pdfPath": "예비_민소/민소_예비_모고_02.pdf",
-      "points": 12,
       "userCase": null
     },
     {
