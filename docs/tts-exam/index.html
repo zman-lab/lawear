@@ -5259,38 +5259,45 @@
   }
 
   // 원본 섹션 .md 본문에서 사실관계 / 문제 추출 (Step 22 — 다중 설문 통합 강화)
-  // 지원 헤더 패턴:
+  // 지원 헤더 패턴 (### 마크다운 + [bracket] 대괄호 둘 다, lawear-2e42 2026-05-20 보강):
   //   ### 사실관계 / ### 공통된 사실관계 / ### 기본적 사실관계 / ### 변형된 사실관계
-  //   ### 문제 / ### 설문 N / ### 설문 N (점수) / ### 설문 N 가, ### 설문 N 나 ...
+  //   [사실관계] / [공통된 사실관계] / [기본적 사실관계] / [변형된 사실관계]
+  //   ### 문제 / [문제]
+  //   ### 설문 N / ### 설문 N (점수) / [설문 N] / [설문 (N)] / [설문 N 가] ...
   //
   // 다중 설문 케이스: 공통 사실관계 + 설문 1/2/N 본문을 한 케이스로 통합 (사용자 명시 2026-05-17).
-  // 답안 헤더(### 설문 N 답안)는 question 에서 제외.
+  // 답안 헤더(### 설문 N 답안 / [답안]) 는 question 에서 제외.
   function splitOriginFactsQuestion(originRaw) {
     if (!originRaw) return { facts: '', question: '' };
 
-    // 1) facts 추출: 우선 ### 사실관계 (단일) → 없으면 ### *사실관계* (공통된/기본적/변형된 등)
-    const factsRe = /###\s*(?:공통된\s*|기본적\s*|변형된\s*|기본\s*|공통\s*|변형\s*)?사실관계[^\n]*\n([\s\S]*?)(?=###\s|$)/;
+    // 1) facts 추출: ### 사실관계 또는 [사실관계] (단일/공통된/기본적/변형된 등)
+    //    헤더 prefix: '### ' 또는 '['
+    //    끝 경계: 다음 ### 헤더 또는 [bracket 헤더 (자체 정의된 패턴) 또는 EOF
+    const factsRe = /(?:###\s*|\[)(?:공통된\s*|기본적\s*|변형된\s*|기본\s*|공통\s*|변형\s*)?사실관계(?:\s*\([^)]*\))?\]?[^\n]*\n([\s\S]*?)(?=^###\s|^\[|$)/m;
     const factsMatch = originRaw.match(factsRe);
 
-    // 2) question 추출: ### 문제 단일 매칭
-    const singleQRe = /###\s*문제[^\n]*\n([\s\S]*?)(?=###\s|$)/;
+    // 2) question 추출: ### 문제 또는 [문제] 단일 매칭
+    const singleQRe = /(?:###\s*|\[)문제\]?[^\n]*\n([\s\S]*?)(?=^###\s|^\[|$)/m;
     const singleQMatch = originRaw.match(singleQRe);
 
-    // 3) 다중 설문 매칭 — "### 설문 N ..." 헤더 (단, "### 설문 N 답안" / "### 설문 N 가 답안" 류 제외)
+    // 3) 다중 설문 매칭 — "### 설문 N ..." 또는 "[설문 N]" / "[설문 (N)]" 헤더
+    //    (단, "### 설문 N 답안" / "[설문 N 답안]" / "[답안]" 류 제외)
     //    헤더 라인 자체는 출력에서 보존 (사용자가 점수 등 확인 가능)
     const multiInquiries = [];
-    const inquiryHeaderRe = /^###\s*설문\s*\S[^\n]*$/gm;  // "### 설문 1 (20점)" / "### 설문 1 가 (12점)"
+    // ### 패턴 + [bracket] 패턴 둘 다 매칭
+    const inquiryHeaderRe = /^(?:###\s*설문\s*\S[^\n]*|\[설문[^\]\n]*\][^\n]*)$/gm;
     let m;
     while ((m = inquiryHeaderRe.exec(originRaw)) !== null) {
       const header = m[0];
-      // 답안 헤더 스킵 — 마지막 단어가 '답안' 으로 끝나거나 ' 답안 ' 토큰 포함
-      if (/답안\s*$/.test(header) || /\s답안(\s|$)/.test(header)) continue;
-      // 본문: 헤더 뒤 ~ 다음 ### 헤더 또는 EOF
+      // 답안 헤더 스킵 — '답안' 토큰 포함
+      if (/답안/.test(header)) continue;
+      // 본문: 헤더 뒤 ~ 다음 ### 또는 [ 헤더 또는 EOF
       const bodyStart = m.index + m[0].length;
       const rest = originRaw.slice(bodyStart);
-      const nextHeader = rest.search(/^###\s/m);
-      const body = nextHeader === -1 ? rest : rest.slice(0, nextHeader);
-      // 헤더 라벨 ('### ' 제거 + 점수 괄호는 그대로 유지 → "설문 1 (20점)") + 본문
+      const nextHeaderRe = /^(?:###\s|\[)/m;
+      const nextMatch = rest.match(nextHeaderRe);
+      const body = nextMatch ? rest.slice(0, nextMatch.index) : rest;
+      // 헤더 라벨 ('### ' 제거 / '[]' 유지) + 본문
       const label = header.replace(/^###\s*/, '').trim();
       const text = body.trim();
       if (text) {
@@ -5300,7 +5307,6 @@
 
     let question = '';
     if (multiInquiries.length > 0) {
-      // 다중 설문 통합 — bold label + 본문, 빈줄로 구분 (사용자 명시: 한 케이스에 통합)
       question = multiInquiries
         .map((q) => `**${q.label}**\n\n${q.text}`)
         .join('\n\n');
