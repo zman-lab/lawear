@@ -29,7 +29,7 @@
     --hint-4: #ce9178;
     --hint-5: #d16969;
 
-    /* lawear-e571 (2026-05-19) — V2 10단계 grade 색상 + 60점 합격선 */
+    /* lawear-2e42 (2026-05-20) — V2 10단계 grade 색상 + 73점 합격선 (A-) */
     --grade-aplus:  #ffd700;  /* 골드 — 환상적 */
     --grade-a:      #4a9eff;  /* 진한 파랑 — 우수 */
     --grade-aminus: #5dd5e0;  /* 시안 — 실제 시험 만점급 */
@@ -949,7 +949,7 @@
   .score-card .grade.v2-cminus { color: var(--grade-cminus); }
   .score-card .grade.v2-f      { color: var(--grade-f); }
 
-  /* 합격선 배지 (60+ 시도 — "✓ 합격") */
+  /* 합격선 배지 (73+ 시도 — "✓ 합격", A-) */
   .pass-badge {
     display: inline-block;
     margin-left: 8px;
@@ -2126,7 +2126,7 @@
   .grade-pill.v2-cminus { color: var(--grade-cminus); border-color: var(--grade-cminus); background: rgba(239, 68, 68, 0.10); }
   .grade-pill.v2-f      { color: var(--grade-f);      border-color: var(--grade-f);      background: rgba(153, 27, 27, 0.10); }
 
-  /* 차트 합격선 라인 + 라벨 (60점) */
+  /* 차트 합격선 라인 + 라벨 (73점 A-) */
   .trend-pass-line {
     stroke: var(--accent-pass);
     stroke-width: 1.2;
@@ -3020,15 +3020,16 @@
       // evaluation
       status_evaluated: 'Evaluated', eval_submitted_at: 'Submitted at',
       final_score: 'Final Score', grade_b: 'Grade B',
-      crit_mnem: 'Lv.4 Mnemonics', crit_color: 'Color Emphasis', crit_under: 'Underline Coverage',
-      crit_outline: 'Lv.1 Outline Match', crit_outline_sub: 'outline meaning',
-      crit_sem: 'Semantic Match', crit_sem_sub: 'tag meaning',
-      crit_rich: 'Richness', crit_rich_sub: 'vs origin (depth)',
-      crit_miss: 'Missing Arguments', crit_miss_sub: 'vs reference',
-      // Step 20 v4 (2026-05-16): articles 신설 — 원본 조문 매칭
-      crit_articles: 'Article Match', crit_articles_sub: 'origin articles',
-      // Step 21 v5 (2026-05-17): case_apply 신설 — 사안의 경우 (정확 매칭 X, 논거 적용 정도)
-      crit_case_apply: 'Case Application', crit_case_apply_sub: 'legal reasoning',
+      // lawear-2e42 (2026-05-20) — 9기준 → 7묶음 자연어 라벨 (스텔스/영문 모드)
+      crit_mnem: 'Mnemonic match', crit_mnem_sub: 'Group 1/7',
+      crit_color: 'Highlight match', crit_color_sub: 'Group 2/7 (Highlight & Underline)',
+      crit_under: 'Underline match', crit_under_sub: 'Group 2/7 (Highlight & Underline)',
+      crit_outline: 'Outline match', crit_outline_sub: 'Group 3/7',
+      crit_sem: 'Semantic match', crit_sem_sub: 'Group 4/7 (Semantic & Articles)',
+      crit_rich: 'Richness', crit_rich_sub: 'Group 5/7',
+      crit_miss: 'Missing key points', crit_miss_sub: 'Group 6/7',
+      crit_articles: 'Articles cited', crit_articles_sub: 'Group 4/7 (Semantic & Articles)',
+      crit_case_apply: 'Case application', crit_case_apply_sub: 'Group 7/7',
       fb_strength: 'Strength', fb_caution: 'Caution', fb_missing: 'Missing',
       // Phase 3 — v6 채점 풍부 표시
       rich_legacy_note: 'Detailed feedback not stored — newer gradings will show full breakdown.',
@@ -3248,9 +3249,9 @@
       trend_tooltip_time_fmt: ', {min}m',
       trend_axis_attempt: 'Attempt',
       trend_axis_min_fmt: '{n}m',
-      // lawear-e571 (2026-05-19) — 60점 합격선 시각화
+      // lawear-2e42 (2026-05-20) — 73점 합격선 (A-) 시각화
       pass_badge: '✓ Pass',
-      pass_line_label: 'Pass (60)',
+      pass_line_label: 'Pass (73)',
     },
     ko: {
       mock_label: '시안',
@@ -3274,15 +3275,16 @@
       btn_voice: '음성 입력', btn_save_draft: '임시 저장', btn_submit: '평가 제출',
       status_evaluated: '평가완료', eval_submitted_at: '제출 시각',
       final_score: '최종 점수', grade_b: '등급 B',
-      crit_mnem: 'Lv.4 두문자', crit_color: '색 강조', crit_under: '밑줄',
-      crit_outline: 'Lv.1 목차', crit_outline_sub: '목차 의미',
-      crit_sem: '의미 일치', crit_sem_sub: '태그 의미',
-      crit_rich: '풍부함', crit_rich_sub: '원본 대비',
-      crit_miss: '누락 논점', crit_miss_sub: '레퍼런스 대비',
-      // Step 20 v4 (2026-05-16): articles 신설 — 원본 조문 매칭
-      crit_articles: '조문 매칭', crit_articles_sub: '원본 조문',
-      // Step 21 v5 (2026-05-17): case_apply 신설 — 사안의 경우 (정확 매칭 X, 논거 적용 정도)
-      crit_case_apply: '사안의 경우', crit_case_apply_sub: '법리 적용',
+      // lawear-2e42 (2026-05-20) — 9기준 → 7묶음 자연어 라벨
+      crit_mnem: '두문자 풀이형 매칭', crit_mnem_sub: '묶음 1/7',
+      crit_color: '강조 키워드 매칭', crit_color_sub: '묶음 2/7 (강조+밑줄)',
+      crit_under: '밑줄 키워드 매칭', crit_under_sub: '묶음 2/7 (강조+밑줄)',
+      crit_outline: '답안 목차 일치', crit_outline_sub: '묶음 3/7',
+      crit_sem: '의미 일치', crit_sem_sub: '묶음 4/7 (의미+조문)',
+      crit_rich: '답안 풍부함', crit_rich_sub: '묶음 5/7',
+      crit_miss: '핵심 누락', crit_miss_sub: '묶음 6/7',
+      crit_articles: '조문 명시', crit_articles_sub: '묶음 4/7 (의미+조문)',
+      crit_case_apply: '사안의 경우 적용', crit_case_apply_sub: '묶음 7/7',
       fb_strength: '강점', fb_caution: '주의', fb_missing: '누락',
       // Phase 3 — v6 채점 풍부 표시
       rich_legacy_note: '평가 본문 미저장 — 향후 새 채점부터 풍부한 평가가 표시됩니다.',
@@ -3500,9 +3502,9 @@
       trend_tooltip_time_fmt: ', {min}분',
       trend_axis_attempt: '시도',
       trend_axis_min_fmt: '{n}분',
-      // lawear-e571 (2026-05-19) — 60점 합격선 시각화
+      // lawear-2e42 (2026-05-20) — 73점 합격선 (A-) 시각화
       pass_badge: '✓ 합격',
-      pass_line_label: '합격선 (60)',
+      pass_line_label: '합격선 (73)',
     },
   };
 
@@ -7186,8 +7188,8 @@
     return 'var(--text)';
   }
 
-  // 합격선 (60+) 시각화 헬퍼 — lawear-e571 (2026-05-19)
-  const PASS_LINE_PCT = 60.0;
+  // 합격선 (73+ A-) 시각화 헬퍼 — lawear-2e42 (2026-05-20, 사용자 결정 60→73 상향)
+  const PASS_LINE_PCT = 73.0;
   function isPass(scorePct) {
     if (scorePct == null || isNaN(scorePct)) return false;
     return Number(scorePct) >= PASS_LINE_PCT;
@@ -7203,13 +7205,13 @@
     };
     return map[grade] || '';
   }
-  // 합격 배지 HTML (60+) — i18n 라벨 단순화
+  // 합격 배지 HTML (73+ A-) — i18n 라벨 단순화
   function passBadgeHtml(scorePct, opts) {
     if (!isPass(scorePct)) return '';
     const small = opts && opts.small;
     const labelDict = (I18N && I18N[currentLang]) || {};
     const label = labelDict.pass_badge || '✓ 합격';
-    return `<span class="pass-badge${small ? ' small' : ''}" title="60+ 합격선">${escapeHtml(label)}</span>`;
+    return `<span class="pass-badge${small ? ' small' : ''}" title="73+ 합격선 (A-)">${escapeHtml(label)}</span>`;
   }
   function pctColor(pct) {
     if (pct == null || isNaN(pct)) return 'var(--text-dim)';
