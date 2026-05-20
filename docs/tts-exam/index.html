@@ -189,7 +189,7 @@
     text-transform: uppercase;
     letter-spacing: 0.5px;
   }
-  /* Step 15-1 — 4 레벨 트리 (과목 > 카테고리 > 파일 > 케이스) */
+  /* Step 15-1 — 5 레벨 트리 (lawear-2e42: 연도 > 과목 > 카테고리 > 파일 > 케이스) */
   .tree-node { user-select: none; }
   .tree-header {
     display: flex;
@@ -213,14 +213,15 @@
   .tree-node.collapsed > .tree-body { display: none; }
   .tree-header .tree-label { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .tree-header .tree-count { color: var(--text-dim); font-size: 10px; font-family: 'SF Mono', Consolas, monospace; }
-  /* 레벨별 들여쓰기 + 폰트 사이즈 */
-  .tree-l1 > .tree-header { font-size: 12px; font-weight: 600; color: var(--text-bright); padding-left: 10px; }
-  .tree-l2 > .tree-header { font-size: 11px; color: var(--text); padding-left: 22px; }
-  .tree-l3 > .tree-header { font-size: 11px; color: var(--text-dim); padding-left: 34px; }
+  /* 레벨별 들여쓰기 + 폰트 사이즈 (lawear-2e42: l0 추가 — 연도) */
+  .tree-l0 > .tree-header { font-size: 12px; font-weight: 700; color: var(--text-bright); padding-left: 6px; letter-spacing: 0.3px; }
+  .tree-l1 > .tree-header { font-size: 12px; font-weight: 600; color: var(--text-bright); padding-left: 18px; }
+  .tree-l2 > .tree-header { font-size: 11px; color: var(--text); padding-left: 30px; }
+  .tree-l3 > .tree-header { font-size: 11px; color: var(--text-dim); padding-left: 42px; }
   .tree-l3 > .tree-header:hover { color: var(--text); }
-  .tree-l1 > .tree-body { /* 자체 패딩 X — children 가 자기 padding 결정 */ }
+  .tree-l0 > .tree-body, .tree-l1 > .tree-body { /* 자체 패딩 X — children 가 자기 padding 결정 */ }
   /* 케이스 항목 (트리 l4) 들여쓰기 보강 */
-  .tree-l3 .case-item { padding-left: 46px; }
+  .tree-l3 .case-item { padding-left: 54px; }
   .case-item {
     padding: 6px 12px 6px 12px;
     border-left: 2px solid transparent;
@@ -2362,6 +2363,7 @@
           <div class="case-status" data-i18n="status_in_review">In Review</div>
           <div class="case-subject" id="rv-subject">—</div>
           <div class="breadcrumb" id="rv-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
+          <button class="btn btn-copy-path" id="rv-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; margin-left: 8px;">📋</button>
         </div>
 
         <div class="section" data-collapsible>
@@ -2460,6 +2462,8 @@
           <div class="case-id-large" id="ev-case-id">—</div>
           <div class="case-status" id="ev-status" data-i18n="status_in_review">In Review</div>
           <div class="case-subject" id="ev-subject">—</div>
+          <div class="breadcrumb" id="ev-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
+          <button class="btn btn-copy-path" id="ev-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; margin-left: 8px;">📋</button>
         </div>
 
         <div id="ev-empty" class="section-body" style="padding: 20px; color: var(--text-dim);">
@@ -3010,6 +3014,11 @@
       // review header
       status_in_review: 'In Review', subject_civil_intro: 'Civil Law · Intro',
       bc_cases: 'Cases', bc_civil: 'Civil Law', bc_intro: 'Intro',
+      // lawear-2e42 (2026-05-20) — breadcrumb year + copy button
+      bc_year: '2026',
+      btn_copy_path: 'Copy path',
+      toast_path_copied: 'Path copied',
+      toast_path_copy_failed: 'Copy failed',
       // sections
       sec_background: 'Background', sec_inquiry: 'Inquiry', sec_notes: 'Reviewer Notes',
       sec_eval_notes: 'Evaluation Notes', sec_diff: 'Reference Diff',
@@ -3267,6 +3276,11 @@
       pill_pt: '점', pill_err: '오류 ', pill_d: '일',
       status_in_review: '검토중', subject_civil_intro: '민법 · 입문',
       bc_cases: '케이스', bc_civil: '민법', bc_intro: '입문',
+      // lawear-2e42 (2026-05-20) — breadcrumb year + copy button
+      bc_year: '2026',
+      btn_copy_path: '경로 복사',
+      toast_path_copied: '경로 복사됨',
+      toast_path_copy_failed: '복사 실패',
       sec_background: '사실관계', sec_inquiry: '문제', sec_notes: '검토 의견',
       sec_eval_notes: '평가 메모', sec_diff: '레퍼런스 비교',
       badge_readonly: '읽기전용', badge_required: '필수', badge_vs_lv1: 'Lv.1 대비',
@@ -3527,6 +3541,11 @@
       const k = el.dataset.i18nTitle;
       if (dict[k] !== undefined) el.title = dict[k];
     });
+    // lawear-2e42 (2026-05-20) — data-i18n-aria 속성 → aria-label
+    document.querySelectorAll('[data-i18n-aria]').forEach(el => {
+      const k = el.dataset.i18nAria;
+      if (dict[k] !== undefined) el.setAttribute('aria-label', dict[k]);
+    });
     // Formatted pills (pill_pt, pill_err, pill_d, etc.) — replace the suffix/prefix only
     document.querySelectorAll('[data-i18n-fmt]').forEach(el => {
       const k = el.dataset.i18nFmt;
@@ -3636,6 +3655,41 @@
 
   // ─── stealth toggle (Z 단축키 + 클릭) ──────────
   document.getElementById('stealth-btn').addEventListener('click', toggleStealth);
+
+  // ─── lawear-2e42 (2026-05-20) — breadcrumb 경로 복사 버튼 ──────────
+  function bindCopyPathButton(btnId, bcId) {
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const bc = document.getElementById(bcId);
+      const text = bc ? (bc.textContent || '').trim().replace(/\s+/g, ' ') : '';
+      if (!text) {
+        showToast(I18N[currentLang].toast_path_copy_failed || 'Copy failed', 'error');
+        return;
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+          .then(() => showToast(I18N[currentLang].toast_path_copied || 'Path copied', 'success'))
+          .catch(() => showToast(I18N[currentLang].toast_path_copy_failed || 'Copy failed', 'error'));
+      } else {
+        // fallback: textarea + execCommand
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = text;
+          ta.style.position = 'fixed'; ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          showToast(I18N[currentLang].toast_path_copied || 'Path copied', 'success');
+        } catch (e) {
+          showToast(I18N[currentLang].toast_path_copy_failed || 'Copy failed', 'error');
+        }
+      }
+    });
+  }
+  bindCopyPathButton('rv-copy-path', 'rv-breadcrumb');
+  bindCopyPathButton('ev-copy-path', 'ev-breadcrumb');
 
   // ─── 필터 (개별 클릭) ───────────────────────────
   document.querySelectorAll('.filter-row button').forEach(b => {
@@ -4964,16 +5018,23 @@
       root.innerHTML = `<div class="case-group-label" style="padding: 12px;">${I18N[currentLang].empty_cases}</div>`;
       return;
     }
-    // 4 레벨 구조: subject_kor > category > file > case
-    //   tree = { subjectKor: { _meta:{subject}, categories: { category: { files: { file: [cases...] } } } } }
+    // lawear-2e42 (2026-05-20): library entry skip (Q2 — cases 등재되나 UI 트리 X)
+    const isLibraryCase = c => c.subject === 'index' || c.subject === 'pdf_raw' || c.category === '라이브러리';
+
+    // 5 레벨 구조: year > subject_kor > category > file > case (lawear-2e42: year level 추가)
+    //   tree = { year: { subjects: Map(subjectKor → { subject, categories: Map(cat → { files: Map(fileKey → {label, items}) }) }) } }
     const tree = new Map();
     for (const c of filtered) {
+      if (isLibraryCase(c)) continue;
+      const year = c.year || '—';
       const sk = c.subject_kor || c.subject || '—';
       const cat = c.category || '—';
       const fk = c.file_kor || c.file || '—';
       const fileKey = c.file || fk;
-      if (!tree.has(sk)) tree.set(sk, { subject: c.subject || sk, categories: new Map() });
-      const subjNode = tree.get(sk);
+      if (!tree.has(year)) tree.set(year, { subjects: new Map() });
+      const yearNode = tree.get(year);
+      if (!yearNode.subjects.has(sk)) yearNode.subjects.set(sk, { subject: c.subject || sk, categories: new Map() });
+      const subjNode = yearNode.subjects.get(sk);
       if (!subjNode.categories.has(cat)) subjNode.categories.set(cat, { files: new Map() });
       const catNode = subjNode.categories.get(cat);
       if (!catNode.files.has(fileKey)) catNode.files.set(fileKey, { label: fk, items: [] });
@@ -4982,75 +5043,94 @@
 
     const state = loadTreeState();
     let html = '';
-    // L1: 과목
-    for (const [sk, subjNode] of tree.entries()) {
-      const l1Key = treeNodeKey('s', sk);
+    // 연도 정렬: 내림차순 (b.localeCompare(a)) — 최신 연도 위
+    const sortedYears = Array.from(tree.entries()).sort((a, b) => (b[0] || '').localeCompare(a[0] || ''));
+    // L0: 연도 (lawear-2e42)
+    for (const [year, yearNode] of sortedYears) {
+      const l0Key = treeNodeKey('y', year);
       // 디폴트: 펼침. 사용자가 접었으면 collapsed. 검색 중이면 강제 펼침.
-      const l1Collapsed = !searching && state[l1Key] === false;
-      const l1TotalCases = Array.from(subjNode.categories.values())
-        .reduce((sum, cat) => sum + Array.from(cat.files.values())
-          .reduce((s2, f) => s2 + f.items.length, 0), 0);
-      html += `<div class="tree-node tree-l1${l1Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeHtml(l1Key)}">`;
-      html += `<div class="tree-header" data-tree-toggle="${escapeHtml(l1Key)}">`;
-      html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(sk)}</span>`;
-      html += `<span class="tree-count">${l1TotalCases}</span></div>`;
+      const l0Collapsed = !searching && state[l0Key] === false;
+      const l0TotalCases = Array.from(yearNode.subjects.values())
+        .reduce((sum, subj) => sum + Array.from(subj.categories.values())
+          .reduce((s2, cat) => s2 + Array.from(cat.files.values())
+            .reduce((s3, f) => s3 + f.items.length, 0), 0), 0);
+      html += `<div class="tree-node tree-l0${l0Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeHtml(l0Key)}">`;
+      html += `<div class="tree-header" data-tree-toggle="${escapeHtml(l0Key)}">`;
+      html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(year)}</span>`;
+      html += `<span class="tree-count">${l0TotalCases}</span></div>`;
       html += `<div class="tree-body">`;
 
-      // categories 정렬 (CATEGORY_ORDER 우선)
-      const sortedCats = Array.from(subjNode.categories.entries())
-        .sort((a, b) => categoryRank(a[0]) - categoryRank(b[0]));
-      // L2: 카테고리
-      for (const [cat, catNode] of sortedCats) {
-        const l2Key = treeNodeKey('c', sk, cat);
-        const l2Collapsed = !searching && state[l2Key] === false;
-        const l2TotalCases = Array.from(catNode.files.values()).reduce((s2, f) => s2 + f.items.length, 0);
-        html += `<div class="tree-node tree-l2${l2Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeHtml(l2Key)}">`;
-        html += `<div class="tree-header" data-tree-toggle="${escapeHtml(l2Key)}">`;
-        html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(cat)}</span>`;
-        html += `<span class="tree-count">${l2TotalCases}</span></div>`;
+      // L1: 과목
+      for (const [sk, subjNode] of yearNode.subjects.entries()) {
+        const l1Key = treeNodeKey('s', year, sk);
+        // 디폴트: 펼침. 사용자가 접었으면 collapsed. 검색 중이면 강제 펼침.
+        const l1Collapsed = !searching && state[l1Key] === false;
+        const l1TotalCases = Array.from(subjNode.categories.values())
+          .reduce((sum, cat) => sum + Array.from(cat.files.values())
+            .reduce((s2, f) => s2 + f.items.length, 0), 0);
+        html += `<div class="tree-node tree-l1${l1Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeHtml(l1Key)}">`;
+        html += `<div class="tree-header" data-tree-toggle="${escapeHtml(l1Key)}">`;
+        html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(sk)}</span>`;
+        html += `<span class="tree-count">${l1TotalCases}</span></div>`;
         html += `<div class="tree-body">`;
 
-        // files 정렬 (file 코드 asc)
-        const sortedFiles = Array.from(catNode.files.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-        // L3: 파일
-        for (const [fileKey, fileNode] of sortedFiles) {
-          const l3Key = treeNodeKey('f', sk, cat, fileKey);
-          // L3 디폴트는 접힘 (시안 요구). 검색 또는 사용자 펼침 시 펼침.
-          const l3Collapsed = !searching && state[l3Key] !== true;
-          html += `<div class="tree-node tree-l3${l3Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeHtml(l3Key)}">`;
-          html += `<div class="tree-header" data-tree-toggle="${escapeHtml(l3Key)}">`;
-          html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(fileNode.label)}</span>`;
-          html += `<span class="tree-count">${fileNode.items.length}</span></div>`;
+        // categories 정렬 (CATEGORY_ORDER 우선)
+        const sortedCats = Array.from(subjNode.categories.entries())
+          .sort((a, b) => categoryRank(a[0]) - categoryRank(b[0]));
+        // L2: 카테고리
+        for (const [cat, catNode] of sortedCats) {
+          const l2Key = treeNodeKey('c', year, sk, cat);
+          const l2Collapsed = !searching && state[l2Key] === false;
+          const l2TotalCases = Array.from(catNode.files.values()).reduce((s2, f) => s2 + f.items.length, 0);
+          html += `<div class="tree-node tree-l2${l2Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeHtml(l2Key)}">`;
+          html += `<div class="tree-header" data-tree-toggle="${escapeHtml(l2Key)}">`;
+          html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(cat)}</span>`;
+          html += `<span class="tree-count">${l2TotalCases}</span></div>`;
           html += `<div class="tree-body">`;
 
-          // L4: 케이스 (case_no asc)
-          const items = fileNode.items.slice().sort((a, b) => (a.case_no || '').localeCompare(b.case_no || ''));
-          for (const c of items) {
-            const shortId = `${c.file}-${c.case_no}`;
-            const pills = [];
-            pills.push(`<span class="pill"><span data-i18n-fmt="pill_pt">${c.points} pt</span></span>`);
-            if (c.has_error) pills.push(`<span class="pill warn"><span data-i18n-fmt="pill_err">err ${c.attempt_count || ''}</span></span>`);
-            if (c.has_stale) pills.push(`<span class="pill stale"><span data-i18n-fmt="pill_d">stale</span></span>`);
-            const starCls = c.bookmarked ? 'pill bookmark-star bookmarked' : 'pill bookmark-star';
-            const starTitle = c.bookmarked ? 'Remove bookmark' : 'Add bookmark';
-            pills.push(`<span class="${starCls}" data-bookmark-toggle="${escapeHtml(c.id)}" title="${starTitle}" style="cursor:pointer;user-select:none;">★</span>`);
-            const active = c.id === CURRENT_CASE_ID ? ' active' : '';
-            // sidebar-count: 시험 횟수 (n) 표시 (n>0만, 0은 미표시 — UI 클린)
-            const attemptN = parseInt(c.attempt_count || 0, 10) || 0;
-            const attemptsBadge = attemptN > 0
-              ? ` <span class="attempts-count" title="${attemptN} attempts">(${attemptN})</span>`
-              : '';
-            html += `<div class="case-item${active}" data-case-id="${escapeHtml(c.id)}">
-              <div class="case-id">${escapeHtml(shortId)}</div>
-              <div class="case-title">${escapeHtml(c.title || '')}${attemptsBadge}</div>
-              <div class="case-meta">${pills.join('')}</div>
-            </div>`;
+          // files 정렬 (file 코드 asc)
+          const sortedFiles = Array.from(catNode.files.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+          // L3: 파일
+          for (const [fileKey, fileNode] of sortedFiles) {
+            const l3Key = treeNodeKey('f', year, sk, cat, fileKey);
+            // L3 디폴트는 접힘 (시안 요구). 검색 또는 사용자 펼침 시 펼침.
+            const l3Collapsed = !searching && state[l3Key] !== true;
+            html += `<div class="tree-node tree-l3${l3Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeHtml(l3Key)}">`;
+            html += `<div class="tree-header" data-tree-toggle="${escapeHtml(l3Key)}">`;
+            html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(fileNode.label)}</span>`;
+            html += `<span class="tree-count">${fileNode.items.length}</span></div>`;
+            html += `<div class="tree-body">`;
+
+            // L4: 케이스 (case_no asc)
+            const items = fileNode.items.slice().sort((a, b) => (a.case_no || '').localeCompare(b.case_no || ''));
+            for (const c of items) {
+              const shortId = `${c.file}-${c.case_no}`;
+              const pills = [];
+              pills.push(`<span class="pill"><span data-i18n-fmt="pill_pt">${c.points} pt</span></span>`);
+              if (c.has_error) pills.push(`<span class="pill warn"><span data-i18n-fmt="pill_err">err ${c.attempt_count || ''}</span></span>`);
+              if (c.has_stale) pills.push(`<span class="pill stale"><span data-i18n-fmt="pill_d">stale</span></span>`);
+              const starCls = c.bookmarked ? 'pill bookmark-star bookmarked' : 'pill bookmark-star';
+              const starTitle = c.bookmarked ? 'Remove bookmark' : 'Add bookmark';
+              pills.push(`<span class="${starCls}" data-bookmark-toggle="${escapeHtml(c.id)}" title="${starTitle}" style="cursor:pointer;user-select:none;">★</span>`);
+              const active = c.id === CURRENT_CASE_ID ? ' active' : '';
+              // sidebar-count: 시험 횟수 (n) 표시 (n>0만, 0은 미표시 — UI 클린)
+              const attemptN = parseInt(c.attempt_count || 0, 10) || 0;
+              const attemptsBadge = attemptN > 0
+                ? ` <span class="attempts-count" title="${attemptN} attempts">(${attemptN})</span>`
+                : '';
+              html += `<div class="case-item${active}" data-case-id="${escapeHtml(c.id)}">
+                <div class="case-id">${escapeHtml(shortId)}</div>
+                <div class="case-title">${escapeHtml(c.title || '')}${attemptsBadge}</div>
+                <div class="case-meta">${pills.join('')}</div>
+              </div>`;
+            }
+            html += `</div></div>`;  // /tree-l3
           }
-          html += `</div></div>`;  // /tree-l3
+          html += `</div></div>`;  // /tree-l2
         }
-        html += `</div></div>`;  // /tree-l2
+        html += `</div></div>`;  // /tree-l1
       }
-      html += `</div></div>`;  // /tree-l1
+      html += `</div></div>`;  // /tree-l0
     }
     root.innerHTML = html;
 
@@ -5130,7 +5210,9 @@
       if (idEl) idEl.textContent = shortId;
       if (subjEl) subjEl.textContent = `${c.subject_kor} · ${c.category} · ${c.title} · ${c.points} pt`;
       if (bcEl) {
-        bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> ${escapeHtml(c.subject_kor)} <a href="#">/</a> ${escapeHtml(c.category)} <a href="#">/</a> ${escapeHtml(c.file)} <a href="#">/</a> ${escapeHtml(c.case_no)}`;
+        // lawear-2e42 (2026-05-20): year segment 추가 (5단 breadcrumb)
+        const yearSeg = c.year ? `${escapeHtml(c.year)} <a href="#">/</a> ` : '';
+        bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> ${yearSeg}${escapeHtml(c.subject_kor)} <a href="#">/</a> ${escapeHtml(c.category)} <a href="#">/</a> ${escapeHtml(c.file)} <a href="#">/</a> ${escapeHtml(c.case_no)}`;
       }
       if (ptsEl) ptsEl.textContent = `${c.points} pt`;
       // Background / Inquiry: 원본 섹션을 사실관계 / 문제 로 split (Step 22 — 다중 설문 통합)
@@ -6268,8 +6350,10 @@
     const idEl = document.getElementById('ev-case-id');
     const sjEl = document.getElementById('ev-subject');
     const stEl = document.getElementById('ev-status');
+    const bcEl = document.getElementById('ev-breadcrumb');
     if (idEl) idEl.textContent = '—';
     if (sjEl) sjEl.textContent = '—';
+    if (bcEl) bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> —`;
     if (stEl) {
       stEl.textContent = I18N[currentLang].status_in_review || 'In Review';
       stEl.style.color = '';
@@ -6297,8 +6381,22 @@
     const idEl = document.getElementById('ev-case-id');
     const sjEl = document.getElementById('ev-subject');
     const stEl = document.getElementById('ev-status');
+    const bcEl = document.getElementById('ev-breadcrumb');
     if (idEl) idEl.textContent = caseShortId || '—';
     if (sjEl) sjEl.textContent = caseSubjectLine || '—';
+    // lawear-2e42 (2026-05-20) — ev tab breadcrumb 5단 (CURRENT_CASE_DATA 또는 case_id 파싱 fallback)
+    if (bcEl) {
+      const c = (typeof CURRENT_CASE_DATA !== 'undefined' && CURRENT_CASE_DATA) ? CURRENT_CASE_DATA : null;
+      if (c && (c.case_short_id === caseShortId || (`${c.file}-${c.case_no}`) === caseShortId)) {
+        const yearSeg = c.year ? `${escapeHtml(c.year)} <a href="#">/</a> ` : '';
+        bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> ${yearSeg}${escapeHtml(c.subject_kor || '—')} <a href="#">/</a> ${escapeHtml(c.category || '—')} <a href="#">/</a> ${escapeHtml(c.file || '—')} <a href="#">/</a> ${escapeHtml(c.case_no || '—')}`;
+      } else if (caseShortId && caseShortId !== '—') {
+        // fallback: case_short_id 만 표시 (CURRENT_CASE_DATA 미매칭 시)
+        bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> ${escapeHtml(caseShortId)}`;
+      } else {
+        bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> —`;
+      }
+    }
     if (stEl) {
       const label = (I18N[currentLang] && I18N[currentLang][statusKey]) || statusKey;
       stEl.textContent = label;
