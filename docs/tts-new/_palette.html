@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>강조 시스템 — 여분 컬러 풀 확장</title>
+<style>
+  :root {
+    --bg: #1e1e1e;
+    --panel: #252526;
+    --panel-2: #2d2d30;
+    --border: #3e3e42;
+    --text: #cccccc;
+    --text-dim: #858585;
+    --text-bright: #e8e8e8;
+  }
+  body { font-family: -apple-system, "Noto Sans KR", "Pretendard", sans-serif; padding: 24px; background: var(--bg); color: var(--text); line-height: 1.8; font-size: 14px; }
+  h1 { margin: 0 0 8px; font-size: 22px; color: var(--text-bright); }
+  .lead { color: var(--text-dim); margin-bottom: 24px; font-size: 13px; }
+  .section { background: var(--panel); border: 1px solid var(--border); border-radius: 8px; padding: 20px 24px; margin-bottom: 24px; }
+  .section h2 { margin: 0 0 6px; font-size: 18px; color: #ff6b6b; }
+  .section .desc { color: var(--text-dim); font-size: 13px; margin-bottom: 16px; }
+  .section h3 { font-size: 14px; margin: 16px 0 8px; color: var(--text-bright); border-bottom: 1px dashed var(--border); padding-bottom: 4px; }
+  .section p { margin: 6px 0; }
+  .section code { background: var(--panel-2); padding: 1px 5px; border-radius: 3px; font-size: 12.5px; color: #d4d4d4; }
+  table { border-collapse: collapse; margin: 10px 0; font-size: 14px; width: 100%; }
+  table th, table td { border: 1px solid var(--border); padding: 6px 12px; text-align: left; vertical-align: middle; }
+  table th { background: var(--panel-2); font-weight: 600; color: var(--text-bright); font-size: 12.5px; }
+  .light-box { background: #f5f5f5; color: #1a1a1a; padding: 16px; border-radius: 6px; margin: 8px 0; }
+  .light-box code { background: #e8e8e8; color: #1a1a1a; }
+  .light-box h4 { margin: 0 0 8px; color: #444; font-size: 13px; }
+
+  /* ==================== em 시스템 (변경 없음) ==================== */
+  .em1, .em2, .em3, .em4 { display: inline-block; padding: 1px 6px; margin: 0 1px; border-radius: 3px; font-weight: 700; color: #fff; font-size: 14px; }
+  .em1 { background: #c92a2a; }
+  .em2 { background: #f59f00; }
+  .em3 { background: #1971c2; }
+  .em4 { background: #6741d9; }
+
+  /* ==================== 폰트 5종 (의미별, 변경 없음) ==================== */
+  .con    { color: #ff6b6b; font-weight: 700; }
+  .fact   { color: #ff922b; font-weight: 700; }
+  .case   { color: #51cf66; font-weight: 700; }
+  .bridge { color: #339af0; font-weight: 700; }
+  .key    { color: #9775fa; font-weight: 700; }
+
+  .light-box .con    { color: #c92a2a; }
+  .light-box .fact   { color: #e8590c; }
+  .light-box .case   { color: #2b8a3e; }
+  .light-box .bridge { color: #1971c2; }
+  .light-box .key    { color: #6741d9; }
+
+  /* ==================== 여분 컬러 풀 — 다크 친화 12종 ==================== */
+  /* 따뜻한 계열 */
+  .x01 { color: #ff8787; font-weight: 700; }   /* 살구/연어 */
+  .x02 { color: #ff7e5f; font-weight: 700; }   /* 산호 */
+  .x03 { color: #ffe066; font-weight: 700; }   /* 옅노랑 */
+  .x04 { color: #ffd43b; font-weight: 700; }   /* 황금 */
+  .x05 { color: #fab005; font-weight: 700; }   /* 황토 */
+  /* 자연 계열 */
+  .x06 { color: #94d82d; font-weight: 700; }   /* 라임 */
+  .x07 { color: #38d9a9; font-weight: 700; }   /* 민트 */
+  .x08 { color: #20c997; font-weight: 700; }   /* 청록 (틸) */
+  .x09 { color: #22b8cf; font-weight: 700; }   /* 시안 */
+  /* 차가운 계열 */
+  .x10 { color: #748ffc; font-weight: 700; }   /* 남색 (라벤더 블루) */
+  .x11 { color: #5c7cfa; font-weight: 700; }   /* 진남 */
+  .x12 { color: #b197fc; font-weight: 700; }   /* 라벤더 */
+  /* 핑크 계열 */
+  .x13 { color: #f783ac; font-weight: 700; }   /* 핑크 */
+  .x14 { color: #ff6b9d; font-weight: 700; }   /* 진핑크 (로즈) */
+  .x15 { color: #e599f7; font-weight: 700; }   /* 연자주 */
+  /* 중성 */
+  .x16 { color: #adb5bd; font-weight: 700; }   /* 회색 */
+  .x17 { color: #ddc9a3; font-weight: 700; }   /* 베이지 */
+  .x18 { color: #ffa94d; font-weight: 700; }   /* 살구주황 */
+
+  /* 라이트 비교용 진한 톤 */
+  .light-box .x01 { color: #fa5252; }
+  .light-box .x02 { color: #e8590c; }
+  .light-box .x03 { color: #fab005; }
+  .light-box .x04 { color: #f59f00; }
+  .light-box .x05 { color: #c97e00; }
+  .light-box .x06 { color: #66a80f; }
+  .light-box .x07 { color: #099268; }
+  .light-box .x08 { color: #0ca678; }
+  .light-box .x09 { color: #1098ad; }
+  .light-box .x10 { color: #364fc7; }
+  .light-box .x11 { color: #3b5bdb; }
+  .light-box .x12 { color: #7048e8; }
+  .light-box .x13 { color: #e64980; }
+  .light-box .x14 { color: #c2255c; }
+  .light-box .x15 { color: #ae3ec9; }
+  .light-box .x16 { color: #495057; }
+  .light-box .x17 { color: #845ef7; } /* 라이트에서 베이지 너무 흐려서 다른 색 */
+  .light-box .x18 { color: #d9480f; }
+
+  .u    { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px; }
+  .bold { font-weight: 800; }
+
+  hr { border: none; border-top: 2px dashed var(--border); margin: 30px 0; }
+
+  /* 갤러리 그리드 */
+  .gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 12px; }
+  .swatch-card { background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; font-size: 13px; }
+  .swatch-card .num { font-size: 11px; color: var(--text-dim); margin-bottom: 2px; }
+  .swatch-card .name { font-weight: 700; font-size: 14px; margin-bottom: 2px; }
+  .swatch-card .hex { font-family: 'SF Mono', Consolas, monospace; font-size: 11px; color: var(--text-dim); }
+  .swatch-card .sample { margin-top: 6px; font-size: 14px; line-height: 1.5; }
+</style>
+</head>
+<body>
+
+<h1>여분 컬러 풀 — 18종 확장 (DARK + LIGHT 비교)</h1>
+<p class="lead">여분 컬러 후보 18색 (따뜻 5 + 자연 4 + 차가운 3 + 핑크 3 + 중성 3). 마음에 드는 4~6개 골라주시면 그 색으로 free1~free6 슬롯 할당.</p>
+
+<!-- ============== em + 폰트 5종 (요약, 결정된 것) ============== -->
+<div class="section">
+  <h2>참조 — 결정된 강조 (em + 의미 5종)</h2>
+  <p class="desc">이미 결정된 부분 — 비교 참고용.</p>
+
+  <table>
+    <tr><th>분류</th><th>태그</th><th>색</th><th>예시</th></tr>
+    <tr><td>em1 (L1 두문자)</td><td><code>[em1]</code></td><td>빨 배경 / 흰</td><td><span class="em1">동</span>·<span class="em1">공</span></td></tr>
+    <tr><td>em2 (L2 풀이)</td><td><code>[em2]</code></td><td>노 배경 / 흰</td><td><span class="em2">동</span>종 / <span class="em2">공</span>동</td></tr>
+    <tr><td>em3 (L3 보조)</td><td><code>[em3]</code></td><td>파 배경 / 흰</td><td><span class="em3">격</span>·<span class="em3">추</span></td></tr>
+    <tr><td>em4 (L4 키워드)</td><td><code>[em4]</code></td><td>보 배경 / 흰</td><td><span class="em4">적격</span></td></tr>
+    <tr><td>결론</td><td><code>[con]</code></td><td>밝빨</td><td><span class="con">소각하 X</span></td></tr>
+    <tr><td>요건</td><td><code>[fact]</code></td><td>밝주</td><td><span class="fact">압류·추심명령</span></td></tr>
+    <tr><td>판례</td><td><code>[case]</code></td><td>밝초</td><td><span class="case">변경판례</span></td></tr>
+    <tr><td>브릿지</td><td><code>[bridge]</code></td><td>밝파</td><td><span class="bridge">따라서</span></td></tr>
+    <tr><td>핵심</td><td><code>[key]</code></td><td>밝보</td><td><span class="key">시효중단·소송경제</span></td></tr>
+  </table>
+</div>
+
+<!-- ============== 여분 풀 18종 갤러리 ============== -->
+<div class="section">
+  <h2>여분 컬러 풀 18종 — DARK</h2>
+  <p class="desc">다크 친화 밝은 톤. 각 카드에 hex + 샘플 문구 (다크 배경 가독성).</p>
+
+  <h3>☀️ 따뜻 계열 (5)</h3>
+  <div class="gallery">
+    <div class="swatch-card"><div class="num">01</div><div class="name x01">살구/연어</div><div class="hex">#ff8787</div><div class="sample x01">예: 사용자 주의 / 핵심 키워드</div></div>
+    <div class="swatch-card"><div class="num">02</div><div class="name x02">산호</div><div class="hex">#ff7e5f</div><div class="sample x02">예: 강한 경고 / 출제 빈도 ↑</div></div>
+    <div class="swatch-card"><div class="num">03</div><div class="name x03">옅노랑</div><div class="hex">#ffe066</div><div class="sample x03">예: 형광펜 메모 / 짚어둘 부분</div></div>
+    <div class="swatch-card"><div class="num">04</div><div class="name x04">황금</div><div class="hex">#ffd43b</div><div class="sample x04">예: 인용 / 출처 표기</div></div>
+    <div class="swatch-card"><div class="num">05</div><div class="name x05">황토</div><div class="hex">#fab005</div><div class="sample x05">예: 과거 판례 / 예전 어휘</div></div>
+  </div>
+
+  <h3>🌿 자연 계열 (4)</h3>
+  <div class="gallery">
+    <div class="swatch-card"><div class="num">06</div><div class="name x06">라임</div><div class="hex">#94d82d</div><div class="sample x06">예: 새 사례 / 신설 조문</div></div>
+    <div class="swatch-card"><div class="num">07</div><div class="name x07">민트</div><div class="hex">#38d9a9</div><div class="sample x07">예: 보충 설명 / 부연</div></div>
+    <div class="swatch-card"><div class="num">08</div><div class="name x08">청록(틸)</div><div class="hex">#20c997</div><div class="sample x08">예: 학설 명칭 / 견해 대립</div></div>
+    <div class="swatch-card"><div class="num">09</div><div class="name x09">시안</div><div class="hex">#22b8cf</div><div class="sample x09">예: 외국 입법례 / 참고 자료</div></div>
+  </div>
+
+  <h3>❄️ 차가운 계열 (3)</h3>
+  <div class="gallery">
+    <div class="swatch-card"><div class="num">10</div><div class="name x10">남색(라벤더블루)</div><div class="hex">#748ffc</div><div class="sample x10">예: 법조문 번호 / 제○○조</div></div>
+    <div class="swatch-card"><div class="num">11</div><div class="name x11">진남</div><div class="hex">#5c7cfa</div><div class="sample x11">예: 판례 번호 / 대법원</div></div>
+    <div class="swatch-card"><div class="num">12</div><div class="name x12">라벤더</div><div class="hex">#b197fc</div><div class="sample x12">예: 부수 키워드 / 약한 핵심</div></div>
+  </div>
+
+  <h3>🌸 핑크 계열 (3)</h3>
+  <div class="gallery">
+    <div class="swatch-card"><div class="num">13</div><div class="name x13">핑크</div><div class="hex">#f783ac</div><div class="sample x13">예: 비교 판례 / 구분 표시</div></div>
+    <div class="swatch-card"><div class="num">14</div><div class="name x14">진핑크(로즈)</div><div class="hex">#ff6b9d</div><div class="sample x14">예: 결정적 비교 / 함정 포인트</div></div>
+    <div class="swatch-card"><div class="num">15</div><div class="name x15">연자주</div><div class="hex">#e599f7</div><div class="sample x15">예: 연관 키워드 / 부연 핵심</div></div>
+  </div>
+
+  <h3>⚪ 중성 (3)</h3>
+  <div class="gallery">
+    <div class="swatch-card"><div class="num">16</div><div class="name x16">회색</div><div class="hex">#adb5bd</div><div class="sample x16">예: 보조 설명 / 참고 메모</div></div>
+    <div class="swatch-card"><div class="num">17</div><div class="name x17">베이지</div><div class="hex">#ddc9a3</div><div class="sample x17">예: 사실관계 배경 / 부가 정보</div></div>
+    <div class="swatch-card"><div class="num">18</div><div class="name x18">살구주황</div><div class="hex">#ffa94d</div><div class="sample x18">예: 중간 강조 / em2와 구분</div></div>
+  </div>
+</div>
+
+<!-- ============== 라이트 비교 ============== -->
+<div class="section">
+  <h2>LIGHT 비교 — 18종 동일 텍스트</h2>
+  <p class="desc">라이트 배경에서 어떻게 보이는지 (참고용, 17895 실 운용은 다크).</p>
+
+  <div class="light-box">
+    <p>01 <span class="x01">살구/연어</span> · 02 <span class="x02">산호</span> · 03 <span class="x03">옅노랑(주의)</span> · 04 <span class="x04">황금(주의)</span> · 05 <span class="x05">황토</span></p>
+    <p>06 <span class="x06">라임</span> · 07 <span class="x07">민트</span> · 08 <span class="x08">청록(틸)</span> · 09 <span class="x09">시안</span></p>
+    <p>10 <span class="x10">남색</span> · 11 <span class="x11">진남</span> · 12 <span class="x12">라벤더</span></p>
+    <p>13 <span class="x13">핑크</span> · 14 <span class="x14">진핑크(로즈)</span> · 15 <span class="x15">연자주</span></p>
+    <p>16 <span class="x16">회색</span> · 17 <span class="x17">베이지(라이트는 표시용 보라)</span> · 18 <span class="x18">살구주황</span></p>
+  </div>
+</div>
+
+<!-- ============== 실제 문맥 예시 ============== -->
+<div class="section">
+  <h2>실제 문맥 예시 — Lv.4 케이스에 18색 다 끼워본 모습</h2>
+  <p class="desc">전부 적용한 건 과도하지만 색 조합 감 잡기용.</p>
+
+  <p>1. 종전 <span class="x05">판례</span>는 채권에 유효한 <span class="x02">압류</span> 및 <span class="x10">제83조 추심명령</span>이 있으면, <span class="x16">제삼채무자에 대한 이행의 소</span>는 <span class="x13">추심채권자만</span> 제기할 수 있고, 채무자는 피압류채권에 관한 이행소송 <span class="x14">당사자적격을 상실</span>한다고 보았다.</p>
+  <p>2. <span class="x08">변경판례</span>는 <span class="x09">외국 입법례</span>를 참고하여 <span class="x06">새로운 입장</span>으로 변경했다 — <span class="x07">시효중단</span>·<span class="x12">제소기간 준수</span>·<span class="x15">집행권원 확보</span>·<span class="x17">소송경제</span> 이익이 있기 때문이다.</p>
+  <p>3. <span class="x18">사안의 경우</span>, <span class="x11">제83조 공동소송참가</span>로 추심채권자의 보호가 가능하므로 <span class="x01">부당한 결과</span>가 발생하지 않는다. <span class="x04">중요</span>: <span class="x03">분쟁의 일회적 해결</span>에 부합한다.</p>
+</div>
+
+<hr>
+
+<div class="section">
+  <h2>다음 단계</h2>
+  <p>마음에 드는 <strong>4~6개</strong> 번호로 알려주세요 (예: "02·07·10·14" 같이). 그 색들을 <code>[free1]~[free6]</code> 슬롯에 할당.</p>
+  <p>또는 한 카테고리 더 추가/다른 톤 필요하면 알려주세요 (예: "베이지·황토 톤 더", "민트 계열 추가" 등).</p>
+  <p style="color: var(--text-dim); margin-top: 12px;">강제 새로고침: <strong>Cmd+Shift+R</strong></p>
+</div>
+
+</body>
+</html>
