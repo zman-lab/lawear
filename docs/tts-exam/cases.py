@@ -366,11 +366,32 @@ def read_md_for_case(case_path: str) -> str:
     return p.read_text(encoding="utf-8")
 
 
+def parse_year_from_id(case_id: str | None) -> str | None:
+    """case_id 첫 4자리에서 연도 추출 (lawear-2e42 2026-05-20).
+
+    Example:
+        '2026_minbeop_immun_mike01_01' → '2026'
+        '2026_index_minbeop' → '2026' (library type 도 동일 패턴)
+        '' or None → None
+
+    R-09 (자의 해석 금지): id에 명시된 연도만 반환. 추정 X.
+    """
+    if not case_id or len(case_id) < 5:
+        return None
+    prefix = case_id[:4]
+    if prefix.isdigit() and case_id[4] == "_":
+        return prefix
+    return None
+
+
 # ─── 케이스 메타 집계 ───────────────────────────────────────────────
 
 
 def _case_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
-    """cases row → dict (subjectKor/fileKor 카멜케이스 호환)."""
+    """cases row → dict (subjectKor/fileKor 카멜케이스 호환).
+
+    lawear-2e42 (2026-05-20): year 필드 추가 (id 첫 4자리 파싱, 다년도 지원).
+    """
     return {
         "id": row["id"],
         "subject": row["subject"],
@@ -386,6 +407,7 @@ def _case_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "user_case": row["user_case"],
         "synced_at": row["synced_at"],
         "content_hash": row["content_hash"],
+        "year": parse_year_from_id(row["id"]),
     }
 
 

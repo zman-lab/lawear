@@ -99,15 +99,21 @@ def _entry_to_case_row(entry: dict[str, Any], content_hash: str, synced_at: str)
     """_file_index entry → cases 테이블 row (dict).
 
     _file_index 카멜케이스 → DB 스네이크케이스 매핑.
+
+    lawear-2e42 (2026-05-20): type=library entry (두문자/PDF 라이브러리)는
+    category/file/case 키 부재 → placeholder 채워 cases 테이블 등재 (Q2 정책).
+    채점/힌트에서 두문자 라이브러리 활용 위해 알아야 함. 단 사이드 패널 트리에서는
+    subject IN ('index','pdf_raw') 또는 category='라이브러리' 노드 skip (UI 책임).
     """
+    is_library = entry.get("type") == "library"
     return {
         "id": entry["id"],
         "subject": entry["subject"],
         "subject_kor": entry["subjectKor"],
-        "category": entry["category"],
-        "file": entry["file"],
+        "category": entry.get("category") or ("라이브러리" if is_library else ""),
+        "file": entry.get("file") or (entry.get("case", "라이브러리") if is_library else ""),
         "file_kor": entry.get("fileKor"),
-        "case_no": entry["case"],
+        "case_no": entry.get("case") or "00",
         "title": entry["title"],
         "path": entry["path"],
         "pdf_path": entry.get("pdfPath"),

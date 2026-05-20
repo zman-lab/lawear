@@ -21,13 +21,28 @@ metadata:
 |------|------|
 | `/dev-le-17896-grade` (단독) | 모든 pending 자동 채점 (status='pending_grade') |
 | `/dev-le-17896-grade ls` | pending 목록 표시만 (채점 X) |
-| `/dev-le-17896-grade "케이스 / 민법 / 입문 / 미케01 / 01"` | 특정 케이스 pending만 |
+| `/dev-le-17896-grade "케이스 / 2026 / 민법 / 입문 / 미케01 / 01"` | 5단 (연도 포함, lawear-2e42 2026-05-20) |
+| `/dev-le-17896-grade "케이스 / 민법 / 입문 / 미케01 / 01"` | 4단 fallback — 연도 누락 시 최신(2026) 매핑 |
 
-**케이스 경로 파싱**: `"케이스 / {과목} / {카테고리} / {파일} / {번호}"` → `case_id` 매핑
-- 예: `"케이스 / 민법 / 입문 / 미케01 / 01"` → `2026_minbeop_immun_mike01_01`
-- 과목 매핑: 민법=minbeop / 민소=minso / 형법=hyungbeop / 형소=hyungso / 부등=budeung
-- 카테고리 매핑: 입문=immun / 예비=yebi
-- 파일 매핑: 미케01=mike01 / 모고01=mogo01 등
+**케이스 경로 파싱 v2 (5단, lawear-2e42 2026-05-20)** — 17896 뷰어 복사 버튼 + 17895 일관성:
+- 5단 형식: `"케이스 / {연도} / {과목} / {카테고리} / {파일} / {번호}"` → `case_id`
+  - 예: `"케이스 / 2026 / 민법 / 입문 / 미케01 / 01"` → `2026_minbeop_immun_mike01_01`
+- 4단 fallback (연도 누락 시 최신 2026 자동):
+  - 예: `"케이스 / 민법 / 입문 / 미케01 / 01"` → `2026_minbeop_immun_mike01_01`
+- 매핑:
+  - 연도: `2025` / `2026` / ... (id 첫 4자리)
+  - 과목: 민법=minbeop / 민소=minso / 형법=hyungbeop / 형소=hyungso / 부등=budeung
+  - 카테고리: 입문=immun / 예비=yebi
+  - 파일: 미케01=mike01 / 모고01=mogo01 / ...
+
+**파싱 알고리즘**:
+1. 입력 문자열 ` / ` 또는 `/` 로 split → segment 배열, trim
+2. 첫 segment `케이스` / `Cases` 제거
+3. segment 수 5 (연도 포함) 또는 4 (fallback) 검증
+4. 연도 segment 4자리 숫자 (`/^\d{4}$/`) — 있으면 5단, 없으면 4단 fallback (최신 '2026')
+5. 각 segment 매핑 → case_id 조립
+6. cases 테이블에서 case_id 존재 검증 (`GET /api/cases/{case_id}`)
+7. pending 검색 (`GET /api/attempts?case_id={case_id}&status=pending_grade`)
 
 ## 절대 규칙 (위반 시 작업 무효)
 

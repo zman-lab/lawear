@@ -154,14 +154,16 @@
   .tree-header .tree-count { color: var(--text-dim); font-size: 10px; font-family: 'SF Mono', Consolas, monospace; }
   .tree-header .dir-checkbox { cursor: pointer; accent-color: var(--accent); flex-shrink: 0; }
 
-  /* 레벨별 들여쓰기 + 폰트 사이즈 (17896 정본) */
-  .tree-l1 > .tree-header { font-size: 12px; font-weight: 600; color: var(--text-bright); padding-left: 10px; }
-  .tree-l2 > .tree-header { font-size: 11px; color: var(--text); padding-left: 22px; }
-  .tree-l3 > .tree-header { font-size: 11px; color: var(--text-dim); padding-left: 34px; }
+  /* 레벨별 들여쓰기 + 폰트 사이즈 (17896 정본 + L0 year 추가) */
+  .tree-l0 > .tree-header { font-size: 12px; font-weight: 700; color: var(--text-bright); padding-left: 4px; letter-spacing: 0.3px; }
+  .tree-l1 > .tree-header { font-size: 12px; font-weight: 600; color: var(--text-bright); padding-left: 18px; }
+  .tree-l2 > .tree-header { font-size: 11px; color: var(--text); padding-left: 30px; }
+  .tree-l3 > .tree-header { font-size: 11px; color: var(--text-dim); padding-left: 42px; }
   .tree-l3 > .tree-header:hover { color: var(--text); }
+  .tree-l0 > .tree-body,
   .tree-l1 > .tree-body { /* 자체 패딩 X — children 가 자기 padding 결정 */ }
-  /* 케이스 항목 들여쓰기 (17896 정본 46px) */
-  .tree-l3 .case-item { padding-left: 46px; }
+  /* 케이스 항목 들여쓰기 (L0 추가로 +8px) */
+  .tree-l3 .case-item { padding-left: 54px; }
 
   /* Case 항목 (17896 정본 + 체크박스 행 추가) */
   .case-item {
@@ -333,8 +335,32 @@
   }
   .page-header .breadcrumb {
     font-size: 11px; color: var(--text-dim); flex-basis: 100%;
+    display: flex; align-items: center; gap: 8px;
   }
   .page-header .breadcrumb span.crumb-sep { margin: 0 6px; color: var(--text-mute); }
+  .page-header .breadcrumb .case-path-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .page-header .btn-copy-path {
+    flex-shrink: 0;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 10px;
+    padding: 2px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    line-height: 1.4;
+    font-family: inherit;
+  }
+  .page-header .btn-copy-path:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+  .page-header .btn-copy-path.copied {
+    background: #2d8a4a;
+    border-color: #2d8a4a;
+    color: #fff;
+  }
 
   /* 라이브러리(두문자) 업로드 바 — library 분기에서만 노출 */
   .library-upload-bar {
@@ -952,11 +978,12 @@ function updateSelectedCount() {
   document.getElementById('selected-count').textContent = `${stealthUI.selectedCount[k]}: ${selectedFiles.size}`;
 }
 
-// ─────────── 트리 빌드 (L1 과목 > L2 카테고리 > L3 파일 > L4 Case) ───────────
+// ─────────── 트리 빌드 (L0 연도 > L1 과목 > L2 카테고리 > L3 파일 > L4 Case) ───────────
 //
 // 데이터 소스:
-//   1. 풍부 메타 있는 파일 (fileMetadata[path]) → subjectKor + category + fileKor + case + points + title 활용
-//   2. 풍부 메타 없는 파일 → dir 그대로 L1=dir, L3=filename 단일 트리로 fallback
+//   1. 풍부 메타 있는 파일 (fileMetadata[path]) → subjectKor + category + fileKor + case + points + title 활용 (5단 트리)
+//   2. type==="library" 두문자 등 → libraryTree (별도 2단 평탄 분기)
+//   3. 풍부 메타 없는 파일 → dir 그대로 L1=dir, L3=filename 단일 트리로 fallback
 function renderTree(filter = '') {
   const tree = document.getElementById('fileTree');
   tree.innerHTML = '';
@@ -964,10 +991,10 @@ function renderTree(filter = '') {
   const searching = lowerFilter.length > 0;
 
   // 트리 구조 빌드
-  //   tree4 = Map<subjectKor, {subject, subjectKor, categories: Map<category, {category, files: Map<fileCode, {fileCode, fileKor, items: [meta], dir}>}>}
-  //   libraryTree = Map<subjectKor, {subjectKor, items: [{meta, filename, path, dir}]}>  ← type==="library" 평탄 트리
+  //   tree5 = Map<year, Map<subjectKor, {subject, subjectKor, categories: Map<category, {category, files: Map<fileCode, {fileCode, fileKor, items: [meta], dir}>}>}>>
+  //   libraryTree = Map<subjectKor, {subjectKor, items: [{meta, filename, path, dir}]}>  ← type==="library" 평탄 트리 (year 분리 X — 변경 X)
   //   noMeta = Map<dir, [{filename, path}]>  ← 메타 없는 파일들
-  const tree4 = new Map();
+  const tree5 = new Map();
   const libraryTree = new Map();
   const noMeta = new Map();
 
@@ -998,8 +1025,12 @@ function renderTree(filter = '') {
         const sk = meta.subjectKor;
         const cat = meta.category;
         const fileCode = meta.file || meta.fileKor;
-        if (!tree4.has(sk)) tree4.set(sk, { subject: meta.subject, subjectKor: sk, categories: new Map() });
-        const subjNode = tree4.get(sk);
+        // 연도 추출: meta.id 첫 4자리 (예: '2026_minbeop_*' → '2026'). id 없거나 비표준이면 'unknown'
+        const year = (meta.id && /^\d{4}_/.test(meta.id)) ? meta.id.slice(0, 4) : 'unknown';
+        if (!tree5.has(year)) tree5.set(year, new Map());
+        const yearNode = tree5.get(year);
+        if (!yearNode.has(sk)) yearNode.set(sk, { subject: meta.subject, subjectKor: sk, categories: new Map() });
+        const subjNode = yearNode.get(sk);
         if (!subjNode.categories.has(cat)) subjNode.categories.set(cat, { category: cat, files: new Map() });
         const catNode = subjNode.categories.get(cat);
         if (!catNode.files.has(fileCode)) catNode.files.set(fileCode, { fileCode, fileKor: meta.fileKor, items: [], dir });
@@ -1012,7 +1043,7 @@ function renderTree(filter = '') {
   }
 
   // 빈 결과 처리
-  if (tree4.size === 0 && libraryTree.size === 0 && noMeta.size === 0) {
+  if (tree5.size === 0 && libraryTree.size === 0 && noMeta.size === 0) {
     tree.innerHTML = '<div style="padding:16px;color:#484f58;font-size:12px;text-align:center;">매칭 결과 없음</div>';
     updateSelectedCount();
     return;
@@ -1051,90 +1082,114 @@ function renderTree(filter = '') {
     html += `</div></div>`;
   }
 
-  // ─── 풍부 메타 트리 (L1~L4) ───
-  const sortedSubjects = Array.from(tree4.entries()).sort((a, b) => subjectRank(a[0]) - subjectRank(b[0]));
-  for (const [sk, subjNode] of sortedSubjects) {
-    const l1Key = treeNodeKey('s', sk);
-    const l1Collapsed = !searching && state[l1Key] === false;
-    let l1TotalCases = 0;
-    for (const cat of subjNode.categories.values()) {
-      for (const fileNode of cat.files.values()) l1TotalCases += fileNode.items.length;
+  // ─── 풍부 메타 트리 (L0 year > L1 과목 > L2 카테고리 > L3 파일 > L4 Case) ───
+  // year 내림차순 정렬 (최신이 위), 'unknown'은 맨 아래
+  const sortedYears = Array.from(tree5.entries()).sort((a, b) => {
+    if (a[0] === 'unknown') return 1;
+    if (b[0] === 'unknown') return -1;
+    return b[0].localeCompare(a[0]);
+  });
+  for (const [year, yearNode] of sortedYears) {
+    const l0Key = treeNodeKey('y', year);
+    const l0Collapsed = !searching && state[l0Key] === false;
+    // L0 (year) 카운트: 산하 모든 case 합산
+    let l0TotalCases = 0;
+    for (const subjNode of yearNode.values()) {
+      for (const cat of subjNode.categories.values()) {
+        for (const fileNode of cat.files.values()) l0TotalCases += fileNode.items.length;
+      }
     }
-
-    html += `<div class="tree-node tree-l1${l1Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l1Key)}">`;
-    html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l1Key)}">`;
-    html += `<input type="checkbox" class="dir-checkbox" data-subject="${escapeAttr(sk)}" onclick="event.stopPropagation(); toggleSubjectSelection('${escapeAttr(sk)}', this.checked);">`;
-    html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(displaySubject(sk))}</span>`;
-    html += `<span class="tree-count">${l1TotalCases}</span></div>`;
+    html += `<div class="tree-node tree-l0${l0Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l0Key)}">`;
+    html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l0Key)}">`;
+    html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(year)}</span>`;
+    html += `<span class="tree-count">${l0TotalCases}</span></div>`;
     html += `<div class="tree-body">`;
 
-    const sortedCats = Array.from(subjNode.categories.entries()).sort((a, b) => categoryRank(a[0]) - categoryRank(b[0]));
-    for (const [cat, catNode] of sortedCats) {
-      const l2Key = treeNodeKey('c', sk, cat);
-      const l2Collapsed = !searching && state[l2Key] === false;
-      let l2TotalCases = 0;
-      for (const fileNode of catNode.files.values()) l2TotalCases += fileNode.items.length;
+    const sortedSubjects = Array.from(yearNode.entries()).sort((a, b) => subjectRank(a[0]) - subjectRank(b[0]));
+    for (const [sk, subjNode] of sortedSubjects) {
+      const l1Key = treeNodeKey('s', year, sk);
+      const l1Collapsed = !searching && state[l1Key] === false;
+      let l1TotalCases = 0;
+      for (const cat of subjNode.categories.values()) {
+        for (const fileNode of cat.files.values()) l1TotalCases += fileNode.items.length;
+      }
 
-      html += `<div class="tree-node tree-l2${l2Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l2Key)}">`;
-      html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l2Key)}">`;
-      html += `<input type="checkbox" class="dir-checkbox" data-cat="${escapeAttr(sk + '|' + cat)}" onclick="event.stopPropagation(); toggleCategorySelection('${escapeAttr(sk)}', '${escapeAttr(cat)}', this.checked);">`;
-      html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(displayCategory(cat))}</span>`;
-      html += `<span class="tree-count">${l2TotalCases}</span></div>`;
+      html += `<div class="tree-node tree-l1${l1Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l1Key)}">`;
+      html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l1Key)}">`;
+      html += `<input type="checkbox" class="dir-checkbox" data-subject="${escapeAttr(sk)}" onclick="event.stopPropagation(); toggleSubjectSelection('${escapeAttr(sk)}', this.checked);">`;
+      html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(displaySubject(sk))}</span>`;
+      html += `<span class="tree-count">${l1TotalCases}</span></div>`;
       html += `<div class="tree-body">`;
 
-      const sortedFiles = Array.from(catNode.files.entries()).sort((a, b) => a[0].localeCompare(b[0]));
-      for (const [fileCode, fileNode] of sortedFiles) {
-        const l3Key = treeNodeKey('f', sk, cat, fileCode);
-        // L3 디폴트: 검색 중이거나 펼침 저장된 경우만 펼침
-        const l3Collapsed = !searching && state[l3Key] !== true;
-        // 파일명 표시: fileKor에서 과목/카테고리 빼고 단순화
-        let fileLabel = fileNode.fileKor || fileCode;
-        // 예: '민법_입문_미케_01' → '미케_01' (과목, 카테고리 prefix 제거)
-        fileLabel = fileLabel.replace(new RegExp(`^${sk}_${cat}_`), '').replace(new RegExp(`^${sk}_`), '');
-        if (stealthMode) fileLabel = displayFileKor(fileNode.fileKor, fileCode);
+      const sortedCats = Array.from(subjNode.categories.entries()).sort((a, b) => categoryRank(a[0]) - categoryRank(b[0]));
+      for (const [cat, catNode] of sortedCats) {
+        const l2Key = treeNodeKey('c', year, sk, cat);
+        const l2Collapsed = !searching && state[l2Key] === false;
+        let l2TotalCases = 0;
+        for (const fileNode of catNode.files.values()) l2TotalCases += fileNode.items.length;
 
-        html += `<div class="tree-node tree-l3${l3Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l3Key)}">`;
-        html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l3Key)}">`;
-        html += `<input type="checkbox" class="dir-checkbox" data-file="${escapeAttr(sk + '|' + cat + '|' + fileCode)}" onclick="event.stopPropagation(); toggleFileSelection('${escapeAttr(sk)}', '${escapeAttr(cat)}', '${escapeAttr(fileCode)}', this.checked);">`;
-        html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(fileLabel)}</span>`;
-        html += `<span class="tree-count">${fileNode.items.length}</span></div>`;
+        html += `<div class="tree-node tree-l2${l2Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l2Key)}">`;
+        html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l2Key)}">`;
+        html += `<input type="checkbox" class="dir-checkbox" data-cat="${escapeAttr(sk + '|' + cat)}" onclick="event.stopPropagation(); toggleCategorySelection('${escapeAttr(sk)}', '${escapeAttr(cat)}', this.checked);">`;
+        html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(displayCategory(cat))}</span>`;
+        html += `<span class="tree-count">${l2TotalCases}</span></div>`;
         html += `<div class="tree-body">`;
 
-        // L4: Case 항목 (17896 정본: case-id 한 줄, case-title 한 줄, case-meta 한 줄 pills)
-        const items = fileNode.items.slice().sort((a, b) => (a.meta.case || '').localeCompare(b.meta.case || ''));
-        for (const it of items) {
-          const m = it.meta;
-          const checked = selectedFiles.has(it.path) ? ' checked' : '';
-          const active = (currentPath === it.path) ? ' active' : '';
-          // 17896 정본 short ID: <file>-<case_no>  (예: 미케01-01) / stealth: sub_01-01
-          const fileShort = stealthMode ? displayFileKor(m.fileKor, m.file) : m.file;
-          const shortId = `${fileShort}-${m.case}`;
-          const title = (m.title || '').trim();
+        const sortedFiles = Array.from(catNode.files.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+        for (const [fileCode, fileNode] of sortedFiles) {
+          const l3Key = treeNodeKey('f', year, sk, cat, fileCode);
+          // L3 디폴트: 검색 중이거나 펼침 저장된 경우만 펼침
+          const l3Collapsed = !searching && state[l3Key] !== true;
+          // 파일명 표시: fileKor에서 과목/카테고리 빼고 단순화
+          let fileLabel = fileNode.fileKor || fileCode;
+          // 예: '민법_입문_미케_01' → '미케_01' (과목, 카테고리 prefix 제거)
+          fileLabel = fileLabel.replace(new RegExp(`^${sk}_${cat}_`), '').replace(new RegExp(`^${sk}_`), '');
+          if (stealthMode) fileLabel = displayFileKor(fileNode.fileKor, fileCode);
 
-          // 17896 pills (points 항상, userCase 있을 때, bookmark star)
-          const pills = [];
-          if (m.points != null) pills.push(`<span class="pill">${m.points} pt</span>`);
-          // err / stale 데이터 미지원 → skip (17896 데이터에만 있음)
-          if (m.userCase != null && !stealthMode) pills.push(`<span class="pill stale">U${m.userCase}</span>`);
-          // bookmark — localStorage 기반 (간단)
-          const bm = isBookmarked(it.path);
-          const starCls = bm ? 'pill bookmark-star bookmarked' : 'pill bookmark-star';
-          pills.push(`<span class="${starCls}" data-bookmark-toggle="${escapeAttr(it.path)}" title="${bm ? 'Remove bookmark' : 'Add bookmark'}">★</span>`);
+          html += `<div class="tree-node tree-l3${l3Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l3Key)}">`;
+          html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l3Key)}">`;
+          html += `<input type="checkbox" class="dir-checkbox" data-file="${escapeAttr(sk + '|' + cat + '|' + fileCode)}" onclick="event.stopPropagation(); toggleFileSelection('${escapeAttr(sk)}', '${escapeAttr(cat)}', '${escapeAttr(fileCode)}', this.checked);">`;
+          html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(fileLabel)}</span>`;
+          html += `<span class="tree-count">${fileNode.items.length}</span></div>`;
+          html += `<div class="tree-body">`;
 
-          html += `<div class="case-item${active}" data-path="${escapeAttr(it.path)}">`;
-          html += `<div class="case-item-row">`;
-          html += `<input type="checkbox" data-path="${escapeAttr(it.path)}"${checked} onclick="event.stopPropagation(); toggleFile(this);">`;
-          html += `<span class="case-id">${escapeHtml(shortId)}</span>`;
-          html += `</div>`;
-          html += `<div class="case-title" title="${escapeAttr(title)}">${escapeHtml(title)}</div>`;
-          html += `<div class="case-meta">${pills.join('')}</div>`;
-          html += `</div>`;
+          // L4: Case 항목 (17896 정본: case-id 한 줄, case-title 한 줄, case-meta 한 줄 pills)
+          const items = fileNode.items.slice().sort((a, b) => (a.meta.case || '').localeCompare(b.meta.case || ''));
+          for (const it of items) {
+            const m = it.meta;
+            const checked = selectedFiles.has(it.path) ? ' checked' : '';
+            const active = (currentPath === it.path) ? ' active' : '';
+            // 17896 정본 short ID: <file>-<case_no>  (예: 미케01-01) / stealth: sub_01-01
+            const fileShort = stealthMode ? displayFileKor(m.fileKor, m.file) : m.file;
+            const shortId = `${fileShort}-${m.case}`;
+            const title = (m.title || '').trim();
+
+            // 17896 pills (points 항상, userCase 있을 때, bookmark star)
+            const pills = [];
+            if (m.points != null) pills.push(`<span class="pill">${m.points} pt</span>`);
+            // err / stale 데이터 미지원 → skip (17896 데이터에만 있음)
+            if (m.userCase != null && !stealthMode) pills.push(`<span class="pill stale">U${m.userCase}</span>`);
+            // bookmark — localStorage 기반 (간단)
+            const bm = isBookmarked(it.path);
+            const starCls = bm ? 'pill bookmark-star bookmarked' : 'pill bookmark-star';
+            pills.push(`<span class="${starCls}" data-bookmark-toggle="${escapeAttr(it.path)}" title="${bm ? 'Remove bookmark' : 'Add bookmark'}">★</span>`);
+
+            html += `<div class="case-item${active}" data-path="${escapeAttr(it.path)}">`;
+            html += `<div class="case-item-row">`;
+            html += `<input type="checkbox" data-path="${escapeAttr(it.path)}"${checked} onclick="event.stopPropagation(); toggleFile(this);">`;
+            html += `<span class="case-id">${escapeHtml(shortId)}</span>`;
+            html += `</div>`;
+            html += `<div class="case-title" title="${escapeAttr(title)}">${escapeHtml(title)}</div>`;
+            html += `<div class="case-meta">${pills.join('')}</div>`;
+            html += `</div>`;
+          }
+          html += `</div></div>`; // /tree-l3 body + node
         }
-        html += `</div></div>`; // /tree-l3 body + node
+        html += `</div></div>`; // /tree-l2 body + node
       }
-      html += `</div></div>`; // /tree-l2 body + node
+      html += `</div></div>`; // /tree-l1 body + node
     }
-    html += `</div></div>`; // /tree-l1 body + node
+    html += `</div></div>`; // /tree-l0 (year) body + node
   }
 
   // ─── 풍부 메타 없는 파일들 (fallback: 디렉토리만 표시) ───
@@ -1429,10 +1484,13 @@ function renderContent() {
     const caseLabel = stealthMode ? (stealthCategoryMap[meta.case] || meta.case || '') : (meta.case || '');
     const subjLine = `${displaySubject(meta.subjectKor)} · ${caseLabel}${meta.title ? ' · ' + meta.title : ''}`;
     const uploadKey = (meta.subjectKor || 'lib').replace(/[^a-zA-Z0-9가-힣]/g, '_');
+    const libYear = (meta.id && /^\d{4}_/.test(meta.id)) ? meta.id.slice(0, 4) : '';
+    const libPathParts = [libYear, displaySubject(meta.subjectKor), caseLabel].filter(Boolean).map(escapeHtml);
+    const libPathHtml = libPathParts.join('<span class="crumb-sep">/</span>');
     const headerHtml = `<div class="page-header">
       <span class="case-id-large">${escapeHtml(caseLabel)}</span>
       <span class="case-subject">${escapeHtml(subjLine)}</span>
-      <div class="breadcrumb">${escapeHtml(displaySubject(meta.subjectKor))}<span class="crumb-sep">/</span>${escapeHtml(caseLabel)}</div>
+      <div class="breadcrumb"><span class="case-path-text" id="case-path-label">${libPathHtml}</span><button type="button" class="btn-copy-path" id="copy-path-btn" title="경로 복사">복사</button></div>
     </div>`;
     const uploadBarHtml = `<div class="library-upload-bar" data-upload-path="${escapeAttr(currentPath)}" data-upload-subject="${escapeAttr(meta.subjectKor || '')}">
       <input type="file" id="lib-upload-${escapeAttr(uploadKey)}" accept=".md,text/markdown" style="display:none" />
@@ -1454,10 +1512,23 @@ function renderContent() {
     const subjLine = stealthMode
       ? `${displaySubject(meta.subjectKor)} · ${displayCategory(meta.category)}${meta.points ? ' · ' + meta.points + ' pt' : ''}`
       : `${meta.subjectKor} · ${meta.category} · ${meta.title || ''}${meta.points ? ' · ' + meta.points + '점' : ''}${meta.userCase ? ' · User#' + meta.userCase : ''}`;
+    // 연도 추출 (id 첫 4자리). 없으면 빈 문자열로 생략
+    const yearPart = (meta.id && /^\d{4}_/.test(meta.id)) ? meta.id.slice(0, 4) : '';
+    const fileLabelClean = displayFileKor(meta.fileKor, meta.file)
+      .replace(meta.subjectKor + '_', '')
+      .replace(meta.category + '_', '');
+    const pathParts = [
+      yearPart,
+      displaySubject(meta.subjectKor),
+      displayCategory(meta.category),
+      fileLabelClean,
+      `Case ${meta.case}`,
+    ].filter(Boolean).map(escapeHtml);
+    const pathHtml = pathParts.join('<span class="crumb-sep">/</span>');
     headerHtml = `<div class="page-header">
       <span class="case-id-large">${escapeHtml(shortId)}</span>
       <span class="case-subject">${escapeHtml(subjLine)}</span>
-      <div class="breadcrumb">${escapeHtml(displaySubject(meta.subjectKor))}<span class="crumb-sep">/</span>${escapeHtml(displayCategory(meta.category))}<span class="crumb-sep">/</span>${escapeHtml(displayFileKor(meta.fileKor, meta.file).replace(meta.subjectKor + '_', '').replace(meta.category + '_', ''))}<span class="crumb-sep">/</span>Case ${escapeHtml(meta.case)}</div>
+      <div class="breadcrumb"><span class="case-path-text" id="case-path-label">${pathHtml}</span><button type="button" class="btn-copy-path" id="copy-path-btn" title="경로 복사">복사</button></div>
     </div>`;
   }
 
@@ -1663,6 +1734,47 @@ async function doDownload() {
 }
 
 document.getElementById('search').addEventListener('input', e => renderTree(e.target.value));
+
+// ─────────── 경로 복사 버튼 (event delegation — breadcrumb 재렌더 대응) ───────────
+document.addEventListener('click', (ev) => {
+  const btn = ev.target.closest('#copy-path-btn');
+  if (!btn) return;
+  ev.preventDefault();
+  ev.stopPropagation();
+  const labelEl = document.getElementById('case-path-label');
+  // separator '<span class="crumb-sep">/</span>' → '/' (텍스트 추출 시 자동 변환됨)
+  const text = labelEl ? labelEl.textContent.replace(/\s+/g, ' ').trim() : (currentPath || '');
+  const onOk = () => {
+    btn.classList.add('copied');
+    const orig = btn.textContent;
+    btn.textContent = '복사됨';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.textContent = orig;
+    }, 1200);
+  };
+  const onFail = (e) => {
+    console.warn('copy failed', e);
+    btn.textContent = '실패';
+    setTimeout(() => { btn.textContent = '복사'; }, 1200);
+  };
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(onOk).catch(onFail);
+  } else {
+    // fallback: legacy execCommand
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      onOk();
+    } catch (e) { onFail(e); }
+  }
+});
 
 // ─────────── 필터 버튼 wiring (17896 정본) ───────────
 document.querySelectorAll('#sidebar .filter-row button').forEach(b => {
