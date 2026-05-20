@@ -799,8 +799,6 @@ function makeLibraryCollapsible(html) {
     const summary = document.createElement('summary');
     summary.innerHTML =
       `<span class="lib-num">${counter}.</span>` +
-      `<span class="lib-cat">${escapeHtml(currentH2)}</span>` +
-      `<span class="lib-sep">-</span>` +
       `<span class="lib-template">${bodyTemplateHtml || escapeHtml(h3Title)}</span>` +
       `<span class="lib-title">[${escapeHtml(h3Num)} ${escapeHtml(h3Title)}]</span>`;
     details.appendChild(summary);
