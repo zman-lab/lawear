@@ -41,3 +41,5 @@ web/dist/
 web/public/lawear-debug.apk.bin
 *.md.bak
 .claude/scheduled_tasks.lock
+backups/
+web/test_modal_rework.js
