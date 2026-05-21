@@ -439,6 +439,9 @@
   /* 신규: 여분 2종 (사용자 자유, 자동 굵게) */
   .tts-free1 { color: #ddc9a3; font-weight: 700; } /* 베이지 */
   .tts-free2 { color: #b197fc; font-weight: 700; } /* 라벤더 */
+  /* lawear-4b59 (2026-05-21): 라이브러리 출처 inline 표기 — 작은 회색 + 호버 강조 (TTS 다운로드 시 strip) */
+  .lib-ref { color: #6c757d; font-size: 0.72em; opacity: 0.45; transition: opacity 0.2s, color 0.2s; cursor: help; }
+  .lib-ref:hover { opacity: 1; color: #adb5bd; }
 
   /* 위장 모드 — 좌측 패널 한글 노출 부분 숨김 (case-title, case-meta) */
   body.stealth .case-item .case-title { display: none; }
@@ -803,6 +806,9 @@ function renderMd(md) {
   } while (escaped !== prev && iter < 20);
 
   let html = marked.parse(escaped);
+  // lawear-4b59 (2026-05-21): (라이브러리 N-N) inline 표기 → 시각 약화 (작은 회색, 호버 강조)
+  // 다운로드 시에는 stripEmphasis에서 별도로 제거됨 (TTS 노이즈 방지)
+  html = html.replace(/\(라이브러리[^)]*\)/g, (m) => `<span class="lib-ref" title="${m.replace(/"/g, '&quot;')}">${m}</span>`);
 
   function recover(s) {
     return s.replace(/@@EMP(\d+)@@/g, (m, i) => {
@@ -1646,7 +1652,11 @@ function stripEmphasis(text) {
     .replace(/\[bridge\]([\s\S]+?)\[\/bridge\]/g, '$1')
     .replace(/\[key\]([\s\S]+?)\[\/key\]/g, '$1')
     .replace(/\[free1\]([\s\S]+?)\[\/free1\]/g, '$1')
-    .replace(/\[free2\]([\s\S]+?)\[\/free2\]/g, '$1');
+    .replace(/\[free2\]([\s\S]+?)\[\/free2\]/g, '$1')
+    // lawear-4b59 (2026-05-21): 라이브러리 출처 inline 표기 제거 (TTS 다운로드 시 노이즈 방지)
+    // 패턴: (라이브러리 N-N) 또는 (라이브러리 미수록 — ...) 등
+    .replace(/\s*\(라이브러리[^)]*\)\s*/g, ' ')
+    .replace(/  +/g, ' ');
 }
 
 function extractCaseNum(filename) {
