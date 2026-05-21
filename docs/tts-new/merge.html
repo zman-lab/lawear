@@ -431,6 +431,11 @@
   .tts-case   { color: #51cf66; font-weight: 700; }
   .tts-bridge { color: #339af0; font-weight: 700; }
   .tts-key    { color: #9775fa; font-weight: 700; }
+  /* em (배경) 안에 폰트 (con/fact/case/bridge/key) 중첩 시 글씨색 inherit — 대비 보장 */
+  .tts-em1 .tts-con, .tts-em1 .tts-fact, .tts-em1 .tts-case, .tts-em1 .tts-bridge, .tts-em1 .tts-key,
+  .tts-em2 .tts-con, .tts-em2 .tts-fact, .tts-em2 .tts-case, .tts-em2 .tts-bridge, .tts-em2 .tts-key,
+  .tts-em3 .tts-con, .tts-em3 .tts-fact, .tts-em3 .tts-case, .tts-em3 .tts-bridge, .tts-em3 .tts-key,
+  .tts-em4 .tts-con, .tts-em4 .tts-fact, .tts-em4 .tts-case, .tts-em4 .tts-bridge, .tts-em4 .tts-key { color: inherit; }
   /* 신규: 여분 2종 (사용자 자유, 자동 굵게) */
   .tts-free1 { color: #ddc9a3; font-weight: 700; } /* 베이지 */
   .tts-free2 { color: #b197fc; font-weight: 700; } /* 라벤더 */
