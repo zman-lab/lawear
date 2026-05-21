@@ -5565,17 +5565,19 @@
   function splitOriginFactsQuestion(originRaw) {
     if (!originRaw) return { facts: '', question: '' };
 
-    // 1) facts 추출: ### 사실관계 또는 [사실관계] (단일/공통된/기본적/변형된 등)
-    //    헤더 prefix: '### ' 또는 '['
-    //    끝 경계: 다음 ### 헤더 또는 [bracket 헤더 (자체 정의된 패턴) 또는 EOF
+    // 1) facts 추출: ### 사실관계 또는 [사실관계] 또는 <사실관계> (단일/공통된/기본적/기초적/변형된/추가적/추가된 등)
+    //    헤더 prefix: '### ' 또는 '[' 또는 '<'
+    //    끝 경계: 다음 ### 헤더 또는 [bracket 헤더 또는 <문제>/<설문> 헤더 또는 EOF
     // lawear-c63e 2026-05-21 fix: /m flag + lookahead `$` 조합이 빈 줄 라인 끝에 매칭되어
     // 다단락 사실관계의 첫 단락만 캡쳐하는 버그 (예: 미케03-29 丙 등장 누락).
     // /m flag 제거 + lookahead 헤더 패턴을 `\n###` / `\n[` 로 변경 — 빈 줄 통과.
-    const factsRe = /(?:###\s*|\[)(?:공통된\s*|기본적\s*|변형된\s*|기본\s*|공통\s*|변형\s*)?사실관계(?:\s*\([^)]*\))?\]?[^\n]*\n([\s\S]*?)(?=\n###\s|\n\[|$)/;
+    // lawear-c63e-sub1 2026-05-21 spec #2134: 꺽쇠 변형(<기본적 사실관계>) + 신규 단어(기초적/추가적/추가된) 대응
+    //   — BROKEN_ANGLE 58건 + OTHER 20건 (= 78건) 답안 화면 렌더링 깨짐 fix.
+    const factsRe = /(?:###\s*|\[|<)(?:공통된\s*|기본적\s*|기초적\s*|변형된\s*|추가적\s*|추가된\s*|기본\s*|공통\s*|변형\s*)?사실관계(?:\s*\([^)]*\))?[\]>]?[^\n]*\n([\s\S]*?)(?=\n###\s|\n\[|\n<(?:문제|설문)|$)/;
     const factsMatch = originRaw.match(factsRe);
 
-    // 2) question 추출: ### 문제 또는 [문제] 단일 매칭
-    const singleQRe = /(?:###\s*|\[)문제\]?[^\n]*\n([\s\S]*?)(?=\n###\s|\n\[|$)/;
+    // 2) question 추출: ### 문제 또는 [문제] 또는 <문제> 단일 매칭
+    const singleQRe = /(?:###\s*|\[|<)문제[\]>]?[^\n]*\n([\s\S]*?)(?=\n###\s|\n\[|\n<|$)/;
     const singleQMatch = originRaw.match(singleQRe);
 
     // 3) 다중 설문 매칭 — "### 설문 N ..." 또는 "[설문 N]" / "[설문 (N)]" 헤더
@@ -5612,13 +5614,25 @@
       question = singleQMatch[1].trim();
     }
 
-    // 4) fallback — facts 도 question 도 없으면 origin 전체를 facts 로
-    if (!factsMatch && !question) {
+    // 4) fallback (lawear-c63e-sub1 2026-05-21 spec #2134) —
+    //    facts 매칭 실패 시 `## 원본 (NN점)` 다음 본문 전체를 facts 로 사용.
+    //    헤더 없이 `Ⅰ.` / `○` / `〇` / `※` / 텍스트 직접 시작 케이스 대응.
+    //    question 은 빈 string OK (사용자가 본문에서 직접 읽음 — 명세서 §"Fallback").
+    let factsText = factsMatch ? factsMatch[1].trim() : '';
+    if (!factsText) {
+      const fallbackRe = /##\s*원본[^\n]*\n([\s\S]+)/;
+      const fb = originRaw.match(fallbackRe);
+      if (fb) factsText = fb[1].trim();
+    }
+
+    // 5) 최종 fallback — facts 도 question/inquiry 도 없으면 origin 전체를 facts 로
+    //    (## 원본 헤더조차 없는 비정상 입력 대비)
+    if (!factsText && !question) {
       return { facts: originRaw.trim(), question: '' };
     }
 
     return {
-      facts: factsMatch ? factsMatch[1].trim() : '',
+      facts: factsText,
       question: question,
     };
   }
