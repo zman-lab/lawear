@@ -1669,15 +1669,10 @@
   .inline-marker.sev-high    { border-bottom-width: 3px; }
   .inline-marker.sev-mid     { border-bottom-width: 2px; }
   .inline-marker.sev-low     { border-bottom-width: 1px; border-bottom-style: dashed; }
-  /* 호버 툴팁 (data-comment 사용) */
-  /* lawear-c63e 2026-05-21: 기본 아래쪽 표시 (첫 줄 마커 박스 상단에 가리는 문제 fix).
-     마커가 답안 영역 하단 근접 시 .tooltip-above 클래스로 위쪽 표시 (JS 자동 분기). */
-  .inline-marker[data-comment]::after {
-    content: attr(data-comment);
-    position: absolute;
-    top: calc(100% + 6px);
-    bottom: auto;
-    left: 0;
+  /* lawear-c63e v9 2026-05-21: 호버 툴팁 — body portal 패턴 (JS 동적 div, position fixed).
+     ::after pseudo 제거 (답안 영역 본문 위에 겹쳐 라인 가림 문제 fix). */
+  .inline-tooltip-portal {
+    position: fixed;
     background: var(--panel-2);
     color: var(--text-bright);
     padding: 6px 10px;
@@ -1689,25 +1684,14 @@
     white-space: pre-wrap;
     max-width: 360px;
     min-width: 180px;
-    z-index: 9999;
+    z-index: 99999;
     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     pointer-events: none;
     opacity: 0;
-    visibility: hidden;
     transition: opacity 120ms;
   }
-  /* JS 가 .tooltip-above 클래스 부여 시 위쪽 표시 (아래쪽 박스 가림 회피) */
-  .inline-marker.tooltip-above[data-comment]::after {
-    top: auto;
-    bottom: calc(100% + 6px);
-  }
-  /* lawear-c63e v8 2026-05-21: JS 가 .tooltip-right-align 클래스 부여 시 우측 정렬 (가로스크롤 회피) */
-  .inline-marker.tooltip-right-align[data-comment]::after {
-    left: auto;
-    right: 0;
-  }
-  .inline-marker[data-comment]:hover::after { opacity: 1; visibility: visible; }
-  /* lawear-c63e v8: 답안 영역 자체 overflow-x: hidden (툴팁 우측 누출 안전망) */
+  .inline-tooltip-portal.show { opacity: 1; }
+  /* lawear-c63e v8: 답안 영역 자체 overflow-x: hidden (가로스크롤 안전망) */
   #attempt-modal-answer { overflow-x: hidden; }
   .inline-marker .marker-icon {
     font-size: 9px;
@@ -8875,34 +8859,57 @@
     return out;
   }
 
-  // lawear-c63e 2026-05-21: 툴팁 자동 분기 (위/아래) — 첫 줄 마커가 박스 상단에 가리는 문제 fix.
-  //   기본 아래쪽 표시 (CSS top: 100%). 마커가 답안 영역 하단 ~120px 안에 있으면 .tooltip-above 클래스 부여.
-  //   mouseenter 이벤트 위임 (모달 단위 1회 wire) — DOM rebuild 시에도 자동 적용.
+  // lawear-c63e v9 2026-05-21: body portal 툴팁 — ::after 답안 영역 본문 가림 문제 fix.
+  //   mouseenter 시 body 끝에 div 추가 (position fixed) → 답안 영역 무관하게 자유 위치.
+  //   화면 가장자리 회피 (위/아래/좌/우 자동 분기).
+  let __tooltipPortalEl = null;
+  function showInlineTooltip(marker) {
+    const comment = marker.getAttribute('data-comment');
+    if (!comment) return;
+    if (!__tooltipPortalEl) {
+      __tooltipPortalEl = document.createElement('div');
+      __tooltipPortalEl.className = 'inline-tooltip-portal';
+      document.body.appendChild(__tooltipPortalEl);
+    }
+    const tip = __tooltipPortalEl;
+    tip.textContent = comment;
+    tip.style.left = '0px';
+    tip.style.top = '0px';
+    tip.classList.add('show');
+    // 위치 계산 — 마커 우측 옆 + 화면 가장자리 회피
+    const mRect = marker.getBoundingClientRect();
+    const tRect = tip.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const PAD = 8;
+    // 좌우: 마커 우측 + PAD. 화면 우측 넘으면 마커 좌측 옆.
+    let left = mRect.right + PAD;
+    if (left + tRect.width > vw - PAD) {
+      left = mRect.left - tRect.width - PAD;
+    }
+    if (left < PAD) left = PAD;
+    // 상하: 마커 상단 정렬. 화면 하단 넘으면 위로 조정.
+    let top = mRect.top;
+    if (top + tRect.height > vh - PAD) {
+      top = vh - tRect.height - PAD;
+    }
+    if (top < PAD) top = PAD;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+  }
+  function hideInlineTooltip() {
+    if (__tooltipPortalEl) __tooltipPortalEl.classList.remove('show');
+  }
   function wireInlineMarkerTooltipDirection() {
     const modal = document.getElementById('attempt-modal');
     if (!modal || modal.dataset.tooltipWired === '1') return;
     modal.addEventListener('mouseover', (ev) => {
       const marker = ev.target.closest('.inline-marker[data-comment]');
-      if (!marker) return;
-      // 마커 위치 vs 모달 답안 영역 하단
-      const ansEl = document.getElementById('attempt-modal-answer');
-      if (!ansEl) return;
-      const markerRect = marker.getBoundingClientRect();
-      const ansRect = ansEl.getBoundingClientRect();
-      // 마커 아래에 120px 여유 없으면 위로 (하단 근접) — 기본 아래.
-      const spaceBelow = ansRect.bottom - markerRect.bottom;
-      if (spaceBelow < 120) {
-        marker.classList.add('tooltip-above');
-      } else {
-        marker.classList.remove('tooltip-above');
-      }
-      // lawear-c63e v8 2026-05-21: 마커 우측 200px 여유 없으면 우측 정렬 (가로스크롤 회피, 툴팁 min-width 180).
-      const spaceRight = ansRect.right - markerRect.right;
-      if (spaceRight < 200) {
-        marker.classList.add('tooltip-right-align');
-      } else {
-        marker.classList.remove('tooltip-right-align');
-      }
+      if (marker) showInlineTooltip(marker);
+    }, true);
+    modal.addEventListener('mouseout', (ev) => {
+      const marker = ev.target.closest('.inline-marker[data-comment]');
+      if (marker) hideInlineTooltip();
     }, true);
     modal.dataset.tooltipWired = '1';
   }
