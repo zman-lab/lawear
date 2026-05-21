@@ -1115,7 +1115,7 @@
     opacity: 0.7;
   }
   /* Lv.4 강조 태그 인라인 (R-28 [red][blue][bold][u][blank][blank2]) — 좌/우 공통 */
-  .diff-col .diff-col-body .em-red    { background: #d16969; color: #fff; padding: 0 3px; border-radius: 2px; }
+  .diff-col .diff-col-body .em-red    { background: #b91c1c; color: #fde047; padding: 0 4px; border-radius: 2px; font-weight: 600; }
   .diff-col .diff-col-body .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
   .diff-col .diff-col-body .em-bold   { font-weight: 700; color: var(--text-bright); }
   .diff-col .diff-col-body .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
@@ -1667,10 +1667,13 @@
   .inline-marker.sev-mid     { border-bottom-width: 2px; }
   .inline-marker.sev-low     { border-bottom-width: 1px; border-bottom-style: dashed; }
   /* 호버 툴팁 (data-comment 사용) */
+  /* lawear-c63e 2026-05-21: 기본 아래쪽 표시 (첫 줄 마커 박스 상단에 가리는 문제 fix).
+     마커가 답안 영역 하단 근접 시 .tooltip-above 클래스로 위쪽 표시 (JS 자동 분기). */
   .inline-marker[data-comment]::after {
     content: attr(data-comment);
     position: absolute;
-    bottom: calc(100% + 6px);
+    top: calc(100% + 6px);
+    bottom: auto;
     left: 0;
     background: var(--panel-2);
     color: var(--text-bright);
@@ -1683,12 +1686,17 @@
     white-space: pre-wrap;
     max-width: 360px;
     min-width: 180px;
-    z-index: 100;
+    z-index: 9999;
     box-shadow: 0 4px 12px rgba(0,0,0,0.4);
     pointer-events: none;
     opacity: 0;
     visibility: hidden;
     transition: opacity 120ms;
+  }
+  /* JS 가 .tooltip-above 클래스 부여 시 위쪽 표시 (아래쪽 박스 가림 회피) */
+  .inline-marker.tooltip-above[data-comment]::after {
+    top: auto;
+    bottom: calc(100% + 6px);
   }
   .inline-marker[data-comment]:hover::after { opacity: 1; visibility: visible; }
   .inline-marker .marker-icon {
@@ -1875,7 +1883,8 @@
   }
   .modal-origin.modal-origin-tab { max-height: 62vh; }
   /* 강조 태그 (em-*) — 시안 Eval Diff 와 동일 스타일 */
-  .modal-origin .em-red    { background: #d16969; color: #fff; padding: 0 3px; border-radius: 2px; }
+  /* lawear-c63e 2026-05-21: 사용자 가독성 보고 — 배경 진하게 + 글씨 굵게 + 노랑 (보색 대비) */
+  .modal-origin .em-red    { background: #b91c1c; color: #fde047; padding: 0 4px; border-radius: 2px; font-weight: 600; }
   .modal-origin .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
   .modal-origin .em-bold   { font-weight: 700; color: var(--text-bright); }
   .modal-origin .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
@@ -5647,9 +5656,10 @@
     // 3) 다중 설문 매칭 — "### 설문 N ..." 또는 "[설문 N]" / "[설문 (N)]" 헤더
     //    (단, "### 설문 N 답안" / "[설문 N 답안]" / "[답안]" 류 제외)
     //    헤더 라인 자체는 출력에서 보존 (사용자가 점수 등 확인 가능)
+    // lawear-c63e 2026-05-21: "### 제1문/제2문/..." 패턴 추가 (예: 미케01-03 input 민소)
     const multiInquiries = [];
-    // ### 패턴 + [bracket] 패턴 둘 다 매칭
-    const inquiryHeaderRe = /^(?:###\s*설문\s*\S[^\n]*|\[설문[^\]\n]*\][^\n]*)$/gm;
+    // ### 패턴 (설문/제N문) + [bracket] 패턴 둘 다 매칭
+    const inquiryHeaderRe = /^(?:###\s*(?:설문\s*\S|제\s*\d+\s*문)[^\n]*|\[설문[^\]\n]*\][^\n]*)$/gm;
     let m;
     while ((m = inquiryHeaderRe.exec(originRaw)) !== null) {
       const header = m[0];
@@ -5660,7 +5670,15 @@
       const rest = originRaw.slice(bodyStart);
       const nextHeaderRe = /^(?:###\s|\[)/m;
       const nextMatch = rest.match(nextHeaderRe);
-      const body = nextMatch ? rest.slice(0, nextMatch.index) : rest;
+      let body = nextMatch ? rest.slice(0, nextMatch.index) : rest;
+      // lawear-c63e 2026-05-21: 답안 본문 분리 — `**답안**:` / `### 답안` / `1. 결 론` / `Ⅰ. 결 론` 시작
+      //   패턴 이전까지만 캡쳐 (답안 노출 방지 — 사용자 풀이 모드 우선).
+      //   문제+결론은 포함 (학습용 결론 노출은 OK — `**결론**:` 패턴 유지).
+      const answerStartRe = /\n\s*(?:\*\*답안\*\*:|###\s*답안|\[답안\]|1\.\s*결\s*론|Ⅰ\.\s*결\s*론)/;
+      const ansMatch = body.match(answerStartRe);
+      if (ansMatch) {
+        body = body.slice(0, ansMatch.index);
+      }
       // 헤더 라벨 ('### ' 제거 / '[]' 유지) + 본문
       const label = header.replace(/^###\s*/, '').trim();
       const text = body.trim();
@@ -8844,6 +8862,39 @@
     }
     return out;
   }
+
+  // lawear-c63e 2026-05-21: 툴팁 자동 분기 (위/아래) — 첫 줄 마커가 박스 상단에 가리는 문제 fix.
+  //   기본 아래쪽 표시 (CSS top: 100%). 마커가 답안 영역 하단 ~120px 안에 있으면 .tooltip-above 클래스 부여.
+  //   mouseenter 이벤트 위임 (모달 단위 1회 wire) — DOM rebuild 시에도 자동 적용.
+  function wireInlineMarkerTooltipDirection() {
+    const modal = document.getElementById('attempt-modal');
+    if (!modal || modal.dataset.tooltipWired === '1') return;
+    modal.addEventListener('mouseover', (ev) => {
+      const marker = ev.target.closest('.inline-marker[data-comment]');
+      if (!marker) return;
+      // 마커 위치 vs 모달 답안 영역 하단
+      const ansEl = document.getElementById('attempt-modal-answer');
+      if (!ansEl) return;
+      const markerRect = marker.getBoundingClientRect();
+      const ansRect = ansEl.getBoundingClientRect();
+      // 마커 아래에 120px 여유 없으면 위로 (하단 근접) — 기본 아래.
+      const spaceBelow = ansRect.bottom - markerRect.bottom;
+      if (spaceBelow < 120) {
+        marker.classList.add('tooltip-above');
+      } else {
+        marker.classList.remove('tooltip-above');
+      }
+    }, true);
+    modal.dataset.tooltipWired = '1';
+  }
+  // 모달 IIFE 안 wire — 페이지 로드 후 1회.
+  (function initTooltipDirWire() {
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', wireInlineMarkerTooltipDirection);
+    } else {
+      wireInlineMarkerTooltipDirection();
+    }
+  })();
 
   // 채점평 pane (rich-summary + legacy strength/caution/missing).
   //   * 기존 9기준 탭에 있던 콘텐츠 분리 — 9기준 은 메타+criterion 바, 채점평 은 평가 본문.
