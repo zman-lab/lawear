@@ -1118,7 +1118,7 @@
   /* lawear-c63e v7 2026-05-21: 사용자 요청 — 백그라운드 컬러 X, 색상 밑줄만 (채점탭 inline-marker 와 동일 스타일) */
   .diff-col .diff-col-body .em-red    { background: transparent; color: inherit; border-bottom: 2px solid #ef4444; padding: 0 1px; }
   .diff-col .diff-col-body .em-blue   { background: transparent; color: inherit; border-bottom: 2px solid #3b82f6; padding: 0 1px; }
-  .diff-col .diff-col-body .em-bold   { font-weight: 700; color: var(--text-bright); }
+  .diff-col .diff-col-body .em-bold   { font-weight: 700; }
   .diff-col .diff-col-body .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
   .diff-col .diff-col-body .em-blank  { background: transparent; color: inherit; border-bottom: 2px dashed #fbbf24; padding: 0 1px; }
   .diff-col .diff-col-body .em-blank2 { background: transparent; color: inherit; border-bottom: 2px dashed #fb923c; padding: 0 1px; }
@@ -1130,10 +1130,27 @@
      우선이라 기존 진한 톤 유지 (한 글로벌 정의로 케이스 본문 가독성 ↑). */
   .em-red    { color: #f87171; }
   .em-blue   { color: #93c5fd; }
-  .em-bold   { font-weight: 700; color: var(--text-bright); }
+  .em-bold   { font-weight: 700; }
   .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; text-decoration-color: var(--accent-dim); }
   .em-blank  { background: rgba(86, 156, 214, 0.18); padding: 0 3px; border-radius: 2px; }
   .em-blank2 { background: rgba(251, 191, 36, 0.18); padding: 0 3px; border-radius: 2px; font-weight: 600; color: #fbbf24; }
+  /* 17895 동기 (lawear-4b59 2026-05-21) — em1~em4 배경 강조 + 폰트 5종 + 여분 2종 */
+  .em-em1 { background: #c92a2a; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .em-em2 { background: #f59f00; color: #1a1a1a; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .em-em3 { background: #1971c2; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .em-em4 { background: #6741d9; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .em-con    { color: #ff6b6b; font-weight: 700; }
+  .em-fact   { color: #ff922b; font-weight: 700; }
+  .em-case   { color: #51cf66; font-weight: 700; }
+  .em-bridge { color: #339af0; font-weight: 700; }
+  .em-key    { color: #9775fa; font-weight: 700; }
+  .em-free1  { color: #ddc9a3; font-weight: 700; }
+  .em-free2  { color: #b197fc; font-weight: 700; }
+  /* em + 폰트 중첩 시 글씨색 inherit (17895 동기) */
+  .em-em1 .em-con, .em-em1 .em-fact, .em-em1 .em-case, .em-em1 .em-bridge, .em-em1 .em-key,
+  .em-em2 .em-con, .em-em2 .em-fact, .em-em2 .em-case, .em-em2 .em-bridge, .em-em2 .em-key,
+  .em-em3 .em-con, .em-em3 .em-fact, .em-em3 .em-case, .em-em3 .em-bridge, .em-em3 .em-key,
+  .em-em4 .em-con, .em-em4 .em-fact, .em-em4 .em-case, .em-em4 .em-bridge, .em-em4 .em-key { color: inherit; }
 
   /* Step 15-2 — 우측 컬럼 = 상단(eval-summary 평 카드) + 하단(eval-reference 원본 본문) */
   .eval-right-stack { display: flex; flex-direction: column; gap: 12px; min-height: 120px; }
@@ -1881,7 +1898,7 @@
   /* lawear-c63e v7 2026-05-21: 사용자 요청 — 백그라운드 컬러 X, 색상 밑줄만 (채점탭 inline-marker 와 동일 스타일) */
   .modal-origin .em-red    { background: transparent; color: inherit; border-bottom: 2px solid #ef4444; padding: 0 1px; }
   .modal-origin .em-blue   { background: transparent; color: inherit; border-bottom: 2px solid #3b82f6; padding: 0 1px; }
-  .modal-origin .em-bold   { font-weight: 700; color: var(--text-bright); }
+  .modal-origin .em-bold   { font-weight: 700; }
   .modal-origin .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
   .modal-origin .em-blank  { background: transparent; color: inherit; border-bottom: 2px dashed #fbbf24; padding: 0 1px; }
   .modal-origin .em-blank2 { background: transparent; color: inherit; border-bottom: 2px dashed #fb923c; padding: 0 1px; }
@@ -5752,6 +5769,18 @@
       ['u', 'em-u'],
       ['blank2', 'em-blank2'],
       ['blank', 'em-blank'],
+      // 17895 동기 (lawear-4b59 2026-05-21) — em1~em4 + 폰트 5종 + 여분 2종
+      ['em1', 'em-em1'],
+      ['em2', 'em-em2'],
+      ['em3', 'em-em3'],
+      ['em4', 'em-em4'],
+      ['con', 'em-con'],
+      ['fact', 'em-fact'],
+      ['case', 'em-case'],
+      ['bridge', 'em-bridge'],
+      ['key', 'em-key'],
+      ['free1', 'em-free1'],
+      ['free2', 'em-free2'],
     ];
     for (const [tag, cls] of tagMap) {
       // 비탐욕 매칭, 다중 줄 허용. 본문 안 [/x] 가 ]/x로 escape 되지 않으므로 안전.
