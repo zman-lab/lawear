@@ -1115,7 +1115,7 @@
     opacity: 0.7;
   }
   /* Lv.4 강조 태그 인라인 (R-28 [red][blue][bold][u][blank][blank2]) — 좌/우 공통 */
-  .diff-col .diff-col-body .em-red    { background: #b91c1c; color: #fde047; padding: 0 4px; border-radius: 2px; font-weight: 600; }
+  .diff-col .diff-col-body .em-red    { background: #b91c1c; color: #ffffff; padding: 0 4px; border-radius: 2px; font-weight: 700; }
   .diff-col .diff-col-body .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
   .diff-col .diff-col-body .em-bold   { font-weight: 700; color: var(--text-bright); }
   .diff-col .diff-col-body .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
@@ -1884,7 +1884,7 @@
   .modal-origin.modal-origin-tab { max-height: 62vh; }
   /* 강조 태그 (em-*) — 시안 Eval Diff 와 동일 스타일 */
   /* lawear-c63e 2026-05-21: 사용자 가독성 보고 — 배경 진하게 + 글씨 굵게 + 노랑 (보색 대비) */
-  .modal-origin .em-red    { background: #b91c1c; color: #fde047; padding: 0 4px; border-radius: 2px; font-weight: 600; }
+  .modal-origin .em-red    { background: #b91c1c; color: #ffffff; padding: 0 4px; border-radius: 2px; font-weight: 700; }
   .modal-origin .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
   .modal-origin .em-bold   { font-weight: 700; color: var(--text-bright); }
   .modal-origin .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
@@ -4703,7 +4703,7 @@
             <span class="toggle-icon">▼</span>
           </div>
           <div class="sub-card-body">
-            <div class="sub-inquiry"><span class="inquiry-label">${escapeHtml(subqLabel)}</span><span class="inquiry-body">${applyEmphasisTags(escapeHtml((card.body || '').trim())).replace(/\n/g, '<br>')}</span></div>
+            <div class="sub-inquiry"><span class="inquiry-label">${escapeHtml(subqLabel)}</span><span class="inquiry-body">${renderOriginText((card.body || '').trim())}</span></div>
             <div class="hint-bar">
               <span class="hint-label">${I18N[currentLang].hint_label || '힌트'}</span>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="1"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv1 || '1. 목차'}</span></button>
@@ -5671,10 +5671,10 @@
       const nextHeaderRe = /^(?:###\s|\[)/m;
       const nextMatch = rest.match(nextHeaderRe);
       let body = nextMatch ? rest.slice(0, nextMatch.index) : rest;
-      // lawear-c63e 2026-05-21: 답안 본문 분리 — `**답안**:` / `### 답안` / `1. 결 론` / `Ⅰ. 결 론` 시작
-      //   패턴 이전까지만 캡쳐 (답안 노출 방지 — 사용자 풀이 모드 우선).
-      //   문제+결론은 포함 (학습용 결론 노출은 OK — `**결론**:` 패턴 유지).
-      const answerStartRe = /\n\s*(?:\*\*답안\*\*:|###\s*답안|\[답안\]|1\.\s*결\s*론|Ⅰ\.\s*결\s*론)/;
+      // lawear-c63e 2026-05-21: 답안+결론 노출 방지 (사용자 풀이 모드 우선).
+      //   `**답안**:` / `**결론**:` / `### 답안` / `1. 결 론` / `Ⅰ. 결 론` 시작 패턴 이전까지만 캡쳐.
+      //   문제 본문만 노출 — 결론은 정답이므로 제외.
+      const answerStartRe = /\n\s*(?:\*\*답안\*\*:|\*\*결\s*론\*\*:|###\s*답안|\[답안\]|1\.\s*결\s*론|Ⅰ\.\s*결\s*론)/;
       const ansMatch = body.match(answerStartRe);
       if (ansMatch) {
         body = body.slice(0, ansMatch.index);
