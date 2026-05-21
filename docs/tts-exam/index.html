@@ -1610,6 +1610,239 @@
   /* 탭 컨텐츠 — show/hide */
   .modal-ans-pane { display: none; }
   .modal-ans-pane.active { display: block; }
+  /* ─── lawear-c63e Sub2 — View Mode 토글 (왼쪽 사용자답안 안) ─── */
+  .view-mode-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    padding: 4px 0;
+  }
+  .view-mode-row .view-mode-label {
+    font-size: 10px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  .view-mode-group {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  .view-mode-btn {
+    background: var(--bg);
+    color: var(--text-dim);
+    border: none;
+    padding: 4px 11px;
+    font-size: 11px;
+    font-family: 'SF Mono', Consolas, monospace;
+    cursor: pointer;
+    border-right: 1px solid var(--border);
+    transition: background 120ms, color 120ms;
+  }
+  .view-mode-btn:last-child { border-right: none; }
+  .view-mode-btn:hover { color: var(--text); background: var(--panel-2); }
+  .view-mode-btn.active {
+    background: var(--accent-dim);
+    color: #fff;
+    font-weight: 600;
+  }
+  /* ─── lawear-c63e Sub2 — 인라인 채점 마커 (사용자답안 본문 내 wrap) ─── */
+  .inline-marker {
+    border-bottom: 2px solid;
+    padding: 0 1px;
+    border-radius: 2px;
+    cursor: help;
+    position: relative;
+  }
+  .inline-marker.type-ok      { border-color: var(--success); background: rgba(78, 201, 176, 0.10); }
+  .inline-marker.type-warning { border-color: var(--warn);    background: rgba(206, 145, 120, 0.13); }
+  .inline-marker.type-error   { border-color: var(--danger);  background: rgba(209, 105, 105, 0.15); }
+  /* severity 강도 — 동일 type 안에서 high 가장 강함 */
+  .inline-marker.sev-high    { border-bottom-width: 3px; }
+  .inline-marker.sev-mid     { border-bottom-width: 2px; }
+  .inline-marker.sev-low     { border-bottom-width: 1px; border-bottom-style: dashed; }
+  /* 호버 툴팁 (data-comment 사용) */
+  .inline-marker[data-comment]::after {
+    content: attr(data-comment);
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 0;
+    background: var(--panel-2);
+    color: var(--text-bright);
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    max-width: 360px;
+    min-width: 180px;
+    z-index: 100;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 120ms;
+  }
+  .inline-marker[data-comment]:hover::after { opacity: 1; visibility: visible; }
+  .inline-marker .marker-icon {
+    font-size: 9px;
+    margin-right: 2px;
+    vertical-align: 1px;
+    opacity: 0.85;
+  }
+  /* ─── lawear-c63e Sub2 — 오른쪽 4탭 (9기준/채점평/격차로드맵/시험관) ─── */
+  .modal-right-tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .modal-right-tab {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid transparent;
+    border-bottom: none;
+    padding: 6px 12px;
+    font-size: 11px;
+    font-family: 'SF Mono', Consolas, monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    border-radius: 3px 3px 0 0;
+    margin-bottom: -1px;
+    transition: color 120ms, background 120ms;
+  }
+  .modal-right-tab:hover { color: var(--text); }
+  .modal-right-tab.active {
+    color: var(--accent);
+    background: var(--bg);
+    border-color: var(--border);
+    border-bottom-color: var(--bg);
+    font-weight: 600;
+  }
+  .modal-right-pane { display: none; }
+  .modal-right-pane.active { display: block; }
+  /* 빈 상태 안내 */
+  .modal-right-empty {
+    color: var(--text-dim);
+    font-size: 12px;
+    padding: 16px;
+    text-align: center;
+    font-style: italic;
+  }
+  /* ─── lawear-c63e Sub2 — 격차로드맵 카드 ─── */
+  .gap-roadmap-header {
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    color: var(--text);
+  }
+  .gap-roadmap-header .gap-cur { color: var(--text-bright); font-weight: 600; }
+  .gap-roadmap-header .gap-tgt { color: var(--accent-pass); font-weight: 600; }
+  .gap-roadmap-header .gap-amt { color: var(--danger); margin-left: 4px; }
+  .gap-action-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 8px 10px;
+    margin-bottom: 6px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    display: grid;
+    grid-template-columns: auto auto 1fr auto auto;
+    gap: 10px;
+    align-items: center;
+  }
+  .gap-action-card .gap-prio {
+    background: var(--accent-dim);
+    color: #fff;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 11px;
+  }
+  .gap-action-card .gap-crit-badge {
+    background: var(--panel-2);
+    color: var(--text-dim);
+    border: 1px solid var(--border);
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  .gap-action-card .gap-action-text { color: var(--text); font-family: inherit; }
+  .gap-action-card .gap-delta { color: var(--success); font-weight: 600; }
+  .gap-action-card .gap-cumulative { color: var(--text-dim); font-size: 11px; }
+  .gap-action-card.is-pass {
+    border-left-color: var(--accent-pass);
+    background: rgba(74, 222, 128, 0.05);
+  }
+  .gap-action-card.is-pass .gap-cumulative {
+    color: var(--accent-pass);
+    font-weight: 600;
+  }
+  .gap-pass-badge {
+    margin-left: 4px;
+    background: var(--accent-pass);
+    color: #042;
+    padding: 1px 6px;
+    border-radius: 3px;
+    font-size: 9.5px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  /* ─── lawear-c63e Sub2 — 시험관 인용 카드 (부장판사 / 강사) ─── */
+  .examiner-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 3px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .examiner-card.role-judge    { border-left-color: var(--warn); }
+  .examiner-card.role-lecturer { border-left-color: var(--accent-pass); }
+  .examiner-card .examiner-head {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 8px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .examiner-card .examiner-role {
+    color: var(--text-bright);
+    font-weight: 600;
+  }
+  .examiner-card .examiner-quote {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-style: italic;
+  }
+  .examiner-card .examiner-quote::before { content: '“'; color: var(--text-dim); margin-right: 2px; }
+  .examiner-card .examiner-quote::after  { content: '”'; color: var(--text-dim); margin-left: 2px; }
   /* e571-ui-eval-rework — 평가지 영역 확장 (origin 하단 제거 → eval 가 모달 높이 거의 전체) */
   .modal-grid .modal-right { display: flex; flex-direction: column; min-height: 0; }
   .modal-grid .modal-right h5 { flex: none; }
@@ -2961,10 +3194,12 @@
                     role="tab" aria-selected="true" data-i18n="diff_col_mine">My Answer</button>
             <button type="button" class="modal-ans-tab" data-ans-tab="origin"
                     role="tab" aria-selected="false" data-i18n="diff_col_ref">Reference (Origin)</button>
+            <button type="button" class="modal-ans-tab" data-ans-tab="grade"
+                    role="tab" aria-selected="false" data-i18n="ans_tab_grade">Grade</button>
           </div>
           <!-- 내 답안 (default 활성) -->
           <div class="modal-ans-pane modal-ans-pane-mine active" data-ans-pane="mine">
-            <div class="modal-answer" id="attempt-modal-answer">—</div>
+            <div class="modal-answer" id="attempt-modal-answer" data-view-mode="normal">—</div>
           </div>
           <!-- 원본 답안 (탭으로 전환) — 강조 태그 + 매칭 형광펜 유지 -->
           <div class="modal-ans-pane modal-ans-pane-origin" data-ans-pane="origin">
@@ -2972,8 +3207,30 @@
           </div>
         </div>
         <div class="modal-right">
-          <h5 data-i18n="modal_eval_panel">Evaluation</h5>
-          <div class="modal-eval" id="attempt-modal-eval">—</div>
+          <!-- lawear-c63e Sub2 — 오른쪽 4탭: 9기준 / 채점평 / 격차로드맵 / 시험관 -->
+          <div class="modal-right-tabs" role="tablist" aria-label="Evaluation tabs">
+            <button type="button" class="modal-right-tab active" data-right-tab="criteria"
+                    role="tab" aria-selected="true" data-i18n="right_tab_criteria">9 Criteria</button>
+            <button type="button" class="modal-right-tab" data-right-tab="notes"
+                    role="tab" aria-selected="false" data-i18n="right_tab_notes">Notes</button>
+            <button type="button" class="modal-right-tab" data-right-tab="roadmap"
+                    role="tab" aria-selected="false" data-i18n="right_tab_roadmap">Gap Roadmap</button>
+            <button type="button" class="modal-right-tab" data-right-tab="examiner"
+                    role="tab" aria-selected="false" data-i18n="right_tab_examiner">Examiner</button>
+          </div>
+          <!-- 4개 pane: 9기준(default) / 채점평 / 격차로드맵 / 시험관 -->
+          <div class="modal-right-pane active" data-right-pane="criteria">
+            <div class="modal-eval" id="attempt-modal-eval">—</div>
+          </div>
+          <div class="modal-right-pane" data-right-pane="notes">
+            <div class="modal-eval" id="attempt-modal-eval-notes">—</div>
+          </div>
+          <div class="modal-right-pane" data-right-pane="roadmap">
+            <div class="modal-eval" id="attempt-modal-eval-roadmap">—</div>
+          </div>
+          <div class="modal-right-pane" data-right-pane="examiner">
+            <div class="modal-eval" id="attempt-modal-eval-examiner">—</div>
+          </div>
         </div>
       </div>
       <!-- 원문 비교 토글 — 별도 워크트리(pattern-warning)와 충돌 없음 -->
@@ -3142,6 +3399,25 @@
       modal_ref_toggle_show: 'Show reference comparison',
       modal_ref_toggle_hide: 'Hide reference comparison',
       modal_ref_hint: 'Highlighted origin (match / partial / miss) — clean view available in the tab above.',
+      // lawear-c63e Sub2 — View Mode toggle (left) + 4 sub-tabs (right)
+      view_mode_label: 'View',
+      view_mode_normal: 'Normal',
+      view_mode_grade: 'Grade',
+      view_mode_diff: 'Diff',
+      ans_tab_grade: 'Grade',
+      ans_tab_diff: 'Diff',
+      right_tab_criteria: '9 Criteria',
+      right_tab_notes: 'Notes',
+      right_tab_roadmap: 'Gap Roadmap',
+      right_tab_examiner: 'Examiner',
+      inline_empty: 'No inline comments — legacy attempt or new grading not yet applied.',
+      roadmap_empty: 'No gap roadmap — legacy attempt or new grading not yet applied.',
+      roadmap_header_fmt: 'Current {cur} → Target {tgt} (gap: -{gap})',
+      roadmap_cumulative_fmt: 'Cumulative: {n}',
+      roadmap_pass_badge: 'Pass line reached',
+      examiner_empty: 'No examiner quotes — legacy attempt or new grading not yet applied.',
+      examiner_judge: 'Presiding Judge',
+      examiner_lecturer: 'Lecturer',
       // e571-ui-eval-rework — pattern_warning header (legacy graceful)
       rich_pattern_warning: 'Recurring Pattern Warning',
       // e571-typo-system — typo_corrections title (음성 STT 오타 교정)
@@ -3401,6 +3677,25 @@
       modal_ref_toggle_show: '원문 비교 보기',
       modal_ref_toggle_hide: '원문 비교 접기',
       modal_ref_hint: '강조 형광펜(일치/부분/누락) 적용한 원본. 깨끗한 원문은 위쪽 탭에서 볼 수 있습니다.',
+      // lawear-c63e Sub2 — View Mode 토글 (좌) + 우측 4탭
+      view_mode_label: '보기',
+      view_mode_normal: '일반',
+      view_mode_grade: '채점',
+      view_mode_diff: 'Diff',
+      ans_tab_grade: '채점',
+      ans_tab_diff: 'Diff',
+      right_tab_criteria: '9기준',
+      right_tab_notes: '채점평',
+      right_tab_roadmap: '격차로드맵',
+      right_tab_examiner: '시험관',
+      inline_empty: '인라인 코멘트 없음 — 이전 채점이거나 신규 채점 데이터 미적용.',
+      roadmap_empty: '격차 로드맵 없음 — 이전 채점이거나 신규 채점 데이터 미적용.',
+      roadmap_header_fmt: '현재 {cur}점 → 목표 {tgt}점 (격차 -{gap})',
+      roadmap_cumulative_fmt: '누적 {n}점',
+      roadmap_pass_badge: '합격선 도달',
+      examiner_empty: '시험관 코멘트 없음 — 이전 채점이거나 신규 채점 데이터 미적용.',
+      examiner_judge: '부장판사',
+      examiner_lecturer: '강사',
       // e571-ui-eval-rework — pattern_warning 헤더 (legacy graceful)
       rich_pattern_warning: '반복 약점 패턴 경고',
       // e571-typo-system — typo_corrections 헤더 (음성 STT 오타 교정)
@@ -8183,9 +8478,12 @@
   // localStorage 키 (펼침 상태 사용자 선호 보존)
   const MODAL_REF_TOGGLE_KEY = 'mockup_modal_ref_open';
 
-  // 답안 탭 전환: tab='mine' or 'origin'
+  // 답안 탭 전환: tab='mine' | 'origin' | 'grade' | 'diff'
+  // - mine/origin: 좌측 pane 전환 (기존)
+  // - grade/diff: mine pane 활성 + view mode 변경 + 답안 본문 re-render
   function switchAnswerTab(tab) {
-    const validTab = (tab === 'origin') ? 'origin' : 'mine';
+    const ALL = ['mine', 'origin', 'grade', 'diff'];
+    const validTab = ALL.includes(tab) ? tab : 'mine';
     const modal = document.getElementById('attempt-modal');
     if (!modal) return;
     modal.querySelectorAll('.modal-ans-tab').forEach(btn => {
@@ -8193,10 +8491,23 @@
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
     });
+    // pane 전환: grade/diff 는 mine pane 사용 (답안 본문은 동일, mode 만 다름)
+    const paneTarget = (validTab === 'origin') ? 'origin' : 'mine';
     modal.querySelectorAll('.modal-ans-pane').forEach(pane => {
-      const isActive = pane.dataset.ansPane === validTab;
-      pane.classList.toggle('active', isActive);
+      pane.classList.toggle('active', pane.dataset.ansPane === paneTarget);
     });
+    // grade/diff/mine 탭이면 답안 본문 mode 변경 + re-render
+    if (validTab !== 'origin') {
+      const mode = (validTab === 'grade') ? 'grade'
+                 : (validTab === 'diff')  ? 'diff'
+                 : 'normal';
+      const ansEl = document.getElementById('attempt-modal-answer');
+      if (ansEl) ansEl.dataset.viewMode = mode;
+      const att = MODAL_STATE.currentAttempt;
+      if (att && typeof renderAnswerByViewMode === 'function') {
+        renderAnswerByViewMode(att, mode);
+      }
+    }
   }
 
   // 모달 열 때마다 기본 '내 답안'으로 리셋 (탭 상태는 모달간 persist 안 함)
@@ -8257,6 +8568,18 @@
     if (toggleBtn) {
       toggleBtn.addEventListener('click', () => toggleReferenceDiff());
     }
+    // lawear-c63e Sub2 — View Mode 버튼 wire
+    modal.querySelectorAll('.view-mode-btn[data-view-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchViewMode(btn.dataset.viewMode);
+      });
+    });
+    // lawear-c63e Sub2 — 우측 4탭 wire
+    modal.querySelectorAll('.modal-right-tab[data-right-tab]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        switchRightTab(btn.dataset.rightTab);
+      });
+    });
     // 초기 라벨 (collapsed 기본)
     restoreReferenceToggleState();
   }
@@ -8343,6 +8666,274 @@
     });
   }
 
+  // ════════════════════════════════════════════════
+  // lawear-c63e Sub2 — 옵션 C 신규 UI (View Mode + 우측 4탭)
+  // ════════════════════════════════════════════════
+
+  // 현재 View Mode (기본: normal). 모달 단위로 보존되며 모달 재오픈 시 normal 로 리셋.
+  function getCurrentViewMode() {
+    const ansEl = document.getElementById('attempt-modal-answer');
+    if (!ansEl) return 'normal';
+    const mode = ansEl.dataset.viewMode;
+    return (mode === 'grade' || mode === 'diff') ? mode : 'normal';
+  }
+
+  // 답안 본문을 현재 View Mode 에 맞춰 렌더.
+  //   * normal: 기존 (escape + diff 형광펜 + typo 인라인)
+  //   * grade : inline_comments 의 span.text 를 답안 본문에서 wrap (호버 툴팁)
+  //   * diff  : diff_segments 의 4색 매핑 (match/partial/miss/회색)
+  function renderAnswerByViewMode(att, mode) {
+    const ansEl = document.getElementById('attempt-modal-answer');
+    const dict = I18N[currentLang] || {};
+    if (!ansEl) return;
+    const ans = (att && typeof att.answer_text === 'string') ? att.answer_text : '';
+    if (!ans) {
+      ansEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_answer || 'No answer recorded.')}</span>`;
+      return;
+    }
+    const segments = Array.isArray(att.diff_segments) ? att.diff_segments : [];
+    const typoCorrs = (att && att.eval_notes && Array.isArray(att.eval_notes.typo_corrections))
+      ? att.eval_notes.typo_corrections : [];
+    const inlineComments = (att && att.eval_notes && Array.isArray(att.eval_notes.inline_comments))
+      ? att.eval_notes.inline_comments : [];
+
+    const escaped = escapeHtml(ans);
+
+    if (mode === 'grade') {
+      // 채점 모드: inline_comments 마커만 표시.
+      // typo/diff wrap 이 본문 사이에 태그를 삽입하면 inline_comments 정규식 매칭 실패 → 마커 0건.
+      // 채점 모드의 핵심은 inline_comments (호버 코멘트) 이므로 typo/diff 형광펜 생략.
+      ansEl.innerHTML = applyInlineComments(escaped, inlineComments);
+    } else if (mode === 'diff') {
+      // Diff 모드: 4색 매핑 (match/partial/miss). 회색은 unmarked default text 그대로.
+      // diff_segments 활용 — 기존 highlightDiffSegments 와 동일하게 처리. typo 도 표시.
+      const withDiff = highlightDiffSegments(escaped, segments);
+      ansEl.innerHTML = applyTypoCorrections(withDiff, typoCorrs);
+    } else {
+      // 일반 모드 (기존 동작): escape + 매칭 형광펜 + typo 인라인 밑줄
+      const highlighted = highlightDiffSegments(escaped, segments);
+      ansEl.innerHTML = applyTypoCorrections(highlighted, typoCorrs);
+    }
+  }
+
+  // 인라인 코멘트 wrap — span.text 를 답안 본문 HTML 에서 찾아 .inline-marker 로 wrap.
+  //   * HTML 태그 안쪽(<span class="..."> 등)은 침범 X (중첩 안전)
+  //   * NULL/undefined/빈 배열 → 입력 HTML 그대로 반환
+  //   * 동일 텍스트 등장 시 첫 번째만 wrap (중복 wrap 방지)
+  function applyInlineComments(html, comments) {
+    if (!Array.isArray(comments) || comments.length === 0) return html;
+    // 캡 15개 — 명세서 §2-1
+    const items = comments.slice(0, 15);
+    // 긴 텍스트부터 처리 (짧은 토큰이 긴 토큰 안에 포함될 수 있음)
+    const sorted = items.slice().sort((a, b) => {
+      const al = String(a && a.span && a.span.text || '').length;
+      const bl = String(b && b.span && b.span.text || '').length;
+      return bl - al;
+    });
+    let out = html;
+    for (const c of sorted) {
+      if (!c || !c.span || typeof c.span.text !== 'string') continue;
+      const raw = c.span.text.trim();
+      if (!raw || raw.length < 2) continue;
+      const type = (c.type === 'ok' || c.type === 'warning' || c.type === 'error')
+        ? c.type : 'warning';
+      const sev = (c.severity === 'high' || c.severity === 'mid' || c.severity === 'low')
+        ? c.severity : 'mid';
+      const icon = (type === 'ok') ? '✅' : (type === 'error') ? '❌' : '⚠️';
+      const commentTxt = String(c.comment || '');
+      const delta = (typeof c.delta === 'number' && c.delta !== 0)
+        ? ` (${c.delta > 0 ? '+' : ''}${c.delta}점)` : '';
+      const tooltip = (commentTxt + delta).trim();
+      // escape 된 텍스트 매칭 — span.text 도 escape 처리 후 정규식 빌드
+      const safe = escapeHtml(raw);
+      if (!safe || safe.length < 2) continue;
+      const re = new RegExp(safe.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+      // 첫 매칭 1회만 (중복 wrap 방지)
+      out = out.replace(re, (m, offset, full) => {
+        // 이미 .inline-marker 안쪽이면 skip (중첩 가드)
+        const before = full.slice(Math.max(0, offset - 80), offset);
+        if (/<span class="[^"]*inline-marker[^"]*"[^>]*>[^<]*$/.test(before)) return m;
+        return `<span class="inline-marker type-${type} sev-${sev}"`
+          + (tooltip ? ` data-comment="${escapeHtml(tooltip)}"` : '')
+          + `><span class="marker-icon">${icon}</span>${m}</span>`;
+      });
+    }
+    return out;
+  }
+
+  // 채점평 pane (rich-summary + legacy strength/caution/missing).
+  //   * 기존 9기준 탭에 있던 콘텐츠 분리 — 9기준 은 메타+criterion 바, 채점평 은 평가 본문.
+  function renderNotesPane(att, el) {
+    if (!el) return;
+    const dict = I18N[currentLang] || {};
+    if (!att || (att.status !== 'completed' && att.db_status !== 'done')) {
+      el.innerHTML = `<div class="modal-right-empty">${escapeHtml(dict.modal_no_eval || 'Not yet graded.')}</div>`;
+      return;
+    }
+    const notes = att.eval_notes || {};
+    let html = '';
+    const richHtml = buildRichSummaryHtml(notes);
+    if (richHtml) {
+      html += `<div class="rich-summary">${richHtml}</div>`;
+    }
+    // e571-ui-eval-rework — legacy 폴백 (신규 키 없을 때만 표시)
+    const hasNewContent = !!(notes.next_study_oneliner || notes.score_summary
+      || (Array.isArray(notes.strengths) && notes.strengths.length)
+      || (Array.isArray(notes.weaknesses) && notes.weaknesses.length)
+      || (Array.isArray(notes.missing_critical) && notes.missing_critical.length)
+      || (Array.isArray(notes.next_study_actionable) && notes.next_study_actionable.length)
+      || notes.pattern_warning
+      || (Array.isArray(notes.typo_corrections) && notes.typo_corrections.length));
+    const hasLegacyContent = !!(notes.strength || notes.caution || notes.missing);
+    if (!hasNewContent && hasLegacyContent) {
+      if (notes.strength) {
+        html += `<div class="modal-note"><span class="note-tag">${escapeHtml(dict.fb_strength || 'Strength')}</span>${escapeHtml(notes.strength)}</div>`;
+      }
+      if (notes.caution) {
+        html += `<div class="modal-note warn"><span class="note-tag">${escapeHtml(dict.fb_caution || 'Caution')}</span>${escapeHtml(notes.caution)}</div>`;
+      }
+      if (notes.missing) {
+        html += `<div class="modal-note danger"><span class="note-tag">${escapeHtml(dict.fb_missing || 'Missing')}</span>${escapeHtml(notes.missing)}</div>`;
+      }
+    }
+    if (!html) {
+      html = `<div class="modal-right-empty">${escapeHtml(dict.modal_no_eval || 'Not yet graded.')}</div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  // 격차로드맵 pane.
+  //   * gap_roadmap.actions Top 5 카드. 5번째 누적이 target 이상이면 ✅ 합격 표시.
+  //   * gap_roadmap NULL/없음 → 빈 상태 메시지.
+  function renderRoadmapPane(att, el) {
+    if (!el) return;
+    const dict = I18N[currentLang] || {};
+    const roadmap = (att && att.eval_notes && att.eval_notes.gap_roadmap)
+      ? att.eval_notes.gap_roadmap : null;
+    if (!roadmap || !Array.isArray(roadmap.actions) || roadmap.actions.length === 0) {
+      el.innerHTML = `<div class="modal-right-empty">${escapeHtml(dict.roadmap_empty || 'No gap roadmap.')}</div>`;
+      return;
+    }
+    const cur = (typeof roadmap.current_score === 'number') ? roadmap.current_score : null;
+    const tgt = (typeof roadmap.target_score === 'number') ? roadmap.target_score : null;
+    const gap = (typeof roadmap.gap === 'number')
+      ? roadmap.gap
+      : (cur != null && tgt != null) ? Math.max(0, tgt - cur) : null;
+    let html = '';
+    if (cur != null && tgt != null) {
+      const tmpl = dict.roadmap_header_fmt || 'Current {cur} → Target {tgt} (gap: -{gap})';
+      const headerTxt = tmpl
+        .replace('{cur}', String(cur))
+        .replace('{tgt}', String(tgt))
+        .replace('{gap}', String(gap != null ? gap : '?'));
+      html += `<div class="gap-roadmap-header">
+        <span class="gap-cur">${escapeHtml(String(cur))}</span>
+        &nbsp;→&nbsp;
+        <span class="gap-tgt">${escapeHtml(String(tgt))}</span>
+        ${gap != null && gap > 0 ? `<span class="gap-amt">(-${escapeHtml(String(gap))})</span>` : ''}
+      </div>`;
+      void headerTxt; // i18n 키 미사용 경고 회피 (실제 헤더는 colored span 으로 표시)
+    }
+    // Top 5 만 표시 (priority 정렬 — 명세서 priority 1~5)
+    const actions = roadmap.actions.slice(0, 5).slice().sort((a, b) => {
+      const ap = (typeof a.priority === 'number') ? a.priority : 99;
+      const bp = (typeof b.priority === 'number') ? b.priority : 99;
+      return ap - bp;
+    });
+    const cumTmpl = dict.roadmap_cumulative_fmt || 'Cumulative: {n}';
+    const passBadge = dict.roadmap_pass_badge || 'Pass';
+    for (let i = 0; i < actions.length; i++) {
+      const a = actions[i];
+      const prio = (typeof a.priority === 'number') ? a.priority : (i + 1);
+      const critKey = String(a.criterion || '').trim();
+      const action = String(a.action || '');
+      const delta = (typeof a.delta === 'number') ? a.delta : null;
+      const cum = (typeof a.cumulative === 'number') ? a.cumulative : null;
+      const isPassReached = (tgt != null && cum != null && cum >= tgt);
+      const cumTxt = (cum != null) ? cumTmpl.replace('{n}', String(cum)) : '';
+      html += `<div class="gap-action-card${isPassReached ? ' is-pass' : ''}">
+        <span class="gap-prio">${escapeHtml(String(prio))}</span>
+        <span class="gap-crit-badge">${escapeHtml(critKey || '—')}</span>
+        <span class="gap-action-text">${escapeHtml(action)}</span>
+        <span class="gap-delta">${delta != null ? (delta >= 0 ? '+' : '') + delta : '—'}</span>
+        <span class="gap-cumulative">${escapeHtml(cumTxt)}${isPassReached ? ` <span class="gap-pass-badge">✓ ${escapeHtml(passBadge)}</span>` : ''}</span>
+      </div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  // 시험관 pane (judge_quote + lecturer_quote 카드 2개).
+  //   * 둘 다 NULL → 빈 상태 메시지.
+  //   * 한쪽만 있어도 정상 표시 (해당 카드만).
+  function renderExaminerPane(att, el) {
+    if (!el) return;
+    const dict = I18N[currentLang] || {};
+    const notes = (att && att.eval_notes) ? att.eval_notes : {};
+    const judge = (typeof notes.judge_quote === 'string' && notes.judge_quote.trim())
+      ? notes.judge_quote.trim() : null;
+    const lecturer = (typeof notes.lecturer_quote === 'string' && notes.lecturer_quote.trim())
+      ? notes.lecturer_quote.trim() : null;
+    if (!judge && !lecturer) {
+      el.innerHTML = `<div class="modal-right-empty">${escapeHtml(dict.examiner_empty || 'No examiner quotes.')}</div>`;
+      return;
+    }
+    let html = '';
+    if (judge) {
+      html += `<div class="examiner-card role-judge">
+        <div class="examiner-head">
+          <span>👨‍⚖️</span>
+          <span class="examiner-role">${escapeHtml(dict.examiner_judge || 'Presiding Judge')}</span>
+        </div>
+        <div class="examiner-quote">${escapeHtml(judge)}</div>
+      </div>`;
+    }
+    if (lecturer) {
+      html += `<div class="examiner-card role-lecturer">
+        <div class="examiner-head">
+          <span>👨‍🏫</span>
+          <span class="examiner-role">${escapeHtml(dict.examiner_lecturer || 'Lecturer')}</span>
+        </div>
+        <div class="examiner-quote">${escapeHtml(lecturer)}</div>
+      </div>`;
+    }
+    el.innerHTML = html;
+  }
+
+  // View Mode 토글 전환 — 현재 attempt 다시 렌더 (재fetch X).
+  function switchViewMode(mode) {
+    const valid = (mode === 'grade' || mode === 'diff') ? mode : 'normal';
+    const modal = document.getElementById('attempt-modal');
+    if (!modal) return;
+    modal.querySelectorAll('.view-mode-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.viewMode === valid);
+    });
+    const ansEl = document.getElementById('attempt-modal-answer');
+    if (ansEl) ansEl.dataset.viewMode = valid;
+    const att = MODAL_STATE.currentAttempt;
+    if (att) renderAnswerByViewMode(att, valid);
+  }
+
+  // 우측 4탭 전환 — pane 토글만 (콘텐츠는 렌더 시 이미 준비됨).
+  function switchRightTab(tab) {
+    const valid = ['criteria', 'notes', 'roadmap', 'examiner'].includes(tab) ? tab : 'criteria';
+    const modal = document.getElementById('attempt-modal');
+    if (!modal) return;
+    modal.querySelectorAll('.modal-right-tab').forEach(btn => {
+      const isActive = btn.dataset.rightTab === valid;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
+    modal.querySelectorAll('.modal-right-pane').forEach(pane => {
+      pane.classList.toggle('active', pane.dataset.rightPane === valid);
+    });
+  }
+
+  // 모달 열 때마다 View Mode = 'normal', 우측 탭 = '9기준' 으로 리셋.
+  function resetSub2State() {
+    switchViewMode('normal');
+    switchRightTab('criteria');
+  }
+
   // 답안 + 평가 + 원본 본문 렌더 (Step 16-2)
   //   * 좌: 내 답안 (escape + 매칭 형광펜)
   //   * 우 상단: 평가지 (7기준 바 + 평 카드 + 메타)
@@ -8350,25 +8941,29 @@
   function renderModalAttemptBody(att) {
     const ansEl = document.getElementById('attempt-modal-answer');
     const evEl  = document.getElementById('attempt-modal-eval');
+    // lawear-c63e Sub2 — 우측 3개 신규 pane (notes/roadmap/examiner)
+    const evNotesEl    = document.getElementById('attempt-modal-eval-notes');
+    const evRoadmapEl  = document.getElementById('attempt-modal-eval-roadmap');
+    const evExaminerEl = document.getElementById('attempt-modal-eval-examiner');
     // e571-ui-eval-rework — origin 2곳: 좌측 탭(clean) + 하단 토글(diff comparison)
     const originEl = document.getElementById('attempt-modal-origin');
     const originDiffEl = document.getElementById('attempt-modal-origin-diff');
     const dict = I18N[currentLang] || {};
     if (!ansEl || !evEl) return;
 
-    // 좌 — 답안 본문 + 매칭 강조 (Reports 와 동일 형광펜) + lawear-9bdc/typo-system-v2 typo 인라인 밑줄
-    const ans = (att && typeof att.answer_text === 'string') ? att.answer_text : '';
-    if (ans) {
-      const escaped = escapeHtml(ans);
-      const highlighted = highlightDiffSegments(escaped, Array.isArray(att.diff_segments) ? att.diff_segments : []);
-      const typoCorrs = (att && att.eval_notes && Array.isArray(att.eval_notes.typo_corrections))
-        ? att.eval_notes.typo_corrections : [];
-      ansEl.innerHTML = applyTypoCorrections(highlighted, typoCorrs);
-    } else {
-      ansEl.innerHTML = `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_answer || 'No answer recorded.')}</span>`;
-    }
+    // lawear-c63e Sub2 — 현재 attempt 보존 (View Mode 토글 / 우측 탭 전환 시 재참조)
+    MODAL_STATE.currentAttempt = att;
 
-    // 우 — 평가지 (7기준 바 + 평 카드 + 메타)
+    // 좌 — 답안 본문 + 매칭 강조 (Reports 와 동일 형광펜) + lawear-9bdc/typo-system-v2 typo 인라인 밑줄
+    // lawear-c63e Sub2 — 현재 View Mode 에 맞춰 렌더 (normal / grade / diff)
+    renderAnswerByViewMode(att, getCurrentViewMode());
+
+    // lawear-c63e Sub2 — 우측 모든 pane 렌더 (탭 전환 시 재계산 X — 일괄 렌더)
+    renderRoadmapPane(att, evRoadmapEl);
+    renderExaminerPane(att, evExaminerEl);
+    renderNotesPane(att, evNotesEl);
+
+    // 우 — 9기준 탭 (점수 메타 + criterion 바 — 기존 그대로 유지)
     let html = '';
     // 메타: 점수/등급/상태
     if (att.status === 'completed' || att.db_status === 'done') {
@@ -8433,37 +9028,8 @@
           </div>`;
         }
       }
-
-      // Phase 3 — v6 채점 풍부 표시 (한줄평/강점/약점/누락/actionable)
-      const notes = att.eval_notes || {};
-      const richHtml = buildRichSummaryHtml(notes);
-      if (richHtml) {
-        html += `<div class="rich-summary">${richHtml}</div>`;
-      }
-      // e571-ui-eval-rework — 평 카드 3개(legacy 호환): 신규 키 없을 때만 표시.
-      //   * 신규 키(strengths/weaknesses/missing_critical 등)가 있으면 중복 노출 회피
-      //   * legacy 키(strength/caution/missing)는 신규 attempts 가 풍부 표시로 대체하기 전 데이터 보존
-      //   * 비어있는 '—' 카드 줄줄이 노출 방지 — 실제 값 있는 카드만 표시
-      const hasNewContent = !!(notes.next_study_oneliner || notes.score_summary
-        || (Array.isArray(notes.strengths) && notes.strengths.length)
-        || (Array.isArray(notes.weaknesses) && notes.weaknesses.length)
-        || (Array.isArray(notes.missing_critical) && notes.missing_critical.length)
-        || (Array.isArray(notes.next_study_actionable) && notes.next_study_actionable.length)
-        || notes.pattern_warning
-        // e571-typo-system — typo_corrections 도 신규 키 (legacy 폴백 회피)
-        || (Array.isArray(notes.typo_corrections) && notes.typo_corrections.length));
-      const hasLegacyContent = !!(notes.strength || notes.caution || notes.missing);
-      if (!hasNewContent && hasLegacyContent) {
-        if (notes.strength) {
-          html += `<div class="modal-note"><span class="note-tag">${escapeHtml(dict.fb_strength || 'Strength')}</span>${escapeHtml(notes.strength)}</div>`;
-        }
-        if (notes.caution) {
-          html += `<div class="modal-note warn"><span class="note-tag">${escapeHtml(dict.fb_caution || 'Caution')}</span>${escapeHtml(notes.caution)}</div>`;
-        }
-        if (notes.missing) {
-          html += `<div class="modal-note danger"><span class="note-tag">${escapeHtml(dict.fb_missing || 'Missing')}</span>${escapeHtml(notes.missing)}</div>`;
-        }
-      }
+      // lawear-c63e Sub2 — 9기준 탭은 메타 + criterion 바까지만.
+      //   채점평(rich-summary + legacy notes) 은 renderNotesPane 에서 처리.
     } else if (att.status === 'failed' || att.db_status === 'error') {
       html += `<div style="color: var(--danger); font-size: 12px;">
         Error: ${escapeHtml(att.error_code || '—')}<br>
@@ -8596,6 +9162,8 @@
     openAttemptModal();
     // e571-ui-eval-rework — 모달 열림 시 답안 탭은 항상 '내 답안'으로 초기화
     resetAnswerTabToMine();
+    // lawear-c63e Sub2 — View Mode = normal + 우측 탭 = 9기준 으로 리셋
+    resetSub2State();
     // 토글 상태는 localStorage 선호 복원
     restoreReferenceToggleState();
     const ansEl = document.getElementById('attempt-modal-answer');

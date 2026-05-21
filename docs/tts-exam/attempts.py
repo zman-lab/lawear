@@ -911,6 +911,20 @@ _REQUIRED_INJECT_FIELDS: tuple[str, ...] = (
 #       음성 답안 (STT) 오타 교정 내역. 각 dict: {from, to, reason}.
 #       정적 사전(typo_dict.json) 매칭 + Opus SE 문맥 분석 결과 누적.
 #       legacy attempts (키 없음) 은 None — UI 분기 graceful.
+#   옵션 C 확장 (lawear-c63e, 2026-05-21, 명세서 #2111):
+#     - inline_comments:      list[dict] | null
+#       답안 본문 inline 주석 (옵션 C 시각화용). 각 dict 권장 스키마:
+#         {span: {text: str, line: int?}, type: "ok"|"warning"|"error",
+#          category: str, severity: "high"|"mid"|"low", comment: str,
+#          delta: float?, criterion: str?}
+#       캡 15개 (사용자 피로 방지). 초과 시 slice[:15] silent. R-09 — dict 내용 pass-through.
+#     - gap_roadmap:          dict | null
+#       합격선까지 액션 5개 (옵션 C 격차 시각화).
+#       권장 스키마: {current_score: float, target_score: float, gap: float,
+#                    actions: [{priority, criterion, action, delta, cumulative}] (≤5)}
+#       R-09 — dict pass-through (Sub3 채점 책임).
+#     - judge_quote:          str | null  (부장판사 QA 사용자 공개용 자연어 정제본)
+#     - lecturer_quote:       str | null  (강사 QA 사용자 공개용 자연어 정제본)
 #
 # 사용자 명시 (lawear-e571 작업): SE 보낸 평가 본문이 스키마 불일치로 빈 문자열 저장됨.
 # 새 키 못 받으면 빈 문자열/빈 배열로 저장 (호환성).
@@ -923,11 +937,26 @@ _EVAL_NOTES_KEYS_EXT_LIST: tuple[str, ...] = (
     "next_study_actionable",
 )
 # pattern_warning 은 str | null — 빈 키 디폴트는 None (legacy str EXT 와 분리)
-_EVAL_NOTES_KEYS_EXT_OPT_STR: tuple[str, ...] = ("pattern_warning",)
+# lawear-c63e (2026-05-21, 옵션 C): judge_quote / lecturer_quote 추가 — 동일 처리 패턴.
+_EVAL_NOTES_KEYS_EXT_OPT_STR: tuple[str, ...] = (
+    "pattern_warning",
+    "judge_quote",
+    "lecturer_quote",
+)
 # typo_corrections — 8번째 확장 키 (lawear-e571/typo-system 추가 2026-05-19):
 #   list[dict] | None — 빈 리스트도 None 으로 정규화 (UI 분기 단순화).
 #   각 dict: {"from": str, "to": str, "reason": str} — 음성 STT 오타 교정 내역.
 _EVAL_NOTES_KEYS_EXT_OPT_LIST: tuple[str, ...] = ("typo_corrections",)
+# 옵션 C 확장 (lawear-c63e, 2026-05-21, 명세서 #2111):
+#   inline_comments — list[dict] | None — 답안 본문 inline 주석. dict pass-through, 캡 15.
+#   typo_corrections 처럼 list[dict] 정규화하지만 권장 7필드(span/type/category/...)는
+#   R-09 — 내부 키 강제 X, dict 통째 보존. 빈 list 는 None 으로 정규화.
+_EVAL_NOTES_KEYS_EXT_OPT_DICT_LIST: tuple[str, ...] = ("inline_comments",)
+# inline_comments 캡 — 명세 §2-1 (사용자 피로 방지). 초과 시 silent slice.
+_INLINE_COMMENTS_CAP: int = 15
+# 옵션 C 확장 (lawear-c63e, 2026-05-21, 명세서 #2111):
+#   gap_roadmap — dict | None — 합격선까지 액션 로드맵. dict pass-through.
+_EVAL_NOTES_KEYS_EXT_OPT_DICT: tuple[str, ...] = ("gap_roadmap",)
 # 통합 (서버 검증 + 응답 형식 일관성)
 _EVAL_NOTES_KEYS: tuple[str, ...] = (
     _EVAL_NOTES_KEYS_LEGACY
@@ -935,6 +964,8 @@ _EVAL_NOTES_KEYS: tuple[str, ...] = (
     + _EVAL_NOTES_KEYS_EXT_LIST
     + _EVAL_NOTES_KEYS_EXT_OPT_STR
     + _EVAL_NOTES_KEYS_EXT_OPT_LIST
+    + _EVAL_NOTES_KEYS_EXT_OPT_DICT_LIST
+    + _EVAL_NOTES_KEYS_EXT_OPT_DICT
 )
 
 # eval_notes alias — 다른 키 이름으로 들어와도 정규화 (호환)
@@ -1041,9 +1072,14 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
     missing_critical/score_summary/next_study_oneliner/next_study_actionable/
     pattern_warning/typo_corrections) 모두 보존.
 
+    옵션 C 확장 (lawear-c63e, 2026-05-21, 명세서 #2111):
+        inline_comments / gap_roadmap / judge_quote / lecturer_quote 추가.
+
     Raises:
-        GradeInjectionError: dict 아님, pattern_warning 잘못된 타입(list/dict),
-                             또는 typo_corrections 가 list/null 외 타입.
+        GradeInjectionError: dict 아님, pattern_warning/judge_quote/lecturer_quote
+                             잘못된 타입(list/dict), 또는 typo_corrections /
+                             inline_comments 가 list/null 외 타입, 또는
+                             gap_roadmap 이 dict/null 외 타입.
 
     Returns:
         {
@@ -1060,17 +1096,34 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
           "typo_corrections": list[dict] | None,
             # 음성 STT 오타 교정 (없으면 None)
             # 각 dict: {from: str, to: str, reason: str} — 다른 키도 보존 (R-09)
+          "inline_comments": list[dict] | None,
+            # 옵션 C 답안 본문 inline 주석 (없으면 None)
+            # 각 dict 권장 스키마(R-09 강제 X, 통째 보존):
+            #   {span: {text, line?}, type, category, severity, comment,
+            #    delta?, criterion?}
+            # 캡 15 — 초과 시 silent slice.
+          "judge_quote": str | None,       # 부장판사 QA 자연어 정제 (없으면 None)
+          "lecturer_quote": str | None,    # 강사 QA 자연어 정제 (없으면 None)
+          "gap_roadmap": dict | None,
+            # 옵션 C 합격선 격차 로드맵 (없으면 None)
+            # 권장 스키마(R-09 강제 X, 통째 보존):
+            #   {current_score, target_score, gap, actions: [...]}
         }
 
         - 없는 키는 빈 문자열/빈 배열 (호환성 — SE가 일부만 보내도 저장).
         - alias (weakness → weaknesses) 자동 정규화.
         - missing_critical 항목은 {item: str, expected_score_impact: int|float}
           형식으로 강제 — 자유형 dict 도 그대로 보존 (R-09 가공 X).
-        - pattern_warning 은 str | None — list/dict 입력 시 GradeInjectionError.
-          빈 문자열은 None 으로 정규화 (UI 분기 단순화).
+        - pattern_warning / judge_quote / lecturer_quote 는 str | None —
+          list/dict 입력 시 GradeInjectionError. 빈 문자열은 None 으로 정규화.
         - typo_corrections 는 list[dict] | None — 빈 list 는 None 으로 정규화.
           각 dict: {from: str, to: str, reason: str} 강제 + 다른 키 보존.
           잘못된 타입(dict/str/int 등)은 GradeInjectionError.
+        - inline_comments 는 list[dict] | None — 빈 list 는 None.
+          dict 통째 보존 (R-09 — 권장 7필드 강제 X). 캡 15 silent slice.
+          비-dict 항목은 skip (graceful).
+        - gap_roadmap 은 dict | None — list/str/int 입력 시 GradeInjectionError.
+          빈 dict 는 None 으로 정규화. 내부 구조는 R-09 — 통째 보존.
     """
     if not isinstance(raw, dict):
         raise GradeInjectionError(
@@ -1179,6 +1232,44 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
         else:
             raise GradeInjectionError(
                 f"eval_notes.{k} must be array or null, got {type(v).__name__}"
+            )
+
+    # inline_comments — list[dict] | None (lawear-c63e/옵션 C, 2026-05-21, #2111)
+    # R-09: dict 통째 보존 (권장 7필드 강제 X). 캡 15 silent slice.
+    # 빈 list 는 None 으로 정규화.
+    for k in _EVAL_NOTES_KEYS_EXT_OPT_DICT_LIST:
+        v = src.get(k)
+        if v is None:
+            out[k] = None
+        elif isinstance(v, list):
+            normalized_inline: list[dict[str, Any]] = []
+            for item in v:
+                # 비-dict 항목은 skip (graceful — R-09 강제 변환 X)
+                if not isinstance(item, dict):
+                    continue
+                # R-09 통째 보존 — 권장 키(span/type/category/...)도 강제 X
+                normalized_inline.append(dict(item))
+            # 캡 15 silent slice — 사용자 피로 방지 (명세 §2-1)
+            if len(normalized_inline) > _INLINE_COMMENTS_CAP:
+                normalized_inline = normalized_inline[:_INLINE_COMMENTS_CAP]
+            out[k] = normalized_inline if normalized_inline else None
+        else:
+            raise GradeInjectionError(
+                f"eval_notes.{k} must be array or null, got {type(v).__name__}"
+            )
+
+    # gap_roadmap — dict | None (lawear-c63e/옵션 C, 2026-05-21, #2111)
+    # R-09: dict pass-through (내부 구조 강제 X — Sub3 채점 책임).
+    # 빈 dict 는 None 으로 정규화.
+    for k in _EVAL_NOTES_KEYS_EXT_OPT_DICT:
+        v = src.get(k)
+        if v is None:
+            out[k] = None
+        elif isinstance(v, dict):
+            out[k] = dict(v) if v else None
+        else:
+            raise GradeInjectionError(
+                f"eval_notes.{k} must be object or null, got {type(v).__name__}"
             )
 
     return out

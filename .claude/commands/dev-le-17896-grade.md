@@ -186,6 +186,121 @@ PUT /api/attempts/{id}/answer  // 또는 직접 SQL UPDATE
 - **miss (핵심 누락)**: 원본 핵심 논점 누락 정도 (1개 90% / 2개 75% / 3개 60% / 4개+ 50%↓)
 - **case_apply (사안 적용)**: 사실관계(일자/사실/당사자명)와 결론 도출 과정을 사안에 어떻게 녹였는지 (정확 매칭 X, 흐름 평가)
 
+#### 2.3.5 4 케이스 감점 가이드 (옵션 C, v2)
+
+사용자 명시 2026-05-21 (옵션 C 도입, 게시판 #2111). inline_comments / 채점 코멘트 category 표기 시 적용.
+
+| 케이스 (category) | 감점 위치 (criterion) | 정도 | 1건 영향 (type/severity) |
+|------------------|----------------------|------|--------------------------|
+| `off_topic` (논점 무관) | sem | -2 | warning |
+| `wrong_basis` (근거 틀림, 논점 OK) | sem | -3 | warning |
+| `wrong_conclusion` (결론 틀림) | case_apply | -5 | error (high) |
+| `wrong_article` (조문/판례 잘못) | articles | -2 | warning |
+| `wrong_concept` (개념 자체 오류) | case_apply or sem | -3~-5 | error |
+| `good` (잘한 부분) | - | 0 (인정) | ok |
+
+**적용 룰**:
+- 채점 코멘트에 "wrong_xxx" 사유 명시
+- inline_comments[].category 4 카테고리 + good 중 하나 부여
+- delta는 위 표 정도 그대로 (음수, good은 생략 또는 0)
+- 누적 감점은 9기준 점수에 이미 반영 (inline_comments는 시각화 보조)
+- R-09: 사용자 답안에 없는 어휘로 comment 작성 X — 답안 원문 인용 + QA 결과 변형만
+
+#### 2.3.6 inline_comments 생성 로직 (옵션 C, v2)
+
+메인 채점 시 답안을 문장 단위로 분석 → 최대 15개 inline_comments 생성.
+
+**알고리즘**:
+1. 답안 본문(`answer_text` 교정본)을 문장/구 단위 분할 (마침표/줄바꿈 기준)
+2. 각 문장 → 원본 모범답안과 비교 → 분류:
+   - `ok` (정확 일치 or 의미 부합) → category `good`
+   - `warning` (부분 일치 or 약한 결함) → category `off_topic` / `wrong_basis` / `wrong_article`
+   - `error` (결정적 오류 or 핵심 누락) → category `wrong_conclusion` / `wrong_concept`
+3. category 부여 + delta (위 2.3.5 표 정도 그대로) + criterion (9기준 key) 매핑
+4. comment 작성 (R-09 준수 — 답안 원문에 없는 어휘 추가 X, 강사/판사 QA 표현 변형 가능)
+5. cap 15개 — 초과 시 severity high 우선, mid → low 순으로 선별
+
+**JSON 스키마** (게시판 #2111 §2-1):
+```json
+{
+  "span": {"text": "답안 원문 부분 (UI가 본문에서 찾아 wrap)", "line": 12},
+  "type": "ok|warning|error",
+  "category": "good|off_topic|wrong_basis|wrong_conclusion|wrong_article|wrong_concept",
+  "severity": "high|mid|low",
+  "comment": "시험관 코멘트 (R-09 준수)",
+  "delta": -5,
+  "criterion": "case_apply"
+}
+```
+
+**span.text 룰**:
+- 답안 본문(교정본 기준) substring 정확히 인용 — UI applyTypoCorrections 같은 패턴으로 wrap
+- 너무 길면 핵심 30~60자만 발췌 (의미 유지)
+- 변형/요약 금지 (R-09)
+
+**cap 15개 우선순위** (초과 시 선별):
+1. severity high error 전부
+2. severity mid warning
+3. severity high good (잘한 부분 강조)
+4. 나머지 low
+
+#### 2.3.7 gap_roadmap 계산 로직 (옵션 C, v2)
+
+합격선 73점까지 액션 Top 5 — 9기준 점수 vs weight 격차 큰 항목 추출.
+
+**알고리즘**:
+1. `current_score` = 9기준 점수 합 (PUT payload `total_score`)
+2. `target_score` = 73 (합격선)
+3. `gap` = max(0, target_score - current_score)
+4. gap이 0이면 actions 빈 배열 (이미 합격)
+5. gap이 양수면:
+   - 9기준 각 항목 → (weight - score) 격차 큰 순으로 정렬
+   - 상위 5개 → action 카드 변환
+6. 각 action:
+   - `priority`: 1~5 (격차 큰 순)
+   - `criterion`: 9기준 key (mnem/color/under/outline/sem/articles/rich/miss/case_apply)
+   - `action`: 합리적 1줄 액션 (예: "해제사유의 경합 첫 항목 추가", "제544조 조문 + 4요건 두문자 풀이")
+     - 원본 모범답안 + 누락 항목 기반 — R-09 준수 (자의 X)
+   - `delta`: 해당 액션 수행 시 점수 회복 추정 (예: miss 4점 → 핵심 누락 1건 추가 시 +3~+5)
+     - 합리적 추정: weight × 0.3~0.5 사이
+     - 미달분(weight - score)을 초과 X
+   - `cumulative`: 직전 누적 + delta (시뮬레이션)
+
+**JSON 스키마** (게시판 #2111 §2-2):
+```json
+{
+  "current_score": 53,
+  "target_score": 73,
+  "gap": 20,
+  "actions": [
+    {"priority": 1, "criterion": "miss", "action": "해제사유의 경합 첫 항목 추가", "delta": 5, "cumulative": 58},
+    {"priority": 2, "criterion": "articles", "action": "제544조 조문 + 4요건 두문자 풀이", "delta": 6, "cumulative": 64}
+  ]
+}
+```
+
+**R-09 준수**: action 문구는 원본 모범답안에서 누락된 핵심 표현 인용/요약만, 새로운 학습 권고 창작 X.
+
+**delta 합리성**: 누적 cumulative가 target_score를 초과해도 OK (5개 모두 적용 시 합격선 도달 가능). 단, gap 0인 경우 actions 자체 생략.
+
+#### 2.3.8 judge_quote / lecturer_quote 정제 로직 (옵션 C, v2)
+
+부장판사/강사 QA 결과 → 사용자 친화 자연어 1~2문장 정제. R-09 절대 준수.
+
+**입력**: 2.5에서 받은 부장판사 QA 결과 + 강사 QA 결과 (둘 다 `user_quote` 필드 포함 — 2.5 프롬프트 갱신 참조)
+
+**정제 룰**:
+- 두 QA가 출력한 `user_quote`를 그대로 `judge_quote` / `lecturer_quote`에 매핑
+- 메인은 추가 변형 X (R-09 — QA가 만든 자연어를 메인이 다시 가공 시 어휘 창작 위험)
+- 톤 예시 (게시판 #2111 §2-3):
+  - judge: "가장 큰 흠은 '을을 제3자로 분류'한 부분. 시험장이라면 -5점. 이건 법리 자체를 잘못 적용한 것이라 단순 누락보다 무거움."
+  - lecturer: "결론 정리는 깔끔. 다만 '병/정 구분'이 이 사안의 핵심인데 둘을 묶어 다뤘어요. 시험에서 이런 구분 문제는 100% 출제됩니다."
+
+**판단 룰**:
+- 시험장 톤 ("시험장이라면 -N점", "다음엔 의식적으로 적자") 자연 유지
+- 사용자 답안 발췌는 작은따옴표 인용만 (R-09)
+- QA가 user_quote 누락 시 → 메인이 fallback 생성: 강사/판사 QA 권고 1순위만 발췌 + 자연어 1문장 (창작 X, 발췌만)
+
 #### 2.4 V2 등급 + is_pass
 
 **V2 10등급 + 합격선 A-(73점)** (사용자 결정 2026-05-20):
@@ -214,13 +329,14 @@ PUT /api/attempts/{id}/answer  // 또는 직접 SQL UPDATE
 ```python
 # 부장판사 SE
 Task(model="opus", subagent_type="general-purpose",
-     prompt="ultrathink. 법무사 시험 부장판사 역할. R-09 위반 점검 (사용자 답안에 없는 어휘로 채점 X) + 조문/판례 정확성 + 9기준 점수 합리성 + 한자/영어 치환 정확성. PASS/FAIL + line 번호 + 근거.",
+     prompt="ultrathink. 법무사 시험 부장판사 역할. R-09 위반 점검 (사용자 답안에 없는 어휘로 채점 X) + 조문/판례 정확성 + 9기준 점수 합리성 + 한자/영어 치환 정확성. PASS/FAIL + line 번호 + 근거. 출력 마지막에 `**user_quote**: 사용자 공개용 1~2문장 자연어 요약` — 시험장 톤 (예: '시험장이라면 -N점, 이건 법리 자체를 잘못 적용한 것이라 단순 누락보다 무거움'). R-09 준수: 답안 원문 인용은 작은따옴표만, 새 어휘 창작 X.",
      run_in_background=True)
 # 강사 SE
 Task(model="opus", subagent_type="general-purpose",
-     prompt="ultrathink. 법무사 시험 강사 역할. 시험 답안 어휘 부합 + 합격 모델 답안 패턴 + next_study_oneliner 합리성 + 학습 효과. PASS/FAIL + 시험 관점 우려 + 권고.",
+     prompt="ultrathink. 법무사 시험 강사 역할. 시험 답안 어휘 부합 + 합격 모델 답안 패턴 + next_study_oneliner 합리성 + 학습 효과. PASS/FAIL + 시험 관점 우려 + 권고. 출력 마지막에 `**user_quote**: 사용자 공개용 1~2문장 자연어 요약` — 강의 톤 (예: '결론 정리는 깔끔. 다만 OO 구분이 핵심인데 둘을 묶어 다뤘어요. 시험에서 이런 구분 문제는 100% 출제됩니다'). R-09 준수: 답안 원문 인용은 작은따옴표만, 새 어휘 창작 X.",
      run_in_background=True)
 # → 두 결과 후 메인 비판적 검토
+# → 두 user_quote → judge_quote / lecturer_quote 매핑 (2.3.8)
 ```
 
 **메인 비판적 검토**:
@@ -271,13 +387,45 @@ payload:
     "pattern_warning": "✅/⚠️ ...",
     "typo_corrections": [
       {"from": "...", "to": "...", "reason": "STT|한자|영어", "source": "main_session"}
-    ]
+    ],
+
+    // ─── 옵션 C 신규 필드 (v2, 게시판 #2111) ───
+    "inline_comments": [
+      {
+        "span": {"text": "답안 원문 부분", "line": 12},
+        "type": "ok|warning|error",
+        "category": "good|off_topic|wrong_basis|wrong_conclusion|wrong_article|wrong_concept",
+        "severity": "high|mid|low",
+        "comment": "시험관 코멘트 (R-09 준수)",
+        "delta": -5,
+        "criterion": "case_apply"
+      }
+      // ... 최대 15개
+    ],
+    "gap_roadmap": {
+      "current_score": 53,
+      "target_score": 73,
+      "gap": 20,
+      "actions": [
+        {"priority": 1, "criterion": "miss", "action": "...", "delta": 5, "cumulative": 58}
+        // ... 최대 5개
+      ]
+    },
+    "judge_quote": "부장판사 user_quote 자연어 1~2문장 (2.3.8 매핑)",
+    "lecturer_quote": "강사 user_quote 자연어 1~2문장 (2.3.8 매핑)"
   },
   "diff_segments": [
     {"type": "match|partial|miss", "text": "원본/답안 substring"}
   ]
 }
 ```
+
+**v2 명세 참조**: 게시판 #2111 (http://10.77.11.110:8585/post/2111) — 옵션 C 도입 JSON 명세서.
+
+**백워드 호환**:
+- 신규 3 필드 (inline_comments / gap_roadmap / judge_quote / lecturer_quote)는 NULL 허용
+- 기존 attempts(id 1~32) — 신규 필드 없음 → UI에서 정상 표시 (탭 빈 상태)
+- DB 스키마 변경 X (eval_notes는 이미 JSON TEXT, JSON pass-through)
 
 #### 2.7 answer_text 갱신 (DB 교정본 저장)
 
@@ -450,3 +598,4 @@ git -C /Users/nhn/zman-lab/lawear status -s docs/tts-new/
 - a91b #1976 채점 인계 (소급 차단은 단순화 — status='pending_grade' 자연 기준)
 - [[reference_grading_workflow]] v5 → v7 (가중치 v7 + 합격선 73 + 7묶음 + 한자/영어 치환)
 - #2027 한자 표시 작업지시는 다른 영역 (case 본문 표시 — 본 스킬은 답안 측 변환)
+- **v2 옵션 C 도입 (2026-05-21, lawear-c63e)**: 게시판 #2111 — inline_comments + gap_roadmap + judge_quote/lecturer_quote 3 필드 추가, 4 케이스 감점 가이드 (off_topic/wrong_basis/wrong_conclusion/wrong_article/wrong_concept), 부장판사/강사 QA 프롬프트 user_quote 요구. 신규 답안부터 적용, att 1~32 백워드 호환 (NULL 허용).
