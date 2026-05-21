@@ -7,11 +7,11 @@
 - Subject: 민법
 - PDF 파일 번호: 04
 - Case: 01
-- 점수: TBD점
+- 점수: 50점
 - 변환: lawear-96c3 자율주행 v2 (case_pattern 정확 분리)
 - 상태: ## 원본 자동 추출 — Lv.1/Lv.4 Opus 작성 예정
 
-## 원본 (TBD점)
+## 원본 (50점)
 
 제
 문
