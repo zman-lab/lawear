@@ -1701,7 +1701,14 @@
     top: auto;
     bottom: calc(100% + 6px);
   }
+  /* lawear-c63e v8 2026-05-21: JS 가 .tooltip-right-align 클래스 부여 시 우측 정렬 (가로스크롤 회피) */
+  .inline-marker.tooltip-right-align[data-comment]::after {
+    left: auto;
+    right: 0;
+  }
   .inline-marker[data-comment]:hover::after { opacity: 1; visibility: visible; }
+  /* lawear-c63e v8: 답안 영역 자체 overflow-x: hidden (툴팁 우측 누출 안전망) */
+  #attempt-modal-answer { overflow-x: hidden; }
   .inline-marker .marker-icon {
     font-size: 9px;
     margin-right: 2px;
@@ -8888,6 +8895,13 @@
         marker.classList.add('tooltip-above');
       } else {
         marker.classList.remove('tooltip-above');
+      }
+      // lawear-c63e v8 2026-05-21: 마커 우측 200px 여유 없으면 우측 정렬 (가로스크롤 회피, 툴팁 min-width 180).
+      const spaceRight = ansRect.right - markerRect.right;
+      if (spaceRight < 200) {
+        marker.classList.add('tooltip-right-align');
+      } else {
+        marker.classList.remove('tooltip-right-align');
       }
     }, true);
     modal.dataset.tooltipWired = '1';
