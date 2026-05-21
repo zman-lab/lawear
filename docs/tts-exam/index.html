@@ -1115,12 +1115,13 @@
     opacity: 0.7;
   }
   /* Lv.4 강조 태그 인라인 (R-28 [red][blue][bold][u][blank][blank2]) — 좌/우 공통 */
-  .diff-col .diff-col-body .em-red    { background: #c5b783; color: #1e1e1e; padding: 0 4px; border-radius: 2px; font-weight: 700; }
-  .diff-col .diff-col-body .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
+  /* lawear-c63e v7 2026-05-21: 사용자 요청 — 백그라운드 컬러 X, 색상 밑줄만 (채점탭 inline-marker 와 동일 스타일) */
+  .diff-col .diff-col-body .em-red    { background: transparent; color: inherit; border-bottom: 2px solid #ef4444; padding: 0 1px; }
+  .diff-col .diff-col-body .em-blue   { background: transparent; color: inherit; border-bottom: 2px solid #3b82f6; padding: 0 1px; }
   .diff-col .diff-col-body .em-bold   { font-weight: 700; color: var(--text-bright); }
   .diff-col .diff-col-body .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
-  .diff-col .diff-col-body .em-blank  { background: #ffe066; color: #222; padding: 0 4px; border-radius: 2px; }
-  .diff-col .diff-col-body .em-blank2 { background: #d16969; color: #ffe066; padding: 0 4px; border-radius: 2px; }
+  .diff-col .diff-col-body .em-blank  { background: transparent; color: inherit; border-bottom: 2px dashed #fbbf24; padding: 0 1px; }
+  .diff-col .diff-col-body .em-blank2 { background: transparent; color: inherit; border-bottom: 2px dashed #fb923c; padding: 0 1px; }
 
   /* lawear-e571 (2026-05-19) — 강조 태그 글로벌 폴백 ([red]/[blue]/[bold]/[u]/[blank]/[blank2])
      case 본문/사실관계/설문 카드/힌트 패널 등 어떤 컨테이너에서도 작동.
@@ -1652,23 +1653,18 @@
     font-weight: 600;
   }
   /* ─── lawear-c63e Sub2 — 인라인 채점 마커 (사용자답안 본문 내 wrap) ─── */
-  /* lawear-c63e v6 2026-05-21: 가독성 강화 — 옅은 알파 0.10/0.13/0.15 → 0.30 + 흰색 굵은 글씨.
-     다크 bg #1e1e1e 위 마커 명도 대비 WCAG AAA (11:1+). RGB 검증:
-     ok      bg(78,201,176,.30) on #1e1e1e ≈ #324836 + text #fff → 11:1
-     warning bg(251,191,36,.30) on #1e1e1e ≈ #4d3f1f + text #fff → 12:1
-     error   bg(239,68,68,.30)  on #1e1e1e ≈ #4d2422 + text #fff → 11:1 */
+  /* lawear-c63e v7 2026-05-21: 채점탭 롤백 — v6 강화는 가로스크롤 유발. 원래 padding 0 1px 복귀.
+     배경 옅은 알파 / 텍스트 본문 inherit / 마커 자체는 underline 강조. */
   .inline-marker {
     border-bottom: 2px solid;
-    padding: 2px 4px;
-    border-radius: 3px;
+    padding: 0 1px;
+    border-radius: 2px;
     cursor: help;
     position: relative;
-    color: #ffffff !important;
-    font-weight: 600;
   }
-  .inline-marker.type-ok      { border-color: #4ec9b0; background: rgba(78, 201, 176, 0.30); }
-  .inline-marker.type-warning { border-color: #fbbf24; background: rgba(251, 191, 36, 0.30); }
-  .inline-marker.type-error   { border-color: #ef4444; background: rgba(239, 68, 68, 0.30); }
+  .inline-marker.type-ok      { border-color: var(--success); background: rgba(78, 201, 176, 0.10); }
+  .inline-marker.type-warning { border-color: var(--warn);    background: rgba(206, 145, 120, 0.13); }
+  .inline-marker.type-error   { border-color: var(--danger);  background: rgba(209, 105, 105, 0.15); }
   /* severity 강도 — 동일 type 안에서 high 가장 강함 */
   .inline-marker.sev-high    { border-bottom-width: 3px; }
   .inline-marker.sev-mid     { border-bottom-width: 2px; }
@@ -1891,12 +1887,13 @@
   .modal-origin.modal-origin-tab { max-height: 62vh; }
   /* 강조 태그 (em-*) — 시안 Eval Diff 와 동일 스타일 */
   /* lawear-c63e 2026-05-21: 사용자 가독성 보고 — 배경 진하게 + 글씨 굵게 + 노랑 (보색 대비) */
-  .modal-origin .em-red    { background: #c5b783; color: #1e1e1e; padding: 0 4px; border-radius: 2px; font-weight: 700; }
-  .modal-origin .em-blue   { background: #569cd6; color: #fff; padding: 0 3px; border-radius: 2px; }
+  /* lawear-c63e v7 2026-05-21: 사용자 요청 — 백그라운드 컬러 X, 색상 밑줄만 (채점탭 inline-marker 와 동일 스타일) */
+  .modal-origin .em-red    { background: transparent; color: inherit; border-bottom: 2px solid #ef4444; padding: 0 1px; }
+  .modal-origin .em-blue   { background: transparent; color: inherit; border-bottom: 2px solid #3b82f6; padding: 0 1px; }
   .modal-origin .em-bold   { font-weight: 700; color: var(--text-bright); }
   .modal-origin .em-u      { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 2px; }
-  .modal-origin .em-blank  { background: #ffe066; color: #222; padding: 0 4px; border-radius: 2px; }
-  .modal-origin .em-blank2 { background: #d16969; color: #ffe066; padding: 0 4px; border-radius: 2px; }
+  .modal-origin .em-blank  { background: transparent; color: inherit; border-bottom: 2px dashed #fbbf24; padding: 0 1px; }
+  .modal-origin .em-blank2 { background: transparent; color: inherit; border-bottom: 2px dashed #fb923c; padding: 0 1px; }
   /* 매칭/누락 형광펜 — 좌측 답안과 동일 색 */
   .modal-origin .diff-match { background: rgba(78, 201, 176, 0.15); padding: 0 2px; border-radius: 2px; }
   .modal-origin .diff-partial { background: rgba(206, 145, 120, 0.18); color: var(--warn); padding: 0 3px; border-radius: 2px; }
@@ -8812,10 +8809,8 @@
       // 채점 모드: inline_comments 마커만 표시.
       // typo/diff wrap 이 본문 사이에 태그를 삽입하면 inline_comments 정규식 매칭 실패 → 마커 0건.
       // 채점 모드의 핵심은 inline_comments (호버 코멘트) 이므로 typo/diff 형광펜 생략.
-      // lawear-c63e v6 2026-05-21: 모범답안 강조 태그 ([red]/[blue]/[bold]/[u]/[blank]/[blank2])
-      //   사용자 답안에 잔존 시 채점 모드에서 무시 (텍스트만 노출, 시각 강조 X — 마커 충돌 회피).
-      const stripped = escaped.replace(/\[\/?(?:red|blue|bold|u|blank2|blank)\]/g, '');
-      ansEl.innerHTML = applyInlineComments(stripped, inlineComments);
+      // lawear-c63e v7 2026-05-21: 채점탭 롤백 (사용자 요청) — strip X, 원래 코드로.
+      ansEl.innerHTML = applyInlineComments(escaped, inlineComments);
     } else if (mode === 'diff') {
       // Diff 모드: 4색 매핑 (match/partial/miss). 회색은 unmarked default text 그대로.
       // diff_segments 활용 — 기존 highlightDiffSegments 와 동일하게 처리. typo 도 표시.
