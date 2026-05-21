@@ -58,6 +58,18 @@ class CaseFileMissingError(Exception):
 _HEADER_RE = re.compile(r"^## (.+?)\s*$", re.MULTILINE)
 
 
+# 점수 추출 정규식 2종 (lawear-c63e-sub4 2026-05-21 게시판 #2138 §Sub4):
+#
+# 1) `## 원본 (NN점)` 헤더 패턴 — 괄호 안 합산표시 OK (닫는 괄호 의존 X).
+#    예: `원본 (17점)` / `원본 (20점 + 보충 10점)` / `원본 (20점 (설문 1=13점, ...))`
+# 2) `- 점수: NN점` 메타 라인 패턴 — fallback 용 (헤더에서 추출 실패 시).
+#    예: `- 점수: 50점 (13+12+10+15)` / `- 점수: 20점 + 보충문제 75점 = 95점`
+#
+# R-09: 첫 번째 `\d+점` 토큰만 추출 — 합산/보충 등 추가 표시는 무시 (자의 해석 X).
+_SCORE_HEADER_RE = re.compile(r"\((\d+)\s*점")
+_SCORE_META_RE = re.compile(r"^-\s*점수:\s*(\d+)\s*점", re.MULTILINE)
+
+
 # `[blank2]X[/blank2]` 인라인 강조 태그 매칭 (글자 단위, non-greedy).
 # 예: `[blank2]무[/blank2]` → group1 = "무"
 #     `[blank2]단체[/blank2]` → group1 = "단체"
@@ -145,8 +157,9 @@ def parse_md_file(md_text: str) -> dict[str, str | None]:
     for name, body in sections.items():
         if name.startswith("원본"):
             origin = body
-            # "원본 (17점)" 에서 점수 추출
-            m = re.search(r"\((\d+)\s*점\)", name)
+            # "원본 (17점)" / "원본 (20점 + 보충 10점)" 등에서 첫 NN점 추출
+            # (lawear-c63e-sub4 #2138 §Sub4: 닫는 괄호 의존 X)
+            m = _SCORE_HEADER_RE.search(name)
             if m:
                 try:
                     origin_points = int(m.group(1))
@@ -158,6 +171,16 @@ def parse_md_file(md_text: str) -> dict[str, str | None]:
             lv4 = body
         elif name.startswith("메타"):
             meta = body
+
+    # fallback: 원본 헤더에서 점수 추출 실패 시 메타 섹션 `- 점수: NN점` 매칭
+    # (lawear-c63e-sub4 #2138 §Sub4: `- 점수: 50점 (13+12+10+15)` 등 합산표시 OK)
+    if origin_points is None and meta:
+        m_meta = _SCORE_META_RE.search(meta)
+        if m_meta:
+            try:
+                origin_points = int(m_meta.group(1))
+            except ValueError:
+                origin_points = None
 
     return {
         "origin": origin,
@@ -449,6 +472,24 @@ def _enrich_case_with_stats(conn: sqlite3.Connection, case: dict[str, Any]) -> d
     last = cur.fetchone()
     case["last_score_pct"] = float(last["score_pct"]) if last and last["score_pct"] is not None else None
 
+    # points fallback (lawear-c63e-sub4 #2138 §Sub4):
+    # cases 테이블 points == 0 인데 .md 본문에 `## 원본 (NN점)` 또는 `- 점수: NN점`
+    # 메타가 있으면 .md 값으로 응답 보강 (사이드패널 표시용, DB 변경 X).
+    # 라이브러리 type (subject='index'/'pdf_raw') 은 origin 없음 → fallback 스킵.
+    if (
+        not case.get("points")
+        and case.get("subject") not in ("index", "pdf_raw")
+        and case.get("path")
+    ):
+        try:
+            md_text = read_md_for_case(case["path"])
+            fallback_pts = parse_md_file(md_text).get("origin_points")
+            if fallback_pts:
+                case["points"] = fallback_pts
+        except CaseFileMissingError:
+            # 파일 없으면 0 유지 (백워드 호환)
+            pass
+
     return case
 
 
@@ -544,5 +585,12 @@ def get_case(conn: sqlite3.Connection, case_id: str) -> dict[str, Any]:
     case["meta"] = sections["meta"]
     # 채점 시 레퍼런스로 쓰는 전체 .md raw (Step 6 grader 에서 활용)
     case["md_body"] = md_text
+
+    # points fallback: cases 테이블 points 가 0 또는 None 인데
+    # .md 파싱 origin_points 가 있으면 .md 값으로 보강 (사이드패널 표시용).
+    # 백워드 호환: cases 테이블은 변경 X, 응답 dict 의 points 만 갱신.
+    # (lawear-c63e-sub4 #2138 §Sub4: 79건 0점 중 라이브러리 type 제외 정상화)
+    if (not case.get("points")) and sections.get("origin_points"):
+        case["points"] = sections["origin_points"]
 
     return case

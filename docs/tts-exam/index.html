@@ -238,6 +238,8 @@
     color: var(--accent);
   }
   .case-item .case-title { font-size: 12px; color: var(--text); }
+  /* lawear-c63e-sub5 #2138 §Sub5.3: title fallback 시 시각 구분 (옅은색 + 이탤릭) */
+  .case-item .case-title.tbd { color: var(--text-dim); font-style: italic; }
   /* sidebar-count: 케이스 제목 옆 시험 횟수 (n) — n>0일 때만 표시 */
   .case-item .case-title .attempts-count {
     color: var(--text-dim);
@@ -3406,6 +3408,7 @@
       view_mode_diff: 'Diff',
       ans_tab_grade: 'Grade',
       ans_tab_diff: 'Diff',
+      inq_pending_lv: 'Inquiry section not yet finalized. PDF source still in source area (Lv.1/Lv.4 conversion in progress).',
       right_tab_criteria: '9 Criteria',
       right_tab_notes: 'Notes',
       right_tab_roadmap: 'Gap Roadmap',
@@ -3684,6 +3687,7 @@
       view_mode_diff: 'Diff',
       ans_tab_grade: '채점',
       ans_tab_diff: 'Diff',
+      inq_pending_lv: '문제 본문 미작성 (Lv.1/Lv.4 변환 진행 중) — PDF 원문은 사실관계 영역에 포함되어 있습니다.',
       right_tab_criteria: '9기준',
       right_tab_notes: '채점평',
       right_tab_roadmap: '격차로드맵',
@@ -5293,6 +5297,47 @@
     return idx >= 0 ? idx : 999;
   }
 
+  // lawear-c63e-sub5 #2138 §Sub5: 사이드패널 title fallback.
+  //   title === case_id 또는 title.includes('TBD') → fallback 단계적용:
+  //     1. case `<문제>` 첫 줄 첫 80자 (origin 파싱) — list 응답에 origin 미포함이라 사실상 skip
+  //                                                  (단건 데이터 캐시되어 있으면 시도 가능, 추후 보강용)
+  //     2. subject_kor + " " + file + "-" + case_no (예: "민법 mogo1-01")
+  //     3. case_id 그대로 (최후)
+  //   반환: { title, isFallback }
+  function resolveCaseTitle(c) {
+    const raw = (c && c.title) ? String(c.title) : '';
+    const id = (c && c.id) ? String(c.id) : '';
+    // 정상 title — 그대로
+    if (raw && raw !== id && !raw.includes('TBD')) {
+      return { title: raw, isFallback: false };
+    }
+    // fallback 1: origin <문제> 첫 80자 — list 응답엔 origin 없음. 단건 캐시에 있으면 시도.
+    //   (백워드 호환 — 캐시 없으면 silent skip, 다음 단계 진행)
+    const cached = (typeof CURRENT_CASE_DATA === 'object' && CURRENT_CASE_DATA
+                    && CURRENT_CASE_DATA.id === id) ? CURRENT_CASE_DATA : null;
+    if (cached && typeof cached.origin === 'string' && cached.origin) {
+      try {
+        const sp = splitOriginFactsQuestion(cached.origin);
+        const q = (sp && sp.question) ? String(sp.question).trim() : '';
+        if (q) {
+          const firstLine = q.split('\n')[0].trim();
+          if (firstLine) {
+            return { title: firstLine.slice(0, 80), isFallback: true };
+          }
+        }
+      } catch (_) { /* silent — 다음 단계 */ }
+    }
+    // fallback 2: subject_kor + " " + file + "-" + case_no
+    const sk = (c && c.subject_kor) ? String(c.subject_kor).trim() : '';
+    const fk = (c && c.file) ? String(c.file).trim() : '';
+    const cn = (c && c.case_no) ? String(c.case_no).trim() : '';
+    if (sk && fk && cn) {
+      return { title: `${sk} ${fk}-${cn}`, isFallback: true };
+    }
+    // fallback 3: case_id 그대로
+    return { title: id || '(no id)', isFallback: true };
+  }
+
   function renderCaseList(cases) {
     const root = document.getElementById('case-list');
     if (!root) return;
@@ -5415,9 +5460,12 @@
               const attemptsBadge = attemptN > 0
                 ? ` <span class="attempts-count" title="${attemptN} attempts">(${attemptN})</span>`
                 : '';
+              // lawear-c63e-sub5 #2138 §Sub5: title fallback (TBD / case_id === title 시)
+              const resolvedTitle = resolveCaseTitle(c);
+              const titleCls = resolvedTitle.isFallback ? 'case-title tbd' : 'case-title';
               html += `<div class="case-item${active}" data-case-id="${escapeHtml(c.id)}">
                 <div class="case-id">${escapeHtml(shortId)}</div>
-                <div class="case-title">${escapeHtml(c.title || '')}${attemptsBadge}</div>
+                <div class="${titleCls}">${escapeHtml(resolvedTitle.title)}${attemptsBadge}</div>
                 <div class="case-meta">${pills.join('')}</div>
               </div>`;
             }
@@ -5515,7 +5563,7 @@
       // Background / Inquiry: 원본 섹션을 사실관계 / 문제 로 split (Step 22 — 다중 설문 통합)
       // lawear-2e42 (2026-05-20): mogo 변형 설문은 공통사실관계가 별도 case (mogo01_01) — facts 빈 게 정상.
       //   facts 빈 + question 있으면 '공통사실관계 별도 안내', 둘 다 빈 경우만 err_load.
-      const { facts, question } = splitOriginFactsQuestion(c.origin || '');
+      const { facts, question, multiInquiries } = splitOriginFactsQuestion(c.origin || '');
       if (bgEl) {
         if (facts) {
           bgEl.innerHTML = renderOriginText(facts);
@@ -5527,9 +5575,20 @@
         }
       }
       if (inqEl) {
+        // lawear-c63e-sub3 2026-05-21 spec #2138: 3-branch — question 우선, 빈 경우 multiInquiries fallback,
+        //   둘 다 비어있을 때만 err_load. (question 은 단일 <문제> 또는 multiInquiries 통합본을 포함)
+        // lawear-c63e 2026-05-21 메인 후속: err_load → inq_pending_lv (Lv.1/Lv.4 미작성 친절 안내).
+        //   facts 가 있는 케이스는 PDF 원문이 사실관계 영역에 들어가 있어 본문 읽기 가능 (사용자 .md 보완 영역).
         if (question) {
           inqEl.innerHTML = renderOriginText(question);
+        } else if (multiInquiries && multiInquiries.length > 0) {
+          const merged = multiInquiries.map((q) => `**${q.label}**\n\n${q.text}`).join('\n\n');
+          inqEl.innerHTML = renderOriginText(merged);
+        } else if (facts) {
+          // facts 있고 inquiry 없음 → Lv.1/Lv.4 미작성 안내 (사실관계 영역에 PDF 원문 있음)
+          inqEl.innerHTML = `<span style="color: var(--text-dim); font-style: italic;">${escapeHtml(I18N[currentLang].inq_pending_lv || I18N[currentLang].err_load)}</span>`;
         } else {
+          // facts 도 없음 → 진짜 err_load
           inqEl.textContent = I18N[currentLang].err_load;
         }
       }
@@ -5577,7 +5636,12 @@
     const factsMatch = originRaw.match(factsRe);
 
     // 2) question 추출: ### 문제 또는 [문제] 또는 <문제> 단일 매칭
-    const singleQRe = /(?:###\s*|\[|<)문제[\]>]?[^\n]*\n([\s\S]*?)(?=\n###\s|\n\[|\n<|$)/;
+    // lawear-c63e-sub3 2026-05-21 spec #2138: 종료 lookahead 확장 — 답안 본문(Ⅰ./Ⅱ./결 론/근 거/```)
+    //   까지 통째 캡쳐되던 BROKEN_ANGLE 단일 설문 버그 fix. <설문/<문제 외 <기본적> 등 다른 꺽쇠는
+    //   사실관계 블록이므로 lookahead 의 \n< 를 \n<(?:문제|설문) 으로 제한.
+    // lawear-c63e 2026-05-21 메인 후속: 광역 \n< 로 확장 (Sub3 회귀 3건 trailing sub-case 캡쳐 fix)
+    //   — mogo13_02/14_01, 3sun05_01 — 마지막 sub-case 다음 사실관계/설문 꺽쇠 못 잡아 끝까지 캡쳐되던 버그
+    const singleQRe = /(?:###\s*|\[|<)문제[\]>]?[^\n]*\n([\s\S]*?)(?=\n###\s|\n\[|\n<|\n```|\nⅠ\.\s|\nⅡ\.\s|\nⅢ\.\s|\n결\s*론|\n근\s*거|\n##\s|$)/;
     const singleQMatch = originRaw.match(singleQRe);
 
     // 3) 다중 설문 매칭 — "### 설문 N ..." 또는 "[설문 N]" / "[설문 (N)]" 헤더
@@ -5628,12 +5692,15 @@
     // 5) 최종 fallback — facts 도 question/inquiry 도 없으면 origin 전체를 facts 로
     //    (## 원본 헤더조차 없는 비정상 입력 대비)
     if (!factsText && !question) {
-      return { facts: originRaw.trim(), question: '' };
+      return { facts: originRaw.trim(), question: '', multiInquiries: multiInquiries };
     }
 
+    // lawear-c63e-sub3 2026-05-21 spec #2138: multiInquiries 도 반환값에 노출 —
+    //   inqEl 렌더에서 question 빈데 multiInquiries 있으면 통합 표시 분기에 사용.
     return {
       facts: factsText,
       question: question,
+      multiInquiries: multiInquiries,
     };
   }
 
