@@ -5,9 +5,9 @@
 - 포트: `17896` (127.0.0.1 바인드)
 - 진입: `http://127.0.0.1:17896/`
 - 사양:
-  - dev-impact archive [#45](http://127.0.0.1:8585/post/45)
-  - dev-design archive [#48](http://127.0.0.1:8585/post/48)
-  - dev-impl-plan archive [#51](http://127.0.0.1:8585/post/51)
+  - dev-impact archive [#45](http://10.77.11.110:8585/post/45)
+  - dev-design archive [#48](http://10.77.11.110:8585/post/48)
+  - dev-impl-plan archive [#51](http://10.77.11.110:8585/post/51)
 - **17895 (`docs/tts-new`) 변경 0건** — Sync 시점만 17895 fetch (오프라인 OK)
 
 ## 1. 17895 와의 관계
@@ -166,7 +166,7 @@ cp .env.example .env
 | GET | `/api/reports/cases?subject=…` | By Case 셀렉터용 picker | 10 |
 | POST | `/api/stt` | (501) STT placeholder — Web Speech API 사용 권장 | 11 |
 
-상세 메시지 정의 + ErrorCode 는 dev-design [#48](http://127.0.0.1:8585/post/48) §3-1~§3-3 참조.
+상세 메시지 정의 + ErrorCode 는 dev-design [#48](http://10.77.11.110:8585/post/48) §3-1~§3-3 참조.
 
 ### 7-1. 헬스 체크 샘플
 

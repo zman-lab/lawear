@@ -5,7 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 WEB_DIR="$PROJECT_DIR/web"
-FTP_BASE="http://127.0.0.1:8585/api/files"
+FTP_BASE="http://10.77.11.110:8585/api/files"
 FTP_UPLOAD_DIR="zman-lab/lawear"
 GH_REPO="zman-lab/lawear"
 
@@ -65,7 +65,7 @@ echo "  Uploaded: ${APK_LATEST}"
 # latest.json 생성 및 업로드
 echo "[5/5] Uploading latest.json..."
 LATEST_JSON=$(cat <<EOF
-{"version":"${APP_VERSION}","buildDate":"${BUILD_DATE}","downloadUrl":"http://127.0.0.1:8585/ftp/zman-lab/lawear/","changelog":""}
+{"version":"${APP_VERSION}","buildDate":"${BUILD_DATE}","downloadUrl":"http://10.77.11.110:8585/ftp/zman-lab/lawear/","changelog":""}
 EOF
 )
 

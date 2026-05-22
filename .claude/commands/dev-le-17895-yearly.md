@@ -53,7 +53,7 @@ curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:17895/
 ls docs/tts-new/{YEAR}_*/  docs/tts-new/두문자/ docs/tts-new/_file_index.json
 
 # 게시판 ON 여부
-curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://127.0.0.1:8585/
+curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://10.77.11.110:8585/
 ```
 
 ---

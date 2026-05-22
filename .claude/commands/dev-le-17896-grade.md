@@ -83,11 +83,30 @@ curl -s "http://127.0.0.1:17896/api/cases/{case_id}"
 
 사용자 답안(`answer_subq.단일` 또는 `answer_text`)을 read 후 다음 4단 교정:
 
-**(a) STT 오타 식별** (typo_dict.json 외 추가):
-- 법률 컨텍스트 + 발음 유사도 기반
+**(a) STT 오타 식별** (typo_dict.json 자동 적용 + 누적 강제 — lawear-8539 2026-05-21 추가):
+
+**1단 자동 적용 (강제)**:
+1. `Read /Users/nhn/zman-lab/lawear/docs/tts-exam/typo_dict.json` — 채점 시작 첫 단계
+2. `static_replacements` 모든 매핑을 사용자 답안에 일괄 적용 (1차 정정)
+3. typo_corrections JSON에 `source="dict_auto"` 표시
+
+**2단 메인 추가 식별**:
+- 법률 컨텍스트 + 발음 유사도 기반 신규 STT 오타 식별
 - 예: "제 419주" → "제 419조" (STT 오인식)
 - R-09: 조문번호 추정 X (사용자가 명시 안 한 조문 추가 X)
 - 사용자 정책: 발음 오타 + 숫자 일치 OK (감점 X, 식별만)
+- typo_corrections JSON에 `source="main_session"` 표시
+
+**3단 누적 추가 (강제)**:
+- 메인이 식별한 신규 STT 오타 (음운 1~2음소 차이 + 컨텍스트 명백) → **typo_dict.json `static_replacements`에 직접 추가**
+- 버전 업데이트 (v1.2 → v1.3 등) + `notes` 배열에 출처 기록 (예: "att 40 사용자 X 답안 STT 패턴 N건 추가")
+- 사용자 컨펌 매핑 (강사·판사 추정 대립 후 사용자 결정)은 `source="user_confirmed"` 메타 보존
+- 시간이 지날수록 dict 누적 → 동일 STT 오타 재질문 X (사용자 부담 감소)
+
+**컨펌 룰 (lawear-8539 2026-05-21 [[feedback_no_user_confirmation_for_grading]])**:
+- 사용자 컨펌은 **STT 오타에서 강사·판사 추정 대립 + 점수 영향 시만** OK
+- 9기준 점수 보정 / articles cap 강제 / 단일 STT 명백 정정 → 메인 자율 진행
+- AskUserQuestion 호출 최소화 (옵션 4개 같은 거 금지, 핵심 1개 질문만)
 
 **(b) 한자 등장인물 치환** (사용자 명시 룰, 2026-05-20):
 
