@@ -458,8 +458,8 @@ def _append_index_entry(
     file_id: str,
     rel_path: str,
     parent: str,
-    category: str | None = None,
-    meta: dict | None = None,
+    category=None,
+    meta=None,
 ) -> None:
     """_file_index.json 에 type:"user_input" 신규 entry append.
 
