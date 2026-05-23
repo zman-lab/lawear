@@ -1,0 +1,1320 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>lawear 17895 — 입력 모드 v4 (콤보박스 중심)</title>
+<!--
+  ============================================================================
+  lawear 17895 input.html — 사용자 직접 입력 UI (v4 — 콤보박스 중심 재설계)
+  ============================================================================
+  세션: lawear-7ad6 v4 팀 8 / 모델: Opus + ultrathink
+  베이스: v3 (팀 7B) 메타 입력 텍스트 필드 → v4 콤보박스 전환
+  진입: /input.html (prompt 없이 즉시 진입, 모든 입력은 input.html 내부)
+        /input.html?path=<rel_path>  (편집 진입 — 기존 파일 로드)
+  저장: POST /api/create/<rel_path>  (body: .md 멀티섹션)
+        rel_path에 __AUTO_NN__ 토큰 포함 → 서버가 폴더 스캔해서 다음 NN 자동 할당
+  저장 후: /merge.html?path=<rel_path> 자동 이동
+
+  v4 변경 (핵심):
+   - subject-select  : 콤보박스 (5과목 — 기존 유지)
+   - year-select     : 콤보박스 (2025/2026 — 기존 유지)
+   - category-select : 콤보박스 신규 (입문/예비/1순환/2순환/3순환/기타)
+                       "기타" 선택 시 category-other-input 활성화 (자유 입력)
+   - file-input      : 자유 입력 (파일명 슬러그, 예: "공유물분할")
+   - title-input     : 자유 입력 (주제목, 큰 글씨, 예: "공유물분할 약술")
+   - case-input      : 자유 입력 (소제목, 작은 글씨, 예: "200자 약술하시오")
+   - points-input    : number input (선택)
+   - 주제목/소제목 위/아래 줄로 시각 분리
+   - prompt 팝업 X (createNewUserInput에서 단순 redirect)
+   - 디폴트 state — subject/year/category "선택…" 비어있음
+   - caseNo zero-pad 자동 → server.py __AUTO_NN__ 토큰 위임
+  ============================================================================
+-->
+<style>
+  /* === 17895 다크 톤 CSS 변수 (merge.html L11-29 mirror) === */
+  :root {
+    --bg: #1a1d23;
+    --panel: #15171c;
+    --panel-2: #2b3137;
+    --border: #2a2d33;
+    --text: #e4e6eb;
+    --text-dim: #8a8d93;
+    --text-mute: #6c707a;
+    --accent: #6fb1ff;
+    --success: #6fcf97;
+    --success-strong: #2f9e44;
+    --danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  .app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  /* === Header (2단 구조) === */
+  /* v4: 헤더가 콤보박스 4개 + 자유입력 4개로 길어져서 2줄로 분리 */
+  .header {
+    padding: 10px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    display: flex; flex-direction: column; gap: 6px;
+    flex-shrink: 0;
+  }
+  .header-row {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  }
+  .breadcrumb { font-size: 13px; color: var(--text-dim); flex: 1; min-width: 200px; }
+  .breadcrumb strong { color: var(--text); margin: 0 4px; }
+  .breadcrumb .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; margin-left: 8px;
+    background: #4a2f0a; color: #ffc266;
+  }
+  /* 공통 select/input 스타일 */
+  .header select,
+  .header input.meta-input {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 5px 10px; font-size: 13px;
+  }
+  .header select { cursor: pointer; min-width: 110px; }
+  .header select.year-select { min-width: 78px; }
+  .header select.subject-select { min-width: 130px; }
+  .header select.category-select { min-width: 110px; }
+  .header input.meta-input { min-width: 110px; max-width: 200px; cursor: text; }
+  .header input.meta-input:focus,
+  .header select:focus { border-color: var(--accent); outline: none; }
+  .header input.meta-input.required-empty,
+  .header select.required-empty { border-color: var(--danger); }
+  .header input.meta-input.points { width: 70px; min-width: 70px; max-width: 70px; }
+  /* v4: 주제목 / 소제목 시각 분리 — 큰글씨/작은글씨 */
+  .header input.meta-input.big-title {
+    font-size: 16px; font-weight: 600; min-width: 220px; max-width: 360px;
+    color: #fff;
+  }
+  .header input.meta-input.sub-title {
+    font-size: 13px; min-width: 200px; max-width: 320px;
+    color: var(--text-dim); font-style: italic;
+  }
+  /* "기타" 카테고리 선택 시 자유 입력 활성화 (디폴트 hidden) */
+  .header input.meta-input.category-other {
+    min-width: 110px; max-width: 160px; display: none;
+  }
+  .header input.meta-input.category-other.shown { display: inline-block; }
+  /* v4: 작은 라벨 (콤보박스 위 안내) */
+  .field-label {
+    font-size: 10px; color: var(--text-mute); margin-right: -4px;
+    text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600;
+  }
+  .header button {
+    padding: 6px 14px; font-size: 13px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+  }
+  .header button:hover { background: #353a42; border-color: var(--accent); }
+  .header .btn-save {
+    background: var(--success-strong); color: #fff; border-color: var(--success);
+    font-weight: 600;
+  }
+  .header .btn-save:hover { background: var(--success); }
+  .header .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* v4 (팀 8) — 음성입력 mic 버튼 (toolbar 안 — 기존 유지) */
+  .mic-btn {
+    padding: 5px 12px; font-size: 13px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+    font-weight: 600; margin-left: 8px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .mic-btn:hover { background: #353a42; border-color: var(--accent); }
+  .mic-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .mic-btn.recording {
+    background: #c92a2a; color: #fff; border-color: #a51e1e;
+    animation: micPulse 1.2s ease-in-out infinite;
+  }
+  @keyframes micPulse {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(201, 42, 42, 0.6); }
+    50% { box-shadow: 0 0 0 6px rgba(201, 42, 42, 0); }
+  }
+
+  /* === Tabs (문제/답안/메모) === */
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: var(--bg); padding: 0 16px;
+    flex-shrink: 0;
+  }
+  .tab {
+    padding: 12px 22px; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim); font-weight: 500; font-size: 14px;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: #ffc266; border-bottom-color: #ffc266; }
+  .tab .dirty { color: var(--danger); margin-left: 4px; }
+
+  /* === Editor Toolbar (merge.html L620-655 mirror) === */
+  .editor-toolbar {
+    display: flex; gap: 6px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    align-items: center; flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .editor-toolbar .label {
+    font-size: 12px; color: var(--text-dim); margin-right: 4px;
+  }
+  .editor-toolbar button {
+    padding: 5px 12px; font-size: 13px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  }
+  .editor-toolbar button:hover { background: var(--panel-2); border-color: var(--accent); }
+  .em-btn { font-weight: 600; min-width: 52px; }
+  /* 색상 클래스 (시안 v1.1 + merge.html mirror) */
+  .em-btn.em-red { color: #ff6b6b; }
+  .em-btn.em-blue { color: #4dabf7; }
+  .em-btn.em-purple { color: #a371f7; }
+  .em-btn.em-violet { color: #cc5de8; }
+  .em-btn.em-magenta { color: #ff7eb6; }
+  .em-btn.em-indigo { color: #7c8fff; }
+  .em-btn.em-bold { color: #ffd43b; font-weight: 700; }
+  .em-btn.em-underline { color: #adb5bd; text-decoration: underline; }
+  .em-btn.em-blank { background: #ffd43b; color: #1971c2; border-color: #fab005; }
+  .em-btn.em-blank2 { background: #c92a2a; color: #ffd43b; border-color: #a51e1e; }
+  .em-btn.em-em1 { background: #c92a2a; color: #fff; border-color: #a51e1e; }
+  .em-btn.em-em2 { background: #f59f00; color: #1a1a1a; border-color: #d18e00; }
+  .em-btn.em-em3 { background: #1971c2; color: #fff; border-color: #155a9c; }
+  .em-btn.em-em4 { background: #6741d9; color: #fff; border-color: #5333b8; }
+  .em-btn.em-con { color: #ff6b6b; font-weight: 700; }
+  .em-btn.em-fact { color: #ff922b; font-weight: 700; }
+  .em-btn.em-case { color: #51cf66; font-weight: 700; }
+  .em-btn.em-bridge { color: #339af0; font-weight: 700; }
+  .em-btn.em-key { color: #9775fa; font-weight: 700; }
+  .em-btn.em-free1 { color: #ddc9a3; font-weight: 700; }
+  .em-btn.em-free2 { color: #b197fc; font-weight: 700; }
+  .em-btn.em-clear { color: var(--danger); }
+  .save-status {
+    font-size: 12px; color: var(--text-dim);
+    margin-left: auto; min-width: 220px; text-align: right;
+  }
+  .save-status.success { color: var(--success); }
+  .save-status.error { color: var(--danger); }
+
+  /* === Editor Split (좌 textarea + 우 preview) === */
+  .editor-split {
+    flex: 1; display: flex; gap: 12px; padding: 12px 16px;
+    overflow: hidden; background: var(--bg);
+  }
+  .editor-pane {
+    flex: 1; min-width: 0; display: flex; flex-direction: column;
+  }
+  .pane-label {
+    display: block; font-size: 11px; color: var(--text-dim);
+    margin-bottom: 6px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  #editor-textarea {
+    flex: 1; padding: 14px;
+    font-family: 'SF Mono', 'Menlo', monospace; font-size: 13px;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    resize: none; line-height: 1.7; outline: none;
+  }
+  #editor-textarea:focus { border-color: var(--accent); }
+  #editor-preview {
+    flex: 1; padding: 16px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 6px; overflow-y: auto; line-height: 1.8;
+    font-size: 14px;
+  }
+  #editor-preview h1 { font-size: 22px; margin: 0 0 12px; color: #fff; }
+  #editor-preview h2 { font-size: 18px; margin: 16px 0 10px; color: #fff; }
+  #editor-preview h3 { font-size: 16px; margin: 14px 0 8px; color: #e4e6eb; }
+  #editor-preview p { margin-bottom: 10px; color: #d4d6db; }
+  #editor-preview ul, #editor-preview ol { margin: 8px 0 12px 24px; color: #d4d6db; }
+  #editor-preview code {
+    background: #2a2d33; padding: 2px 6px; border-radius: 3px;
+    font-size: 12px;
+  }
+  #editor-preview pre {
+    background: #15171c; padding: 12px; border-radius: 4px;
+    overflow-x: auto; margin: 8px 0;
+  }
+  #editor-preview .empty {
+    color: var(--text-mute); font-style: italic;
+  }
+
+  /* === 강조 태그 렌더링 클래스 (renderMd가 tts-* prefix 부여 — merge.html L816 mirror) === */
+  .tts-em1 { background: #c92a2a; color: #fff; padding: 0 4px; border-radius: 3px; }
+  .tts-em2 { background: #f59f00; color: #1a1a1a; padding: 0 4px; border-radius: 3px; }
+  .tts-em3 { background: #1971c2; color: #fff; padding: 0 4px; border-radius: 3px; }
+  .tts-em4 { background: #6741d9; color: #fff; padding: 0 4px; border-radius: 3px; }
+  .tts-red { color: #ff6b6b; }
+  .tts-blue { color: #4dabf7; }
+  .tts-purple { color: #a371f7; }
+  .tts-violet { color: #cc5de8; }
+  .tts-magenta { color: #ff7eb6; }
+  .tts-indigo { color: #7c8fff; }
+  .tts-bold { font-weight: 700; }
+  .tts-underline { text-decoration: underline; text-decoration-color: #adb5bd; text-underline-offset: 3px; }
+  .tts-blank { background: #ffd43b; color: #1971c2; padding: 0 4px; border-radius: 3px; }
+  .tts-blank2 { background: #c92a2a; color: #ffd43b; padding: 0 4px; border-radius: 3px; }
+  .tts-con { color: #ff6b6b; font-weight: 700; }
+  .tts-fact { color: #ff922b; font-weight: 700; }
+  .tts-case { color: #51cf66; font-weight: 700; }
+  .tts-bridge { color: #339af0; font-weight: 700; }
+  .tts-key { color: #9775fa; font-weight: 700; }
+  .tts-free1 { color: #ddc9a3; font-weight: 700; }
+  .tts-free2 { color: #b197fc; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- ============================================================================
+       Header v4 (팀 8) — 2단 구조
+       1단: breadcrumb + 콤보박스 3개 (연도/과목/각순환) + 파일명 + 저장/뷰어
+       2단: 주제목 (큰 글씨) + 소제목 (작은 글씨) + 점수
+       ============================================================================ -->
+  <div class="header">
+    <!-- === 헤더 1단: breadcrumb + 콤보박스 3개 + 파일명 + 저장 === -->
+    <div class="header-row">
+      <div class="breadcrumb">
+        📝 lawear 입력 모드 /
+        <strong id="bc-subject">(과목 미선택)</strong> /
+        <strong id="bc-category" style="color: var(--text-dim);">(각순환 미선택)</strong>
+        <span class="badge">입력 v4</span>
+      </div>
+      <!-- v4: 연도 콤보박스 (디폴트 "선택…" — 사용자가 명시 선택) -->
+      <span class="field-label">연도</span>
+      <select class="year-select" id="year-select" title="연도 선택 (필수)">
+        <option value="">선택…</option>
+        <option value="2025">2025</option>
+        <option value="2026">2026</option>
+      </select>
+      <!-- v4: 과목 콤보박스 (5과목, 디폴트 "선택…") -->
+      <span class="field-label">과목</span>
+      <select class="subject-select" id="subject-select" title="과목 선택 (필수)">
+        <option value="">선택…</option>
+        <option value="형법">형법</option>
+        <option value="형소">형소</option>
+        <option value="부동산등기법">부동산등기법</option>
+        <option value="부동산등기서류">부동산등기서류</option>
+        <option value="민사서류">민사서류</option>
+      </select>
+      <!-- v4 신규: 각순환 콤보박스 (입문/예비/1순환/2순환/3순환/기타) -->
+      <span class="field-label">각순환</span>
+      <select class="category-select" id="category-select" title="각순환 선택 (필수)">
+        <option value="">선택…</option>
+        <option value="입문">입문</option>
+        <option value="예비">예비</option>
+        <option value="1순환">1순환</option>
+        <option value="2순환">2순환</option>
+        <option value="3순환">3순환</option>
+        <option value="__other__">기타…</option>
+      </select>
+      <!-- "기타" 선택 시만 활성화 (디폴트 hidden) — 사용자 자유 입력 -->
+      <input type="text" class="meta-input category-other" id="category-other-input"
+             placeholder="자유 입력" title="각순환 자유 입력 (기타 선택 시)">
+      <!-- v4 신규: 파일명 자유 입력 (예: 공유물분할) — 슬러그로 사용 -->
+      <span class="field-label">파일명</span>
+      <input type="text" class="meta-input" id="file-input"
+             placeholder="예: 공유물분할"
+             title="파일명 — slug로 사용 (필수)" required>
+      <button class="btn-save" id="btn-save" onclick="saveFile()" title="저장 (Cmd/Ctrl+S)">💾 저장</button>
+      <button id="btn-back" onclick="goToViewer()" title="뷰어로 돌아가기 (저장 X)">🔙 뷰어</button>
+    </div>
+    <!-- === 헤더 2단: 주제목 + 소제목 + 점수 (시각 분리 — 위/아래 별도 줄 느낌) === -->
+    <div class="header-row">
+      <span class="field-label">주제목</span>
+      <input type="text" class="meta-input big-title" id="title-input"
+             placeholder="주제목 (예: 공유물분할 약술)"
+             title="주제목 — 큰 글씨 (필수)" required>
+      <span class="field-label">소제목</span>
+      <input type="text" class="meta-input sub-title" id="case-input"
+             placeholder="소제목 (예: 200자 약술하시오)"
+             title="소제목 — 작은 글씨 (선택)">
+      <span class="field-label">점수</span>
+      <input type="number" class="meta-input points" id="points-input"
+             placeholder="점수" min="0" max="100"
+             title="점수 (0~100, 선택)">
+      <!-- 우측 빈 공간 → flex spacer 효과 -->
+      <span style="flex: 1;"></span>
+    </div>
+  </div>
+
+  <!-- === Tabs: 문제 / 답안 / 메모 === -->
+  <div class="tabs" id="tabs"></div>
+
+  <!-- === Editor Toolbar (25종 태그 — 기존 보존) === -->
+  <div class="editor-toolbar">
+    <span class="label">강조:</span>
+    <!-- 색상 6종 -->
+    <button class="em-btn em-red" onclick="wrapEmphasis('red')" title="[red]">red</button>
+    <button class="em-btn em-blue" onclick="wrapEmphasis('blue')" title="[blue]">blue</button>
+    <button class="em-btn em-purple" onclick="wrapEmphasis('purple')" title="[purple]">purple</button>
+    <button class="em-btn em-violet" onclick="wrapEmphasis('violet')" title="[violet]">violet</button>
+    <button class="em-btn em-magenta" onclick="wrapEmphasis('magenta')" title="[magenta]">magenta</button>
+    <button class="em-btn em-indigo" onclick="wrapEmphasis('indigo')" title="[indigo]">indigo</button>
+    <!-- 강조 2종 -->
+    <button class="em-btn em-bold" onclick="wrapEmphasis('bold')" title="[bold]">bold</button>
+    <button class="em-btn em-underline" onclick="wrapEmphasis('u')" title="[u]">underline</button>
+    <!-- 빈칸 2종 -->
+    <button class="em-btn em-blank" onclick="wrapEmphasis('blank')" title="[blank]">blank</button>
+    <button class="em-btn em-blank2" onclick="wrapEmphasis('blank2')" title="[blank2]">blank2</button>
+    <!-- em 4종 -->
+    <button class="em-btn em-em1" onclick="wrapEmphasis('em1')" title="em1">em1</button>
+    <button class="em-btn em-em2" onclick="wrapEmphasis('em2')" title="em2">em2</button>
+    <button class="em-btn em-em3" onclick="wrapEmphasis('em3')" title="em3">em3</button>
+    <button class="em-btn em-em4" onclick="wrapEmphasis('em4')" title="em4">em4</button>
+    <!-- 의미 태그 5종 -->
+    <button class="em-btn em-con" onclick="wrapEmphasis('con')" title="[con] 결론">결론</button>
+    <button class="em-btn em-fact" onclick="wrapEmphasis('fact')" title="[fact] 요건">요건</button>
+    <button class="em-btn em-case" onclick="wrapEmphasis('case')" title="[case] 판례">판례</button>
+    <button class="em-btn em-bridge" onclick="wrapEmphasis('bridge')" title="[bridge] 브릿지">브릿지</button>
+    <button class="em-btn em-key" onclick="wrapEmphasis('key')" title="[key] 핵심">핵심</button>
+    <!-- 여분 2종 -->
+    <button class="em-btn em-free1" onclick="wrapEmphasis('free1')" title="[free1]">free1</button>
+    <button class="em-btn em-free2" onclick="wrapEmphasis('free2')" title="[free2]">free2</button>
+    <!-- 제거 -->
+    <button class="em-btn em-clear" onclick="wrapEmphasis('clear')" title="강조 제거">제거</button>
+    <!-- v3/v4 (팀 7B/8) — Web Speech API 음성입력 (Chrome/Edge/Safari) -->
+    <button class="mic-btn" id="mic-btn" type="button" title="음성입력 (ko-KR · 연속/실시간)">🎤 음성</button>
+    <span class="save-status" id="save-status"></span>
+  </div>
+
+  <!-- === Split: 좌 textarea + 우 미리보기 === -->
+  <div class="editor-split">
+    <div class="editor-pane">
+      <span class="pane-label">✏️ 편집 — <span id="active-tab-label">문제</span></span>
+      <textarea
+        id="editor-textarea"
+        oninput="onTextareaInput()"
+        spellcheck="false"
+        placeholder="여기에 입력하세요 — 위 태그 버튼으로 강조 적용. 마크다운 (## 헤더, **굵게**) 지원."></textarea>
+    </div>
+    <div class="editor-pane">
+      <span class="pane-label">👁️ 미리보기 (실시간 렌더링)</span>
+      <div id="editor-preview"><span class="empty">(빈 내용)</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- marked.js (merge.html과 동일 — 마크다운 → HTML 변환) -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<script>
+// ============================================================================
+// 상수
+// ============================================================================
+
+// 25종 태그 — merge.html L1857 allTags 정확 mirror (순서 보존)
+const ALL_TAGS = [
+  'em1', 'em2', 'em3', 'em4',
+  'con', 'fact', 'case', 'bridge', 'key',
+  'free1', 'free2',
+  'red', 'blue', 'purple', 'violet', 'magenta', 'indigo',
+  'bold', 'u', 'blank2', 'blank'
+];
+
+// 5과목 영문 prefix 매핑 (folder는 getFolder로 year 동적 조립)
+// v4: id 생성용 (assembleMd 안에서 `${year}_${fileEn}_user_${file-slug}` 형태로 사용)
+const SUBJECT_FILE_EN = {
+  '형법':             'hyungbeop',
+  '형소':             'hyungso',
+  '부동산등기법':     'budeunglaw',
+  '부동산등기서류':   'budeungseoryu',
+  '민사서류':         'minsaseoryu'
+};
+const SUBJECT_META = Object.fromEntries(
+  Object.entries(SUBJECT_FILE_EN).map(([k, v]) => [k, { fileEn: v }])
+);
+// 폴더명 동적 조립 (예: 2026_사용자_형법, 2025_사용자_민사서류)
+function getFolder(subject, year) {
+  return `${year}_사용자_${subject}`;
+}
+
+const TAB_KEYS = ['문제', '답안', '메모'];
+
+// localStorage prefix (글로벌 룰 11-4: lawear_input_*)
+const LS_PREFIX = 'lawear_input_draft_';
+
+// 서버측 AUTO NN 토큰 (server.py L66 _AUTO_NN_TOKEN)
+const AUTO_NN_TOKEN = '__AUTO_NN__';
+
+// v4: 각순환 화이트리스트 (검증용)
+const CATEGORY_OPTIONS = ['입문', '예비', '1순환', '2순환', '3순환'];
+
+// ============================================================================
+// 상태 (v4 — file/title/caseLabel 명확 분리)
+// ============================================================================
+let state = {
+  year: '',              // 콤보박스 (디폴트 빈 — 사용자가 명시 선택, 값 2025|2026)
+  subject: '',           // 콤보박스 (5과목 한글명)
+  category: '',          // 콤보박스 (입문/예비/1~3순환) 또는 기타 자유 입력 결과
+  file: '',              // 파일명 자유 입력 (예: "공유물분할") — slug로 변환되어 파일명
+  title: '',             // 주제목 자유 입력 (예: "공유물분할 약술")
+  caseLabel: '',         // 소제목 자유 입력 (예: "200자 약술하시오")
+  points: null,          // 점수 (number 0~100, 선택)
+  activeTab: '문제',     // 현재 탭
+  // 탭별 본문 (텍스트만 보관 — 미리보기는 매번 renderMd)
+  texts: { '문제': '', '답안': '', '메모': '' },
+  // 탭별 dirty 플래그
+  dirty: { '문제': false, '답안': false, '메모': false },
+  // 진입 path (편집 진입 시 기존 .md 로드)
+  loadedPath: null
+};
+
+// ============================================================================
+// URL 파라미터 파싱 (?path=&subject=&year=&category=&file=&title=&case_label=&points=)
+// v4: 모든 필드 콤보/입력으로 진입하므로 URL 파라미터는 optional prefill만
+// ============================================================================
+function parseUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const path = params.get('path') || '';        // 편집 진입 시 (최우선)
+  const subject = params.get('subject') || '';
+  const year = params.get('year') || '';        // v4: 디폴트 빈 (사용자 선택 강제)
+  const category = params.get('category') || '';
+  const file = params.get('file') || '';
+  const title = params.get('title') || '';
+  const caseLabel = params.get('case_label') || '';
+  const pointsRaw = params.get('points') || '';
+  const points = pointsRaw && !isNaN(Number(pointsRaw)) ? Number(pointsRaw) : null;
+  console.log('[init] URL params:', { path, subject, year, category, file, title, caseLabel, points });
+  return { path, subject, year, category, file, title, caseLabel, points };
+}
+
+// v4: 메타 prefill — URL 파라미터에서 받은 값을 state + input/select에 동기
+function applyMetaFromUrl({ subject, year, category, file, title, caseLabel, points }) {
+  if (year && ['2025', '2026'].includes(year)) {
+    state.year = year;
+    const el = document.getElementById('year-select');
+    if (el) el.value = year;
+  }
+  if (subject && SUBJECT_META[subject]) {
+    state.subject = subject;
+    const el = document.getElementById('subject-select');
+    if (el) el.value = subject;
+  }
+  if (category) {
+    // 화이트리스트 포함이면 콤보 선택, 아니면 "기타" + 자유입력
+    if (CATEGORY_OPTIONS.includes(category)) {
+      state.category = category;
+      const sel = document.getElementById('category-select');
+      if (sel) sel.value = category;
+      hideCategoryOtherInput();
+    } else {
+      state.category = category;
+      const sel = document.getElementById('category-select');
+      if (sel) sel.value = '__other__';
+      showCategoryOtherInput();
+      const otherEl = document.getElementById('category-other-input');
+      if (otherEl) otherEl.value = category;
+    }
+  }
+  if (file) {
+    state.file = file;
+    const el = document.getElementById('file-input');
+    if (el) el.value = file;
+  }
+  if (title) {
+    state.title = title;
+    const el = document.getElementById('title-input');
+    if (el) el.value = title;
+  }
+  if (caseLabel) {
+    state.caseLabel = caseLabel;
+    const el = document.getElementById('case-input');
+    if (el) el.value = caseLabel;
+  }
+  if (points !== null) {
+    state.points = points;
+    const el = document.getElementById('points-input');
+    if (el) el.value = String(points);
+  }
+  console.log('[init] meta prefill 완료:', { ...state, texts: '(생략)' });
+}
+
+// ============================================================================
+// 탭 렌더 (문제 / 답안 / 메모)
+// ============================================================================
+function renderTabs() {
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = '';
+  TAB_KEYS.forEach(name => {
+    const t = document.createElement('div');
+    t.className = 'tab' + (name === state.activeTab ? ' active' : '');
+    t.dataset.tab = name;
+    const dirtyMark = state.dirty[name] ? '<span class="dirty">●</span>' : '';
+    t.innerHTML = name + dirtyMark;
+    t.onclick = () => switchTab(name);
+    tabsEl.appendChild(t);
+  });
+}
+
+// 탭 전환 — 현재 textarea 값을 state.texts에 저장 후 새 탭 로드
+function switchTab(name) {
+  if (name === state.activeTab) return;
+  const ta = document.getElementById('editor-textarea');
+  state.texts[state.activeTab] = ta.value;
+  console.log('[switchTab]', state.activeTab, '→', name);
+  state.activeTab = name;
+  document.getElementById('active-tab-label').textContent = name;
+  ta.value = state.texts[name];
+  renderTabs();
+  updatePreview();
+}
+
+// ============================================================================
+// 헤더 breadcrumb 갱신 (v4 — category 추가)
+// ============================================================================
+function updateBreadcrumb() {
+  document.getElementById('bc-subject').textContent = state.subject || '(과목 미선택)';
+  document.getElementById('bc-category').textContent = state.category || '(각순환 미선택)';
+}
+
+// ============================================================================
+// 실시간 미리보기 (textarea input → preview innerHTML)
+// merge.html L793-822 renderMd 단순화 mirror — marked.js + tts-* 클래스 wrap
+// ============================================================================
+if (typeof marked !== 'undefined' && marked.setOptions) {
+  marked.setOptions({ breaks: true });
+}
+function renderMd(md) {
+  if (!md || !md.trim()) return '<span class="empty">(빈 내용)</span>';
+
+  // 1단계: 강조 태그를 플레이스홀더로 치환 (marked가 [tag]를 링크로 오해 방지)
+  const placeholders = [];
+  const tagPattern = ALL_TAGS.join('|');
+  const tagRe = new RegExp(
+    '\\[(' + tagPattern + ')\\]' +
+    '((?:(?!\\[(?:' + tagPattern + ')\\])[\\s\\S])*?)' +
+    '\\[\\/\\1\\]', 'g'
+  );
+
+  let escaped = md;
+  let prev;
+  let iter = 0;
+  do {
+    prev = escaped;
+    escaped = escaped.replace(tagRe, (m, tag, content) => {
+      placeholders.push({ tag, content });
+      return `@@EMP${placeholders.length - 1}@@`;
+    });
+    iter++;
+  } while (escaped !== prev && iter < 20);
+
+  // 2단계: 마크다운 → HTML
+  let html;
+  try {
+    html = (typeof marked !== 'undefined') ? marked.parse(escaped) : escaped;
+  } catch (e) {
+    console.warn('[renderMd] marked 실패, 원문 노출:', e);
+    html = escaped;
+  }
+
+  // 3단계: 플레이스홀더 복원 → tts-* span (재귀 — 중첩 강조 지원)
+  function recover(s) {
+    return s.replace(/@@EMP(\d+)@@/g, (m, i) => {
+      const { tag, content } = placeholders[parseInt(i, 10)];
+      const cls = tag === 'u' ? 'tts-underline' : 'tts-' + tag;
+      return `<span class="${cls}">${recover(content)}</span>`;
+    });
+  }
+  return recover(html);
+}
+
+function updatePreview() {
+  const ta = document.getElementById('editor-textarea');
+  const preview = document.getElementById('editor-preview');
+  preview.innerHTML = renderMd(ta.value);
+}
+
+// textarea input 이벤트 — dirty 플래그 + 미리보기 + 자동저장(localStorage)
+function onTextareaInput() {
+  if (!state.dirty[state.activeTab]) {
+    state.dirty[state.activeTab] = true;
+    renderTabs();
+  }
+  updatePreview();
+  saveDraftLocal();
+}
+
+// ============================================================================
+// wrapEmphasis — merge.html L1851-1868 정확 mirror
+// ============================================================================
+function wrapEmphasis(tag) {
+  const ta = document.getElementById('editor-textarea');
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  if (start === end) {
+    setSaveStatus('텍스트를 먼저 선택하세요', 'error');
+    return;
+  }
+  const selected = ta.value.substring(start, end);
+
+  // 기존 강조 제거 (중첩 방지) — merge.html L1857-1860 mirror
+  let cleaned = selected;
+  for (const t of ALL_TAGS) {
+    const re = new RegExp(`\\[${t}\\]([\\s\\S]+?)\\[\\/${t}\\]`, 'g');
+    cleaned = cleaned.replace(re, '$1');
+  }
+  const wrapped = tag === 'clear' ? cleaned : `[${tag}]${cleaned}[/${tag}]`;
+  ta.setRangeText(wrapped, start, end, 'select');
+  ta.focus();
+
+  if (!state.dirty[state.activeTab]) {
+    state.dirty[state.activeTab] = true;
+    renderTabs();
+  }
+  updatePreview();
+  setSaveStatus(tag === 'clear' ? '강조 제거' : `[${tag}] 적용`, 'success');
+}
+
+// ============================================================================
+// 저장 상태 표시 (toolbar 우측)
+// ============================================================================
+function setSaveStatus(msg, kind) {
+  const el = document.getElementById('save-status');
+  el.textContent = msg;
+  el.className = 'save-status' + (kind ? ' ' + kind : '');
+  if (kind === 'success' && !msg.startsWith('✓')) {
+    setTimeout(() => {
+      if (el.textContent === msg) {
+        el.textContent = '';
+        el.className = 'save-status';
+      }
+    }, 3000);
+  }
+}
+
+// ============================================================================
+// localStorage 자동 임시저장 (페이지 새로고침 대비)
+// v4: 키에 file 슬러그 추가 (subject+category+file 조합 — caseNo는 서버 자동할당이라 키에 부적합)
+// ============================================================================
+function draftKey() {
+  // file/title 둘 다 비어있으면 키 못 만들고 임시본 skip
+  const slug = (state.file || state.title || '').trim().replace(/\s+/g, '_').slice(0, 40) || 'unknown';
+  return LS_PREFIX + (state.subject || 'nosub') + '_' + (state.category || 'nocat') + '_' + slug;
+}
+
+function saveDraftLocal() {
+  if (!state.subject || !state.file) return;  // 최소 키 요건 미충족 → skip
+  const ta = document.getElementById('editor-textarea');
+  state.texts[state.activeTab] = ta.value;
+  const draft = JSON.stringify({
+    year: state.year,
+    subject: state.subject,
+    category: state.category,
+    file: state.file,
+    title: state.title,
+    caseLabel: state.caseLabel,
+    points: state.points,
+    texts: state.texts,
+    savedAt: new Date().toISOString()
+  });
+  try {
+    localStorage.setItem(draftKey(), draft);
+  } catch (e) {
+    console.warn('[saveDraftLocal] localStorage 실패:', e);
+  }
+}
+
+function loadDraftLocal() {
+  if (!state.subject || !state.file) return false;
+  try {
+    const raw = localStorage.getItem(draftKey());
+    if (!raw) return false;
+    const draft = JSON.parse(raw);
+    state.texts = draft.texts || state.texts;
+    console.log('[loadDraftLocal] 임시본 로드:', draftKey(), 'savedAt:', draft.savedAt);
+    return true;
+  } catch (e) {
+    console.warn('[loadDraftLocal] 실패:', e);
+    return false;
+  }
+}
+
+function clearDraftLocal() {
+  try {
+    localStorage.removeItem(draftKey());
+    console.log('[clearDraftLocal] 임시본 삭제:', draftKey());
+  } catch (e) { /* ignore */ }
+}
+
+// ============================================================================
+// .md 멀티섹션 조립 (design.md §4 포맷 + v4 메타 확장)
+// ============================================================================
+function assembleMd() {
+  // 진입 시 마지막 탭 텍스트도 state에 저장
+  const ta = document.getElementById('editor-textarea');
+  state.texts[state.activeTab] = ta.value;
+
+  const meta = SUBJECT_META[state.subject];
+  if (!meta) throw new Error('과목 미선택');
+
+  // v4: id는 file 슬러그 + 서버 자동할당 NN 결합
+  //   file 있으면 `${year}_${fileEn}_user_${slug}` (사람이 읽을 수 있는 id)
+  //   서버는 파일명에 __AUTO_NN__ 토큰 보고 다음 NN 할당 — id에는 NN 포함 X
+  const slug = slugify(state.file);
+  const id = `${state.year}_${meta.fileEn}_user_${slug}`;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const lines = [];
+  lines.push(`# ${id}`);
+  lines.push('');
+  lines.push('## 메타');
+  lines.push(`- 과목: ${state.subject}`);
+  // v4: 각순환 / 파일명 / 주제목 / 소제목 / 점수 (사용자 모든 입력 기록)
+  lines.push(`- 각순환: ${state.category || ''}`);
+  lines.push(`- 파일명: ${state.file || ''}`);
+  lines.push(`- 제목: ${state.title || ''}`);
+  if (state.caseLabel && state.caseLabel.trim()) {
+    lines.push(`- 소제목: ${state.caseLabel.trim()}`);
+  }
+  if (state.points !== null && state.points !== undefined && !isNaN(Number(state.points))) {
+    lines.push(`- 점수: ${state.points}점`);
+  }
+  lines.push(`- 등록일: ${today}`);
+  lines.push('- 출처: 사용자 직접 입력');
+  lines.push('- _addedBy: lawear-7ad6-input-mode-v4');
+  lines.push('');
+  lines.push('## 문제');
+  lines.push(state.texts['문제'] || '');
+  lines.push('');
+  lines.push('## 답안');
+  lines.push(state.texts['답안'] || '');
+  // 메모는 비어있으면 섹션 생략 (design.md §4 명세)
+  const memo = (state.texts['메모'] || '').trim();
+  if (memo) {
+    lines.push('');
+    lines.push('## 메모');
+    lines.push(memo);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+// 파일명 슬러그 헬퍼 — 공백/슬래시/특수문자 → _ 치환 (파일시스템 안전)
+function slugify(s) {
+  return (s || '').trim()
+    .replace(/[\s\/\\?<>:*|"]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+// ============================================================================
+// 상대 경로 조립 (v4 — server.py __AUTO_NN__ 토큰 위임)
+//   포맷: {year}_사용자_{subject}/{category}/__AUTO_NN___{file-slug}.md
+//   server.py가 폴더 스캔해서 __AUTO_NN__ → 다음 NN 자동 치환
+// ============================================================================
+function buildRelPath() {
+  const meta = SUBJECT_META[state.subject];
+  if (!meta) return null;
+  const folder = getFolder(state.subject, state.year);
+  const cat = (state.category || '').trim();
+  const slug = slugify(state.file);
+  if (!cat || !slug) {
+    console.warn('[buildRelPath] category 또는 file 비어있음');
+    return null;
+  }
+  // server.py L137-167: __AUTO_NN__ 토큰 발견 시 폴더 스캔해서 다음 NN으로 치환
+  // 결과 예: 2026_사용자_형법/1순환/03_공유물분할.md (03이 자동할당)
+  return `${folder}/${cat}/${AUTO_NN_TOKEN}_${slug}.md`;
+}
+
+// ============================================================================
+// 저장 API 호출 — POST /api/create/<rel_path> (design.md §3)
+// v4: __AUTO_NN__ 토큰 사용 → 409 재시도 불필요 (server.py가 사전 할당)
+//     단 race condition 대비 1회 retry만 유지
+// ============================================================================
+async function saveFile() {
+  console.log('[saveFile] 저장 시작 — state:',
+              { year: state.year, subject: state.subject, category: state.category,
+                file: state.file, title: state.title, caseLabel: state.caseLabel, points: state.points });
+
+  // v4: 필수 5개 검증 (year/subject/category/file/title)
+  const missing = [];
+  if (!state.year) missing.push('연도');
+  if (!state.subject) missing.push('과목');
+  if (!state.category || !state.category.trim()) missing.push('각순환');
+  if (!state.file || !state.file.trim()) missing.push('파일명');
+  if (!state.title || !state.title.trim()) missing.push('주제목');
+  if (missing.length > 0) {
+    // 빈 필수 input/select에 빨강 보더 (시각 피드백)
+    const requiredFields = [
+      { id: 'year-select', key: 'year' },
+      { id: 'subject-select', key: 'subject' },
+      { id: 'category-select', key: 'category' },
+      { id: 'file-input', key: 'file' },
+      { id: 'title-input', key: 'title' }
+    ];
+    requiredFields.forEach(({ id, key }) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      // select: value 비어있을 때, input: value.trim() 비어있을 때
+      const isEmpty = el.tagName === 'SELECT' ? !el.value : !(el.value || '').trim();
+      if (isEmpty) el.classList.add('required-empty');
+    });
+    const msg = `필수 입력 누락: ${missing.join(', ')}`;
+    setSaveStatus(msg, 'error');
+    alert(msg);
+    return;
+  }
+
+  // 최소 검증: 문제 또는 답안 둘 다 비어있으면 저장 거부
+  const ta = document.getElementById('editor-textarea');
+  state.texts[state.activeTab] = ta.value;
+  if (!state.texts['문제'].trim() && !state.texts['답안'].trim()) {
+    setSaveStatus('문제 또는 답안 중 하나는 입력해야 합니다', 'error');
+    alert('문제 또는 답안 중 하나는 입력해야 합니다');
+    return;
+  }
+
+  const saveBtn = document.getElementById('btn-save');
+  saveBtn.disabled = true;
+  setSaveStatus('저장 중…', '');
+
+  // v4: __AUTO_NN__ 위임 — 409 충돌 거의 없음 (race condition 대비 2회만 시도)
+  const maxAttempts = 2;
+  let lastErr = null;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const relPath = buildRelPath();
+    if (!relPath) {
+      setSaveStatus('✗ 경로 조립 실패', 'error');
+      saveBtn.disabled = false;
+      return;
+    }
+    const body = assembleMd();
+    const url = `/api/create/${encodeURI(relPath)}`;
+    console.log('[saveFile] API 호출:', url, 'attempt:', attempt + 1);
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body: body
+      });
+      console.log('[saveFile] 응답:', res.status, res.statusText);
+
+      if (res.status === 409) {
+        console.warn('[saveFile] 409 충돌 — __AUTO_NN__ race condition? 재시도');
+        lastErr = '409';
+        continue;
+      }
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        setSaveStatus(`✗ 저장 실패 (${res.status}): ${errText.slice(0, 80)}`, 'error');
+        console.error('[saveFile] 실패:', res.status, errText);
+        saveBtn.disabled = false;
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      console.log('[saveFile] 성공:', data);
+      // server.py가 __AUTO_NN__ 치환된 실제 경로를 응답으로 줌 (data.relPath 또는 비슷한 필드)
+      const finalPath = data.relPath || data.path || relPath;
+      setSaveStatus(`✓ 저장 완료 (${data.bytes || '?'} bytes) → 뷰어 이동`, 'success');
+
+      // dirty 초기화 + localStorage 임시본 삭제
+      Object.keys(state.dirty).forEach(k => state.dirty[k] = false);
+      clearDraftLocal();
+      renderTabs();
+
+      // 저장 성공 → merge.html 자동 이동
+      setTimeout(() => {
+        window.location.href = `/merge.html?path=${encodeURIComponent(finalPath)}`;
+      }, 800);
+      return;
+    } catch (e) {
+      console.error('[saveFile] 네트워크 오류:', e);
+      lastErr = e.message;
+    }
+  }
+
+  setSaveStatus(`✗ 저장 실패 (${maxAttempts}회 시도): ${lastErr || 'unknown'}`, 'error');
+  saveBtn.disabled = false;
+}
+
+// ============================================================================
+// 뷰어로 돌아가기 (저장 X — confirm 후 이동)
+// ============================================================================
+function goToViewer() {
+  const hasDirty = Object.values(state.dirty).some(d => d);
+  if (hasDirty) {
+    if (!confirm('저장하지 않은 변경 사항이 있습니다. 뷰어로 이동하시겠습니까?')) return;
+  }
+  if (state.loadedPath) {
+    window.location.href = `/merge.html?path=${encodeURIComponent(state.loadedPath)}`;
+  } else {
+    window.location.href = '/merge.html';
+  }
+}
+
+// ============================================================================
+// 편집 진입 시 기존 .md 로드 (path 파라미터)
+// v4: 메타 파싱에 각순환/파일명 추가
+// ============================================================================
+async function loadExistingMd(path) {
+  console.log('[loadExistingMd] 로드 시도:', path);
+  try {
+    const res = await fetch(path, { cache: 'no-store' });
+    if (!res.ok) {
+      console.warn('[loadExistingMd] 로드 실패:', res.status);
+      return false;
+    }
+    const md = await res.text();
+    console.log('[loadExistingMd] 로드 성공, 바이트:', md.length);
+
+    // 섹션 추출
+    state.texts['문제'] = extractSection(md, '문제');
+    state.texts['답안'] = extractSection(md, '답안');
+    state.texts['메모'] = extractSection(md, '메모');
+
+    // 메타에서 과목 추출
+    const subjectMatch = md.match(/^- 과목:\s*(.+)$/m);
+    if (subjectMatch && SUBJECT_META[subjectMatch[1].trim()]) {
+      state.subject = subjectMatch[1].trim();
+      document.getElementById('subject-select').value = state.subject;
+    }
+
+    // v4: 각순환 (구버전 "카테고리"도 호환)
+    const catMatch = md.match(/^- (?:각순환|카테고리):\s*(.*)$/m);
+    if (catMatch && catMatch[1].trim()) {
+      const catVal = catMatch[1].trim();
+      state.category = catVal;
+      const sel = document.getElementById('category-select');
+      if (sel) {
+        if (CATEGORY_OPTIONS.includes(catVal)) {
+          sel.value = catVal;
+          hideCategoryOtherInput();
+        } else {
+          sel.value = '__other__';
+          showCategoryOtherInput();
+          const otherEl = document.getElementById('category-other-input');
+          if (otherEl) otherEl.value = catVal;
+        }
+      }
+    }
+
+    // v4: 파일명 (있으면)
+    const fileMatch = md.match(/^- 파일명:\s*(.*)$/m);
+    if (fileMatch && fileMatch[1].trim()) {
+      state.file = fileMatch[1].trim();
+      const el = document.getElementById('file-input');
+      if (el) el.value = state.file;
+    }
+
+    // 주제목
+    const titleMatch = md.match(/^- 제목:\s*(.*)$/m);
+    if (titleMatch && titleMatch[1].trim()) {
+      state.title = titleMatch[1].trim();
+      const el = document.getElementById('title-input');
+      if (el) el.value = state.title;
+    }
+
+    // 소제목
+    const labelMatch = md.match(/^- 소제목:\s*(.*)$/m);
+    if (labelMatch && labelMatch[1].trim()) {
+      state.caseLabel = labelMatch[1].trim();
+      const el = document.getElementById('case-input');
+      if (el) el.value = state.caseLabel;
+    }
+
+    // 점수
+    const pointsMatch = md.match(/^- 점수:\s*(\d+)\s*점?$/m);
+    if (pointsMatch) {
+      state.points = Number(pointsMatch[1]);
+      const el = document.getElementById('points-input');
+      if (el) el.value = String(state.points);
+    }
+
+    // path에서 year 추출 (예: 2026_사용자_형법/... → 2026)
+    const folderYearMatch = path.match(/(?:^|\/)(\d{4})_사용자_/);
+    const fileYearMatch = path.match(/(?:^|\/)(\d{4})_[a-z]+_user/);
+    const detectedYear = (folderYearMatch && folderYearMatch[1]) || (fileYearMatch && fileYearMatch[1]);
+    if (detectedYear && ['2025', '2026'].includes(detectedYear)) {
+      state.year = detectedYear;
+      const sel = document.getElementById('year-select');
+      if (sel) sel.value = state.year;
+      console.log('[loadExistingMd] path에서 year 추출:', state.year);
+    }
+
+    // v4: file 없으면 path의 파일명에서 추출 시도 (예: 03_공유물분할.md → "공유물분할")
+    if (!state.file) {
+      const fileNameMatch = path.match(/\/(\d{2})_(.+)\.md$/);
+      if (fileNameMatch) {
+        state.file = fileNameMatch[2].replace(/_/g, ' ');
+        const el = document.getElementById('file-input');
+        if (el) el.value = state.file;
+        console.log('[loadExistingMd] path 파일명에서 file 추출:', state.file);
+      }
+    }
+
+    state.loadedPath = path;
+    updateBreadcrumb();
+    return true;
+  } catch (e) {
+    console.error('[loadExistingMd] 예외:', e);
+    return false;
+  }
+}
+
+// merge.html L1595-1605 extractSection 정확 mirror
+function extractSection(md, sectionName) {
+  const lines = md.split('\n');
+  let capture = false;
+  let result = [];
+  for (const line of lines) {
+    if (line.startsWith('## ') && line.includes(sectionName)) { capture = true; continue; }
+    if (capture && line.startsWith('## ')) break;
+    if (capture) result.push(line);
+  }
+  return result.join('\n').trim();
+}
+
+// ============================================================================
+// 키보드 단축키 (merge.html L1803-1817 mirror)
+//   Cmd/Ctrl + S → 저장
+//   E         → 뷰어 redirect (textarea/input/select 포커스 중에는 무시)
+// ============================================================================
+document.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    console.log('[keydown] Cmd/Ctrl+S → saveFile');
+    saveFile();
+    return;
+  }
+  if (e.key && e.key.toLowerCase() === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) return;
+    e.preventDefault();
+    console.log('[keydown] E → 뷰어로 이동');
+    goToViewer();
+  }
+});
+
+// ============================================================================
+// v4: "기타" 카테고리 자유입력 토글 헬퍼
+// ============================================================================
+function showCategoryOtherInput() {
+  const el = document.getElementById('category-other-input');
+  if (el) el.classList.add('shown');
+}
+function hideCategoryOtherInput() {
+  const el = document.getElementById('category-other-input');
+  if (el) { el.classList.remove('shown'); el.value = ''; }
+}
+
+// ============================================================================
+// v4: 콤보박스/입력 이벤트 바인딩 (year/subject/category + 4개 자유입력)
+// ============================================================================
+
+// year-select — 변경 시 state.year 갱신
+document.getElementById('year-select').addEventListener('change', (e) => {
+  const newYear = e.target.value;
+  console.log('[year-select] 변경:', state.year, '→', newYear);
+  state.year = newYear;
+  if (newYear) e.target.classList.remove('required-empty');
+  if (state.subject && state.category) {
+    console.log('[year-select] 저장 예정 경로:', buildRelPath());
+  }
+});
+
+// subject-select — 변경 시 state.subject 갱신 + texts/dirty 초기화 (과목 바뀌면 새 입력)
+document.getElementById('subject-select').addEventListener('change', (e) => {
+  const newSubject = e.target.value;
+  console.log('[subject-select] 변경:', state.subject, '→', newSubject);
+  const hasDirty = Object.values(state.dirty).some(d => d);
+  if (hasDirty && !confirm('변경 사항이 있습니다. 과목을 변경하면 본문이 초기화됩니다. 계속할까요?')) {
+    e.target.value = state.subject;
+    return;
+  }
+  state.subject = newSubject;
+  // 과목 바꾸면 본문 초기화 (각 과목별 다른 입력 흐름)
+  state.texts = { '문제': '', '답안': '', '메모': '' };
+  state.dirty = { '문제': false, '답안': false, '메모': false };
+  state.activeTab = '문제';
+  if (newSubject) e.target.classList.remove('required-empty');
+  // 임시본 복원 시도 (subject+category+file 키)
+  loadDraftLocal();
+  document.getElementById('editor-textarea').value = state.texts[state.activeTab];
+  updateBreadcrumb();
+  renderTabs();
+  updatePreview();
+});
+
+// category-select — 변경 시 state.category 갱신, "기타" 선택 시 자유입력 활성화
+document.getElementById('category-select').addEventListener('change', (e) => {
+  const val = e.target.value;
+  console.log('[category-select] 변경:', state.category, '→', val);
+  if (val === '__other__') {
+    // 기타 선택 → 자유 입력 활성화. state.category는 자유입력 input 이벤트에서 갱신
+    showCategoryOtherInput();
+    state.category = '';
+    const otherEl = document.getElementById('category-other-input');
+    if (otherEl) { otherEl.focus(); }
+  } else {
+    hideCategoryOtherInput();
+    state.category = val;
+  }
+  if (val) e.target.classList.remove('required-empty');
+  updateBreadcrumb();
+});
+
+// category-other-input — 기타 자유 입력 → state.category 즉시 갱신
+document.getElementById('category-other-input').addEventListener('input', (e) => {
+  state.category = (e.target.value || '').trim();
+  console.log('[category-other-input] state.category =', state.category);
+  updateBreadcrumb();
+});
+
+// 자유입력 4개 (file/title/caseLabel/points) 바인딩 — input 이벤트로 state 즉시 갱신
+function setupMetaInputs() {
+  const bindings = [
+    { id: 'file-input',   key: 'file',      kind: 'text' },
+    { id: 'title-input',  key: 'title',     kind: 'text' },
+    { id: 'case-input',   key: 'caseLabel', kind: 'text' },
+    { id: 'points-input', key: 'points',    kind: 'number' }
+  ];
+  bindings.forEach(({ id, key, kind }) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', (e) => {
+      const raw = e.target.value;
+      if (kind === 'number') {
+        if (!raw || raw.trim() === '') {
+          state.points = null;
+        } else {
+          const n = Number(raw);
+          if (isNaN(n)) {
+            state.points = null;
+          } else {
+            state.points = Math.max(0, Math.min(100, n));
+          }
+        }
+      } else {
+        state[key] = raw.trim();
+      }
+      if (raw.trim()) e.target.classList.remove('required-empty');
+      console.log(`[meta-input] ${key} =`, state[key]);
+    });
+  });
+}
+
+// ============================================================================
+// v3/v4 — Web Speech API 음성입력 통합
+//   - 17896 LAWEAR_STT 영감, 단순화 버전
+//   - ko-KR / continuous + interimResults / final transcript만 textarea append
+//   - 미지원 브라우저: 버튼 disabled
+// ============================================================================
+function setupVoiceInput(textarea, micBtn) {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    micBtn.disabled = true;
+    micBtn.title = '음성입력 미지원 (Chrome/Edge/Safari 권장)';
+    micBtn.style.opacity = 0.5;
+    console.warn('[voice] SpeechRecognition 미지원');
+    return;
+  }
+  let rec = null, recording = false;
+  micBtn.onclick = () => {
+    if (recording) {
+      try { rec.stop(); } catch (e) { /* ignore */ }
+      return;
+    }
+    rec = new SR();
+    rec.lang = 'ko-KR';
+    rec.continuous = true;
+    rec.interimResults = true;
+
+    rec.onstart = () => {
+      recording = true;
+      micBtn.textContent = '■ 녹음중';
+      micBtn.classList.add('recording');
+      console.log('[voice] 시작');
+    };
+    rec.onend = () => {
+      recording = false;
+      micBtn.textContent = '🎤 음성';
+      micBtn.classList.remove('recording');
+      console.log('[voice] 종료');
+    };
+    rec.onresult = (ev) => {
+      let final = '';
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) final += ev.results[i][0].transcript;
+      }
+      if (final) {
+        const cur = textarea.value;
+        const sep = (cur.length === 0 || /[\s\n]$/.test(cur)) ? '' : ' ';
+        textarea.value = cur + sep + final.trim();
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        console.log('[voice] final transcript append:', final.trim().length, 'chars');
+      }
+    };
+    rec.onerror = (ev) => {
+      recording = false;
+      micBtn.textContent = '🎤 음성';
+      micBtn.classList.remove('recording');
+      console.error('[voice] error:', ev.error);
+      alert('음성 오류: ' + (ev.error || 'unknown'));
+    };
+    try {
+      rec.start();
+    } catch (e) {
+      console.error('[voice] start 실패:', e);
+      alert('음성 시작 실패: ' + e.message);
+    }
+  };
+}
+
+// ============================================================================
+// 부팅 (v4)
+//   1) URL 파라미터 파싱
+//   2) 이벤트 바인딩 (콤보 + 자유입력 + 음성)
+//   3) path 있으면 편집 진입 → loadExistingMd
+//      없으면 URL prefill만 (모든 디폴트는 빈 — 사용자가 콤보로 선택)
+//   4) 탭 초기화 + breadcrumb + preview
+// ============================================================================
+async function boot() {
+  console.log('[boot] v4 시작');
+  const urlParams = parseUrlParams();
+
+  // 이벤트 바인딩 (DOM이 모두 로드된 시점 — script가 body 끝에 있어서 OK)
+  setupMetaInputs();
+
+  // 편집 진입 (path 최우선)
+  if (urlParams.path) {
+    const ok = await loadExistingMd(urlParams.path);
+    if (!ok) setSaveStatus(`✗ 파일 로드 실패: ${urlParams.path}`, 'error');
+  } else {
+    // 신규 진입 — URL prefill (있으면 적용, 없으면 모두 빈 콤보)
+    applyMetaFromUrl(urlParams);
+    // 임시본 자동 복원 시도 (subject + category + file 모두 있을 때만)
+    if (state.subject && state.file) loadDraftLocal();
+  }
+
+  state.activeTab = '문제';
+  document.getElementById('active-tab-label').textContent = '문제';
+  document.getElementById('editor-textarea').value = state.texts['문제'];
+  updateBreadcrumb();
+  renderTabs();
+  updatePreview();
+
+  // 음성입력 mic 바인딩
+  const textareaEl = document.getElementById('editor-textarea');
+  const micBtnEl = document.getElementById('mic-btn');
+  if (textareaEl && micBtnEl) setupVoiceInput(textareaEl, micBtnEl);
+
+  console.log('[boot] v4 완료 — state:', { ...state, texts: '(생략)' });
+}
+
+boot();
+</script>
+</body>
+</html>

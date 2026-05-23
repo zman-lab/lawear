@@ -43,3 +43,15 @@ web/public/lawear-debug.apk.bin
 .claude/scheduled_tasks.lock
 backups/
 web/test_modal_rework.js
+
+# 17896 채점 DB 백업 raw 파일 (lawear-7ad6) — git 용량 사고 방지
+# rolling 2-slot로 자동 누적, .gitkeep만 tracked 유지
+docs/tts-exam/backups/snapshots/*.sql.gz
+!docs/tts-exam/backups/snapshots/.gitkeep
+
+# lawear-7ad6 — server.py 자동 생성 (lock/bak)
+docs/tts-new/_file_index.json.lock
+docs/tts-new/_file_index.json.bak
+
+# lawear-7ad6 v4 — server.py 자동 생성 보조 파일
+docs/tts-new/**/*.md.bak
