@@ -1,0 +1,62 @@
+[
+  {
+    "p": "P1",
+    "status": "PASS",
+    "note": "title='lawear 17895 — 입력 모드 (3과목)' bc-subject='부동산등기법'"
+  },
+  {
+    "p": "P2",
+    "status": "PARTIAL",
+    "note": "input.html 진입 OK / sidebar 버튼 미구현 (merge.html에 '새 입력' 별도 버튼 미구현 — URL 직접 진입 확인)"
+  },
+  {
+    "p": "P3",
+    "status": "PASS",
+    "note": "tabs=['문제●', '답안', '메모'] state_preserved=True"
+  },
+  {
+    "p": "P4",
+    "status": "PASS",
+    "note": "em_btn_count=22 (>=20 OK) red_inserted=True"
+  },
+  {
+    "p": "P5",
+    "status": "PASS",
+    "note": "preview_has_content=True preview_len=41"
+  },
+  {
+    "p": "P6",
+    "status": "PARTIAL",
+    "note": "final_url=http://127.0.0.1:17899/input.html?subject=%EB%B6%80%EB%8F%99%EC%82%B0%EB%93%B1%EA%B8%B0%EB%B2%95&problem=p6test save_status=''"
+  },
+  {
+    "p": "P7",
+    "status": "PASS",
+    "note": "cols-2=1 edit_btn=1 currentPath=None meta_type=None"
+  },
+  {
+    "p": "P8",
+    "status": "PARTIAL",
+    "note": "onclick_target=no_match landed=http://127.0.0.1:17899/merge.html"
+  },
+  {
+    "p": "P9",
+    "status": "PASS",
+    "note": "compare_tables=1 (3col=1) tab_btns=0 cp=None"
+  },
+  {
+    "p": "P10",
+    "status": "PASS",
+    "note": "lib_path='두문자/민법.md' collapsibles=75"
+  },
+  {
+    "p": "P11",
+    "status": "PASS",
+    "note": "tree={'details': 0, 'li': 0, 'data_path': 634, 'data_dir': 0} ls_state=absent (정상)"
+  },
+  {
+    "p": "P12",
+    "status": "PASS",
+    "note": "editor_visible=False em_btns=341 stealth_label=True"
+  }
+]

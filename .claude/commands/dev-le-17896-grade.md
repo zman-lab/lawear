@@ -465,6 +465,69 @@ git -C /Users/nhn/zman-lab/lawear status -s docs/tts-new/
 
 → 0줄 확인 (출력 비어있어야 함). 1줄이라도 있으면 즉시 사용자 보고 + 채점 중단.
 
+#### 2.8.5 채점 DB 백업 (rolling 2-slot, lawear-7ad6)
+
+PUT /grade 200 + git status 0줄 확인 후 진행. **백업 실패는 채점 결과 보존, 보고만** (R5 — DB는 이미 PUT으로 반영됨).
+
+**근거**: 설계 문서 `docs/lawear-7ad6_grade_backup_auto/dev-spec_2_design.md §1` + 구현 계획 `S1`.
+
+```bash
+# === 17896 채점 DB 자동 백업 (rolling 2-slot, lawear-7ad6) ===
+# 절대경로 + 명확 glob (R4 안전장치)
+set -o pipefail  # sqlite3 .dump 실패 시 gzip도 실패로 처리
+
+# 백업 디렉토리 + DB 경로 (메인 레포 절대경로 — 워크트리 remove와 무관, R9)
+BACKUP_DIR="/Users/nhn/zman-lab/lawear/docs/tts-exam/backups/snapshots"
+DB_PATH="/Users/nhn/zman-lab/lawear/docs/tts-exam/exam.db"
+
+# 디렉토리 자동 생성 (idempotent — 처음 실행 시에도 안전)
+mkdir -p "$BACKUP_DIR"
+
+# 타임스탬프 (분 단위) — 동시 채점 분 단위 충돌 시 같은 TS 덮어씀
+TS=$(date +%Y%m%d_%H%M)
+TARGET="$BACKUP_DIR/exam_${TS}.sql.gz"
+
+echo "[backup] 시작 — $TARGET"
+
+# DB 파일 존재 명시 체크 — sqlite3는 없는 경로도 빈 DB로 자동 생성하므로 사전 검증 필수 (TC4)
+if [ ! -f "$DB_PATH" ]; then
+  echo "[backup] FAIL — DB 파일 없음: $DB_PATH (채점 결과는 보존됨, PUT /grade 200 완료)"
+else
+  # sqlite3 .dump → gzip 파이프 (stderr 검증으로 손상 DB 감지)
+  # 정상은 'PRAGMA foreign_keys=OFF;' + 'BEGIN TRANSACTION;' 헤더로 시작 → gunzip 후 grep
+  DUMP_STDERR=$(mktemp)
+  sqlite3 "$DB_PATH" .dump 2>"$DUMP_STDERR" | gzip > "$TARGET"
+  DUMP_RC=$?
+  if [ "$DUMP_RC" -eq 0 ] \
+     && ! grep -qiE 'error|malformed|not a database|disk|corrupt' "$DUMP_STDERR" \
+     && gunzip -c "$TARGET" 2>/dev/null | head -5 | grep -qE '^(PRAGMA|BEGIN TRANSACTION)'; then
+    echo "[backup] dump 완료 — $TARGET ($(wc -c < "$TARGET") bytes)"
+    rm -f "$DUMP_STDERR"
+  else
+    # 부분 파일 정리 (디스크 풀 / DB 락 / 손상 DB 시 빈/부분 .gz 잔존 방지)
+    rm -f "$TARGET" "$DUMP_STDERR"
+    echo "[backup] FAIL — 채점 결과는 보존됨 (PUT /grade 200 완료)"
+  fi
+fi
+
+# rolling 2-slot — 최신 2개만 보존, 3번째부터 자동 삭제
+# tail -n +3: 3번째 줄부터 (= 가장 오래된 백업들), xargs -r: 입력 비어있으면 rm 실행 안 함
+ls -1t "$BACKUP_DIR"/exam_*.sql.gz 2>/dev/null | tail -n +3 | xargs -r rm -f
+echo "[backup] rolling — 보존 $(ls -1 "$BACKUP_DIR"/exam_*.sql.gz 2>/dev/null | wc -l)개"
+```
+
+**R5 원칙** (백업 실패 ≠ 채점 무효화):
+- PUT /grade 200으로 DB 이미 반영 완료
+- 백업은 사후 보조 — 실패 시 다음 attempt 진행
+- 보고는 §2.9 1줄 + 별도 줄 `[backup] OK ...` 또는 `[backup] FAIL — ...`
+- 5체크 (교정/대체/밑줄/요청/완료)에 `백업✓` 추가 X (일관성 약화 방지)
+
+**복구 절차** (필요 시):
+1. 현재 DB 백업: `cp $DB_PATH /tmp/exam_before_restore_$(date +%s).db`
+2. 복원: `rm $DB_PATH && gunzip -c $BACKUP_DIR/exam_YYYYMMDD_HHMM.sql.gz | sqlite3 $DB_PATH`
+3. server 재시작: `launchctl unload/load ~/Library/LaunchAgents/com.lawear.exam17896.plist`
+4. 검증: `sqlite3 $DB_PATH "SELECT COUNT(*) FROM attempts;"`
+
 #### 2.9 1줄 보고 ([[feedback_grading_report_format]])
 
 ```

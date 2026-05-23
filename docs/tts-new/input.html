@@ -1,0 +1,851 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>lawear 17895 — 입력 모드 (3과목)</title>
+<!--
+  ============================================================================
+  lawear 17895 input.html — 사용자 직접 입력 UI (3과목)
+  ============================================================================
+  세션: lawear-7ad6 / 모델: Opus + ultrathink
+  베이스: design.md §2 입력 UI / 17895_analysis.md §4 편집 모드
+  디자인 톤: /tmp/lawear_input_mode_mockup_v1_1.html (사용자 OK)
+
+  대상 과목: 부동산등기법 / 부동산등기서류 / 민사서류 (3과목)
+  진입: /input.html?subject=부동산등기법&problem=01
+        /input.html?path=<rel_path>  (편집 진입 — 기존 파일 로드)
+  저장: POST /api/create/<rel_path>  (body: .md 멀티섹션)
+  저장 후: /merge.html?path=<rel_path> 자동 이동
+
+  17895 mirror 라인:
+   - merge.html L11-29   CSS 변수 (그대로 복사)
+   - merge.html L620-655 editor-toolbar HTML 구조
+   - merge.html L793-822 renderMd 함수 (단순화 + tts-* 클래스명 통일)
+   - merge.html L1851-1868 wrapEmphasis 함수 시그니처 정확 mirror
+   - merge.html L1803-1817 키보드 단축키 (Cmd+S / E)
+
+  자의 해석 금지: design.md §2~§6 명세 외 추가 기능 X
+  ============================================================================
+-->
+<style>
+  /* === 17895 다크 톤 CSS 변수 (merge.html L11-29 mirror) === */
+  :root {
+    --bg: #1a1d23;
+    --panel: #15171c;
+    --panel-2: #2b3137;
+    --border: #2a2d33;
+    --text: #e4e6eb;
+    --text-dim: #8a8d93;
+    --text-mute: #6c707a;
+    --accent: #6fb1ff;
+    --success: #6fcf97;
+    --success-strong: #2f9e44;
+    --danger: #ff6b6b;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: -apple-system, "Pretendard", "Apple SD Gothic Neo", sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  .app { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+  /* === Header === */
+  .header {
+    padding: 14px 24px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    display: flex; align-items: center; gap: 16px;
+    flex-shrink: 0;
+  }
+  .breadcrumb { font-size: 13px; color: var(--text-dim); flex: 1; }
+  .breadcrumb strong { color: var(--text); margin: 0 4px; }
+  .breadcrumb .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 11px; font-weight: 600; margin-left: 8px;
+    background: #4a2f0a; color: #ffc266;
+  }
+  .header .subject-select {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px;
+    padding: 5px 10px; font-size: 13px; cursor: pointer;
+  }
+  .header button {
+    padding: 6px 14px; font-size: 13px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+  }
+  .header button:hover { background: #353a42; border-color: var(--accent); }
+  .header .btn-save {
+    background: var(--success-strong); color: #fff; border-color: var(--success);
+    font-weight: 600;
+  }
+  .header .btn-save:hover { background: var(--success); }
+  .header .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* === Tabs (문제/답안/메모) === */
+  .tabs {
+    display: flex; border-bottom: 1px solid var(--border);
+    background: var(--bg); padding: 0 16px;
+    flex-shrink: 0;
+  }
+  .tab {
+    padding: 12px 22px; cursor: pointer;
+    border-bottom: 2px solid transparent;
+    color: var(--text-dim); font-weight: 500; font-size: 14px;
+    user-select: none;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: #ffc266; border-bottom-color: #ffc266; }
+  .tab .dirty { color: var(--danger); margin-left: 4px; }
+
+  /* === Editor Toolbar (merge.html L620-655 mirror) === */
+  .editor-toolbar {
+    display: flex; gap: 6px; padding: 10px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--panel);
+    align-items: center; flex-wrap: wrap;
+    flex-shrink: 0;
+  }
+  .editor-toolbar .label {
+    font-size: 12px; color: var(--text-dim); margin-right: 4px;
+  }
+  .editor-toolbar button {
+    padding: 5px 12px; font-size: 13px; border-radius: 4px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  }
+  .editor-toolbar button:hover { background: var(--panel-2); border-color: var(--accent); }
+  .em-btn { font-weight: 600; min-width: 52px; }
+  /* 색상 클래스 (시안 v1.1 + merge.html mirror) */
+  .em-btn.em-red { color: #ff6b6b; }
+  .em-btn.em-blue { color: #4dabf7; }
+  .em-btn.em-purple { color: #a371f7; }
+  .em-btn.em-violet { color: #cc5de8; }
+  .em-btn.em-magenta { color: #ff7eb6; }
+  .em-btn.em-indigo { color: #7c8fff; }
+  .em-btn.em-bold { color: #ffd43b; font-weight: 700; }
+  .em-btn.em-underline { color: #adb5bd; text-decoration: underline; }
+  .em-btn.em-blank { background: #ffd43b; color: #1971c2; border-color: #fab005; }
+  .em-btn.em-blank2 { background: #c92a2a; color: #ffd43b; border-color: #a51e1e; }
+  .em-btn.em-em1 { background: #c92a2a; color: #fff; border-color: #a51e1e; }
+  .em-btn.em-em2 { background: #f59f00; color: #1a1a1a; border-color: #d18e00; }
+  .em-btn.em-em3 { background: #1971c2; color: #fff; border-color: #155a9c; }
+  .em-btn.em-em4 { background: #6741d9; color: #fff; border-color: #5333b8; }
+  .em-btn.em-con { color: #ff6b6b; font-weight: 700; }
+  .em-btn.em-fact { color: #ff922b; font-weight: 700; }
+  .em-btn.em-case { color: #51cf66; font-weight: 700; }
+  .em-btn.em-bridge { color: #339af0; font-weight: 700; }
+  .em-btn.em-key { color: #9775fa; font-weight: 700; }
+  .em-btn.em-free1 { color: #ddc9a3; font-weight: 700; }
+  .em-btn.em-free2 { color: #b197fc; font-weight: 700; }
+  .em-btn.em-clear { color: var(--danger); }
+  .save-status {
+    font-size: 12px; color: var(--text-dim);
+    margin-left: auto; min-width: 220px; text-align: right;
+  }
+  .save-status.success { color: var(--success); }
+  .save-status.error { color: var(--danger); }
+
+  /* === Editor Split (좌 textarea + 우 preview) === */
+  .editor-split {
+    flex: 1; display: flex; gap: 12px; padding: 12px 16px;
+    overflow: hidden; background: var(--bg);
+  }
+  .editor-pane {
+    flex: 1; min-width: 0; display: flex; flex-direction: column;
+  }
+  .pane-label {
+    display: block; font-size: 11px; color: var(--text-dim);
+    margin-bottom: 6px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  #editor-textarea {
+    flex: 1; padding: 14px;
+    font-family: 'SF Mono', 'Menlo', monospace; font-size: 13px;
+    background: var(--panel); color: var(--text);
+    border: 1px solid var(--border); border-radius: 6px;
+    resize: none; line-height: 1.7; outline: none;
+  }
+  #editor-textarea:focus { border-color: var(--accent); }
+  #editor-preview {
+    flex: 1; padding: 16px;
+    background: var(--panel); border: 1px solid var(--border);
+    border-radius: 6px; overflow-y: auto; line-height: 1.8;
+    font-size: 14px;
+  }
+  #editor-preview h1 { font-size: 22px; margin: 0 0 12px; color: #fff; }
+  #editor-preview h2 { font-size: 18px; margin: 16px 0 10px; color: #fff; }
+  #editor-preview h3 { font-size: 16px; margin: 14px 0 8px; color: #e4e6eb; }
+  #editor-preview p { margin-bottom: 10px; color: #d4d6db; }
+  #editor-preview ul, #editor-preview ol { margin: 8px 0 12px 24px; color: #d4d6db; }
+  #editor-preview code {
+    background: #2a2d33; padding: 2px 6px; border-radius: 3px;
+    font-size: 12px;
+  }
+  #editor-preview pre {
+    background: #15171c; padding: 12px; border-radius: 4px;
+    overflow-x: auto; margin: 8px 0;
+  }
+  #editor-preview .empty {
+    color: var(--text-mute); font-style: italic;
+  }
+
+  /* === 강조 태그 렌더링 클래스 (renderMd가 tts-* prefix 부여 — merge.html L816 mirror) === */
+  .tts-em1 { background: #c92a2a; color: #fff; padding: 0 4px; border-radius: 3px; }
+  .tts-em2 { background: #f59f00; color: #1a1a1a; padding: 0 4px; border-radius: 3px; }
+  .tts-em3 { background: #1971c2; color: #fff; padding: 0 4px; border-radius: 3px; }
+  .tts-em4 { background: #6741d9; color: #fff; padding: 0 4px; border-radius: 3px; }
+  .tts-red { color: #ff6b6b; }
+  .tts-blue { color: #4dabf7; }
+  .tts-purple { color: #a371f7; }
+  .tts-violet { color: #cc5de8; }
+  .tts-magenta { color: #ff7eb6; }
+  .tts-indigo { color: #7c8fff; }
+  .tts-bold { font-weight: 700; }
+  .tts-underline { text-decoration: underline; text-decoration-color: #adb5bd; text-underline-offset: 3px; }
+  .tts-blank { background: #ffd43b; color: #1971c2; padding: 0 4px; border-radius: 3px; }
+  .tts-blank2 { background: #c92a2a; color: #ffd43b; padding: 0 4px; border-radius: 3px; }
+  .tts-con { color: #ff6b6b; font-weight: 700; }
+  .tts-fact { color: #ff922b; font-weight: 700; }
+  .tts-case { color: #51cf66; font-weight: 700; }
+  .tts-bridge { color: #339af0; font-weight: 700; }
+  .tts-key { color: #9775fa; font-weight: 700; }
+  .tts-free1 { color: #ddc9a3; font-weight: 700; }
+  .tts-free2 { color: #b197fc; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div class="app">
+
+  <!-- === Header: breadcrumb + 과목 선택 + 저장 / 뷰어 이동 === -->
+  <div class="header">
+    <div class="breadcrumb">
+      📝 lawear 입력 모드 /
+      <strong id="bc-subject">(과목 미선택)</strong> /
+      <strong id="bc-problem">Case <span id="bc-case">-</span></strong>
+      <span class="badge">입력</span>
+    </div>
+    <select class="subject-select" id="subject-select" title="과목 변경 시 새 입력으로 초기화">
+      <option value="">과목 선택…</option>
+      <option value="부동산등기법">부동산등기법</option>
+      <option value="부동산등기서류">부동산등기서류</option>
+      <option value="민사서류">민사서류</option>
+    </select>
+    <button class="btn-save" id="btn-save" onclick="saveFile()" title="저장 (Cmd/Ctrl+S)">💾 저장</button>
+    <button id="btn-back" onclick="goToViewer()" title="뷰어로 돌아가기 (저장 X)">🔙 뷰어</button>
+  </div>
+
+  <!-- === Tabs: 문제 / 답안 / 메모 === -->
+  <div class="tabs" id="tabs"></div>
+
+  <!-- === Editor Toolbar (25종 태그) === -->
+  <div class="editor-toolbar">
+    <span class="label">강조:</span>
+    <!-- 색상 6종 -->
+    <button class="em-btn em-red" onclick="wrapEmphasis('red')" title="[red]">red</button>
+    <button class="em-btn em-blue" onclick="wrapEmphasis('blue')" title="[blue]">blue</button>
+    <button class="em-btn em-purple" onclick="wrapEmphasis('purple')" title="[purple]">purple</button>
+    <button class="em-btn em-violet" onclick="wrapEmphasis('violet')" title="[violet]">violet</button>
+    <button class="em-btn em-magenta" onclick="wrapEmphasis('magenta')" title="[magenta]">magenta</button>
+    <button class="em-btn em-indigo" onclick="wrapEmphasis('indigo')" title="[indigo]">indigo</button>
+    <!-- 강조 2종 -->
+    <button class="em-btn em-bold" onclick="wrapEmphasis('bold')" title="[bold]">bold</button>
+    <button class="em-btn em-underline" onclick="wrapEmphasis('u')" title="[u]">underline</button>
+    <!-- 빈칸 2종 -->
+    <button class="em-btn em-blank" onclick="wrapEmphasis('blank')" title="[blank]">blank</button>
+    <button class="em-btn em-blank2" onclick="wrapEmphasis('blank2')" title="[blank2]">blank2</button>
+    <!-- em 4종 -->
+    <button class="em-btn em-em1" onclick="wrapEmphasis('em1')" title="em1">em1</button>
+    <button class="em-btn em-em2" onclick="wrapEmphasis('em2')" title="em2">em2</button>
+    <button class="em-btn em-em3" onclick="wrapEmphasis('em3')" title="em3">em3</button>
+    <button class="em-btn em-em4" onclick="wrapEmphasis('em4')" title="em4">em4</button>
+    <!-- 의미 태그 5종 -->
+    <button class="em-btn em-con" onclick="wrapEmphasis('con')" title="[con] 결론">결론</button>
+    <button class="em-btn em-fact" onclick="wrapEmphasis('fact')" title="[fact] 요건">요건</button>
+    <button class="em-btn em-case" onclick="wrapEmphasis('case')" title="[case] 판례">판례</button>
+    <button class="em-btn em-bridge" onclick="wrapEmphasis('bridge')" title="[bridge] 브릿지">브릿지</button>
+    <button class="em-btn em-key" onclick="wrapEmphasis('key')" title="[key] 핵심">핵심</button>
+    <!-- 여분 2종 -->
+    <button class="em-btn em-free1" onclick="wrapEmphasis('free1')" title="[free1]">free1</button>
+    <button class="em-btn em-free2" onclick="wrapEmphasis('free2')" title="[free2]">free2</button>
+    <!-- 제거 -->
+    <button class="em-btn em-clear" onclick="wrapEmphasis('clear')" title="강조 제거">제거</button>
+    <span class="save-status" id="save-status"></span>
+  </div>
+
+  <!-- === Split: 좌 textarea + 우 미리보기 === -->
+  <div class="editor-split">
+    <div class="editor-pane">
+      <span class="pane-label">✏️ 편집 — <span id="active-tab-label">문제</span></span>
+      <textarea
+        id="editor-textarea"
+        oninput="onTextareaInput()"
+        spellcheck="false"
+        placeholder="여기에 입력하세요 — 위 태그 버튼으로 강조 적용. 마크다운 (## 헤더, **굵게**) 지원."></textarea>
+    </div>
+    <div class="editor-pane">
+      <span class="pane-label">👁️ 미리보기 (실시간 렌더링)</span>
+      <div id="editor-preview"><span class="empty">(빈 내용)</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- marked.js (merge.html과 동일 — 마크다운 → HTML 변환) -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+<script>
+// ============================================================================
+// 상수
+// ============================================================================
+
+// 25종 태그 — merge.html L1857 allTags 정확 mirror (순서 보존)
+const ALL_TAGS = [
+  'em1', 'em2', 'em3', 'em4',
+  'con', 'fact', 'case', 'bridge', 'key',
+  'free1', 'free2',
+  'red', 'blue', 'purple', 'violet', 'magenta', 'indigo',
+  'bold', 'u', 'blank2', 'blank'
+];
+
+// 3과목 → 폴더/파일 prefix 매핑 (design.md §4 / §10-5)
+const SUBJECT_META = {
+  '부동산등기법':     { folder: '2026_사용자_부동산등기법',    fileEn: 'budeunglaw' },
+  '부동산등기서류':   { folder: '2026_사용자_부동산등기서류',  fileEn: 'budeungseoryu' },
+  '민사서류':         { folder: '2026_사용자_민사서류',        fileEn: 'minsaseoryu' }
+};
+
+const TAB_KEYS = ['문제', '답안', '메모'];  // design.md §2 / §4 명세
+
+// localStorage prefix (글로벌 룰 11-4: lawear_input_*)
+const LS_PREFIX = 'lawear_input_draft_';
+
+// ============================================================================
+// 상태
+// ============================================================================
+let state = {
+  subject: '',           // 한글 과목명 (예: '부동산등기법')
+  caseNo: '01',          // case 번호 (zero-pad, 클라이언트 자동)
+  activeTab: '문제',     // 현재 탭
+  // 탭별 본문 (텍스트만 보관 — 미리보기는 매번 renderMd)
+  texts: { '문제': '', '답안': '', '메모': '' },
+  // 탭별 dirty 플래그 (저장되지 않은 변경 여부)
+  dirty: { '문제': false, '답안': false, '메모': false },
+  // 편집 모드 (편집이 디폴트, E 키로 토글 → 뷰어 redirect)
+  // 진입 path (편집 진입 시 기존 .md 로드)
+  loadedPath: null
+};
+
+// ============================================================================
+// URL 파라미터 파싱 (?subject=&problem=&path=)
+// ============================================================================
+function parseUrlParams() {
+  const params = new URLSearchParams(window.location.search);
+  const subject = params.get('subject') || '';
+  const problem = params.get('problem') || '';  // 예: "1-1" or "01"
+  const path = params.get('path') || '';        // 편집 진입 시
+  console.log('[init] URL params:', { subject, problem, path });
+  return { subject, problem, path };
+}
+
+// 과목 prefill (URL → state)
+function applySubjectFromUrl(subject) {
+  if (!subject) return;
+  if (!SUBJECT_META[subject]) {
+    console.warn('[init] 알 수 없는 과목:', subject);
+    return;
+  }
+  state.subject = subject;
+  document.getElementById('subject-select').value = subject;
+  console.log('[init] 과목 prefill:', subject);
+}
+
+// problem 파라미터 → caseNo 추출 (예: "1-1" → "01", "01" → "01")
+function applyProblemFromUrl(problem) {
+  if (!problem) return;
+  // "1-1" 같은 형식이면 마지막 숫자만 추출
+  const match = problem.match(/(\d+)$/);
+  if (match) {
+    state.caseNo = String(match[1]).padStart(2, '0');
+    console.log('[init] caseNo:', state.caseNo, 'from problem:', problem);
+  }
+}
+
+// ============================================================================
+// 탭 렌더 (문제 / 답안 / 메모)
+// ============================================================================
+function renderTabs() {
+  const tabsEl = document.getElementById('tabs');
+  tabsEl.innerHTML = '';
+  TAB_KEYS.forEach(name => {
+    const t = document.createElement('div');
+    t.className = 'tab' + (name === state.activeTab ? ' active' : '');
+    t.dataset.tab = name;
+    const dirtyMark = state.dirty[name] ? '<span class="dirty">●</span>' : '';
+    t.innerHTML = name + dirtyMark;
+    t.onclick = () => switchTab(name);
+    tabsEl.appendChild(t);
+  });
+}
+
+// 탭 전환 — 현재 textarea 값을 state.texts에 저장 후 새 탭 로드
+function switchTab(name) {
+  if (name === state.activeTab) return;
+  // 현재 탭 텍스트 저장 (revisit 시 복원)
+  const ta = document.getElementById('editor-textarea');
+  state.texts[state.activeTab] = ta.value;
+  console.log('[switchTab]', state.activeTab, '→', name);
+  state.activeTab = name;
+  document.getElementById('active-tab-label').textContent = name;
+  ta.value = state.texts[name];
+  renderTabs();
+  updatePreview();
+}
+
+// ============================================================================
+// 헤더 breadcrumb 갱신
+// ============================================================================
+function updateBreadcrumb() {
+  document.getElementById('bc-subject').textContent = state.subject || '(과목 미선택)';
+  document.getElementById('bc-case').textContent = state.caseNo || '-';
+}
+
+// ============================================================================
+// 실시간 미리보기 (textarea input → preview innerHTML)
+// merge.html L793-822 renderMd 단순화 mirror — marked.js + tts-* 클래스 wrap
+// ============================================================================
+function renderMd(md) {
+  if (!md || !md.trim()) return '<span class="empty">(빈 내용)</span>';
+
+  // 1단계: 강조 태그를 플레이스홀더로 치환 (marked가 [tag]를 링크로 오해 방지)
+  const placeholders = [];
+  const tagPattern = ALL_TAGS.join('|');
+  const tagRe = new RegExp(
+    '\\[(' + tagPattern + ')\\]' +
+    '((?:(?!\\[(?:' + tagPattern + ')\\])[\\s\\S])*?)' +
+    '\\[\\/\\1\\]', 'g'
+  );
+
+  let escaped = md;
+  let prev;
+  let iter = 0;
+  // 중첩 태그 처리 — 최대 20회 반복 (merge.html L805 mirror)
+  do {
+    prev = escaped;
+    escaped = escaped.replace(tagRe, (m, tag, content) => {
+      placeholders.push({ tag, content });
+      return `@@EMP${placeholders.length - 1}@@`;
+    });
+    iter++;
+  } while (escaped !== prev && iter < 20);
+
+  // 2단계: 마크다운 → HTML
+  let html;
+  try {
+    html = (typeof marked !== 'undefined') ? marked.parse(escaped) : escaped;
+  } catch (e) {
+    console.warn('[renderMd] marked 실패, 원문 노출:', e);
+    html = escaped;
+  }
+
+  // 3단계: 플레이스홀더 복원 → tts-* span (재귀 — 중첩 강조 지원)
+  function recover(s) {
+    return s.replace(/@@EMP(\d+)@@/g, (m, i) => {
+      const { tag, content } = placeholders[parseInt(i, 10)];
+      // u → tts-underline, 나머지 → tts-{tag} (merge.html L816 mirror)
+      const cls = tag === 'u' ? 'tts-underline' : 'tts-' + tag;
+      return `<span class="${cls}">${recover(content)}</span>`;
+    });
+  }
+  return recover(html);
+}
+
+function updatePreview() {
+  const ta = document.getElementById('editor-textarea');
+  const preview = document.getElementById('editor-preview');
+  preview.innerHTML = renderMd(ta.value);
+}
+
+// textarea input 이벤트 — dirty 플래그 + 미리보기 + 자동저장(localStorage)
+function onTextareaInput() {
+  if (!state.dirty[state.activeTab]) {
+    state.dirty[state.activeTab] = true;
+    renderTabs();  // dirty 마크 표시
+  }
+  updatePreview();
+  saveDraftLocal();  // localStorage 자동저장 (페이지 새로고침 대비)
+}
+
+// ============================================================================
+// wrapEmphasis — merge.html L1851-1868 정확 mirror
+// ============================================================================
+function wrapEmphasis(tag) {
+  const ta = document.getElementById('editor-textarea');
+  const start = ta.selectionStart;
+  const end = ta.selectionEnd;
+  if (start === end) {
+    setSaveStatus('텍스트를 먼저 선택하세요', 'error');
+    return;
+  }
+  const selected = ta.value.substring(start, end);
+
+  // 기존 강조 제거 (중첩 방지) — merge.html L1857-1860 mirror
+  let cleaned = selected;
+  for (const t of ALL_TAGS) {
+    const re = new RegExp(`\\[${t}\\]([\\s\\S]+?)\\[\\/${t}\\]`, 'g');
+    cleaned = cleaned.replace(re, '$1');
+  }
+  const wrapped = tag === 'clear' ? cleaned : `[${tag}]${cleaned}[/${tag}]`;
+  ta.setRangeText(wrapped, start, end, 'select');
+  ta.focus();
+
+  // dirty + 미리보기 갱신
+  if (!state.dirty[state.activeTab]) {
+    state.dirty[state.activeTab] = true;
+    renderTabs();
+  }
+  updatePreview();
+  setSaveStatus(tag === 'clear' ? '강조 제거' : `[${tag}] 적용`, 'success');
+}
+
+// ============================================================================
+// 저장 상태 표시 (toolbar 우측)
+// ============================================================================
+function setSaveStatus(msg, kind) {
+  const el = document.getElementById('save-status');
+  el.textContent = msg;
+  el.className = 'save-status' + (kind ? ' ' + kind : '');
+  if (kind === 'success' && !msg.startsWith('✓')) {
+    // 단기 성공 메시지는 3초 후 제거
+    setTimeout(() => {
+      if (el.textContent === msg) {
+        el.textContent = '';
+        el.className = 'save-status';
+      }
+    }, 3000);
+  }
+}
+
+// ============================================================================
+// localStorage 자동 임시저장 (페이지 새로고침 대비)
+// 키: lawear_input_draft_{과목}_{caseNo}
+// ============================================================================
+function draftKey() {
+  return LS_PREFIX + (state.subject || 'unknown') + '_' + state.caseNo;
+}
+
+function saveDraftLocal() {
+  if (!state.subject) return;
+  const ta = document.getElementById('editor-textarea');
+  state.texts[state.activeTab] = ta.value;
+  const draft = JSON.stringify({
+    subject: state.subject,
+    caseNo: state.caseNo,
+    texts: state.texts,
+    savedAt: new Date().toISOString()
+  });
+  try {
+    localStorage.setItem(draftKey(), draft);
+  } catch (e) {
+    console.warn('[saveDraftLocal] localStorage 실패:', e);
+  }
+}
+
+function loadDraftLocal() {
+  if (!state.subject) return false;
+  try {
+    const raw = localStorage.getItem(draftKey());
+    if (!raw) return false;
+    const draft = JSON.parse(raw);
+    state.texts = draft.texts || state.texts;
+    console.log('[loadDraftLocal] 임시본 로드:', draftKey(), 'savedAt:', draft.savedAt);
+    return true;
+  } catch (e) {
+    console.warn('[loadDraftLocal] 실패:', e);
+    return false;
+  }
+}
+
+function clearDraftLocal() {
+  try {
+    localStorage.removeItem(draftKey());
+    console.log('[clearDraftLocal] 임시본 삭제:', draftKey());
+  } catch (e) { /* ignore */ }
+}
+
+// ============================================================================
+// .md 멀티섹션 조립 (design.md §4 포맷)
+// ============================================================================
+function assembleMd() {
+  // 진입 시 마지막 탭 텍스트도 state에 저장
+  const ta = document.getElementById('editor-textarea');
+  state.texts[state.activeTab] = ta.value;
+
+  const meta = SUBJECT_META[state.subject];
+  if (!meta) throw new Error('과목 미선택');
+
+  const id = `2026_${meta.fileEn}_user_${state.caseNo}`;
+  const today = new Date().toISOString().slice(0, 10);
+
+  const lines = [];
+  lines.push(`# ${id}`);
+  lines.push('');
+  lines.push('## 메타');
+  lines.push(`- 과목: ${state.subject}`);
+  lines.push(`- Case: ${state.caseNo}`);
+  lines.push(`- 등록일: ${today}`);
+  lines.push('- 출처: 사용자 직접 입력');
+  lines.push('- _addedBy: lawear-7ad6-input-mode');
+  lines.push('');
+  lines.push('## 문제');
+  lines.push(state.texts['문제'] || '');
+  lines.push('');
+  lines.push('## 답안');
+  lines.push(state.texts['답안'] || '');
+  // 메모는 비어있으면 섹션 생략 (design.md §4 명세)
+  const memo = (state.texts['메모'] || '').trim();
+  if (memo) {
+    lines.push('');
+    lines.push('## 메모');
+    lines.push(memo);
+  }
+  lines.push('');
+  return lines.join('\n');
+}
+
+// 상대 경로 조립 (예: 2026_사용자_부동산등기법/2026_budeunglaw_user_01.md)
+function buildRelPath() {
+  const meta = SUBJECT_META[state.subject];
+  if (!meta) return null;
+  return `${meta.folder}/2026_${meta.fileEn}_user_${state.caseNo}.md`;
+}
+
+// ============================================================================
+// 저장 API 호출 — POST /api/create/<rel_path> (design.md §3)
+// 409 (이미 존재) 시 caseNo +1 재시도 (최대 99까지)
+// ============================================================================
+async function saveFile() {
+  console.log('[saveFile] 저장 시작 — subject:', state.subject, 'caseNo:', state.caseNo);
+  if (!state.subject) {
+    setSaveStatus('과목을 먼저 선택하세요', 'error');
+    return;
+  }
+  // 최소 검증: 문제 또는 답안 둘 다 비어있으면 저장 거부
+  const ta = document.getElementById('editor-textarea');
+  state.texts[state.activeTab] = ta.value;
+  if (!state.texts['문제'].trim() && !state.texts['답안'].trim()) {
+    setSaveStatus('문제 또는 답안 중 하나는 입력해야 합니다', 'error');
+    return;
+  }
+
+  const saveBtn = document.getElementById('btn-save');
+  saveBtn.disabled = true;
+  setSaveStatus('저장 중…', '');
+
+  // 409 재시도 루프 (최대 99회 — caseNo zero-pad 한도)
+  let attempts = 0;
+  const maxAttempts = 99;
+  while (attempts < maxAttempts) {
+    const relPath = buildRelPath();
+    const body = assembleMd();
+    const url = `/api/create/${encodeURI(relPath)}`;
+    console.log('[saveFile] API 호출:', url, 'attempt:', attempts + 1);
+
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+        body: body
+      });
+      console.log('[saveFile] 응답:', res.status, res.statusText);
+
+      if (res.status === 409) {
+        // 이미 존재 — caseNo +1 재시도
+        console.log('[saveFile] 409 충돌 — caseNo 증가');
+        const nextNo = String(parseInt(state.caseNo, 10) + 1).padStart(2, '0');
+        state.caseNo = nextNo;
+        updateBreadcrumb();
+        attempts++;
+        continue;
+      }
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        setSaveStatus(`✗ 저장 실패 (${res.status}): ${errText.slice(0, 80)}`, 'error');
+        console.error('[saveFile] 실패:', res.status, errText);
+        return;
+      }
+
+      const data = await res.json().catch(() => ({}));
+      console.log('[saveFile] 성공:', data);
+      setSaveStatus(`✓ 저장 완료 (${data.bytes || '?'} bytes) → 뷰어 이동`, 'success');
+
+      // dirty 초기화 + localStorage 임시본 삭제
+      Object.keys(state.dirty).forEach(k => state.dirty[k] = false);
+      clearDraftLocal();
+      renderTabs();
+
+      // 저장 성공 → merge.html 자동 이동 (design.md §6 명세)
+      setTimeout(() => {
+        window.location.href = `/merge.html?path=${encodeURIComponent(relPath)}`;
+      }, 800);
+      return;
+    } catch (e) {
+      console.error('[saveFile] 네트워크 오류:', e);
+      setSaveStatus(`✗ 네트워크 오류: ${e.message}`, 'error');
+      return;
+    } finally {
+      saveBtn.disabled = false;
+    }
+  }
+
+  setSaveStatus(`✗ caseNo 한도 초과 (${maxAttempts})`, 'error');
+}
+
+// ============================================================================
+// 뷰어로 돌아가기 (저장 X — confirm 후 이동)
+// ============================================================================
+function goToViewer() {
+  const hasDirty = Object.values(state.dirty).some(d => d);
+  if (hasDirty) {
+    if (!confirm('저장하지 않은 변경 사항이 있습니다. 뷰어로 이동하시겠습니까?')) return;
+  }
+  // path가 있으면 해당 파일로, 없으면 메인 뷰어로
+  if (state.loadedPath) {
+    window.location.href = `/merge.html?path=${encodeURIComponent(state.loadedPath)}`;
+  } else {
+    window.location.href = '/merge.html';
+  }
+}
+
+// ============================================================================
+// 편집 진입 시 기존 .md 로드 (path 파라미터)
+// merge.html L1419 loadFileByPath와 동일 패턴 — 정적 GET
+// ============================================================================
+async function loadExistingMd(path) {
+  console.log('[loadExistingMd] 로드 시도:', path);
+  try {
+    const res = await fetch(path, { cache: 'no-store' });
+    if (!res.ok) {
+      console.warn('[loadExistingMd] 로드 실패:', res.status);
+      return false;
+    }
+    const md = await res.text();
+    console.log('[loadExistingMd] 로드 성공, 바이트:', md.length);
+
+    // 섹션 추출 (merge.html L1595 extractSection 인라인 mirror)
+    state.texts['문제'] = extractSection(md, '문제');
+    state.texts['답안'] = extractSection(md, '답안');
+    state.texts['메모'] = extractSection(md, '메모');
+
+    // 메타에서 과목/case 추출 시도
+    const subjectMatch = md.match(/^- 과목:\s*(.+)$/m);
+    if (subjectMatch && SUBJECT_META[subjectMatch[1].trim()]) {
+      state.subject = subjectMatch[1].trim();
+      document.getElementById('subject-select').value = state.subject;
+    }
+    const caseMatch = md.match(/^- Case:\s*(\S+)$/m);
+    if (caseMatch) state.caseNo = caseMatch[1].trim();
+
+    state.loadedPath = path;
+    return true;
+  } catch (e) {
+    console.error('[loadExistingMd] 예외:', e);
+    return false;
+  }
+}
+
+// merge.html L1595-1605 extractSection 정확 mirror
+function extractSection(md, sectionName) {
+  const lines = md.split('\n');
+  let capture = false;
+  let result = [];
+  for (const line of lines) {
+    if (line.startsWith('## ') && line.includes(sectionName)) { capture = true; continue; }
+    if (capture && line.startsWith('## ')) break;
+    if (capture) result.push(line);
+  }
+  return result.join('\n').trim();
+}
+
+// ============================================================================
+// 키보드 단축키 (merge.html L1803-1817 mirror)
+//   Cmd/Ctrl + S → 저장
+//   E         → 편집 토글 (편집이 디폴트 → 뷰어 redirect)
+// ============================================================================
+document.addEventListener('keydown', (e) => {
+  // Cmd/Ctrl + S 저장
+  if ((e.metaKey || e.ctrlKey) && e.key === 's') {
+    e.preventDefault();
+    console.log('[keydown] Cmd/Ctrl+S → saveFile');
+    saveFile();
+    return;
+  }
+  // E 키 — textarea 포커스 중에는 무시 (글자 입력 방해 X)
+  if (e.key.toLowerCase() === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    const ae = document.activeElement;
+    if (ae && (ae.tagName === 'TEXTAREA' || ae.tagName === 'INPUT' || ae.tagName === 'SELECT')) return;
+    e.preventDefault();
+    console.log('[keydown] E → 뷰어로 이동');
+    goToViewer();
+  }
+});
+
+// ============================================================================
+// 과목 셀렉트 변경 핸들러
+// ============================================================================
+document.getElementById('subject-select').addEventListener('change', (e) => {
+  const newSubject = e.target.value;
+  console.log('[subject-select] 변경:', state.subject, '→', newSubject);
+  // dirty 있으면 confirm
+  const hasDirty = Object.values(state.dirty).some(d => d);
+  if (hasDirty && !confirm('변경 사항이 있습니다. 과목을 변경하면 임시본이 새 키로 이동합니다. 계속할까요?')) {
+    e.target.value = state.subject;
+    return;
+  }
+  state.subject = newSubject;
+  state.caseNo = '01';   // 신규 과목 — caseNo 리셋
+  state.texts = { '문제': '', '답안': '', '메모': '' };
+  state.dirty = { '문제': false, '답안': false, '메모': false };
+  state.activeTab = '문제';
+  // localStorage에서 해당 과목 임시본 있으면 로드
+  loadDraftLocal();
+  document.getElementById('editor-textarea').value = state.texts[state.activeTab];
+  updateBreadcrumb();
+  renderTabs();
+  updatePreview();
+});
+
+// ============================================================================
+// 부팅
+// ============================================================================
+async function boot() {
+  console.log('[boot] 시작');
+  const { subject, problem, path } = parseUrlParams();
+
+  // 편집 진입 (path 우선)
+  if (path) {
+    applySubjectFromUrl('');  // path 파일에서 메타로 덮어쓸 예정
+    const ok = await loadExistingMd(path);
+    if (!ok) setSaveStatus(`✗ 파일 로드 실패: ${path}`, 'error');
+  } else {
+    // 신규 진입
+    applySubjectFromUrl(subject);
+    applyProblemFromUrl(problem);
+    // 임시본 자동 복원
+    if (state.subject) loadDraftLocal();
+  }
+
+  state.activeTab = '문제';
+  document.getElementById('active-tab-label').textContent = '문제';
+  document.getElementById('editor-textarea').value = state.texts['문제'];
+  updateBreadcrumb();
+  renderTabs();
+  updatePreview();
+  console.log('[boot] 완료 — state:', state);
+}
+
+boot();
+</script>
+</body>
+</html>
