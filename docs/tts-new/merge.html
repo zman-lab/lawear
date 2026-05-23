@@ -1619,8 +1619,10 @@ function renderContent() {
     const answerMd = extractSection(fullContent, '답안');
     const memoMd = extractSection(fullContent, '메모');
     // 좌우 split 테이블 (compare-table.cols-2 신규 변종)
+    // lawear-7ad6 v5 — 점수는 본문 X, 컬럼 헤더 "문제 (NN점)"로 표시 (사용자 명시)
+    const pointsTag = meta.points ? ` (${meta.points}점)` : '';
     const splitTableHtml = `<table class="compare-table cols-2">
-      <thead><tr><th>문제</th><th>답안</th></tr></thead>
+      <thead><tr><th>문제${pointsTag}</th><th>답안${pointsTag}</th></tr></thead>
       <tbody><tr>
         <td>${renderMd(problemMd || '(문제 없음)')}</td>
         <td>${renderMd(answerMd || '(답안 없음)')}</td>
@@ -1832,13 +1834,23 @@ function formatLv4Merge(md, caseNum) {
 
 function openDownloadModal() {
   if (selectedFiles.size === 0) { alert('파일을 1개 이상 체크하세요'); return; }
+  // lawear-7ad6 v5 — user_input 전용: 원본/Lv.1/Lv.4 구분 없음 → modal skip + 바로 다운로드
+  const allUserInput = Array.from(selectedFiles).every(p => {
+    const meta = fileMetadata[p];
+    return meta && meta.type === 'user_input';
+  });
+  if (allUserInput) {
+    doDownload({ skipModal: true });
+    return;
+  }
   document.getElementById('modal-info').textContent = `${selectedFiles.size}개 파일 머지`;
   document.getElementById('download-modal').classList.add('show');
 }
 function closeModal() { document.getElementById('download-modal').classList.remove('show'); }
 
-async function doDownload() {
-  const level = document.querySelector('input[name="merge-level"]:checked').value;
+async function doDownload(opts) {
+  const skipModal = opts && opts.skipModal;
+  const level = skipModal ? null : document.querySelector('input[name="merge-level"]:checked').value;
   const files = Array.from(selectedFiles).sort();
   const parts = [];
   for (const filepath of files) {
@@ -1848,10 +1860,15 @@ async function doDownload() {
     const res = await fetch(`${dir}/${filename}`);
     const md = await res.text();
     const caseNum = extractCaseNum(filename);
+    const meta = fileMetadata[filepath];
     let merged;
-    if (level === '원본') merged = formatOriginalMerge(md, caseNum);
+    if (meta && meta.type === 'user_input') {
+      // user_input: level 무시 — 문제/답안/메모만 (사용자 입력 모드 다운로드 룰)
+      merged = formatUserInputMerge(md, meta);
+    } else if (level === '원본') merged = formatOriginalMerge(md, caseNum);
     else if (level === 'Lv.1') merged = formatLv1Merge(md, caseNum);
     else if (level === 'Lv.4') merged = formatLv4Merge(md, caseNum);
+    else merged = formatOriginalMerge(md, caseNum);  // fallback
     parts.push(merged);
   }
   const blob = new Blob([parts.join('\n\n\n')], { type: 'text/plain;charset=utf-8' });
@@ -1859,10 +1876,24 @@ async function doDownload() {
   const a = document.createElement('a');
   const today = new Date().toISOString().slice(0, 10);
   a.href = url;
-  a.download = `merged_${level.replace('.', '')}_${selectedFiles.size}_${today}.txt`;
+  const levelTag = skipModal ? 'userinput' : level.replace('.', '');
+  a.download = `merged_${levelTag}_${selectedFiles.size}_${today}.txt`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  closeModal();
+  if (!skipModal) closeModal();
+}
+
+// lawear-7ad6 v5 — user_input 다운로드 포맷 (문제/답안/메모만, 원본/Lv 구분 없음)
+//   다른 과목 formatOriginalMerge 등과 동일하게 강조 태그 제거 + 헤드라인 추가
+function formatUserInputMerge(md, meta) {
+  const problem = stripEmphasis(extractSection(md, '문제')).trim();
+  const answer = stripEmphasis(extractSection(md, '답안')).trim();
+  const memo = stripEmphasis(extractSection(md, '메모')).trim();
+  const head = `[${meta.subjectKor || ''}] ${meta.category || ''} ${meta.file || ''} ${meta.title || ''}`.trim();
+  let out = head + '\n\n[문제]\n' + (problem || '(빈)');
+  out += '\n\n[답안]\n' + (answer || '(빈)');
+  if (memo) out += '\n\n[메모]\n' + memo;
+  return out;
 }
 
 document.getElementById('search').addEventListener('input', e => renderTree(e.target.value));

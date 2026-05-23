@@ -55,3 +55,4 @@ docs/tts-new/_file_index.json.bak
 
 # lawear-7ad6 v4 — server.py 자동 생성 보조 파일
 docs/tts-new/**/*.md.bak
+docs/tts-new/_file_index.lock
