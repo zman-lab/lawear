@@ -1011,6 +1011,60 @@
     color: var(--text-dim);
   }
 
+  /* lawear-0d65 (2026-05-24) — 5모드 비교표 (부등법 multi grading_mode) */
+  .multimode-table {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 12px;
+  }
+  .multimode-table .mm-title {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .multimode-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 11px;
+  }
+  .multimode-table th, .multimode-table td {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+    vertical-align: top;
+  }
+  .multimode-table th {
+    color: var(--text-dim);
+    font-weight: 500;
+    background: var(--bg);
+  }
+  .multimode-table tr:last-child td { border-bottom: none; }
+  .multimode-table td.mm-score, .multimode-table td.mm-grade {
+    font-family: 'SF Mono', Consolas, monospace;
+    white-space: nowrap;
+  }
+  .multimode-table td.mm-grade { text-align: center; }
+  .multimode-table .grade-pill {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10px;
+    border-radius: 2px;
+    border: 1px solid;
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+  .multimode-table td.mm-summary {
+    color: var(--text-dim);
+    line-height: 1.5;
+  }
+  .multimode-table .mm-meta {
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+
   .feedback-section .feedback-block {
     background: var(--bg);
     border-left: 2px solid var(--accent);
@@ -2771,6 +2825,8 @@
             <div class="criteria-grid" id="ev-criteria-grid">
               <!-- criteria rows injected by JS -->
             </div>
+            <!-- lawear-0d65 (2026-05-24) — 부등법 5모드 비교표 (grading_mode='multi' 일 때만 표시) -->
+            <div id="ev-multimode-table" style="display:none; margin-top: 12px;"></div>
           </div>
 
           <!-- Step 24-7c — 시도별 추이 차트 (점수% + 풀이시간 듀얼 라인) -->
@@ -4687,6 +4743,8 @@
     if (histCard) histCard.classList.remove('shown');
 
     // 카드 HTML 생성
+    // lawear-0d65 (2026-05-24) — 부등법은 Lv.1(목차)/Lv.4(결론+근거) 힌트 무의미 → 숨김 (Lv.2/3/5만 노출).
+    const hideBudeunglawHints = isBudeunglaw(caseData);
     const html = subqs.map((card, idx) => {
       const cid = card.key;
       const idSafe = cssEscapeId(cid);
@@ -4700,6 +4758,8 @@
       const lv2Extra = lv2Enabled
         ? ''
         : ` disabled title="${escapeHtml(I18N[currentLang].hint_lv2_disabled_tip || '')}"`;
+      // lawear-0d65 — 부등법이면 Lv.1/Lv.4 inline style 로 hidden (data 그대로 둠 → 키보드 shortcut 호환).
+      const lv14Hide = hideBudeunglawHints ? ' style="display:none;"' : '';
       // 단일 모드: 카드 1개뿐이고 key='단일' — 헤더 sub-title("단일" 중복) + 본문 inquiry-label("설문 · 단일") 양쪽 hide.
       // 다중 모드: "설문 1 가" 등 식별자 라벨 필수 → 표시 유지.
       const singleModeClass = isSingleMode ? ' single-mode' : '';
@@ -4718,10 +4778,10 @@
             <div class="sub-inquiry"><span class="inquiry-label">${escapeHtml(subqLabel)}</span><span class="inquiry-body">${renderOriginText((card.body || '').trim())}</span></div>
             <div class="hint-bar">
               <span class="hint-label">${I18N[currentLang].hint_label || '힌트'}</span>
-              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="1"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv1 || '1. 목차'}</span></button>
+              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="1"${lv14Hide}><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv1 || '1. 목차'}</span></button>
               <button type="button" class="${lv2Class}"${lv2Extra} data-card="${escapeHtml(cid)}" data-level="2"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv2 || '2. 두문자'}</span></button>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="3"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv3 || '3. 조문+키워드'}</span></button>
-              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="4"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv4 || '4. 결론+근거'}</span></button>
+              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="4"${lv14Hide}><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv4 || '4. 결론+근거'}</span></button>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="5"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv5 || '5. 전체답안'}</span></button>
               <span class="spacer"></span>
               <span class="hint-count-info" id="hint-info-${idSafe}">${(I18N[currentLang].hint_n_used || '{n}회 사용').replace('{n}', '0')}</span>
@@ -5584,33 +5644,49 @@
       // Background / Inquiry: 원본 섹션을 사실관계 / 문제 로 split (Step 22 — 다중 설문 통합)
       // lawear-2e42 (2026-05-20): mogo 변형 설문은 공통사실관계가 별도 case (mogo01_01) — facts 빈 게 정상.
       //   facts 빈 + question 있으면 '공통사실관계 별도 안내', 둘 다 빈 경우만 err_load.
-      const { facts, question, multiInquiries } = splitOriginFactsQuestion(c.origin || '');
-      if (bgEl) {
-        if (facts) {
-          bgEl.innerHTML = renderOriginText(facts);
-        } else if (question) {
-          // 변형 설문 등 공통사실관계가 별도 case에 있는 경우
-          bgEl.innerHTML = `<span style="color: var(--text-dim); font-style: italic;">${I18N[currentLang].sec_background_external}</span>`;
-        } else {
-          bgEl.textContent = I18N[currentLang].err_load;
+      // lawear-0d65 (2026-05-24): 부등법(problem_answer)은 c.origin 전체가 ## 문제 본문 → split skip + 원문 그대로 inquiry.
+      //   사실관계/문제 구분 없는 단일 설문 형식이라 background 영역 비움 (외부 안내 텍스트).
+      if (isBudeunglaw(c)) {
+        if (bgEl) {
+          bgEl.innerHTML = `<span style="color: var(--text-dim); font-style: italic;">${I18N[currentLang].sec_background_external || '—'}</span>`;
         }
-      }
-      if (inqEl) {
-        // lawear-c63e-sub3 2026-05-21 spec #2138: 3-branch — question 우선, 빈 경우 multiInquiries fallback,
-        //   둘 다 비어있을 때만 err_load. (question 은 단일 <문제> 또는 multiInquiries 통합본을 포함)
-        // lawear-c63e 2026-05-21 메인 후속: err_load → inq_pending_lv (Lv.1/Lv.4 미작성 친절 안내).
-        //   facts 가 있는 케이스는 PDF 원문이 사실관계 영역에 들어가 있어 본문 읽기 가능 (사용자 .md 보완 영역).
-        if (question) {
-          inqEl.innerHTML = renderOriginText(question);
-        } else if (multiInquiries && multiInquiries.length > 0) {
-          const merged = multiInquiries.map((q) => `**${q.label}**\n\n${q.text}`).join('\n\n');
-          inqEl.innerHTML = renderOriginText(merged);
-        } else if (facts) {
-          // facts 있고 inquiry 없음 → Lv.1/Lv.4 미작성 안내 (사실관계 영역에 PDF 원문 있음)
-          inqEl.innerHTML = `<span style="color: var(--text-dim); font-style: italic;">${escapeHtml(I18N[currentLang].inq_pending_lv || I18N[currentLang].err_load)}</span>`;
-        } else {
-          // facts 도 없음 → 진짜 err_load
-          inqEl.textContent = I18N[currentLang].err_load;
+        if (inqEl) {
+          const originText = (c.origin || '').trim();
+          if (originText) {
+            inqEl.innerHTML = renderOriginText(originText);
+          } else {
+            inqEl.textContent = I18N[currentLang].err_load;
+          }
+        }
+      } else {
+        const { facts, question, multiInquiries } = splitOriginFactsQuestion(c.origin || '');
+        if (bgEl) {
+          if (facts) {
+            bgEl.innerHTML = renderOriginText(facts);
+          } else if (question) {
+            // 변형 설문 등 공통사실관계가 별도 case에 있는 경우
+            bgEl.innerHTML = `<span style="color: var(--text-dim); font-style: italic;">${I18N[currentLang].sec_background_external}</span>`;
+          } else {
+            bgEl.textContent = I18N[currentLang].err_load;
+          }
+        }
+        if (inqEl) {
+          // lawear-c63e-sub3 2026-05-21 spec #2138: 3-branch — question 우선, 빈 경우 multiInquiries fallback,
+          //   둘 다 비어있을 때만 err_load. (question 은 단일 <문제> 또는 multiInquiries 통합본을 포함)
+          // lawear-c63e 2026-05-21 메인 후속: err_load → inq_pending_lv (Lv.1/Lv.4 미작성 친절 안내).
+          //   facts 가 있는 케이스는 PDF 원문이 사실관계 영역에 들어가 있어 본문 읽기 가능 (사용자 .md 보완 영역).
+          if (question) {
+            inqEl.innerHTML = renderOriginText(question);
+          } else if (multiInquiries && multiInquiries.length > 0) {
+            const merged = multiInquiries.map((q) => `**${q.label}**\n\n${q.text}`).join('\n\n');
+            inqEl.innerHTML = renderOriginText(merged);
+          } else if (facts) {
+            // facts 있고 inquiry 없음 → Lv.1/Lv.4 미작성 안내 (사실관계 영역에 PDF 원문 있음)
+            inqEl.innerHTML = `<span style="color: var(--text-dim); font-style: italic;">${escapeHtml(I18N[currentLang].inq_pending_lv || I18N[currentLang].err_load)}</span>`;
+          } else {
+            // facts 도 없음 → 진짜 err_load
+            inqEl.textContent = I18N[currentLang].err_load;
+          }
         }
       }
 
@@ -6937,6 +7013,121 @@
     }
   }
 
+  // lawear-0d65 (2026-05-24) — 부등법 5모드 비교표 렌더.
+  //   attempt.grading_mode === 'multi' + attempt.multi_mode_results JSON 있을 때만 표시.
+  //   각 mode 결과: { mode, score, max, score_pct, grade, summary }
+  //   meta: spread (점수 diff), consensus (최빈 등급), highest/lowest mode 라벨.
+  // 단일 모드(legacy)일 땐 host 숨김 + criteria-grid 표시 유지 (기본 동작).
+  function renderMultiModeTable(att) {
+    const host = document.getElementById('ev-multimode-table');
+    const critGrid = document.getElementById('ev-criteria-grid');
+    if (!host) return;
+    const isMulti = (att && att.grading_mode === 'multi' && att.multi_mode_results);
+    if (!isMulti) {
+      host.innerHTML = '';
+      host.style.display = 'none';
+      if (critGrid) critGrid.style.display = '';
+      return;
+    }
+    // JSON 파싱 (string or object 둘 다 허용 — backend forgiving)
+    let results = null;
+    try {
+      results = (typeof att.multi_mode_results === 'string')
+        ? JSON.parse(att.multi_mode_results)
+        : att.multi_mode_results;
+    } catch (e) {
+      console.warn('multi_mode_results JSON parse failed:', e);
+      host.innerHTML = '';
+      host.style.display = 'none';
+      if (critGrid) critGrid.style.display = '';
+      return;
+    }
+    // results 형식: { modes: [{mode,score,max,score_pct,grade,summary}, ...], spread, consensus, highest, lowest }
+    //   또는 모드 배열만 (legacy {mode: {...}} dict 호환) — 둘 다 처리.
+    let modesArr = [];
+    let meta = {};
+    if (Array.isArray(results)) {
+      modesArr = results;
+    } else if (results && Array.isArray(results.modes)) {
+      modesArr = results.modes;
+      meta = results;
+    } else if (results && typeof results === 'object') {
+      // dict 형식 fallback — {judge: {...}, lecturer: {...}, ...}
+      const knownKeys = ['judge', 'lecturer', 'hybrid', 'main_opus', 'strict_outline'];
+      for (const k of knownKeys) {
+        if (results[k] && typeof results[k] === 'object') {
+          modesArr.push(Object.assign({ mode: k }, results[k]));
+        }
+      }
+    }
+    if (!modesArr.length) {
+      host.innerHTML = '';
+      host.style.display = 'none';
+      if (critGrid) critGrid.style.display = '';
+      return;
+    }
+    // multi 모드 활성 → criteria-grid 숨김 (9기준 표는 단일 모드 전용)
+    if (critGrid) critGrid.style.display = 'none';
+    // 모드 한글 라벨 매핑 (R-09: 백엔드 키와 동일, UI 표시만 한글화)
+    const modeLabelKo = {
+      judge:           '부장판사 (judge)',
+      lecturer:        '강사 (lecturer)',
+      hybrid:          '하이브리드 (hybrid)',
+      main_opus:       '메인 Opus (main_opus)',
+      strict_outline:  '만능목차 엄격 (strict_outline)',
+    };
+    const isKo = (currentLang === 'ko');
+    const head = isKo
+      ? `<tr><th>모드</th><th>점수</th><th>등급</th><th>평가요지</th></tr>`
+      : `<tr><th>Mode</th><th>Score</th><th>Grade</th><th>Summary</th></tr>`;
+    const rows = modesArr.map((m) => {
+      const modeKey = m.mode || m.key || '—';
+      const modeLabel = isKo
+        ? (modeLabelKo[modeKey] || modeKey)
+        : modeKey;
+      const scorePct = (m.score_pct != null) ? Number(m.score_pct) : null;
+      const absScore = (m.score != null) ? Number(m.score) : null;
+      const absMax   = (m.max   != null) ? Number(m.max)   : null;
+      const scoreCell = (scorePct != null && !isNaN(scorePct))
+        ? fmtScoreReal(scorePct, null, { absolute: { score: absScore, max: absMax } })
+        : '—';
+      const gradeText = m.grade || '—';
+      const v2Slug = gradeV2Slug(gradeText);
+      const gradeCell = `<span class="grade-pill ${v2Slug}">${escapeHtml(gradeText)}</span>`;
+      const summary = m.summary || m.note || '';
+      return `<tr>
+        <td>${escapeHtml(modeLabel)}</td>
+        <td class="mm-score">${escapeHtml(scoreCell)}</td>
+        <td class="mm-grade">${gradeCell}</td>
+        <td class="mm-summary">${escapeHtml(summary)}</td>
+      </tr>`;
+    }).join('');
+    const titleText = isKo ? '5모드 비교' : 'Multi-mode Comparison';
+    // meta 라인 (spread / consensus / highest / lowest)
+    const metaParts = [];
+    if (meta.spread != null) {
+      const sp = Number(meta.spread);
+      if (!isNaN(sp)) metaParts.push(`${isKo ? 'spread' : 'spread'}: ${sp.toFixed(1)}${isKo ? '점' : ' pt'}`);
+    }
+    if (meta.consensus) metaParts.push(`consensus: ${meta.consensus}`);
+    if (meta.highest)   metaParts.push(`highest: ${meta.highest}`);
+    if (meta.lowest)    metaParts.push(`lowest: ${meta.lowest}`);
+    const metaLine = metaParts.length
+      ? `<div class="mm-meta">* ${escapeHtml(metaParts.join(' / '))}</div>`
+      : '';
+    host.innerHTML = `
+      <div class="multimode-table">
+        <div class="mm-title">${escapeHtml(titleText)}</div>
+        <table>
+          <thead>${head}</thead>
+          <tbody>${rows}</tbody>
+        </table>
+        ${metaLine}
+      </div>
+    `;
+    host.style.display = '';
+  }
+
   // ─── Step 14 — Reference Diff 2열 분할 렌더 헬퍼 ───
   // Lv.4 강조 태그 인라인 렌더링 (R-28 [red][blue][bold][u][blank][blank2])
   // 입력은 plain text — 먼저 HTML escape 한 뒤 태그를 span 으로 치환.
@@ -7211,10 +7402,17 @@
     setText('ev-score-max',   isFinite(max)   ? max.toFixed(2)   : '—');
     setText('ev-pct',         isFinite(pct)   ? pct.toFixed(2)   : '—');
     // e571-score-display — 실제 시험 배점 + 100점 환산 (case_points 있을 때만 표시)
+    // lawear-0d65 (2026-05-24) — DB absolute_score/absolute_max 우선 (부등법 5모드 multi). 없으면 sp/100*cp.
     const realEl = document.getElementById('ev-score-real');
     if (realEl) {
       const cp = (att.case_points != null) ? Number(att.case_points) : null;
-      if (cp != null && cp > 0 && isFinite(pct)) {
+      const absScore = (att.absolute_score != null && !isNaN(Number(att.absolute_score))) ? Number(att.absolute_score) : null;
+      const absMax   = (att.absolute_max   != null && !isNaN(Number(att.absolute_max)))   ? Number(att.absolute_max)   : null;
+      const hasAbs = (absScore != null && absMax != null && absMax > 0);
+      if (hasAbs && isFinite(pct)) {
+        realEl.textContent = fmtScoreReal(pct, cp, { absolute: { score: absScore, max: absMax } });
+        realEl.style.display = '';
+      } else if (cp != null && cp > 0 && isFinite(pct)) {
         realEl.textContent = fmtScoreReal(pct, cp);
         realEl.style.display = '';
       } else {
@@ -7242,6 +7440,8 @@
 
     // criteria
     renderCriteriaGrid(att.criteria || []);
+    // lawear-0d65 (2026-05-24) — 5모드 비교표 (multi grading_mode 일 때만 표시 + criteria-grid 숨김 처리)
+    renderMultiModeTable(att);
 
     // notes
     const notes = att.eval_notes || {};
@@ -7663,6 +7863,18 @@
     if (v == null || isNaN(v)) return '—';
     return String(v);
   }
+  // lawear-0d65 (2026-05-24) — 부등법 (problem_answer) 판정 헬퍼.
+  //   subject_type='problem_answer' OR subject_kor='부동산등기법' OR subject='budeunglaw'
+  //   3가지 신호 중 하나라도 True 면 부등법. case 객체(또는 attempt) 양쪽 호환.
+  function isBudeunglaw(c) {
+    if (!c) return false;
+    if (c.subject_type === 'problem_answer') return true;
+    if (c.subject_kor === '부동산등기법') return true;
+    const subj = (c.subject != null) ? String(c.subject).toLowerCase() : '';
+    if (subj === 'budeunglaw') return true;
+    return false;
+  }
+
   function fmtScoreFraction(total, max) {
     if (total == null || max == null) return '—';
     // Step 20 v4: 소수점 2자리 통일 (이전 1자리 반올림)
@@ -7680,17 +7892,35 @@
   //   fmtScoreReal(null, 15)   → "—"
   //   fmtScoreReal(44, 0)      → "44%"      (배점 0 방어)
   // opts.compact=true 시 (퍼센트 생략) → "6.6/15"  (사이드바 등 좁은 영역용)
+  // lawear-0d65 (2026-05-24) — opts.absolute={score, max} 지원 (부등법 5모드 multi-grader).
+  //   absolute 우선 사용 (DB attempts.absolute_score/absolute_max 컬럼), 없으면 sp/100*cp fallback.
+  //   fmtScoreReal(75, 20, { absolute: {score:15, max:20} }) → "15/20 (75/100)"
   function fmtScoreReal(scorePct, casePoints, opts) {
     if (scorePct == null || isNaN(Number(scorePct))) return '—';
     const sp = Number(scorePct);
     const cp = (casePoints == null || isNaN(Number(casePoints))) ? null : Number(casePoints);
+    const compact = !!(opts && opts.compact);
+    // 절대점 우선 분기 (lawear-0d65): DB absolute_score/absolute_max 가 있으면 그것 사용 (소수점 그대로)
+    const abs = opts && opts.absolute;
+    if (abs && abs.max != null && !isNaN(Number(abs.max)) && Number(abs.max) > 0
+            && abs.score != null && !isNaN(Number(abs.score))) {
+      const aScore = Number(abs.score);
+      const aMax   = Number(abs.max);
+      const aScoreStr = (Math.abs(aScore - Math.round(aScore)) < 1e-9)
+        ? String(Math.round(aScore))
+        : aScore.toFixed(1);
+      const aMaxStr = (Math.abs(aMax - Math.round(aMax)) < 1e-9)
+        ? String(Math.round(aMax))
+        : aMax.toFixed(1);
+      if (compact) return `${aScoreStr}/${aMaxStr}`;
+      return `${aScoreStr}/${aMaxStr} (${sp.toFixed(0)}/100)`;
+    }
     if (cp == null || cp <= 0) return `${sp.toFixed(0)}%`;
     const real = (sp / 100) * cp;
     // 정수면 정수, 소수면 1자리
     const realStr = (Math.abs(real - Math.round(real)) < 1e-9)
       ? String(Math.round(real))
       : real.toFixed(1);
-    const compact = !!(opts && opts.compact);
     if (compact) {
       return `${realStr}/${cp}`;
     }
