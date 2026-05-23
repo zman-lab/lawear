@@ -382,11 +382,31 @@ def _grade_async(
     """daemon thread 진입점 — Grader 호출 + DB 단일 트랜잭션 저장.
 
     실패 시 status='error' + error_code/error_message 만 마킹 (R-09 — 가공 X).
+
+    lawear-0d65: 부등법(부동산등기법) 분기 추가.
+      cases.subject_type='problem_answer' → budeunglaw_grader 5모드 일괄 채점.
+      그 외 (lv1234) → 기존 grader.grade() 단일 채점.
     """
     case_id = case_meta.get("id")
     print(f"[Attempts] grade_async start attempt_id={attempt_id} case_id={case_id}", file=sys.stderr)
 
     started = time.monotonic()
+
+    # ── lawear-0d65: 부등법 분기 ──────────────────────────────────────────
+    subject_type = case_meta.get("subject_type")
+    if subject_type is None and case_id:
+        try:
+            _conn = sqlite3.connect(db_path)
+            row = _conn.execute("SELECT subject_type FROM cases WHERE id=?", (case_id,)).fetchone()
+            subject_type = row[0] if row else "lv1234"
+            _conn.close()
+        except sqlite3.DatabaseError:
+            subject_type = "lv1234"
+    if subject_type == "problem_answer":
+        return _grade_async_budeunglaw_multimode(
+            db_path, attempt_id, case_meta, answer_text, started
+        )
+    # ── 기존 민법/민소 단일 채점 로직 (변경 X) ────────────────────────────
     try:
         # Grader 호출 (mock 모드 자동 판정 — env LAWEAR_GRADER_MOCK 또는 ANTHROPIC_API_KEY 미설정)
         result = grader_mod.grade(case_meta, answer_text, weights=weights)
@@ -421,6 +441,132 @@ def _grade_async(
             error_message=f"save_failed: {e}",
             elapsed=time.monotonic() - started,
         )
+
+
+def _grade_async_budeunglaw_multimode(
+    db_path: str,
+    attempt_id: int,
+    case_meta: dict[str, Any],
+    answer_text: str,
+    started: float,
+) -> None:
+    """lawear-0d65: 부등법 5모드 일괄 채점 (background thread).
+
+    각 모드(judge/lecturer/hybrid/main_opus/strict_outline)로 채점 →
+    multi_mode_results JSON 저장 + criteria/total/grade는 hybrid 기준 (legacy 호환).
+    """
+    try:
+        import budeunglaw_grader as bgrader
+        multi_result = bgrader.grade_multimode(case_meta, answer_text)
+    except Exception as e:  # noqa: BLE001
+        _mark_attempt_error(
+            db_path, attempt_id,
+            error_code="budeunglaw_grader_failure",
+            error_message=f"{type(e).__name__}: {e}",
+            elapsed=time.monotonic() - started,
+        )
+        return
+
+    hybrid = multi_result["modes_results"].get("hybrid", {})
+    if not hybrid or hybrid.get("error"):
+        _mark_attempt_error(
+            db_path, attempt_id,
+            error_code="budeunglaw_hybrid_missing",
+            error_message=f"hybrid result missing/error: {hybrid.get('error') if hybrid else 'empty'}",
+            elapsed=time.monotonic() - started,
+        )
+        return
+
+    try:
+        _save_grade_budeunglaw_multimode(
+            db_path, attempt_id, hybrid,
+            multi_result["modes_results"], multi_result["summary"],
+            elapsed=time.monotonic() - started,
+        )
+    except sqlite3.DatabaseError as e:
+        _mark_attempt_error(
+            db_path, attempt_id,
+            error_code="db_error",
+            error_message=f"budeunglaw_save_failed: {e}",
+            elapsed=time.monotonic() - started,
+        )
+
+
+def _save_grade_budeunglaw_multimode(
+    db_path: str,
+    attempt_id: int,
+    hybrid: dict[str, Any],
+    multi_results: dict[str, dict[str, Any]],
+    summary: dict[str, Any],
+    elapsed: float | None = None,
+) -> None:
+    """부등법 5모드 결과를 attempts row에 저장.
+
+    attempt_criteria는 skip (부등법 11키는 기존 9키 CHECK 미호환 — multi_mode_results JSON에만).
+
+    저장 컬럼:
+      - status='done', completed_at, elapsed_sec, model, is_mock
+      - score_total / score_max / score_pct / grade (hybrid 기준)
+      - eval_notes_json (요약 + 모드별 grade)
+      - multi_mode_results (5모드 전체 JSON, migration 008 신규)
+      - absolute_score / absolute_max (사용자 요청 표시 — migration 008 신규)
+      - grading_mode='multi' (이 attempt가 multi-mode 채점임을 명시)
+    """
+    completed_at = _utcnow_iso()
+    multi_json = json.dumps(
+        {"results": multi_results, "summary": summary},
+        ensure_ascii=False,
+    )
+    eval_notes_payload: dict[str, Any] = {
+        "budeunglaw_multimode_summary": summary,
+        "hybrid_eval_notes": hybrid.get("eval_notes", ""),
+        "mode_grades": {m: r.get("grade") for m, r in multi_results.items() if isinstance(r, dict)},
+    }
+    is_mock_int = 1 if isinstance(hybrid.get("eval_notes"), str) and hybrid.get("eval_notes", "").startswith("[MOCK]") else 0
+
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute("BEGIN")
+        conn.execute(
+            """UPDATE attempts SET
+                 status='done',
+                 score_total=?, score_max=?, score_pct=?, grade=?,
+                 model=?, eval_notes_json=?, raw_response=?, completed_at=?,
+                 elapsed_sec=?, is_mock=?,
+                 multi_mode_results=?, grading_mode='multi',
+                 absolute_score=?, absolute_max=?
+               WHERE id=?""",
+            (
+                hybrid.get("total"),
+                hybrid.get("max", 100),
+                hybrid.get("pct"),
+                _map_grade_v2_to_db_letter(hybrid.get("grade")),
+                hybrid.get("weights_version", "v7_budeunglaw_hybrid"),
+                json.dumps(eval_notes_payload, ensure_ascii=False),
+                json.dumps(hybrid, ensure_ascii=False),
+                completed_at,
+                elapsed,
+                is_mock_int,
+                multi_json,
+                hybrid.get("absolute_score"),
+                hybrid.get("absolute_max"),
+                attempt_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _map_grade_v2_to_db_letter(grade_v2: str | None) -> str:
+    """V2 grade(A/A-/B+/B/B-/C+/C/D/F) → DB grade enum letter(A/B/C/F).
+
+    DB attempts.grade는 legacy V1 enum (A/B/C/F). API 응답 시 score_pct로 V2 동적 재계산.
+    """
+    if not grade_v2:
+        return "F"
+    first = grade_v2[0]
+    return first if first in ("A", "B", "C", "F") else "C"
 
 
 def _merge_initial_typo_corrections(
@@ -1733,6 +1879,27 @@ def _attempt_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
             out["weights_applied"] = {}
         # diff_html: diff_segments → 단순 HTML span 렌더 (시안 호환)
         out["diff_html"] = _diff_segments_to_html(out["diff_segments"])
+        # lawear-0d65: migration 008 신규 컬럼 노출
+        # grading_mode='multi' (부등법 5모드) | NULL (민법/민소 단일)
+        # absolute_score/absolute_max: 사용자 요청 "10/50 (20/100)" 형식의 절대점/만점
+        # multi_mode_results: 부등법 5모드 결과 JSON {"results": {mode: result}, "summary": {...}}
+        try:
+            out["grading_mode_v2"] = row["grading_mode"]  # legacy 'grading_mode' 인자명 충돌 회피
+        except (IndexError, KeyError):
+            out["grading_mode_v2"] = None
+        try:
+            out["absolute_score"] = row["absolute_score"]
+        except (IndexError, KeyError):
+            out["absolute_score"] = None
+        try:
+            out["absolute_max"] = row["absolute_max"]
+        except (IndexError, KeyError):
+            out["absolute_max"] = None
+        try:
+            mm_raw = row["multi_mode_results"]
+            out["multi_mode_results"] = json.loads(mm_raw) if mm_raw else None
+        except (IndexError, KeyError, TypeError, json.JSONDecodeError):
+            out["multi_mode_results"] = None
     elif db_status == DB_STATUS_GRADING:
         # elapsed_sec live 계산 (폴링)
         out["elapsed_sec"] = round(_elapsed_since(row["submitted_at"]), 2)

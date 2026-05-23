@@ -155,9 +155,12 @@ def parse_md_file(md_text: str) -> dict[str, str | None]:
     meta = None
 
     for name, body in sections.items():
-        if name.startswith("원본"):
+        # 부등법 alias: '## 문제' → origin / '## 답안' → lv4
+        # lawear-0d65: subject_type='problem_answer' (부동산등기법) 분기
+        # 헤더 alias로 처리하면 기존 attempt/UI 흐름 그대로 작동.
+        if name.startswith("원본") or name.startswith("문제"):
             origin = body
-            # "원본 (17점)" / "원본 (20점 + 보충 10점)" 등에서 첫 NN점 추출
+            # "원본 (17점)" / "원본 (20점 + 보충 10점)" / "문제 (30점)" 등에서 첫 NN점 추출
             # (lawear-c63e-sub4 #2138 §Sub4: 닫는 괄호 의존 X)
             m = _SCORE_HEADER_RE.search(name)
             if m:
@@ -167,7 +170,8 @@ def parse_md_file(md_text: str) -> dict[str, str | None]:
                     origin_points = None
         elif name.startswith("Lv.1"):
             lv1 = body
-        elif name.startswith("Lv.4"):
+        elif name.startswith("Lv.4") or name.startswith("답안"):
+            # 부등법 '## 답안' → lv4 (reference answer로 활용)
             lv4 = body
         elif name.startswith("메타"):
             meta = body
@@ -430,6 +434,11 @@ def _case_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         "user_case": row["user_case"],
         "synced_at": row["synced_at"],
         "content_hash": row["content_hash"],
+        # lawear-0d65: migration 008 신규 컬럼 노출
+        # subject_type: 'lv1234' (민법/민소) | 'problem_answer' (부등법 등)
+        # outline_category: 부등법 만능목차 4분류 (기본/첨부서면/등기절차/부수절차/unknown)
+        "subject_type": (row["subject_type"] if "subject_type" in row.keys() else "lv1234") or "lv1234",
+        "outline_category": (row["outline_category"] if "outline_category" in row.keys() else None),
         "year": parse_year_from_id(row["id"]),
     }
 
