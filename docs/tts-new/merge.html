@@ -632,6 +632,10 @@
     <button onclick="collapseAll()" id="btn-collapse">Collapse all</button>
   </div>
   <div class="selected-count" id="selected-count">Selected: 0</div>
+  <!-- lawear-7ad6 v2 — 사용자 직접 입력 신규 문제 생성 진입 (5과목 × 2025/2026) -->
+  <div class="user-input-bar" style="padding: 8px 12px; background: #1f2127; border-bottom: 1px solid var(--border); display: flex; gap: 6px; align-items: center;">
+    <button onclick="createNewUserInput()" class="primary" style="flex: 1; padding: 6px 10px; font-size: 12px; background: #ffc266; color: #1a1d23; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;" title="형법/형소/부등법/부등서류/민사서류 신규 문제 생성 → input.html에서 카테고리/제목/소제목/점수 입력">+ 새 사용자 입력 문제</button>
+  </div>
   <div class="case-list" id="fileTree">
     <div class="case-group-label" style="padding: 12px;">Loading…</div>
   </div>
@@ -820,6 +824,11 @@ function displayFileKor(fileKor, fileCode) {
 }
 
 // ─────────── 강조 렌더링 ───────────
+// lawear-7ad6 v3 — marked GFM breaks 활성화 (단일 \n → <br>)
+// 사용자 입력 textarea 엔터가 본문에서 한 줄로 흡수되는 버그 fix (5번 버그)
+if (typeof marked !== 'undefined' && marked.setOptions) {
+  marked.setOptions({ breaks: true });
+}
 function renderMd(md) {
   const placeholders = [];
   const tagRe = /\[(em1|em2|em3|em4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\]((?:(?!\[(?:em1|em2|em3|em4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\])[\s\S])*?)\[\/\1\]/g;
@@ -1066,8 +1075,11 @@ function renderTree(filter = '') {
         const sk = meta.subjectKor;
         const cat = meta.category;
         const fileCode = meta.file || meta.fileKor;
-        // 연도 추출: meta.id 첫 4자리 (예: '2026_minbeop_*' → '2026'). id 없거나 비표준이면 'unknown'
-        const year = (meta.id && /^\d{4}_/.test(meta.id)) ? meta.id.slice(0, 4) : 'unknown';
+        // 연도 추출: meta.id 첫 4자리 우선, slug형 id면 meta._year 폴백 (lawear-7ad6 v3 버그 1 fix)
+        // user_input은 id가 '01_등기의_효력' 같은 slug 형식이라 _year 폴백 필수
+        const year = (meta.id && /^\d{4}_/.test(meta.id))
+          ? meta.id.slice(0, 4)
+          : (meta._year || 'unknown');
         if (!tree5.has(year)) tree5.set(year, new Map());
         const yearNode = tree5.get(year);
         if (!yearNode.has(sk)) yearNode.set(sk, { subject: meta.subject, subjectKor: sk, categories: new Map() });
@@ -1179,12 +1191,21 @@ function renderTree(filter = '') {
         const sortedFiles = Array.from(catNode.files.entries()).sort((a, b) => a[0].localeCompare(b[0]));
         for (const [fileCode, fileNode] of sortedFiles) {
           const l3Key = treeNodeKey('f', year, sk, cat, fileCode);
-          // L3 디폴트: 검색 중이거나 펼침 저장된 경우만 펼침
-          const l3Collapsed = !searching && state[l3Key] !== true;
-          // 파일명 표시: fileKor에서 과목/카테고리 빼고 단순화
-          let fileLabel = fileNode.fileKor || fileCode;
-          // 예: '민법_입문_미케_01' → '미케_01' (과목, 카테고리 prefix 제거)
-          fileLabel = fileLabel.replace(new RegExp(`^${sk}_${cat}_`), '').replace(new RegExp(`^${sk}_`), '');
+          // L3 디폴트: 검색 중이거나 펼침 저장된 경우만 펼침 (단, user_input 1-case 노드는 디폴트 펼침)
+          const firstMeta = fileNode.items && fileNode.items[0] && fileNode.items[0].meta;
+          const isUserInput = firstMeta && firstMeta.type === 'user_input';
+          // user_input 노드는 항상 펼침 (L3 = title, L4 = case 1개라 폴더 의미 X — 버그 4 fix)
+          const l3Collapsed = isUserInput ? false : (!searching && state[l3Key] !== true);
+          // 파일명 표시 (lawear-7ad6 v4):
+          //  - user_input: meta.file 직접 (예: "01_공유물분할") — 사용자 명시 파일명 그대로
+          //  - 일반: fileKor에서 과목/카테고리 prefix 제거 (예: '민법_입문_미케_01' → '미케_01')
+          let fileLabel;
+          if (isUserInput && firstMeta.file) {
+            fileLabel = firstMeta.file;
+          } else {
+            fileLabel = fileNode.fileKor || fileCode;
+            fileLabel = fileLabel.replace(new RegExp(`^${sk}_${cat}_`), '').replace(new RegExp(`^${sk}_`), '');
+          }
           if (stealthMode) fileLabel = displayFileKor(fileNode.fileKor, fileCode);
 
           html += `<div class="tree-node tree-l3${l3Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l3Key)}">`;
@@ -1201,9 +1222,16 @@ function renderTree(filter = '') {
             const checked = selectedFiles.has(it.path) ? ' checked' : '';
             const active = (currentPath === it.path) ? ' active' : '';
             // 17896 정본 short ID: <file>-<case_no>  (예: 미케01-01) / stealth: sub_01-01
+            // lawear-7ad6 v4 — user_input L4:
+            //   case-id-large = m.title (주제목)
+            //   case-title    = m.case  (소제목)  — title 변수 swap
             const fileShort = stealthMode ? displayFileKor(m.fileKor, m.file) : m.file;
-            const shortId = `${fileShort}-${m.case}`;
-            const title = (m.title || '').trim();
+            const shortId = (m.type === 'user_input')
+              ? (m.title || '주제목 미입력')
+              : `${fileShort}-${m.case}`;
+            const title = (m.type === 'user_input')
+              ? (m.case || '').trim()      // 소제목 (case 자리)
+              : (m.title || '').trim();
 
             // 17896 pills (points 항상, userCase 있을 때, bookmark star)
             const pills = [];
@@ -1554,21 +1582,24 @@ function renderContent() {
   // - 우상단 [✏️ 다시 편집] 버튼 → input.html?path=... 으로 redirect (편집 진입)
   // - 라이브러리 분기 패턴 정확 mirror (R1 — 기존 4탭/library 무손상)
   if (meta && meta.type === 'user_input') {
-    // 헤더: 일반 케이스와 유사하되 breadcrumb 마지막에 User_NN
-    const shortId = `${meta.file || 'user'}-${meta.case || '00'}`;
+    // 헤더 (lawear-7ad6 v4):
+    //  - shortId (case-id-large): meta.title (주제목 — case-id 자리)
+    //  - subjLine: subjectKor · category · title · points점 (민법/민소 정합)
+    //  - yearPart: meta.id 우선, 없으면 meta._year 폴백 (slug형 id 대응)
+    //  - pathParts: year / subject / category / file / title — 5단 (사용자 명시)
+    const shortId = meta.title || meta.file || 'user';
     const subjLine = stealthMode
       ? `${displaySubject(meta.subjectKor)} · ${displayCategory(meta.category)}${meta.points ? ' · ' + meta.points + ' pt' : ''}`
       : `${meta.subjectKor || ''} · ${meta.category || ''} · ${meta.title || ''}${meta.points ? ' · ' + meta.points + '점' : ''}`;
-    const yearPart = (meta.id && /^\d{4}_/.test(meta.id)) ? meta.id.slice(0, 4) : '';
-    const fileLabelClean = meta.fileKor
-      ? displayFileKor(meta.fileKor, meta.file).replace((meta.subjectKor || '') + '_', '').replace((meta.category || '') + '_', '')
-      : (meta.file || '');
+    const yearPart = (meta.id && /^\d{4}_/.test(meta.id))
+      ? meta.id.slice(0, 4)
+      : (meta._year || '');
     const pathParts = [
       yearPart,
       displaySubject(meta.subjectKor),
       displayCategory(meta.category),
-      fileLabelClean,
-      `Case ${meta.case}`,
+      meta.file || '',
+      meta.title || '',
     ].filter(Boolean).map(escapeHtml);
     const pathHtml = pathParts.join('<span class="crumb-sep">/</span>');
     // 우상단 편집 버튼 — input.html로 redirect (현재 path 쿼리 동봉)
@@ -1992,6 +2023,16 @@ function setSaveStatus(msg, kind) {
   if (!el) return;
   el.textContent = msg;
   el.className = 'save-status ' + (kind || '');
+}
+
+// ============================================================================
+// lawear-7ad6 v2 — 사용자 직접 입력 신규 문제 생성 진입
+// 사이드패널 "+ 새 사용자 입력 문제" 버튼 클릭 → prompt 2단계 (과목/연도) → input.html 이동 (카테고리/제목/소제목/점수는 input.html에서 입력)
+// ============================================================================
+// lawear-7ad6 v4 — prompt X, input.html에서 콤보박스로 모든 입력
+function createNewUserInput() {
+  console.log('[createNewUserInput] redirect → input.html (모든 입력 input.html 안 콤보박스/필드)');
+  window.location.href = '/input.html';
 }
 
 init();

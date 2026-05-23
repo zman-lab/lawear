@@ -502,3 +502,116 @@ def test_tc20_index_fields_schema(tmp_root):
     }
     actual = {k: entry.get(k) for k in expected}
     assert actual == expected, f"TC20: schema mismatch\nexpected={expected}\nactual={actual}"
+
+
+# ============================================================================
+# lawear-7ad6 v3 팀 7A — 2단 폴더 + 메타 파싱 + auto NN (TC21~24)
+# ============================================================================
+
+# 2단 폴더 + 메타 풀세트 샘플 — _parse_md_meta 5필드 모두 채움.
+SAMPLE_MD_FULL_META = """# 등기의효력
+
+## 메타
+- 과목: 부동산등기법
+- 카테고리: 1순환
+- 제목: 등기의효력
+- 소제목: 약술하시오
+- 점수: 20점
+- 출처: 사용자 직접 입력
+
+## 문제
+등기의 효력을 약술하시오.
+
+## 답안
+가나다라마바사
+"""
+
+
+def test_tc21_two_level_folder_create_200(tmp_root):
+    """TC21: 2단 폴더 `2026_사용자_부동산등기법/1순환/01_등기의효력.md` POST → 200.
+
+    lawear-7ad6 v3 팀 7A: 사용자 자유 카테고리 (1순환 등) 2단 폴더 허용.
+    """
+    body = SAMPLE_MD_FULL_META.encode('utf-8')
+    handler = _make_handler(
+        'POST',
+        '/api/create/2026_사용자_부동산등기법/1순환/01_등기의효력.md',
+        body,
+    )
+    handler.do_POST()
+    target = tmp_root / '2026_사용자_부동산등기법' / '1순환' / '01_등기의효력.md'
+    # 의도: 2단 폴더 정상 생성 + 파일 작성
+    assert target.exists(), \
+        f"TC21: 2단 폴더 파일 생성 실패 (err={handler._error_code}, code={handler._response_code})"
+
+
+def test_tc22_category_path_traversal_403(tmp_root):
+    """TC22: 2단 카테고리에 path traversal (..) 또는 특수문자 → 403.
+
+    _CATEGORY_RE 정규식 위반 — `..` 는 ROOT relative_to 단계에서 차단되지만,
+    `1순환$` 같은 정상 traversal 아닌 특수문자도 _CATEGORY_RE 에서 차단되어야 함.
+    """
+    body = SAMPLE_MD_FULL_META.encode('utf-8')
+    # 특수문자 `$` 포함 카테고리 — _CATEGORY_RE 위반
+    handler = _make_handler(
+        'POST',
+        '/api/create/2026_사용자_부동산등기법/1순환$/01_등기의효력.md',
+        body,
+    )
+    handler.do_POST()
+    # 의도: 특수문자 카테고리 거부 → 403
+    assert handler._error_code == 403, \
+        f"TC22: 특수문자 카테고리 미차단 (code={handler._error_code})"
+
+
+def test_tc23_auto_nn_assigns_next_number(tmp_root):
+    """TC23: __AUTO_NN__ 자리표시자 → 폴더 스캔 후 다음 NN 자동 할당 → 200.
+
+    1순환 폴더에 01, 02 사전 생성 → __AUTO_NN___등기의효력.md POST → 03_등기의효력.md.
+    """
+    # 사전: 1순환 폴더에 01, 02 .md 생성 (auto NN 스캔 대상)
+    cat = tmp_root / '2026_사용자_부동산등기법' / '1순환'
+    cat.mkdir(parents=True, exist_ok=True)
+    (cat / '01_기존1.md').write_text(SAMPLE_MD_FULL_META, encoding='utf-8')
+    (cat / '02_기존2.md').write_text(SAMPLE_MD_FULL_META, encoding='utf-8')
+
+    body = SAMPLE_MD_FULL_META.encode('utf-8')
+    handler = _make_handler(
+        'POST',
+        '/api/create/2026_사용자_부동산등기법/1순환/__AUTO_NN___등기의효력.md',
+        body,
+    )
+    handler.do_POST()
+    # 의도: 03_등기의효력.md 자동 생성 (01, 02 다음 번호)
+    expected = cat / '03_등기의효력.md'
+    assert expected.exists(), \
+        f"TC23: auto NN 할당 실패 (err={handler._error_code}, dir={list(cat.iterdir())})"
+
+
+def test_tc24_meta_parsing_to_index_entry(tmp_root):
+    """TC24: .md 메타 파싱 결과가 _file_index entry 에 정확히 반영.
+
+    SAMPLE_MD_FULL_META 의 카테고리/제목/소제목/점수가 entry 필드에 매핑되어야 함.
+    """
+    body = SAMPLE_MD_FULL_META.encode('utf-8')
+    handler = _make_handler(
+        'POST',
+        '/api/create/2026_사용자_부동산등기법/1순환/01_등기의효력.md',
+        body,
+    )
+    handler.do_POST()
+    files = json.loads((tmp_root / '_file_index.json').read_text())['files']
+    entry = files[-1]
+    # 의도: 메타 5필드 (category/title/case/points + subject_en 매핑) 모두 entry 반영
+    expected = {
+        'category': '1순환',
+        'title': '등기의효력',
+        'case': '약술하시오',
+        'points': 20,
+        'subject': 'budeunglaw',
+        'subjectKor': '부동산등기법',
+        'file': '01_등기의효력',
+        'type': 'user_input',
+    }
+    actual = {k: entry.get(k) for k in expected}
+    assert actual == expected, f"TC24: 메타 매핑 실패\nexpected={expected}\nactual={actual}"

@@ -4591,6 +4591,40 @@
       "pdfPath": null,
       "points": null,
       "userCase": null
+    },
+    {
+      "id": "01_모고1회",
+      "subject": "budeunglaw",
+      "subjectKor": "부동산등기법",
+      "category": "1순환",
+      "file": "모고1회",
+      "fileKor": "2025_부동산등기법_1순환_모고1회",
+      "case": "소제목테스트",
+      "title": "01_공유물분할 약술",
+      "path": "2025_사용자_부동산등기법/1순환/01_모고1회.md",
+      "pdfPath": null,
+      "points": 15,
+      "userCase": null,
+      "type": "user_input",
+      "_addedBy": "lawear-7ad6-input-mode",
+      "_year": "2025"
+    },
+    {
+      "id": "02_모고1회",
+      "subject": "budeunglaw",
+      "subjectKor": "부동산등기법",
+      "category": "1순환",
+      "file": "모고1회",
+      "fileKor": "2025_부동산등기법_1순환_모고1회",
+      "case": "소제목테스트02",
+      "title": "02_공유물분할 약술",
+      "path": "2025_사용자_부동산등기법/1순환/02_모고1회.md",
+      "pdfPath": null,
+      "points": 11,
+      "userCase": null,
+      "type": "user_input",
+      "_addedBy": "lawear-7ad6-input-mode",
+      "_year": "2025"
     }
   ]
 }

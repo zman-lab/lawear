@@ -52,3 +52,6 @@ docs/tts-exam/backups/snapshots/*.sql.gz
 # lawear-7ad6 — server.py 자동 생성 (lock/bak)
 docs/tts-new/_file_index.json.lock
 docs/tts-new/_file_index.json.bak
+
+# lawear-7ad6 v4 — server.py 자동 생성 보조 파일
+docs/tts-new/**/*.md.bak
