@@ -4,7 +4,7 @@
 lawear-e571/typo-system 작업 (2026-05-19):
 - 사용자 답안은 음성 녹음(STT) 입력이라 오타 다수 발생.
 - 법률 용어 + 시험 컨텍스트 기반 정적 사전으로 명백한 오타 1차 교정.
-- Opus SE (스킬 `/le-typo-fix`) 가 사전 매칭 후 추가 문맥 분석.
+- Opus SE (스킬 `/dev-le-typo-fix`) 가 사전 매칭 후 추가 문맥 분석.
 
 핵심 함수:
 - `load_typo_dict(path=None) -> dict`     : typo_dict.json 로드 (없으면 빈 사전).

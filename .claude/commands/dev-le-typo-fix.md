@@ -1,4 +1,4 @@
-# le-typo-fix — 음성 답안 오타 교정 스킬
+# dev-le-typo-fix — 음성 답안 오타 교정 스킬
 
 > Opus SE 가 음성 답안(STT) 오타를 정적 사전 + 법률 컨텍스트 분석으로 교정하여 채점 직전 메인에게 반환.
 > lawear-e571/typo-system (2026-05-19) 도입. 사용자 attempt 6/7/8/9 에서 발견한 오타 패턴 기반.
@@ -20,16 +20,16 @@
 ### 1. attempt_id 로 호출 (서버에서 답안 fetch)
 
 ```
-/le-typo-fix attempt:N
+/dev-le-typo-fix attempt:N
 ```
 
-- N = 17896 의 attempt PK (예: `/le-typo-fix attempt:9`)
+- N = 17896 의 attempt PK (예: `/dev-le-typo-fix attempt:9`)
 - 스킬이 GET /api/attempts/N 호출하여 answer_text 가져온 후 교정
 
 ### 2. 답안 텍스트 직접 호출
 
 ```
-/le-typo-fix answer:"파산관제인은 통정표시 행위를 추인할 수 있다"
+/dev-le-typo-fix answer:"파산관제인은 통정표시 행위를 추인할 수 있다"
 ```
 
 - 즉석 텍스트 교정 (테스트/디버그용)
@@ -80,7 +80,7 @@
 ```
 1. 사용자가 답안 제출 (음성 STT)
 2. attempt 생성 → status='pending_grade'
-3. 메인이 /le-typo-fix attempt:N 호출 (이 스킬)
+3. 메인이 /dev-le-typo-fix attempt:N 호출 (이 스킬)
 4. 결과의 corrected text + corrections 메모
 5. 메인이 채점 SE 호출 (또는 직접 채점)
    - 채점 SE 에게 corrected text 전달 (오타 끌림 방지)
