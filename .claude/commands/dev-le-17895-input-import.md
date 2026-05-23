@@ -68,6 +68,29 @@ description: lawear 17895 사용자 입력 모드 — PDF 문제+해설 → 자�
 - 공백/쉼표/긴 명칭도 캐시 그대로 (예: 제15조 "물적 편성주의" — 공백 보존, 민법 제214조 "소유물방해제거, 방해예방청구권" — 쉼표 보존)
 - 확신 안 서면 캐시 조회 후 결정. 캐시 미존재 = 조문명 생략 (안전)
 
+#### 2-1-3. 강사 인용 누락 절대 금지 (2026-05-24 추가)
+
+**룰**: 강사 PDF의 모든 조문/규칙/선례/예규 인용은 [case]태그로 **반드시 보존**한다. 캐시 title이 본문 의도와 달라 보여도, 본문 맥락과 의미가 어긋나 보여도 누락 금지.
+
+- ❌ 자율 판단으로 "이 조문은 본문 맥락과 다른 의미라 빼는 게 낫겠다" → 절대 금지
+- ✅ 캐시 title이 어색하면 키워드 보조: `[case]제7조의2 관련 신청사건의 특례[/case] 또는 [case]일괄신청[/case]`
+- ✅ 강사 PDF에 있는 모든 인용은 시각 인덱스 + 학습 출처로 유지
+
+**누락이 불가피한 경우 메인 보고서 제출 의무**:
+- 서브에이전트 결과 JSON에 `omitted_citations` 필드 **강제** (필드 자체 누락 금지)
+- 형식:
+  ```json
+  "omitted_citations": [
+    {"file": ".md 경로", "pdf_ref": "강사 PDF 위치 (예: 1페이지 Ⅰ.1.②)", "citation": "조문/선례/예규", "reason": "누락 사유"}
+  ]
+  ```
+- 누락 0건이면 빈 배열 `[]` 명시
+- 보고하지 않고 자율 누락 = 룰 위반
+
+**메인 fallback**:
+- 서브 보고가 부정확하거나 누락 보고 자체가 빠지면 메인이 강사 PDF 직접 read + .md 결과 grep 대조
+- 발견된 누락 인용을 메인이 직접 Edit으로 .md에 보강
+
 #### 2-2. 빈 목차 제거
 
 - 강사 PDF에서 `2. 요건`만 있고 본문 비면 → 그 섹션 자체 제거
@@ -204,6 +227,7 @@ lock + atomic append (server.py POST 또는 python 직접).
 - [ ] 점수 본문 표기 0건 ("이십점" 등)
 - [ ] file 메타 NN 없음 (`file: 01_모의고사` X / `file: 모의고사_01` O)
 - [ ] title 메타 NN 있음 (`title: 등기의 효력` X / `title: 01_등기의 효력` O)
+- [ ] 강사 PDF 조문/규칙/선례/예규 인용 누락 0건 (메인이 PDF 조문 리스트 grep → .md grep 대조). 누락 시 [[feedback_lecturer_law_citation_priority]] 룰에 따라 메인이 직접 보강 + 사용자 보고
 
 ## 시범 예시
 
@@ -214,3 +238,6 @@ lock + atomic append (server.py POST 또는 python 직접).
 - [[feedback_input_mode_design]]
 - [[feedback_input_mode_v4_changes]]
 - [[reference_input_mode_files]]
+- [[feedback_lecturer_law_citation_priority]] — 강사 조문 인용 누락 절대 금지 + 누락 시 메인 보고 의무 (2026-05-24)
+- [[feedback_subagent_brief_with_user_rules]] — 서브 위임 프롬프트 3블록 의무
+- [[feedback_subagent_self_eval_unreliable]] — 서브 자체 R-09 평가 신뢰 X
