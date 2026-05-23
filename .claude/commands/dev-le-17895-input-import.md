@@ -1,14 +1,14 @@
 ---
-name: dev-le-input-import
+name: dev-le-17895-input-import
 description: lawear 17895 사용자 입력 모드 — PDF 문제+해설 → 자동 .md 변환 + _file_index entry. 5과목(부등법/부등서류/민사서류/형법/형소) × 2025/2026. 학습 노트화 + 강조 + TTS 친화.
 ---
 
-# dev-le-input-import — 사용자 입력 모드 PDF import 스킬
+# dev-le-17895-input-import — 사용자 입력 모드 PDF import 스킬
 
 ## 트리거
 
 - 사용자: "{과목} {연도} {카테고리} 모고 {N}회 만들어줘"
-- 또는 명시 호출 `/dev-le-input-import`
+- 또는 명시 호출 `/dev-le-17895-input-import`
 - 예: "2025 부등법 2순환 모고 1회 만들어줘"
 
 ## 입력
