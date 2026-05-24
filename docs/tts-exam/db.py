@@ -20,7 +20,7 @@ from pathlib import Path
 DB_DIR: Path = Path(__file__).parent.resolve()
 MIGRATIONS_DIR: Path = DB_DIR / "migrations"
 DEFAULT_DB_FILENAME: str = "exam.db"
-TARGET_SCHEMA_VERSION: int = 8
+TARGET_SCHEMA_VERSION: int = 9
 BUSY_TIMEOUT_MS: int = 5000  # archive #51 H2 7 ChE7 명시
 
 # 마이그레이션 매트릭스 — 버전: SQL 파일명
@@ -34,6 +34,7 @@ MIGRATIONS: dict[int, str] = {
     6: "006_subq_d_hints.sql",     # Step 24-1 — 다중설문 D안 + 시간 + 힌트 5단계
     7: "007_v6_weights.sql",       # Phase 4 (lawear-e571) — 가중치 v6 + weights_version 키
     8: "008_v7_budeunglaw_multimode.sql",  # lawear-0d65 — 부등법 5모드 채점 + 절대점수 표기
+    9: "009_civil_doc_minsaseoryu.sql",     # lawear-23d9 — 17896 민사서류 작성연습 1라운드 (subject_type='civil_doc' 백필)
 }
 
 

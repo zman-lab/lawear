@@ -96,6 +96,14 @@ _SCORE_META_RE = re.compile(r"^-\s*점수:\s*(\d+)\s*점", re.MULTILINE)
 # R-09: 자의적 해석 X — 태그 안 글자 그대로 추출, 정답 노출 방지를 위해 다른 텍스트는 사용 X.
 _BLANK2_TAG_RE = re.compile(r"\[blank2\]([\s\S]+?)\[/blank2\]")
 
+# `[blank]X[/blank]` cloze 빈칸 태그 매칭 (lawear-23d9 — 17896 민사서류 1라운드).
+# `[blank2]` 와는 별개 — `[blank]` 는 7글자 (`[`,`b`,`l`,`a`,`n`,`k`,`]`), `[blank2]` 는 8글자.
+# 정규식 \[blank\] 는 정확히 `[blank]` 7글자만 매칭. `[blank2]` 와 자동 분리됨 (글자 길이 다름).
+# 예: `[blank]연대하여[/blank]` → group1 = "연대하여"
+#     `[blank]2022. 7. 1.[/blank]` → group1 = "2022. 7. 1." (정답이 숫자로 시작해도 OK)
+# R-09 (자의 해석 금지): 태그 내부 문자 그대로 추출. AI 보강 X.
+_BLANK_TAG_RE = re.compile(r"\[blank\]([\s\S]+?)\[/blank\]")
+
 
 def _extract_blank2_chars(text: str) -> list[str]:
     """`[blank2]X[/blank2]` 태그 안 글자(들)만 순서대로 추출.
@@ -114,6 +122,50 @@ def _extract_blank2_chars(text: str) -> list[str]:
     if not text:
         return []
     return [m.group(1) for m in _BLANK2_TAG_RE.finditer(text)]
+
+
+def extract_blank_answers(text: str) -> tuple[dict[str, str], str, int]:
+    """`[blank]X[/blank]` cloze 정답 추출 + UI placeholder 치환 (lawear-23d9 17896 민사서류).
+
+    Args:
+        text: 검색 대상 본문 (보통 subq.body — 청구취지 cloze 본문).
+
+    Returns:
+        ``(blanks, body_with_placeholders, blank_count)``:
+
+        - ``blanks``: ``{"blank_1": "연대하여", "blank_2": "2022.7.1.", ...}``
+          정답값 (인덱스 1부터, [bold]/[b]/[em1] 토큰 보존 — grader 가중치 판정용).
+        - ``body_with_placeholders``: 본문에서 ``[blank]X[/blank]`` →
+          ``<input type="text" data-blank-idx="N" data-card-blank>`` 치환된 HTML 문자열.
+          UI 렌더 시 그대로 innerHTML 가능 (이미 HTML 형식).
+        - ``blank_count``: 추출된 [blank] 개수 (정수).
+
+        매칭 0건이면 ``({}, text, 0)`` (변경 X).
+
+    R-09 (자의 해석 금지):
+        - 정답값은 태그 안 raw 그대로 (가공/요약 X).
+        - placeholder 치환은 UI 입력 컴포넌트 자리 표시만 — 정답 노출 X.
+
+    예:
+        >>> extract_blank_answers("피고들은 [blank]연대하여[/blank] 지급하라.")
+        ({"blank_1": "연대하여"},
+         '피고들은 <input type="text" data-blank-idx="1" data-card-blank> 지급하라.',
+         1)
+    """
+    if not text:
+        return {}, text or "", 0
+    blanks: dict[str, str] = {}
+    idx_counter = [0]  # 클로저용 mutable
+
+    def _replace(m: "re.Match") -> str:
+        idx_counter[0] += 1
+        n = idx_counter[0]
+        blanks[f"blank_{n}"] = m.group(1)
+        # UI placeholder — input.data-blank-idx 로 식별, 채점 시 카드 안 input 전체 수집
+        return f'<input type="text" data-blank-idx="{n}" data-card-blank class="cloze-blank-input" />'
+
+    new_text = _BLANK_TAG_RE.sub(_replace, text)
+    return blanks, new_text, idx_counter[0]
 
 
 # ─── Step 24-2 다중 설문 정규식 3종 (8 .md 14 헤더 전수 100% 매칭) ───
@@ -139,6 +191,34 @@ _SUBQ_ANSWER_HEADER_RE = re.compile(
 # group1=prefix(공통된|기본적|변형된) 또는 None(prefix 없음).
 _FACTS_HEADER_RE = re.compile(
     r"^### (공통된|기본적|변형된)?\s*사실관계\s*$",
+    re.MULTILINE,
+)
+
+# lawear-23d9 (2026-05-25) — 17896 민사서류 cloze .md H2 문제 헤더.
+# 예: `## 문제 1. 연대하여 — 연대채무 (2인 연대채무자)`
+#     `## 문제 5. 공동하여 — 공동불법행위 (손괴)`
+# group1 = 문제 번호 ("1", "5"), group2 = 제목 (옵션).
+_CLOZE_PROBLEM_HEADER_RE = re.compile(
+    r"^## 문제\s+(\d+)\.\s*(.*?)\s*$",
+    re.MULTILINE,
+)
+
+# cloze .md 청구취지 헤더 (`### 청구취지 (cloze)` 또는 `### 청구취지`).
+_CLOZE_TARGET_HEADER_RE = re.compile(
+    r"^### 청구취지(?:\s*\(cloze\))?\s*$",
+    re.MULTILINE,
+)
+
+# cloze .md 힌트 헤더 (`### 힌트 (5단계)` 또는 `### 힌트`).
+_CLOZE_HINT_HEADER_RE = re.compile(
+    r"^### 힌트(?:\s*\([^)]*\))?\s*$",
+    re.MULTILINE,
+)
+
+# cloze 힌트 라인 — `- **hint_1 (라벨)**: 내용` 또는 `- **hint_2.5 (...)**: ...`.
+# group1 = 단계 ("1", "2", "2.5", "3", "4", "5"), group2 = 내용.
+_CLOZE_HINT_LINE_RE = re.compile(
+    r"^-\s*\*\*hint_([\d.]+)\s*(?:\([^)]*\))?\*\*:\s*(.+?)\s*$",
     re.MULTILINE,
 )
 
@@ -271,6 +351,112 @@ def _extract_section_body(md_text: str, header_line_pos: int, header_match_end: 
     return md_text[header_match_end:body_end].strip()
 
 
+def parse_md_subqs_cloze(md_content: str) -> list[dict]:
+    """17896 민사서류 cloze .md → subq 카드 N개 분해 (lawear-23d9 2026-05-25).
+
+    cloze .md 구조 (cloze_simple/skeleton/full 공통):
+        ## 문제 1. 제목 (h2)
+        ### 조건 (h3)
+        본문...
+        ### 청구취지 (cloze) (h3)
+        본문에 [blank]X[/blank] 포함
+        ### 힌트 (5단계) (h3)
+        - **hint_1 (...)**: ...
+        - **hint_2 (...)**: ...
+        - **hint_2.5 (...)**: ...
+        ...
+
+    Returns:
+        list[dict] — 각 카드:
+            ``{"key": "문제 1", "score_max": 1, "body": str, "answer": str,
+              "mnemonic": str, "blanks": dict, "body_with_placeholders": str,
+              "blank_count": int, "hints": dict, "is_cloze": True}``
+
+        - ``body``: 조건 + 청구취지 (cloze) 본문 (R-09 raw verbatim).
+        - ``answer``: 청구취지 정답 본문 ([blank] 제거 후 정답값 inline) — 채점 reference.
+        - ``hints``: ``{"hint_1": "내용", "hint_2": "...", "hint_2.5": "..."}`` 사전 추출.
+        - ``blanks``: extract_blank_answers 결과 (cloze 채점 정답값).
+        - ``body_with_placeholders``: UI 렌더용 <input> 치환된 HTML.
+        - ``blank_count``: 빈칸 개수.
+
+    R-09 (자의 해석 금지): 원본 .md verbatim. 정답값/힌트 가공 X.
+
+    매칭 0건이면 빈 list (호출자가 다른 parser 시도).
+    """
+    if not md_content:
+        return []
+    headers = list(_CLOZE_PROBLEM_HEADER_RE.finditer(md_content))
+    if not headers:
+        return []
+    cards: list[dict] = []
+    for i, m in enumerate(headers):
+        num = m.group(1)
+        title = m.group(2).strip()
+        key = f"문제 {num}"
+        # 현재 문제 ~ 다음 문제 직전 본문
+        start = m.end()
+        end = headers[i + 1].start() if i + 1 < len(headers) else len(md_content)
+        block = md_content[start:end]
+
+        # 조건 + 청구취지 본문 → body
+        # 청구취지 (cloze) 헤더 위치 (블록 안)
+        target_m = _CLOZE_TARGET_HEADER_RE.search(block)
+        hint_m = _CLOZE_HINT_HEADER_RE.search(block)
+        if target_m:
+            # body = 헤더 전 (조건) + target 본문 (cloze)
+            body_pre = block[:target_m.start()].strip()
+            # target 본문 = target 헤더 끝 ~ 힌트 헤더 직전
+            target_body_start = target_m.end()
+            target_body_end = hint_m.start() if hint_m else len(block)
+            target_body = block[target_body_start:target_body_end].strip()
+            # 본문 합성 — UI에 cloze 본문이 표시되어야 하므로 그대로 보존
+            body = (body_pre + "\n\n### 청구취지 (cloze)\n\n" + target_body).strip()
+        else:
+            # 청구취지 헤더 없으면 전체를 body
+            body = block.strip()
+            target_body = block.strip()
+
+        # cloze 정답 추출 + placeholder 치환 (target_body 영역만)
+        blanks, target_with_placeholders, blank_count = extract_blank_answers(target_body)
+        # body_with_placeholders — body 안 [blank] 토큰 치환 (조건 영역은 그대로)
+        _, body_with_placeholders, _ = extract_blank_answers(body)
+
+        # 정답 본문 (answer) — target_body 에서 [blank]X[/blank] → X (정답값 inline)
+        # grader 가 reference 로 활용. UI 표시 시 [bold] 토큰 제거 별도.
+        answer = _BLANK_TAG_RE.sub(lambda m: m.group(1), target_body)
+
+        # 힌트 추출 (key=hint_N, value=내용) — 단계는 1/2/2.5/3/4/5
+        hints: dict[str, str] = {}
+        if hint_m:
+            hint_block = block[hint_m.end():]
+            for hm in _CLOZE_HINT_LINE_RE.finditer(hint_block):
+                step = hm.group(1)
+                content = hm.group(2)
+                hints[f"hint_{step}"] = content
+
+        # mnemonic — body+answer 안 [blank2] (보통 0, cloze 데이터엔 없음)
+        mnemonic_chars = _extract_blank2_chars(body) + _extract_blank2_chars(answer)
+        mnemonic = ",".join(mnemonic_chars)
+
+        # score_max — 1라운드는 1점/카드 균등 (mode 별 가중치는 grader 에서 처리)
+        score_max = 1
+
+        cards.append({
+            "key": key,
+            "title": title,
+            "score_max": score_max,
+            "body": body,
+            "answer": answer,
+            "mnemonic": mnemonic,
+            "blanks": blanks,
+            "body_with_placeholders": body_with_placeholders,
+            "blank_count": blank_count,
+            "hints": hints,
+            "is_cloze": True,
+        })
+    return cards
+
+
 def parse_md_subqs(md_content: str) -> list[dict]:
     """다중 설문 .md → subq 카드 N개 분해.
 
@@ -340,6 +526,12 @@ def parse_md_subqs(md_content: str) -> list[dict]:
         mnemonic_chars = _extract_blank2_chars(body) + _extract_blank2_chars(answer)
         mnemonic = ",".join(mnemonic_chars)
 
+        # lawear-23d9 (2026-05-25) — 17896 민사서류 cloze 빈칸 추출.
+        # `[blank]X[/blank]` 패턴은 청구취지 cloze 본문에 있음 (body) — answer 영역은 N/A.
+        # 다른 과목/모드는 빈 dict 반환 (영향 0).
+        # R-09: 정답값은 raw 그대로, body_with_placeholders 는 UI 렌더 전용 (정답 노출 X).
+        blanks, body_with_placeholders, blank_count = extract_blank_answers(body)
+
         cards.append(
             {
                 "key": key,
@@ -347,6 +539,10 @@ def parse_md_subqs(md_content: str) -> list[dict]:
                 "body": body,
                 "answer": answer,
                 "mnemonic": mnemonic,
+                # lawear-23d9 — 민사서류 cloze 1라운드 신규 필드 (다른 과목은 빈 dict / 원본 body / 0)
+                "blanks": blanks,
+                "body_with_placeholders": body_with_placeholders,
+                "blank_count": blank_count,
             }
         )
     return cards
@@ -833,5 +1029,18 @@ def get_case(conn: sqlite3.Connection, case_id: str) -> dict[str, Any]:
         case["articles_hint"] = extract_case_tags(md_text, default_subject_kor="부동산등기법")
     else:
         case["articles_hint"] = []
+
+    # lawear-23d9 (2026-05-25): 17896 민사서류 cloze .md → subqs 분기.
+    # subject_type='civil_doc' 인 경우 cloze parser (H2 `## 문제 N`) 사용.
+    # 기존 parse_md_subqs (`### 설문 N` H3) 와 호환 — 둘 다 빈 list 면 단일 모드.
+    # R-09: cloze 데이터 verbatim, [blank] 토큰만 정답 추출 + UI placeholder 치환.
+    if case.get("subject_type") == "civil_doc":
+        cloze_subqs = parse_md_subqs_cloze(md_text)
+        if cloze_subqs:
+            case["subqs"] = cloze_subqs
+            # 청구원인 placeholder 표시 — UI 가 카드 placeholder 표출 시 사용
+            case["has_cause_section"] = True
+            # cloze 모드 메타 — 채점 + UI 분기용
+            case["cloze_mode"] = True
 
     return case

@@ -832,6 +832,100 @@
     line-height: 1.65;
   }
 
+  /* ─── lawear-23d9 (2026-05-25): 17896 민사서류 cloze 카드 스타일 ─── */
+  /* design_mvp1.md v2 결정 4 (input 컴포넌트) + 결정 9 (정오 표시) */
+  .cloze-card .inquiry-body.cloze-body {
+    font-size: 14px;
+    line-height: 2.0;
+    color: var(--text);
+    padding: 10px 8px;
+  }
+  .cloze-card .cloze-section-heading {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 10px 0 6px;
+    font-weight: 600;
+  }
+  /* [blank] input 컴포넌트 — 인라인 input. Tab 전이 자동(브라우저 기본). STT focus 시 음성 입력 OK. */
+  input.cloze-blank-input {
+    display: inline-block;
+    min-width: 80px;
+    padding: 2px 8px;
+    margin: 0 3px;
+    border: 1px solid var(--border);
+    border-bottom: 2px solid var(--accent, #4af);
+    border-radius: 3px;
+    background: var(--bg, #1e1e1e);
+    color: var(--text-bright, #fff);
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  input.cloze-blank-input:focus {
+    outline: none;
+    border-color: var(--accent, #4af);
+    background: var(--bg-emphasis, #2a2a2a);
+  }
+  /* 정오 표시 (✓/✗) — input 다음 span */
+  .cloze-result-mark {
+    display: inline-block;
+    margin-left: 4px;
+    padding: 0 4px;
+    font-size: 14px;
+    font-weight: 600;
+    border-radius: 3px;
+    vertical-align: middle;
+  }
+  .cloze-result-mark.cloze-exact {
+    color: var(--success, #4caf50);
+    background: rgba(76, 175, 80, 0.15);
+  }
+  .cloze-result-mark.cloze-normalized {
+    /* normalize 만점 — 노랑 (공백/구두점만 다름) */
+    color: var(--warning, #ffc107);
+    background: rgba(255, 193, 7, 0.15);
+  }
+  .cloze-result-mark.cloze-miss {
+    color: var(--danger, #f44336);
+    background: rgba(244, 67, 54, 0.15);
+  }
+  /* input 자체에도 색 반영 (채점 후 시각 강화) */
+  input.cloze-blank-input.cloze-exact { border-bottom-color: var(--success, #4caf50); }
+  input.cloze-blank-input.cloze-normalized { border-bottom-color: var(--warning, #ffc107); }
+  input.cloze-blank-input.cloze-miss { border-bottom-color: var(--danger, #f44336); }
+
+  /* 카드 채점 버튼 + 상태 */
+  .cloze-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 10px 0;
+  }
+  .cloze-blank-status {
+    font-size: 12px;
+    color: var(--text-dim);
+    font-family: 'SF Mono', Consolas, monospace;
+  }
+
+  /* 청구원인 placeholder (회색 비활성 카드) — design v2 결정 9 */
+  .sub-card.cause-placeholder {
+    background: var(--bg-muted, #2a2a2a);
+    border: 1px dashed var(--border);
+    opacity: 0.85;
+    cursor: pointer;
+    margin-top: 14px;
+  }
+  .sub-card.cause-placeholder:hover {
+    opacity: 1.0;
+  }
+  .sub-card.cause-placeholder .sub-card-header .sub-id {
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
   /* ─── History panel rows (시도 히스토리) ─── */
   #rv-history-card {
     background: var(--panel);
@@ -4828,6 +4922,279 @@
     return noData;
   }
 
+  // ─── lawear-23d9 (2026-05-25): 17896 민사서류 cloze 전용 헬퍼 ───
+  //
+  // design_mvp1.md v2 결정 4·7·9 반영:
+  //   - 결정 4: [blank] input 컴포넌트 (Tab 전이 + STT focus + 다중 빈칸)
+  //   - 결정 7: 6단계 힌트 (1/2/2.5/3/4/5) + hint 5 1택 (연결어 OR 기산일)
+  //   - 결정 9: 정오 표시 (✓/✗) + 청구원인 placeholder
+
+  // 6단계 힌트 메타 (cloze 전용)
+  const CLOZE_HINT_STEPS = [
+    { step: '1',   label: '청구 유형',         labelEn: 'Claim Type' },
+    { step: '2',   label: '청구취지 골격',      labelEn: 'Claim Skeleton' },
+    { step: '2.5', label: '사례 키워드 매칭',   labelEn: 'Keyword Mapping' },
+    { step: '3',   label: '연결어 후보',        labelEn: 'Connector Candidates' },
+    { step: '4',   label: '기산일·이율',        labelEn: 'Date·Rate' },
+    { step: '5',   label: 'key 1택',           labelEn: 'Key Element (1 of 2)' },
+  ];
+
+  // hint key 정규화 (백엔드 키: hint_1 / hint_2 / hint_2.5 / hint_3 / hint_4 / hint_5)
+  function clozeHintKey(step) {
+    return 'hint_' + String(step);
+  }
+
+  // 카드 데이터에서 단계별 hint 내용 추출 (cases.py parse_md_subqs_cloze.hints)
+  function buildClozeHintContent(card, step) {
+    const noData = `<em style="color: var(--text-dim);">${escapeHtml(I18N[currentLang].hint_no_content || '(no data)')}</em>`;
+    if (!card || !card.hints) return noData;
+    const content = card.hints[clozeHintKey(step)];
+    if (!content) return noData;
+    // 평문 → escape + 줄바꿈 처리
+    return escapeHtml(String(content)).replace(/\n/g, '<br>');
+  }
+
+  // [blank] input 컴포넌트 — body_with_placeholders 의 <input> 마커가 이미 들어있음.
+  // R-09: cases.py extract_blank_answers 가 정답값 dict 추출 + UI placeholder 치환을 모두 수행.
+  // 여기서는 body_with_placeholders 를 그대로 출력 (이미 HTML).
+  function renderClozeBody(card) {
+    const raw = (card && card.body_with_placeholders) || '';
+    if (!raw) return escapeHtml((card && card.body) || '');
+    // 본문은 마크다운/cloze 본문 — 한 줄씩 escape 후 <input> 마커는 그대로 둠.
+    // 가장 단순한 처리: <input ... /> 마커는 보존, 다른 텍스트는 그대로 (cases.py 가 raw HTML 만들어줌).
+    // 줄바꿈만 <br> 처리.
+    // NOTE: cases.py 가 본문 + `### 청구취지 (cloze)\n\n` + target_with_placeholders 합성한 결과이므로
+    //       헤더는 mini 마크다운 처리 (### 헤더 → 굵게)
+    let html = String(raw);
+    // ### 청구취지 (cloze) 헤더 → <h4>
+    html = html.replace(/^### (.+)$/mg, (m, t) => `<h4 class="cloze-section-heading">${escapeHtml(t)}</h4>`);
+    // ### 조건 등도 동일 처리. 줄바꿈은 nl2br
+    html = html.replace(/\n/g, '<br>\n');
+    return html;
+  }
+
+  // 카드별 hint count 표시 라벨 (cloze 6단계로 변경)
+  function clozeHintCountLabel(n) {
+    const tmpl = I18N[currentLang].hint_count_fmt_cloze || (currentLang === 'ko' ? 'hint {n}/6' : 'hint {n}/6');
+    return tmpl.replace('{n}', String(n));
+  }
+
+  // cloze 카드 전체 HTML 빌더 (textarea 대신 [blank] input + 6단계 힌트 + 채점 버튼)
+  function buildClozeCardHtml(card, idx, isActive, singleModeClass, idSafe, score, sugMin, subqLabel, subTitle) {
+    const cid = card.key;
+    const titleSuffix = card.title ? ` — ${escapeHtml(card.title)}` : '';
+    const blankCount = card.blank_count || 0;
+    const blankCountLabel = (currentLang === 'ko')
+      ? `${blankCount}개 빈칸`
+      : `${blankCount} blanks`;
+    // 6단계 힌트 버튼 + 패널 빌더
+    const hintBtnsHtml = CLOZE_HINT_STEPS.map(h => `
+      <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="${h.step}" data-cloze-hint="1">
+        <span class="badge-dot"></span>
+        <span>${escapeHtml(h.step + '. ' + (currentLang === 'ko' ? h.label : h.labelEn))}</span>
+      </button>`).join('');
+    const hintPanelsHtml = CLOZE_HINT_STEPS.map(h => `
+      <div class="hint-panel" data-level="${h.step}">
+        <div class="hint-body">${buildClozeHintContent(card, h.step)}</div>
+      </div>`).join('');
+
+    return `
+      <div class="sub-card${isActive ? ' active' : ''}${singleModeClass} cloze-card" data-card-id="${escapeHtml(cid)}" data-cloze="1">
+        <div class="sub-card-header" data-card-id="${escapeHtml(cid)}">
+          <span class="sub-id">${escapeHtml(cid)}${titleSuffix}</span>
+          <span class="meta-pill score">${escapeHtml(String(score))}${currentLang === 'ko' ? '점' : ' pt'}</span>
+          <span class="meta-pill">${escapeHtml(blankCountLabel)}</span>
+          <span class="meta-pill elapsed" id="elapsed-${idSafe}">00:00</span>
+          <span class="meta-pill hint-count" id="hint-count-${idSafe}">${escapeHtml(clozeHintCountLabel(0))}</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="sub-card-body">
+          <div class="sub-inquiry">
+            <div class="inquiry-body cloze-body">${renderClozeBody(card)}</div>
+          </div>
+          <div class="hint-bar">
+            <span class="hint-label">${I18N[currentLang].hint_label || '힌트'}</span>
+            ${hintBtnsHtml}
+            <span class="spacer"></span>
+            <span class="hint-count-info" id="hint-info-${idSafe}">${(I18N[currentLang].hint_n_used || '{n}회 사용').replace('{n}', '0')}</span>
+          </div>
+          <div class="hint-panels-wrap" id="hint-panels-wrap-${idSafe}">
+            <div class="hint-panels-header" data-card="${escapeHtml(cid)}">
+              <span class="chev">▶</span>
+              <span>${I18N[currentLang].hint_panel_label || '힌트 패널'}</span>
+              <span class="spacer"></span>
+              <span class="hp-count" id="hp-count-${idSafe}">0/6</span>
+            </div>
+            <div class="hint-panels" id="hint-panels-${idSafe}">
+              ${hintPanelsHtml}
+            </div>
+          </div>
+          <div class="sub-answer-block">
+            <div class="cloze-actions">
+              <button type="button" class="btn primary" data-cloze-grade="${escapeHtml(cid)}">
+                ${currentLang === 'ko' ? '카드 채점' : 'Grade Card'}
+              </button>
+              <span class="cloze-blank-status" id="cloze-status-${idSafe}"></span>
+            </div>
+            <div class="sub-grade-result" id="sub-grade-${idSafe}">
+              <div class="grade-head">
+                <span class="grade-score">--/--</span>
+                <span class="grade-label">--</span>
+              </div>
+              <div class="grade-comment"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // 청구원인 placeholder (1라운드 회색 비활성 카드)
+  function buildCauseSectionPlaceholderHtml() {
+    const title = (currentLang === 'ko')
+      ? '청구원인 작성 (2라운드 예고)'
+      : 'Statement of Cause (Round 2 Preview)';
+    const message = (currentLang === 'ko')
+      ? '<strong>1~3단계는 2라운드 예고</strong> — idea4 4단계 중 4단계만 1라운드, 1~3단계는 다음 라운드'
+      : '<strong>Steps 1–3 deferred to Round 2</strong> — idea4: step 4 in round 1, steps 1–3 in round 2';
+    const tooltipMsg = (currentLang === 'ko')
+      ? '2라운드에서 활성화됩니다'
+      : 'Activated in Round 2';
+    return `
+      <div class="sub-card cause-placeholder" data-cause-placeholder="1" title="${escapeHtml(tooltipMsg)}">
+        <div class="sub-card-header">
+          <span class="sub-id">${escapeHtml(title)}</span>
+          <span class="meta-pill" style="background: var(--bg-muted, #444); color: var(--text-dim);">${currentLang === 'ko' ? '예고' : 'Preview'}</span>
+        </div>
+        <div class="sub-card-body" style="opacity: 0.55; pointer-events: none;">
+          <div class="sub-inquiry" style="padding: 16px; color: var(--text-dim); font-style: italic;">
+            ${message}
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // cloze 카드 이벤트 wire (채점 버튼 + 청구원인 placeholder 토스트)
+  function wireClozeCardEvents() {
+    document.querySelectorAll('#rv-cards-container [data-cloze-grade]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cid = btn.dataset.clozeGrade;
+        if (cid) gradeClozeCard(cid);
+      });
+    });
+    // 청구원인 placeholder 클릭 → 토스트 (활성/비활성 분리)
+    document.querySelectorAll('#rv-cards-container [data-cause-placeholder]').forEach(el => {
+      el.addEventListener('click', () => {
+        const msg = (currentLang === 'ko')
+          ? '청구원인 작성은 2라운드에서 활성화됩니다 (idea4 1~3단계).'
+          : 'Cause writing will be activated in Round 2 (idea4 steps 1–3).';
+        try { showToast(msg, 'info'); } catch (e) { /* fallback */ alert(msg); }
+      });
+    });
+  }
+
+  // 카드별 [blank] input 값 수집 (data-blank-idx 순서대로 → blanks dict)
+  function collectClozeBlanks(cardId) {
+    const sel = `#rv-cards-container .sub-card[data-card-id="${cssQuoteAttr(cardId)}"] input[data-card-blank]`;
+    const inputs = document.querySelectorAll(sel);
+    const blanks = {};
+    inputs.forEach(inp => {
+      const idx = parseInt(inp.dataset.blankIdx, 10);
+      if (Number.isInteger(idx) && idx > 0) {
+        blanks['blank_' + idx] = inp.value || '';
+      }
+    });
+    return blanks;
+  }
+
+  // 카드 채점 — 백엔드 POST 대신 즉시 frontend 비교 후 정오 표시 (1라운드 단순 모드)
+  // R-09: 정답값은 card.blanks (cases.py 추출). normalize 만점 = 노랑 ✓.
+  function gradeClozeCard(cardId) {
+    const card = (CURRENT_SUBQ_CARDS || []).find(c => c.key === cardId);
+    if (!card || !card.blanks) {
+      try { showToast('카드 데이터 누락', 'error'); } catch (e) { alert('카드 데이터 누락'); }
+      return;
+    }
+    const userBlanks = collectClozeBlanks(cardId);
+    const correctBlanks = card.blanks || {};
+    const idSafe = cssEscapeId(cardId);
+
+    let totalBlanks = 0;
+    let exactCount = 0;
+    let normalCount = 0;
+    let missCount = 0;
+
+    Object.keys(correctBlanks).forEach(key => {
+      totalBlanks++;
+      // bold 토큰 제거한 정답값
+      const rawCorrect = String(correctBlanks[key] || '');
+      const correct = rawCorrect.replace(/\[(?:bold|b|em1)\]([\s\S]+?)\[\/(?:bold|b|em1)\]/g, '$1');
+      const userInp = String(userBlanks[key] || '');
+      const inpSel = `#rv-cards-container .sub-card[data-card-id="${cssQuoteAttr(cardId)}"] input[data-blank-idx="${key.replace('blank_', '')}"]`;
+      const inp = document.querySelector(inpSel);
+      if (!inp) return;
+      // 기존 마크 제거
+      const old = inp.parentElement.querySelector('.cloze-mark-' + escapeHtml(key));
+      if (old) old.remove();
+      inp.classList.remove('cloze-exact', 'cloze-normalized', 'cloze-miss');
+
+      // 비교 — normalize 공백 제거
+      const norm = (s) => String(s || '').replace(/[\s 　]+/g, '').trim();
+      let markCls = 'cloze-miss';
+      let markChar = '✗';
+      if (userInp === correct) {
+        markCls = 'cloze-exact';
+        markChar = '✓';
+        exactCount++;
+      } else if (norm(userInp) === norm(correct) && norm(correct)) {
+        markCls = 'cloze-normalized';
+        markChar = '✓';
+        normalCount++;
+      } else {
+        missCount++;
+      }
+      inp.classList.add(markCls);
+      // 정오 마크 (input 옆 span)
+      const mark = document.createElement('span');
+      mark.className = `cloze-result-mark ${markCls} cloze-mark-${key}`;
+      mark.textContent = markChar;
+      mark.title = (currentLang === 'ko')
+        ? (markCls === 'cloze-exact' ? '정답 (완전일치)'
+          : markCls === 'cloze-normalized' ? `정답 (normalize 만점) — 정답: ${correct}`
+          : `오답 — 정답: ${correct}`)
+        : (markCls === 'cloze-exact' ? 'Exact match'
+          : markCls === 'cloze-normalized' ? `Normalized match — correct: ${correct}`
+          : `Miss — correct: ${correct}`);
+      if (inp.parentElement) inp.parentElement.insertBefore(mark, inp.nextSibling);
+    });
+
+    const correctCount = exactCount + normalCount;
+    const pct = totalBlanks > 0 ? (correctCount / totalBlanks * 100) : 0;
+    const grEl = document.getElementById('sub-grade-' + idSafe);
+    const statusEl = document.getElementById('cloze-status-' + idSafe);
+    if (grEl) {
+      const scoreEl = grEl.querySelector('.grade-score');
+      const labelEl = grEl.querySelector('.grade-label');
+      const commentEl = grEl.querySelector('.grade-comment');
+      if (scoreEl) scoreEl.textContent = `${correctCount}/${totalBlanks}`;
+      if (labelEl) labelEl.textContent = `${Math.round(pct)}%`;
+      if (commentEl) {
+        const msg = (currentLang === 'ko')
+          ? `정확히 일치 ${exactCount}, normalize 만점 ${normalCount}, 오답 ${missCount}.`
+          : `Exact ${exactCount}, normalized ${normalCount}, miss ${missCount}.`;
+        commentEl.textContent = msg;
+      }
+      grEl.classList.add('shown');
+    }
+    if (statusEl) {
+      statusEl.textContent = (currentLang === 'ko')
+        ? `${correctCount} / ${totalBlanks} 정답`
+        : `${correctCount} / ${totalBlanks} correct`;
+    }
+  }
+
   // ─── 카드 렌더링 ───
   function renderSubqCards(caseData) {
     const sec = document.getElementById('rv-cards-section');
@@ -4924,6 +5291,9 @@
     // 카드 HTML 생성
     // lawear-0d65 (2026-05-24) — 부등법은 Lv.1(목차)/Lv.4(결론+근거) 힌트 무의미 → 숨김 (Lv.2/3/5만 노출).
     const hideBudeunglawHints = isBudeunglaw(caseData);
+    // lawear-23d9 (2026-05-25) — 17896 민사서류 cloze 분기.
+    //   cloze 카드는 textarea 대신 [blank] input 컴포넌트 + 6단계 힌트(1/2/2.5/3/4/5).
+    const isCivilDocCloze = isMinsaseoryu(caseData);
     const html = subqs.map((card, idx) => {
       const cid = card.key;
       const idSafe = cssEscapeId(cid);
@@ -4944,6 +5314,14 @@
       // 단일 모드: 카드 1개뿐이고 key='단일' — 헤더 sub-title("단일" 중복) + 본문 inquiry-label("설문 · 단일") 양쪽 hide.
       // 다중 모드: "설문 1 가" 등 식별자 라벨 필수 → 표시 유지.
       const singleModeClass = isSingleMode ? ' single-mode' : '';
+
+      // ── lawear-23d9: 17896 민사서류 cloze 카드 분기 ──
+      // 6단계 힌트(1/2/2.5/3/4/5) + body_with_placeholders([blank] → <input>) + 카드별 채점 버튼
+      // (design_mvp1.md v2 결정 4·7·9)
+      if (isCivilDocCloze) {
+        return buildClozeCardHtml(card, idx, isActive, singleModeClass, idSafe, score, sugMin, subqLabel, subTitle);
+      }
+
       return `
         <div class="sub-card${isActive ? ' active' : ''}${singleModeClass}" data-card-id="${escapeHtml(cid)}">
           <div class="sub-card-header" data-card-id="${escapeHtml(cid)}">
@@ -5001,10 +5379,21 @@
       `;
     }).join('');
 
-    container.innerHTML = html;
+    // lawear-23d9 (2026-05-25) — 17896 민사서류 cloze 케이스: 카드 N개 뒤에 청구원인 placeholder 추가.
+    // design_mvp1.md v2 결정 9 — "1~3단계는 2라운드 예고" 시각화.
+    let finalHtml = html;
+    if (isCivilDocCloze && (caseData.has_cause_section || subqs.length > 0)) {
+      finalHtml += buildCauseSectionPlaceholderHtml();
+    }
+
+    container.innerHTML = finalHtml;
     if (labelEl) {
       const tmpl = I18N[currentLang].cards_label || '하위 설문 카드 ({n})';
       labelEl.textContent = tmpl.replace('{n}', subqs.length);
+    }
+    // lawear-23d9 (2026-05-25) — cloze 카드 wire: 카드별 채점 버튼 + 청구원인 placeholder 토스트.
+    if (isCivilDocCloze) {
+      wireClozeCardEvents();
     }
 
     // 카드별 상태 초기화
@@ -5096,21 +5485,29 @@
   }
 
   function revealHint(cardId, level) {
-    const lvInt = parseInt(level, 10);
+    // lawear-23d9 (2026-05-25): cloze 6단계 호환 — '2.5' 단계는 float로 보존.
+    // legacy 카드는 parseInt OK (1~5 정수 단계).
+    const lvStr = String(level);
+    // cloze 카드면 data-level 문자열 그대로 사용 (2.5 등)
+    const cardEl = document.querySelector(`#rv-cards-container .sub-card[data-card-id="${cssQuoteAttr(cardId)}"]`);
+    const isCloze = cardEl && cardEl.dataset.cloze === '1';
+    const lvKey = isCloze ? lvStr : parseInt(lvStr, 10);
     const idSafe = cssEscapeId(cardId);
-    const btn = document.querySelector(`#rv-cards-container .hint-btn[data-card="${cssQuoteAttr(cardId)}"][data-level="${lvInt}"]`);
-    const panel = document.querySelector(`#hint-panels-${idSafe} .hint-panel[data-level="${lvInt}"]`);
+    const btn = document.querySelector(`#rv-cards-container .hint-btn[data-card="${cssQuoteAttr(cardId)}"][data-level="${lvKey}"]`);
+    const panel = document.querySelector(`#hint-panels-${idSafe} .hint-panel[data-level="${lvKey}"]`);
     if (!btn || !panel) return;
     // disabled 가드 (Lv.2 두문자 없음 등 — 단축키/외부 호출 안전망)
     if (btn.disabled || btn.classList.contains('disabled')) return;
-    if (lvInt === 5 && !btn.classList.contains('revealed')) {
+    // hint 5 확인 (cloze 도 동일: design v2 결정 7 — key element 1개 노출)
+    if ((lvKey === 5 || lvStr === '5') && !btn.classList.contains('revealed')) {
       const msg = I18N[currentLang].hint_lv5_confirm || 'Reveal Lv.5?';
       if (!confirm(msg)) return;
     }
     btn.classList.add('revealed');
     panel.classList.add('shown');
     if (!HINT_USED[cardId]) HINT_USED[cardId] = new Set();
-    HINT_USED[cardId].add(lvInt);
+    // cloze 는 float (2.5) 보존, legacy 는 int
+    HINT_USED[cardId].add(isCloze ? parseFloat(lvStr) : (lvKey || parseFloat(lvStr)));
     expandHintPanels(cardId);
     updateHintCount(cardId);
   }
@@ -5148,9 +5545,15 @@
   function updateHintCount(cardId) {
     const idSafe = cssEscapeId(cardId);
     const n = (HINT_USED[cardId] || new Set()).size;
+    // lawear-23d9 (2026-05-25): cloze 카드는 6단계 힌트 (/6 표시)
+    const cardEl = document.querySelector(`#rv-cards-container .sub-card[data-card-id="${cssQuoteAttr(cardId)}"]`);
+    const isCloze = cardEl && cardEl.dataset.cloze === '1';
+    const maxSteps = isCloze ? 6 : 5;
     const pill = document.getElementById('hint-count-' + idSafe);
     if (pill) {
-      const tmpl = I18N[currentLang].hint_count_fmt || 'hint {n}/5';
+      const tmpl = isCloze
+        ? (I18N[currentLang].hint_count_fmt_cloze || 'hint {n}/6')
+        : (I18N[currentLang].hint_count_fmt || 'hint {n}/5');
       pill.textContent = tmpl.replace('{n}', n);
     }
     const info = document.getElementById('hint-info-' + idSafe);
@@ -5159,7 +5562,7 @@
       info.textContent = tmpl.replace('{n}', n);
     }
     const hp = document.getElementById('hp-count-' + idSafe);
-    if (hp) hp.textContent = n + '/5';
+    if (hp) hp.textContent = n + '/' + maxSteps;
   }
 
   function updateCardCharInfo(cardId) {
@@ -5321,6 +5724,9 @@
   });
 
   // ─── 카드 모드 submit ───
+  // lawear-23d9 (2026-05-25): 17896 민사서류 cloze 카드 호환.
+  //   cloze 카드는 textarea 없이 input[data-card-blank] 들에서 blanks dict 수집 →
+  //   answer_subq[cid] = JSON.stringify({format:'cloze', blanks, raw_text})
   async function submitAttemptCards() {
     if (!CURRENT_CASE_ID) return;
     // 답안 수집
@@ -5328,11 +5734,28 @@
     const subq_elapsed = {};
     const hints_used = serializeHintsUsed();
     let anyAnswer = false;
+    const caseDataNow = (typeof CURRENT_CASE_DATA !== 'undefined' && CURRENT_CASE_DATA) ? CURRENT_CASE_DATA : null;
+    const isClozeSubmit = isMinsaseoryu(caseDataNow);
     (CURRENT_SUBQ_CARDS || []).forEach(card => {
-      const ta = document.querySelector(`#rv-cards-container textarea[data-card-textarea="${cssQuoteAttr(card.key)}"]`);
-      const txt = (ta && ta.value || '').trim();
-      if (txt) anyAnswer = true;
-      answer_subq[card.key] = txt;
+      // cloze 카드 — input[data-card-blank] 수집 + JSON wrap
+      if (isClozeSubmit || (card && card.is_cloze)) {
+        const blanks = collectClozeBlanks(card.key);
+        const hasAny = Object.values(blanks).some(v => String(v || '').trim() !== '');
+        if (hasAny) anyAnswer = true;
+        // raw_text — body_with_placeholders 의 input 자리에 사용자 입력 대입한 재구성 (옵션)
+        const rawText = Object.keys(blanks).sort().map(k => blanks[k]).join(' | ');
+        answer_subq[card.key] = JSON.stringify({
+          format: 'cloze',
+          blanks: blanks,
+          raw_text: rawText,
+        });
+      } else {
+        // legacy textarea 카드
+        const ta = document.querySelector(`#rv-cards-container textarea[data-card-textarea="${cssQuoteAttr(card.key)}"]`);
+        const txt = (ta && ta.value || '').trim();
+        if (txt) anyAnswer = true;
+        answer_subq[card.key] = txt;
+      }
       subq_elapsed[card.key] = TIMER.cardSec[card.key] || 0;
     });
     if (!anyAnswer) {
@@ -5401,6 +5824,12 @@
       document.querySelectorAll('#rv-cards-container textarea[data-card-textarea]').forEach(ta => {
         ta.value = '';
       });
+      // lawear-23d9: cloze input 비우기 + 정오 표시 reset
+      document.querySelectorAll('#rv-cards-container input[data-card-blank]').forEach(inp => {
+        inp.value = '';
+        inp.classList.remove('cloze-exact', 'cloze-normalized', 'cloze-miss');
+      });
+      document.querySelectorAll('#rv-cards-container .cloze-result-mark').forEach(el => el.remove());
       Object.keys(HINT_USED).forEach(cid => {
         if (HINT_USED[cid] && HINT_USED[cid].clear) HINT_USED[cid].clear();
         const idSafe = cssEscapeId(cid);
@@ -5827,16 +6256,23 @@
       //   facts 빈 + question 있으면 '공통사실관계 별도 안내', 둘 다 빈 경우만 err_load.
       // lawear-0d65 (2026-05-24): 부등법(problem_answer)은 c.origin 전체가 ## 문제 본문 → split skip + 원문 그대로 inquiry.
       //   사실관계/문제 구분 없는 단일 설문 형식이라 background 영역 비움 (외부 안내 텍스트).
-      if (isBudeunglaw(c)) {
+      // lawear-23d9 (2026-05-25): 17896 민사서류 cloze 도 동일 — H2 문제별 카드 split, origin 사이드패널은 외부 안내.
+      if (isBudeunglaw(c) || isMinsaseoryu(c)) {
         if (bgEl) {
           bgEl.innerHTML = `<span style="color: var(--text-dim); font-style: italic;">${I18N[currentLang].sec_background_external || '—'}</span>`;
         }
         if (inqEl) {
-          const originText = (c.origin || '').trim();
-          if (originText) {
-            inqEl.innerHTML = renderOriginText(originText);
+          // 민사서류는 H1 제목만 (각 문제는 카드로 별도 렌더)
+          if (isMinsaseoryu(c)) {
+            const titleText = c.title || '';
+            inqEl.innerHTML = `<div style="color: var(--text-dim); font-style: italic; padding: 4px 0;">${escapeHtml(currentLang === 'ko' ? '문제는 아래 카드에서 풀이' : 'See cards below')}</div>`;
           } else {
-            inqEl.textContent = I18N[currentLang].err_load;
+            const originText = (c.origin || '').trim();
+            if (originText) {
+              inqEl.innerHTML = renderOriginText(originText);
+            } else {
+              inqEl.textContent = I18N[currentLang].err_load;
+            }
           }
         }
       } else {
@@ -7217,6 +7653,77 @@
     wireMultiModeToggle(host);
   }
 
+  // lawear-23d9 (2026-05-25): 17896 민사서류 cloze 결과 표시 (modal 안 9기준 grid 대체).
+  //   eval_notes_json.civil_doc_cloze_summary + subqs_results 에서 blank 집계 + 청구원인 placeholder.
+  function buildClozeResultHtml(att) {
+    if (!att) return '';
+    let summary = null;
+    let subqsResults = [];
+    let causeNote = null;
+    try {
+      const en = att.eval_notes_json || att.eval_notes;
+      const obj = (typeof en === 'string') ? JSON.parse(en) : en;
+      if (obj && obj.civil_doc_cloze_summary) {
+        const sum = obj.civil_doc_cloze_summary;
+        summary = sum.blank_summary || null;
+        causeNote = sum.cause_placeholder_note || null;
+      }
+      if (obj && Array.isArray(obj.subqs_results)) {
+        subqsResults = obj.subqs_results;
+      }
+    } catch (e) { /* legacy fallback */ }
+
+    const title = (currentLang === 'ko') ? '청구취지 cloze 결과' : 'Cloze Result';
+    let body = '';
+    if (summary) {
+      const total = summary.total_blanks || 0;
+      const correct = summary.correct_count || 0;
+      const pre = summary.pre_penalty_pct || 0;
+      const hp = summary.hint_penalty_pct || 0;
+      const blanksLabel = (currentLang === 'ko')
+        ? `총 ${total}개 빈칸 · 정답 ${correct}개 (R-09 normalize 만점 포함)`
+        : `${total} blanks · ${correct} correct (R-09 normalize)`;
+      const penaltyLabel = (hp > 0)
+        ? `${currentLang === 'ko' ? '힌트 감점 ' : 'Hint penalty '} ${hp.toFixed(1)}% (${currentLang === 'ko' ? '미감점 점수' : 'Pre-penalty'} ${pre.toFixed(1)}%)`
+        : `${currentLang === 'ko' ? '힌트 미사용' : 'No hints used'} (${pre.toFixed(1)}%)`;
+      body += `<div style="font-size: 12px; line-height: 1.7; margin: 8px 0;">
+        <div>${escapeHtml(blanksLabel)}</div>
+        <div style="color: var(--text-dim); margin-top: 4px;">${escapeHtml(penaltyLabel)}</div>
+      </div>`;
+    }
+    // 카드별 결과 (subqs_results)
+    if (Array.isArray(subqsResults) && subqsResults.length > 0) {
+      body += '<table style="width: 100%; font-size: 11px; margin-top: 8px; border-collapse: collapse;">';
+      body += `<thead><tr style="border-bottom: 1px solid var(--border);">
+        <th style="text-align: left; padding: 4px 6px;">${currentLang === 'ko' ? '문제' : 'Q'}</th>
+        <th style="text-align: right; padding: 4px 6px;">${currentLang === 'ko' ? '빈칸' : 'Blanks'}</th>
+        <th style="text-align: right; padding: 4px 6px;">${currentLang === 'ko' ? '정답' : 'Correct'}</th>
+        <th style="text-align: right; padding: 4px 6px;">${currentLang === 'ko' ? '점수' : 'Score'}</th>
+      </tr></thead><tbody>`;
+      for (const r of subqsResults) {
+        body += `<tr style="border-bottom: 1px dashed var(--border);">
+          <td style="padding: 4px 6px;">${escapeHtml(String(r.key || '—'))}</td>
+          <td style="text-align: right; padding: 4px 6px; font-family: monospace;">${r.blank_count || 0}</td>
+          <td style="text-align: right; padding: 4px 6px; font-family: monospace;">${r.correct_count || 0}</td>
+          <td style="text-align: right; padding: 4px 6px; font-family: monospace;">${(r.score_pct != null ? Number(r.score_pct).toFixed(0) : '—')}%</td>
+        </tr>`;
+      }
+      body += '</tbody></table>';
+    }
+    // 청구원인 placeholder note (2라운드 예고)
+    const note = causeNote || ((currentLang === 'ko')
+      ? '청구원인 작성은 2라운드 예고 — idea4 4단계 중 4단계만 1라운드, 1~3단계는 다음 라운드'
+      : 'Cause writing deferred to Round 2 — idea4 step 4 in round 1, steps 1–3 in round 2');
+    body += `<div style="margin-top: 12px; padding: 8px 10px; background: var(--bg-muted, #2a2a2a); border-left: 3px solid var(--warning, #ffc107); font-size: 11px; color: var(--text-dim); font-style: italic;">
+      ${escapeHtml(note)}
+    </div>`;
+
+    return `<div class="cloze-result-block" style="margin-top: 14px; padding: 10px; border: 1px solid var(--border); border-radius: 4px; background: var(--panel);">
+      <div style="font-size: 11px; color: var(--text-dim); font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;">${escapeHtml(title)}</div>
+      ${body}
+    </div>`;
+  }
+
   // lawear-0d65 (2026-05-24) — 5모드 mode row 클릭 시 detail row 토글 (기본 접힘).
   //   이벤트 위임 — host 별로 1회 등록. 시험탭/모달 양쪽 공용.
   function wireMultiModeToggle(host) {
@@ -8200,6 +8707,18 @@
     if (c.subject_kor === '부동산등기법') return true;
     const subj = (c.subject != null) ? String(c.subject).toLowerCase() : '';
     if (subj === 'budeunglaw') return true;
+    return false;
+  }
+  // lawear-23d9 (2026-05-25) — 17896 민사서류 (civil_doc) 판정 헬퍼.
+  //   subject_type='civil_doc' OR subject_kor='민사서류' OR subject='minsaseoryu'
+  //   3가지 신호 중 하나라도 True 면 민사서류. case 객체(또는 attempt) 양쪽 호환.
+  //   cloze_mode='cloze_simple'/'cloze_skeleton'/'cloze_full' 메타도 동반.
+  function isMinsaseoryu(c) {
+    if (!c) return false;
+    if (c.subject_type === 'civil_doc') return true;
+    if (c.subject_kor === '민사서류') return true;
+    const subj = (c.subject != null) ? String(c.subject).toLowerCase() : '';
+    if (subj === 'minsaseoryu') return true;
     return false;
   }
 
@@ -9805,6 +10324,10 @@
     //   * caseData.subject_type='problem_answer' OR att.grading_mode_v2='multi'
     //   * 부등법이면 우측 9기준 탭을 5모드 비교표로 치환 + 좌측 원본 탭에 lv4 모범답안 추가.
     const isBudeunglawCase = isBudeunglaw(MODAL_STATE.caseData) || (att && att.grading_mode_v2 === 'multi');
+    // lawear-23d9 (2026-05-25) — 17896 민사서류 (civil_doc) cloze 분기 신호.
+    //   * caseData.subject_type='civil_doc' OR att.grading_mode='civil_doc_cloze'
+    //   * 민사서류면 우측 9기준 탭을 cloze 빈칸 결과 + 청구원인 placeholder 로 치환.
+    const isMinsaseoryuCase = isMinsaseoryu(MODAL_STATE.caseData) || (att && att.grading_mode === 'civil_doc_cloze');
 
     // 우 — 9기준 탭 (점수 메타 + criterion 바 — 기존 그대로 유지)
     let html = '';
@@ -9877,6 +10400,17 @@
         const mmHtml = buildMultiModeTableHtml(att);
         if (mmHtml) {
           html += mmHtml;
+        }
+      }
+      // lawear-23d9 (2026-05-25) — 17896 민사서류 cloze 결과 표시.
+      //   eval_notes_json 에 civil_doc_cloze_summary + subqs_results 가 있음.
+      //   blank_summary (총 빈칸/정답/normalize) + 청구원인 placeholder note 표시.
+      if (isMinsaseoryuCase) {
+        try {
+          const mhtml = buildClozeResultHtml(att);
+          if (mhtml) html += mhtml;
+        } catch (e) {
+          console.warn('buildClozeResultHtml failed:', e);
         }
       }
       // lawear-c63e Sub2 — 9기준 탭은 메타 + criterion 바까지만.

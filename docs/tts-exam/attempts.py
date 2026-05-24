@@ -406,6 +406,13 @@ def _grade_async(
         return _grade_async_budeunglaw_multimode(
             db_path, attempt_id, case_meta, answer_text, started
         )
+    # ── lawear-23d9 (2026-05-25): 17896 민사서류 cloze 분기 ────────────────
+    # subject_type='civil_doc' → minsaseoryu_grader 청구취지 diff 채점.
+    # design_mvp1.md v2 결정 5 (점수공식 normalize 만점) + 결정 6 (3 modes).
+    if subject_type == "civil_doc":
+        return _grade_async_minsaseoryu_cloze(
+            db_path, attempt_id, case_meta, answer_text, started
+        )
     # ── 기존 민법/민소 단일 채점 로직 (변경 X) ────────────────────────────
     try:
         # Grader 호출 (mock 모드 자동 판정 — env LAWEAR_GRADER_MOCK 또는 ANTHROPIC_API_KEY 미설정)
@@ -550,6 +557,139 @@ def _save_grade_budeunglaw_multimode(
                 multi_json,
                 hybrid.get("absolute_score"),
                 hybrid.get("absolute_max"),
+                attempt_id,
+            ),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _grade_async_minsaseoryu_cloze(
+    db_path: str,
+    attempt_id: int,
+    case_meta: dict[str, Any],
+    answer_text: str,
+    started: float,
+) -> None:
+    """lawear-23d9 (2026-05-25): 17896 민사서류 청구취지 cloze 채점 (background thread).
+
+    minsaseoryu_grader.grade() 호출 → result 를 attempts row 에 저장.
+    design_mvp1.md v2 결정 5 (점수공식 normalize 만점, bold 1.5배) 그대로 반영.
+
+    Args:
+        case_meta: cases.get_case 결과 — subqs 포함 (parse_md_subqs_cloze 결과).
+                   각 subq.blanks 가 정답값 dict.
+        answer_text: 사용자 답안 JSON 문자열
+                     ({"format": "cloze", "blanks": {...}, "raw_text": "..."})
+                     또는 legacy 단순 텍스트.
+    """
+    try:
+        # hints_used 는 attempts.create_attempt 가 컬럼에 별도 저장 — DB 에서 read
+        hints_dict: dict[str, Any] | None = None
+        try:
+            _conn = sqlite3.connect(db_path)
+            _conn.row_factory = sqlite3.Row
+            row = _conn.execute(
+                "SELECT hints_used FROM attempts WHERE id=?", (attempt_id,)
+            ).fetchone()
+            _conn.close()
+            if row and row["hints_used"]:
+                try:
+                    hints_dict = json.loads(row["hints_used"])
+                except json.JSONDecodeError:
+                    hints_dict = None
+        except sqlite3.DatabaseError:
+            hints_dict = None
+
+        import minsaseoryu_grader as mgrader
+        result = mgrader.grade(case_meta, answer_text, hints_used=hints_dict, db=db_path)
+    except Exception as e:  # noqa: BLE001
+        _mark_attempt_error(
+            db_path, attempt_id,
+            error_code="minsaseoryu_grader_failure",
+            error_message=f"{type(e).__name__}: {e}",
+            elapsed=time.monotonic() - started,
+        )
+        return
+
+    try:
+        _save_grade_minsaseoryu_cloze(
+            db_path, attempt_id, result,
+            elapsed=time.monotonic() - started,
+        )
+    except sqlite3.DatabaseError as e:
+        _mark_attempt_error(
+            db_path, attempt_id,
+            error_code="db_error",
+            error_message=f"minsaseoryu_save_failed: {e}",
+            elapsed=time.monotonic() - started,
+        )
+
+
+def _save_grade_minsaseoryu_cloze(
+    db_path: str,
+    attempt_id: int,
+    result: dict[str, Any],
+    elapsed: float | None = None,
+) -> None:
+    """민사서류 cloze 채점 결과를 attempts row 에 저장 (lawear-23d9 2026-05-25).
+
+    attempt_criteria 는 skip (cloze 채점 키 'cloze_match'/'hint_penalty' 는 기존 9키 CHECK 미호환 — eval_notes_json 에만).
+
+    저장 컬럼:
+      - status='done', completed_at, elapsed_sec, model, is_mock
+      - score_total / score_max / score_pct / grade
+      - eval_notes_json (blank_summary + subqs_results)
+      - grading_mode='civil_doc_cloze'
+      - absolute_score / absolute_max (case.points 기반 환산)
+    """
+    completed_at = _utcnow_iso()
+    pct = result.get("pct", 0.0)
+    total = result.get("total", 0.0)
+    max_v = result.get("max", 100.0)
+    grade_v = result.get("grade", "F")
+
+    eval_notes_payload: dict[str, Any] = {
+        "civil_doc_cloze_summary": result.get("eval_notes", {}),
+        "subqs_results": result.get("subqs_results", []),
+        "criteria_summary": result.get("criteria", []),
+    }
+
+    # absolute_score 환산 — case.points 가 있으면 그것 기준, 없으면 100점 환산
+    # (cloze 1라운드는 points 0 인 경우 많음 — pct 그대로)
+    absolute_score = None
+    absolute_max = None
+
+    diff_json = json.dumps(result.get("diff_segments", []), ensure_ascii=False)
+    raw_json = json.dumps(result, ensure_ascii=False)
+
+    conn = sqlite3.connect(db_path)
+    try:
+        conn.execute("BEGIN")
+        conn.execute(
+            """UPDATE attempts SET
+                 status='done',
+                 score_total=?, score_max=?, score_pct=?, grade=?,
+                 model=?, eval_notes_json=?, diff_json=?, raw_response=?,
+                 completed_at=?, elapsed_sec=?, is_mock=?,
+                 grading_mode='civil_doc_cloze',
+                 absolute_score=?, absolute_max=?
+               WHERE id=?""",
+            (
+                total,
+                max_v,
+                pct,
+                _map_grade_v2_to_db_letter(grade_v),
+                result.get("weights_version", "v8_civil_doc_cloze"),
+                json.dumps(eval_notes_payload, ensure_ascii=False),
+                diff_json,
+                raw_json,
+                completed_at,
+                elapsed,
+                0,  # is_mock — cloze 채점은 항상 실제 (API 호출 없음, 단순 비교)
+                absolute_score,
+                absolute_max,
                 attempt_id,
             ),
         )
