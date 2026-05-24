@@ -2761,8 +2761,8 @@
       <input type="text" class="search" placeholder="Search by ID or keyword…" data-i18n-ph="search_ph">
       <!-- lawear-0d65: 17895 사이드 패널 expand/collapse 미러 -->
       <div class="filter-row" style="gap:6px; margin-top:6px;">
-        <button id="btn-expand-all-cases" title="모두 펼침" style="flex:1;">⊞ 모두 펼침</button>
-        <button id="btn-collapse-all-cases" title="모두 접기" style="flex:1;">⊟ 모두 접기</button>
+        <button type="button" id="btn-expand-all-cases" title="모두 펼침" style="flex:1;">⊞ 모두 펼침</button>
+        <button type="button" id="btn-collapse-all-cases" title="모두 접기" style="flex:1;">⊟ 모두 접기</button>
       </div>
     </div>
     <div class="case-list" id="case-list">
@@ -4130,19 +4130,25 @@
 
   // ─── lawear-0d65: case-list expand-all / collapse-all (17895 mirror) ─────
   // 17895 docs/tts/index.html L135-141의 expandAll/collapseAll과 동일 패턴.
-  // case-list 내 모든 .tree-node 의 .collapsed 클래스 일괄 토글.
+  // case-list 내 모든 .tree-node 의 .collapsed 클래스 일괄 토글 + tree-state 일괄 저장.
+  // (state 저장 안 하면 다음 renderCaseList 호출 시 localStorage state로 복원되어 사용자가 "동작 안 함" 경험)
   const _btnExpand = document.getElementById('btn-expand-all-cases');
   const _btnCollapse = document.getElementById('btn-collapse-all-cases');
-  if (_btnExpand) {
-    _btnExpand.addEventListener('click', () => {
-      document.querySelectorAll('#case-list .tree-node').forEach(n => n.classList.remove('collapsed'));
+  function _toggleAllCaseTreeNodes(collapsed) {
+    // 1) DOM 즉시 토글
+    document.querySelectorAll('#case-list .tree-node').forEach(n => {
+      n.classList.toggle('collapsed', collapsed);
     });
-  }
-  if (_btnCollapse) {
-    _btnCollapse.addEventListener('click', () => {
-      document.querySelectorAll('#case-list .tree-node').forEach(n => n.classList.add('collapsed'));
+    // 2) tree-state 일괄 저장 — 모든 data-tree-key의 collapsed 여부를 state에 반영
+    const state = loadTreeState();
+    document.querySelectorAll('#case-list .tree-node[data-tree-key]').forEach(n => {
+      const key = n.getAttribute('data-tree-key');
+      if (key) state[key] = !collapsed;  // state[key]=true=펼침, false=접힘
     });
+    saveTreeState(state);
   }
+  if (_btnExpand) _btnExpand.addEventListener('click', () => _toggleAllCaseTreeNodes(false));
+  if (_btnCollapse) _btnCollapse.addEventListener('click', () => _toggleAllCaseTreeNodes(true));
 
   // ─── lang toggle (개별 클릭) ────────────────────
   document.getElementById('lang-btn').addEventListener('click', () => {
@@ -4931,8 +4937,10 @@
       const lv2Extra = lv2Enabled
         ? ''
         : ` disabled title="${escapeHtml(I18N[currentLang].hint_lv2_disabled_tip || '')}"`;
-      // lawear-0d65 — 부등법이면 Lv.1/Lv.4 inline style 로 hidden (data 그대로 둠 → 키보드 shortcut 호환).
-      const lv14Hide = hideBudeunglawHints ? ' style="display:none;"' : '';
+      // lawear-0d65 (2026-05-24 정정) — 부등법은 힌트 3종만 노출: 목차(Lv.1) + 조문규칙(Lv.3) + 전체답안(Lv.5).
+      // Lv.2(두문자) + Lv.4(결론+근거) hide. (이전 lv14Hide는 Lv.1+Lv.4 hide 잘못 → lv24Hide로 정정)
+      // data-level은 그대로 둠 → 키보드 shortcut 호환.
+      const lv24Hide = hideBudeunglawHints ? ' style="display:none;"' : '';
       // 단일 모드: 카드 1개뿐이고 key='단일' — 헤더 sub-title("단일" 중복) + 본문 inquiry-label("설문 · 단일") 양쪽 hide.
       // 다중 모드: "설문 1 가" 등 식별자 라벨 필수 → 표시 유지.
       const singleModeClass = isSingleMode ? ' single-mode' : '';
@@ -4951,10 +4959,10 @@
             <div class="sub-inquiry"><span class="inquiry-label">${escapeHtml(subqLabel)}</span><span class="inquiry-body">${renderOriginText((card.body || '').trim())}</span></div>
             <div class="hint-bar">
               <span class="hint-label">${I18N[currentLang].hint_label || '힌트'}</span>
-              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="1"${lv14Hide}><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv1 || '1. 목차'}</span></button>
-              <button type="button" class="${lv2Class}"${lv2Extra} data-card="${escapeHtml(cid)}" data-level="2"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv2 || '2. 두문자'}</span></button>
+              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="1"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv1 || '1. 목차'}</span></button>
+              <button type="button" class="${lv2Class}"${lv2Extra} data-card="${escapeHtml(cid)}" data-level="2"${lv24Hide}><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv2 || '2. 두문자'}</span></button>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="3"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv3 || '3. 조문+키워드'}</span></button>
-              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="4"${lv14Hide}><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv4 || '4. 결론+근거'}</span></button>
+              <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="4"${lv24Hide}><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv4 || '4. 결론+근거'}</span></button>
               <button type="button" class="hint-btn" data-card="${escapeHtml(cid)}" data-level="5"><span class="badge-dot"></span><span>${I18N[currentLang].hint_lv5 || '5. 전체답안'}</span></button>
               <span class="spacer"></span>
               <span class="hint-count-info" id="hint-info-${idSafe}">${(I18N[currentLang].hint_n_used || '{n}회 사용').replace('{n}', '0')}</span>
@@ -9684,7 +9692,7 @@
       html += `<div class="gap-action-card${isPassReached ? ' is-pass' : ''}">
         <span class="gap-prio">${escapeHtml(String(prio))}</span>
         <span class="gap-crit-badge">${escapeHtml(critKey || '—')}</span>
-        <span class="gap-action-text">${escapeHtml(action)}</span>
+        <span class="gap-action-text">${renderInlineMd(action)}</span>
         <span class="gap-delta">${delta != null ? (delta >= 0 ? '+' : '') + delta : '—'}</span>
         <span class="gap-cumulative">${escapeHtml(cumTxt)}${isPassReached ? ` <span class="gap-pass-badge">✓ ${escapeHtml(passBadge)}</span>` : ''}</span>
       </div>`;
