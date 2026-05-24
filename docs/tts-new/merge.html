@@ -736,16 +736,34 @@ function categoryRank(cat) {
   return idx >= 0 ? idx : 999;
 }
 
-// 과목 표시 순서 ('두문자'를 최상위로)
-const SUBJECT_ORDER = ['두문자', '민법', '민소법', '민소', '민사소송법', '형법', '형소법', '형소', '형사소송법', '부등법', '부등', '민사서류', '부등서류'];
+// 과목 표시 순서 ('두문자'/'기출문제' 최상위)
+const SUBJECT_ORDER = ['두문자', '기출문제', '민법', '민소법', '민소', '민사소송법', '형법', '형소법', '형소', '형사소송법', '부등법', '부등', '민사서류', '부등서류'];
 function subjectRank(s) {
   const idx = SUBJECT_ORDER.indexOf(s || '');
   return idx >= 0 ? idx : 999;
 }
 
+// 기출문제 회차 안 과목 정렬 (사용자 명시: 민법→민소→부등법→부등서류→민서류→형법→형소)
+const PAST_SUBJECT_ORDER = [
+  '민법', '민사소송법',
+  '부동산등기법', '등기신청서류의 작성',
+  '민사사건관련서류의 작성',
+  '형법', '형사소송법',
+];
+function pastSubjectRank(s) {
+  const idx = PAST_SUBJECT_ORDER.indexOf(s || '');
+  return idx >= 0 ? idx : 999;
+}
+// 회차 정렬 (제8회 < 제31회 — 문자열 비교 안전)
+function roundRank(round) {
+  const m = (round || '').match(/제\s*(\d+)\s*회/);
+  return m ? parseInt(m[1], 10) : 0;
+}
+
 // ─────────── 위장 모드 매핑 ───────────
 const stealthSubjectMap = {
   '두문자': 'Index',
+  '기출문제': 'PastExam',
   '민법': 'Civil', '민소법': 'CivilProc', '민소': 'CivilProc',
   '형법': 'Criminal', '형소법': 'CrimProc', '형소': 'CrimProc',
   '부등법': 'RealEstate', '부등': 'RealEstate',
@@ -1067,10 +1085,17 @@ function renderTree(filter = '') {
         if (!hay.includes(lowerFilter)) continue;
       }
       if (meta && meta.type === 'library' && meta.subjectKor) {
-        // 두문자 등 라이브러리: 평탄 트리 (L1 subjectKor → L2 case 항목 직접)
+        // 라이브러리: meta.round 있으면 3단(L1 subjectKor → L2 round → L3 case),
+        //            없으면 기존 2단 평탄(L1 subjectKor → L2 case)
         const sk = meta.subjectKor;
-        if (!libraryTree.has(sk)) libraryTree.set(sk, { subjectKor: sk, subject: meta.subject, items: [] });
-        libraryTree.get(sk).items.push({ meta, filename: f, path, dir });
+        if (!libraryTree.has(sk)) libraryTree.set(sk, { subjectKor: sk, subject: meta.subject, items: [], rounds: new Map() });
+        const libNode = libraryTree.get(sk);
+        if (meta.round) {
+          if (!libNode.rounds.has(meta.round)) libNode.rounds.set(meta.round, []);
+          libNode.rounds.get(meta.round).push({ meta, filename: f, path, dir });
+        } else {
+          libNode.items.push({ meta, filename: f, path, dir });
+        }
       } else if (meta && meta.subjectKor && meta.category && meta.fileKor) {
         const sk = meta.subjectKor;
         const cat = meta.category;
@@ -1105,16 +1130,52 @@ function renderTree(filter = '') {
   const state = loadTreeState();
   let html = '';
 
-  // ─── 라이브러리 트리 (두문자 등): L1 subjectKor → L2 case 직접 (2단 평탄) ───
+  // ─── 라이브러리 트리: 두문자/기출문제 = L0 (year와 동일 최상위 정렬) ───
+  // 두문자=2단(L0 subjectKor → L1 case), 기출문제=3단(L0 → L1 round → L2 case)
   const sortedLibrary = Array.from(libraryTree.entries()).sort((a, b) => subjectRank(a[0]) - subjectRank(b[0]));
   for (const [sk, libNode] of sortedLibrary) {
     const l1Key = treeNodeKey('lib', sk);
     const l1Collapsed = !searching && state[l1Key] === false;
-    html += `<div class="tree-node tree-l1${l1Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l1Key)}">`;
+    // L0 카운트 = 평탄 items + rounds 산하 합
+    let l1Total = libNode.items.length;
+    for (const arr of libNode.rounds.values()) l1Total += arr.length;
+    html += `<div class="tree-node tree-l0${l1Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l1Key)}">`;
     html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l1Key)}">`;
     html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(displaySubject(sk))}</span>`;
-    html += `<span class="tree-count">${libNode.items.length}</span></div>`;
+    html += `<span class="tree-count">${l1Total}</span></div>`;
     html += `<div class="tree-body">`;
+
+    // 회차 노드 (기출문제 패턴) — L1 round → L2 case (회차 숫자 내림차순, 최신 위)
+    const sortedRounds = Array.from(libNode.rounds.entries()).sort((a, b) => roundRank(b[0]) - roundRank(a[0]));
+    for (const [round, roundItems] of sortedRounds) {
+      const l2Key = treeNodeKey('lib_round', sk, round);
+      const l2Collapsed = !searching && state[l2Key] === false;
+      html += `<div class="tree-node tree-l1${l2Collapsed ? ' collapsed' : ''}" data-tree-key="${escapeAttr(l2Key)}">`;
+      html += `<div class="tree-header" data-tree-toggle="${escapeAttr(l2Key)}">`;
+      html += `<span class="arrow">▾</span><span class="tree-label">${escapeHtml(round)}</span>`;
+      html += `<span class="tree-count">${roundItems.length}</span></div>`;
+      html += `<div class="tree-body">`;
+      const sortedItems = roundItems.slice().sort((a, b) => pastSubjectRank(a.meta.case || '') - pastSubjectRank(b.meta.case || ''));
+      for (const it of sortedItems) {
+        const m = it.meta;
+        const active = (currentPath === it.path) ? ' active' : '';
+        const caseLabel = stealthMode ? (stealthSubjectMap[m.case] || stealthCategoryMap[m.case] || m.case || '') : (m.case || '');
+        const title = (m.title || '').trim();
+        const bm = isBookmarked(it.path);
+        const starCls = bm ? 'pill bookmark-star bookmarked' : 'pill bookmark-star';
+        const pills = [`<span class="${starCls}" data-bookmark-toggle="${escapeAttr(it.path)}" title="${bm ? 'Remove bookmark' : 'Add bookmark'}">★</span>`];
+        html += `<div class="case-item${active}" data-path="${escapeAttr(it.path)}" style="padding-left: 30px;">`;
+        html += `<div class="case-item-row">`;
+        html += `<span class="case-id">${escapeHtml(caseLabel)}</span>`;
+        html += `</div>`;
+        html += `<div class="case-title" title="${escapeAttr(title)}">${escapeHtml(title)}</div>`;
+        html += `<div class="case-meta">${pills.join('')}</div>`;
+        html += `</div>`;
+      }
+      html += `</div></div>`;
+    }
+
+    // 평탄 items (두문자 패턴) — L1 case 직접
     const items = libNode.items.slice().sort((a, b) => (a.meta.case || '').localeCompare(b.meta.case || ''));
     for (const it of items) {
       const m = it.meta;
@@ -1124,7 +1185,7 @@ function renderTree(filter = '') {
       const bm = isBookmarked(it.path);
       const starCls = bm ? 'pill bookmark-star bookmarked' : 'pill bookmark-star';
       const pills = [`<span class="${starCls}" data-bookmark-toggle="${escapeAttr(it.path)}" title="${bm ? 'Remove bookmark' : 'Add bookmark'}">★</span>`];
-      html += `<div class="case-item${active}" data-path="${escapeAttr(it.path)}" style="padding-left: 22px;">`;
+      html += `<div class="case-item${active}" data-path="${escapeAttr(it.path)}" style="padding-left: 18px;">`;
       html += `<div class="case-item-row">`;
       html += `<span class="case-id">${escapeHtml(caseLabel)}</span>`;
       html += `</div>`;
@@ -1548,20 +1609,22 @@ function renderContent() {
   // Case 메타 헤더 (풍부 메타가 있는 경우)
   const meta = fileMetadata[currentPath];
 
-  // ─── 라이브러리(두문자 등) 분기: 탭 없이 전체 마크다운 렌더 + 업로드 UI ───
+  // ─── 라이브러리(두문자/기출문제) 분기: 탭 없이 전체 마크다운 렌더 + (두문자만) 업로드 UI ───
   if (meta && meta.type === 'library') {
-    const caseLabel = stealthMode ? (stealthCategoryMap[meta.case] || meta.case || '') : (meta.case || '');
-    const subjLine = `${displaySubject(meta.subjectKor)} · ${caseLabel}${meta.title ? ' · ' + meta.title : ''}`;
+    const caseLabel = stealthMode ? (stealthSubjectMap[meta.case] || stealthCategoryMap[meta.case] || meta.case || '') : (meta.case || '');
+    const roundPart = meta.round || '';
+    const subjLine = `${displaySubject(meta.subjectKor)}${roundPart ? ' · ' + roundPart : ''} · ${caseLabel}${meta.title ? ' · ' + meta.title : ''}`;
     const uploadKey = (meta.subjectKor || 'lib').replace(/[^a-zA-Z0-9가-힣]/g, '_');
     const libYear = (meta.id && /^\d{4}_/.test(meta.id)) ? meta.id.slice(0, 4) : '';
-    const libPathParts = [libYear, displaySubject(meta.subjectKor), caseLabel].filter(Boolean).map(escapeHtml);
+    const libPathParts = [libYear, displaySubject(meta.subjectKor), roundPart, caseLabel].filter(Boolean).map(escapeHtml);
     const libPathHtml = libPathParts.join('<span class="crumb-sep">/</span>');
     const headerHtml = `<div class="page-header">
       <span class="case-id-large">${escapeHtml(caseLabel)}</span>
       <span class="case-subject">${escapeHtml(subjLine)}</span>
       <div class="breadcrumb"><span class="case-path-text" id="case-path-label">${libPathHtml}</span><button type="button" class="btn-copy-path" id="copy-path-btn" title="경로 복사">복사</button></div>
     </div>`;
-    const uploadBarHtml = `<div class="library-upload-bar" data-upload-path="${escapeAttr(currentPath)}" data-upload-subject="${escapeAttr(meta.subjectKor || '')}">
+    // 업로드 바는 두문자(round 없음)에만 표시 — 기출문제는 .md 직접 관리
+    const uploadBarHtml = roundPart ? '' : `<div class="library-upload-bar" data-upload-path="${escapeAttr(currentPath)}" data-upload-subject="${escapeAttr(meta.subjectKor || '')}">
       <input type="file" id="lib-upload-${escapeAttr(uploadKey)}" accept=".md,text/markdown" style="display:none" />
       <button type="button" class="lib-upload-btn" data-upload-trigger="${escapeAttr(uploadKey)}">새 두문자 업로드 (Staging — AI가 분석 후 머지)</button>
       <span class="lib-upload-hint">현재 파일: <code>${escapeHtml(currentPath)}</code> — Staging 폴더 <code>_staging/</code>에 임시 저장. AI 발화로 최종 머지</span>
@@ -1570,8 +1633,10 @@ function renderContent() {
     content.innerHTML = headerHtml + uploadBarHtml + '<div id="mdContent"></div>';
     if (editorWrap) content.appendChild(editorWrap);
     const target = document.getElementById('mdContent');
-    target.innerHTML = makeLibraryCollapsible(renderMd(fullContent || ''));
-    bindLibraryUpload();
+    // 두문자는 H3 단위 collapsible (라이브러리 인덱스 카드), 기출문제(round 있음)는 평탄 렌더
+    // — 기출문제는 사실관계/설문 분석 대상이라 접펼되면 AI/사람 모두 흐름 헷갈림.
+    target.innerHTML = roundPart ? renderMd(fullContent || '') : makeLibraryCollapsible(renderMd(fullContent || ''));
+    if (!roundPart) bindLibraryUpload();
     return;
   }
 
