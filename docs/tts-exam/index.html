@@ -752,6 +752,26 @@
     line-height: 1.25;
     letter-spacing: -0.1px;
   }
+  /* 부등법 Lv.3 articles_hint (lawear-0d65 2026-05-24) */
+  .hint-panel .article-hint-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .hint-panel .article-hint-item {
+    font-size: 13px;
+    line-height: 1.4;
+    color: var(--text);
+    padding: 2px 0;
+  }
+  .hint-panel .article-hint-item strong {
+    color: var(--link);
+    font-weight: 600;
+  }
+  .hint-panel .article-hint-item .article-title {
+    color: var(--hint-3);
+    font-weight: 500;
+  }
 
   /* ─── Card answer textarea + grade result ─── */
   .sub-answer-block { margin-bottom: 8px; }
@@ -2739,6 +2759,11 @@
         <button data-i18n="filter_book">Bookmarked</button>
       </div>
       <input type="text" class="search" placeholder="Search by ID or keyword…" data-i18n-ph="search_ph">
+      <!-- lawear-0d65: 17895 사이드 패널 expand/collapse 미러 -->
+      <div class="filter-row" style="gap:6px; margin-top:6px;">
+        <button id="btn-expand-all-cases" title="모두 펼침" style="flex:1;">⊞ 모두 펼침</button>
+        <button id="btn-collapse-all-cases" title="모두 접기" style="flex:1;">⊟ 모두 접기</button>
+      </div>
     </div>
     <div class="case-list" id="case-list">
       <div class="case-group-label" style="padding: 12px;">Loading…</div>
@@ -4103,6 +4128,22 @@
     document.getElementById('sidebar-toggle').textContent = sb.classList.contains('collapsed') ? '›' : '‹';
   });
 
+  // ─── lawear-0d65: case-list expand-all / collapse-all (17895 mirror) ─────
+  // 17895 docs/tts/index.html L135-141의 expandAll/collapseAll과 동일 패턴.
+  // case-list 내 모든 .tree-node 의 .collapsed 클래스 일괄 토글.
+  const _btnExpand = document.getElementById('btn-expand-all-cases');
+  const _btnCollapse = document.getElementById('btn-collapse-all-cases');
+  if (_btnExpand) {
+    _btnExpand.addEventListener('click', () => {
+      document.querySelectorAll('#case-list .tree-node').forEach(n => n.classList.remove('collapsed'));
+    });
+  }
+  if (_btnCollapse) {
+    _btnCollapse.addEventListener('click', () => {
+      document.querySelectorAll('#case-list .tree-node').forEach(n => n.classList.add('collapsed'));
+    });
+  }
+
   // ─── lang toggle (개별 클릭) ────────────────────
   document.getElementById('lang-btn').addEventListener('click', () => {
     currentLang = currentLang === 'en' ? 'ko' : 'en';
@@ -4706,8 +4747,55 @@
       return noData;
     }
     if (level === 3) {
-      // Lv.3: subq.body + subq.answer 합쳐서 조문 키워드 추출 (R-09: 원문에서 직접 grep, 가공 X)
-      // body 는 설문 본문이라 조문이 거의 없고, answer 에는 다수 있음.
+      // Lv.3: 조문 키워드 (R-09: 서버 미리 lookup 결과만 사용, AI 가공 X).
+      //
+      // 부등법 분기 (lawear-0d65 2026-05-24):
+      //   caseFull.articles_hint 가 있으면 (서버 cases.py extract_case_tags 결과) 그것 사용.
+      //   - 법/규칙 구분 + 조문명 + 본문 인용 (캐시 미보유 → 조문명만)
+      //   - 캐시 미존재 항목은 raw 본문 표시 (자의 해석 X)
+      //
+      // 다른 과목 (민법/민소): 기존 extractArticleTokens grep fallback.
+      const articlesHint = caseFull && Array.isArray(caseFull.articles_hint)
+        ? caseFull.articles_hint
+        : null;
+      if (articlesHint && articlesHint.length) {
+        // law_type 별 아이콘/색 (시각 분리)
+        const iconMap = {
+          '법': '📘', '민법': '📘', '신탁법': '📘', '상법': '📘', '건축법': '📘',
+          '공탁법': '📘', '민사집행법': '📘', '주택임대차보호법': '📘',
+          '상가건물 임대차보호법': '📘', '집합건물의 소유 및 관리에 관한 법률': '📘',
+          '부동산등기특별조치법': '📘',
+          '규칙': '📕',
+          '선례': '📒',
+          '예규': '📓',
+          '판례': '📔',
+          '기타': '📜'
+        };
+        const items = articlesHint.map(h => {
+          const icon = iconMap[h.law_type] || '📜';
+          const lawName = h.law_name || h.law_type || '';
+          const num = h.article_num ? `제${h.article_num}조` : '';
+          const title = h.article_title || '';
+          let label;
+          if (h.source === 'cache' && lawName && num) {
+            // 정본 — 법명 + 조번호 + 조문명
+            const titlePart = title ? ` <span class="article-title">${escapeHtml(title)}</span>` : '';
+            label = `<strong>${escapeHtml(lawName)}</strong> ${escapeHtml(num)}${titlePart}`;
+          } else if (h.law_type === '선례' || h.law_type === '예규' || h.law_type === '판례') {
+            // 선례/예규/판례 — raw 그대로 (캐시 없음, R-09)
+            label = escapeHtml(h.raw);
+          } else if (h.law_name && h.article_num) {
+            // 조번호 매칭됐으나 캐시 미존재 — (조문명 미캐시) 명시 (R-09)
+            label = `<strong>${escapeHtml(lawName)}</strong> ${escapeHtml(num)} <em style="opacity:0.6;">(조문명 미캐시)</em>`;
+          } else {
+            // 기타 자연어 [case]
+            label = escapeHtml(h.raw);
+          }
+          return `<div class="article-hint-item">${icon} ${label}</div>`;
+        });
+        return `<div class="article-hint-list">${items.join('')}</div>`;
+      }
+      // 다른 과목 fallback — 기존 grep 로직
       const src = (card.body || '') + '\n' + (card.answer || '');
       const tokens = extractArticleTokens(src);
       const tokList = tokens.length

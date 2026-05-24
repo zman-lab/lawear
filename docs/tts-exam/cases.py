@@ -23,6 +23,7 @@ dev-design archive #48 §4-2 (DB) / dev-impl-plan #51 Step 4 1:1.
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 import sqlite3
@@ -33,6 +34,25 @@ from typing import Any
 BASE_PATH: Path = Path(
     os.environ.get("LAWEAR_TTS_BASE", "/Users/nhn/zman-lab/lawear/docs/tts-new")
 ).resolve()
+
+# 법제처 조문명 캐시 (부등법 [case] 태그 → 법/규칙 + 조문명 lookup)
+# - lawArticles.json: title + path (주된 소스, 21개 법령)
+# - law_titles_cache.json: title (fallback, 13개 법령)
+# 둘 다 본문 body 미보유 → R-09 강제로 조문명만 표시 (본문 인용 금지).
+_LAW_ARTICLES_PATH = Path(
+    os.environ.get(
+        "LAWEAR_LAW_ARTICLES_JSON",
+        "/Users/nhn/zman-lab/lawear/web/src/data/lawArticles.json",
+    )
+)
+_LAW_TITLES_PATH = Path(
+    os.environ.get(
+        "LAWEAR_LAW_TITLES_JSON",
+        "/Users/nhn/zman-lab/lawear/docs/lawear-7ad6_input_mode_3subjects/law_titles_cache.json",
+    )
+)
+# 모듈 레벨 캐시 (lazy 로드, 1회만)
+_LAW_TITLE_INDEX: dict[str, dict[str, str]] | None = None
 
 # 필터 enum (dev-design #48 §3-1)
 # 'book' = dev-design 정본, 'bookmarked' = 사용자 사양 alias (Step 9 wire)
@@ -374,6 +394,189 @@ def parse_md_mnemonic(md_content: str) -> list[str]:
     return _extract_blank2_chars(md_content)
 
 
+# ─── 법제처 조문명 캐시 lookup (부등법 [case] 태그용) ──────────────
+#
+# lawear-0d65 (2026-05-24): 부등법 17896 힌트 Lv.3 보강.
+# - 답안 본문 [case] 태그 → 법/규칙 구분 + 조문명 lookup → UI 표시.
+# - 본문(body) 인용은 캐시 미보유 → R-09 강제로 생략 (조문명만).
+# - lazy 로드 + 모듈 레벨 캐시 (909KB lawArticles.json은 1회만 read).
+
+# `[case]본문[/case]` 매칭 (본문에 `[` 포함 X 전제 — 부등법 .md 실측).
+_CASE_TAG_RE = re.compile(r"\[case\]([^\[]+)\[/case\]")
+
+# 조문 번호 추출 (예: "제15조", "제7조의2", "제29조 제2호")
+# 그룹1: 번호 본체 ("15" / "7" / "29") — `조` 까지
+# 그룹2: "의M" 접미 ("의2" / 없으면 None)
+# 캐시 키 정규화: 그룹1 + (그룹2 ? "의" + M : "") → "15" / "7의2" / "139의4".
+_ARTICLE_NUM_RE = re.compile(r"제\s*(\d+)\s*조(?:\s*의\s*(\d+))?")
+
+
+def _load_law_title_index() -> dict[str, dict[str, str]]:
+    """법제처 조문명 캐시 1회 로드 (lazy).
+
+    Returns:
+        ``{법명: {조번호: 조문명}}`` 통합 dict.
+        예: ``{"부동산등기법": {"15": "물적 편성주의", ...}, "민법": {...}}``
+
+    소스:
+        1. lawArticles.json (statutes.{법명}.articles.{N}.title) — 주된 소스
+        2. law_titles_cache.json (statutes.{법명}.{N}: title) — 보조 (1에 없는 법령)
+
+    R-09 (자의 해석 금지): 캐시 미존재 법령/조번호 → lookup None 반환.
+    """
+    global _LAW_TITLE_INDEX
+    if _LAW_TITLE_INDEX is not None:
+        return _LAW_TITLE_INDEX
+
+    index: dict[str, dict[str, str]] = {}
+
+    # 1. lawArticles.json — articles.{N}.title 구조
+    try:
+        with _LAW_ARTICLES_PATH.open(encoding="utf-8") as f:
+            data = json.load(f)
+        for law_name, law_data in (data.get("statutes") or {}).items():
+            articles = (law_data or {}).get("articles") or {}
+            law_idx: dict[str, str] = {}
+            for art_num, art_data in articles.items():
+                title = (art_data or {}).get("title") if isinstance(art_data, dict) else None
+                if title:
+                    law_idx[str(art_num)] = title
+            if law_idx:
+                index[law_name] = law_idx
+    except (OSError, json.JSONDecodeError):
+        # 캐시 누락은 fatal X — fallback 으로 진행
+        pass
+
+    # 2. law_titles_cache.json — statutes.{법명}.{N}: title 평면 구조 (보충)
+    try:
+        with _LAW_TITLES_PATH.open(encoding="utf-8") as f:
+            data = json.load(f)
+        for law_name, law_data in (data.get("statutes") or {}).items():
+            if not isinstance(law_data, dict):
+                continue
+            existing = index.setdefault(law_name, {})
+            for art_num, title in law_data.items():
+                if not title:
+                    continue
+                # 1차 캐시 우선 (덮어쓰기 X)
+                existing.setdefault(str(art_num), title)
+    except (OSError, json.JSONDecodeError):
+        pass
+
+    _LAW_TITLE_INDEX = index
+    return index
+
+
+def _classify_case_law_type(text: str, default_subject_kor: str | None = None) -> tuple[str, str | None]:
+    """[case] 본문 prefix 분석 → (law_type, law_name).
+
+    Args:
+        text: [case] 태그 안 본문 (예: "민법 제200조 권리의 적법의 추정").
+        default_subject_kor: 부등법이면 "부동산등기법" 등 — `제N조` 단독 시 기본 법명.
+
+    Returns:
+        (law_type, law_name):
+          - law_type: "법" | "규칙" | "민법" | "신탁법" | "상법" | "건축법" |
+                      "선례" | "예규" | "판례" | "기타"
+          - law_name: 캐시 lookup 키 (없으면 None).
+
+    R-09: prefix 매칭만 사용. 자연어 [case]는 "기타" 분류 + law_name None.
+    """
+    s = text.strip()
+    # 규칙 prefix — 부동산등기규칙 (case가 부등법 컨텍스트일 때만)
+    if s.startswith("규칙 제") or s.startswith("규칙제"):
+        return "규칙", "부동산등기규칙"
+    if s.startswith("같은 규칙"):
+        return "규칙", "부동산등기규칙"
+    # 민법 / 민사소송법 / 상법 / 신탁법 / 건축법 등 명시
+    # 매칭 우선순위: 긴 이름 먼저 (예: 민사소송법 → 민법 보다 먼저).
+    for law_name in ("민사소송법", "민사집행법", "민법",
+                     "형사소송법", "형법",
+                     "상법", "신탁법", "건축법", "공탁법",
+                     "주택임대차보호법", "상가건물 임대차보호법",
+                     "집합건물의 소유 및 관리에 관한 법률",
+                     "부동산등기특별조치법"):
+        if s.startswith(law_name + " 제") or s.startswith(law_name + "제"):
+            return law_name, law_name
+    # 선례/예규/판례
+    if s.startswith("선례") or s.startswith("등기선례"):
+        return "선례", None
+    if s.startswith("예규") or s.startswith("등기예규"):
+        return "예규", None
+    if "대법원" in s[:10] or s.startswith("판례"):
+        return "판례", None
+    # 같은 법 / 법 제 / 제N조 (단독) → default_subject_kor (보통 부동산등기법)
+    if s.startswith("같은 법") or s.startswith("법 제") or s.startswith("법제"):
+        return "법", default_subject_kor or "부동산등기법"
+    if s.startswith("제") and _ARTICLE_NUM_RE.match(s):
+        return "법", default_subject_kor or "부동산등기법"
+    return "기타", None
+
+
+def extract_case_tags(md_text: str, default_subject_kor: str | None = None) -> list[dict]:
+    """답안 .md 본문에서 ``[case]...[/case]`` 태그 추출 + 법/규칙 구분 + 캐시 lookup.
+
+    Args:
+        md_text: .md 본문 원문 (body+answer 등).
+        default_subject_kor: case의 subject_kor (예: "부동산등기법").
+            "제N조" 단독 표기 시 기본 법명으로 사용.
+
+    Returns:
+        list[dict] — 각 [case] 태그 한 건:
+            ``{"raw": str, "law_type": str, "law_name": str | None,
+              "article_num": str | None, "article_title": str | None,
+              "source": "cache" | "raw"}``
+
+        - ``raw``: [case] 태그 안 본문 그대로 (UI fallback 표시용).
+        - ``law_type``: "법" | "규칙" | "민법" | "신탁법" | "상법" | "건축법" |
+                        "선례" | "예규" | "판례" | "기타".
+        - ``law_name``: 캐시 lookup 키 (선례/예규/판례/기타는 None).
+        - ``article_num``: 조 번호 ("15" / "7의2"). 추출 실패 시 None.
+        - ``article_title``: 캐시 조문명. 미캐시면 None (R-09).
+        - ``source``: "cache" (조문명 lookup 성공) | "raw" (실패 — raw 표시).
+
+    R-09 (자의 해석 금지):
+        - 캐시 미존재 조문 → article_title=None, source="raw".
+        - LLM 추정 절대 X — UI에서 "(조문명 미캐시)" 표시.
+        - 중복 제거 X (등장 순서 보존).
+    """
+    if not md_text:
+        return []
+    index = _load_law_title_index()
+    results: list[dict] = []
+    for m in _CASE_TAG_RE.finditer(md_text):
+        raw_inner = m.group(1).strip()
+        if not raw_inner:
+            continue
+        law_type, law_name = _classify_case_law_type(raw_inner, default_subject_kor)
+        # 조문 번호 추출 — 그룹1=본체, 그룹2=의X 접미
+        num_match = _ARTICLE_NUM_RE.search(raw_inner)
+        article_num: str | None = None
+        article_title: str | None = None
+        source = "raw"
+        if num_match:
+            base = num_match.group(1)
+            suffix = num_match.group(2)
+            article_num = f"{base}의{suffix}" if suffix else base
+        # 캐시 lookup (law_name 있고 article_num 있을 때만)
+        if law_name and article_num and law_name in index:
+            cached_title = index[law_name].get(article_num)
+            if cached_title:
+                article_title = cached_title
+                source = "cache"
+        results.append(
+            {
+                "raw": raw_inner,
+                "law_type": law_type,
+                "law_name": law_name,
+                "article_num": article_num,
+                "article_title": article_title,
+                "source": source,
+            }
+        )
+    return results
+
+
 def _resolve_md_path(case_path: str) -> Path:
     """cases.path (예: '입문_민법/2026_minbeop_immun_미케01_01.md') → 절대 경로."""
     p = BASE_PATH / case_path
@@ -411,6 +614,24 @@ def parse_year_from_id(case_id: str | None) -> str | None:
     return None
 
 
+def parse_year_from_path(path: str | None) -> str | None:
+    """case path 첫 토큰에서 연도 추출 — id 파싱 실패 시 fallback (lawear-0d65 2026-05-24).
+
+    Example:
+        '2026_사용자_부동산등기법/1순환/01_모의고사_01.md' → '2026'
+        '2025_사용자_부동산등기법/2순환/05_모의고사_01.md' → '2025'
+        'misc/foo.md' → None
+
+    R-09 (자의 해석 금지): path 첫 4자리가 숫자 + '_' 패턴일 때만. 추정 X.
+    """
+    if not path:
+        return None
+    first = path.split("/", 1)[0]
+    if len(first) >= 5 and first[:4].isdigit() and first[4] == "_":
+        return first[:4]
+    return None
+
+
 # ─── 케이스 메타 집계 ───────────────────────────────────────────────
 
 
@@ -439,7 +660,9 @@ def _case_row_to_dict(row: sqlite3.Row) -> dict[str, Any]:
         # outline_category: 부등법 만능목차 4분류 (기본/첨부서면/등기절차/부수절차/unknown)
         "subject_type": (row["subject_type"] if "subject_type" in row.keys() else "lv1234") or "lv1234",
         "outline_category": (row["outline_category"] if "outline_category" in row.keys() else None),
-        "year": parse_year_from_id(row["id"]),
+        # lawear-0d65: year fallback — id 첫 4자리 실패 시 path에서 추출
+        # (예: '01_모의고사_01' id는 연도 없음 → path '2026_사용자_부동산등기법/...'에서 '2026' 추출)
+        "year": parse_year_from_id(row["id"]) or parse_year_from_path(row["path"]),
     }
 
 
@@ -601,5 +824,14 @@ def get_case(conn: sqlite3.Connection, case_id: str) -> dict[str, Any]:
     # (lawear-c63e-sub4 #2138 §Sub4: 79건 0점 중 라이브러리 type 제외 정상화)
     if (not case.get("points")) and sections.get("origin_points"):
         case["points"] = sections["origin_points"]
+
+    # lawear-0d65 (2026-05-24): 부등법 힌트 Lv.3 — [case] 태그 → 조문명 lookup.
+    # 부등법 (subject == 'budeunglaw' OR subject_type == 'problem_answer')만 적용.
+    # 다른 과목 (민법/민소)는 articles_hint 키 미주입 → 클라이언트 기존 로직 유지.
+    # R-09: 캐시 미존재 → article_title None (자의 해석 X).
+    if case.get("subject") == "budeunglaw" or case.get("subject_type") == "problem_answer":
+        case["articles_hint"] = extract_case_tags(md_text, default_subject_kor="부동산등기법")
+    else:
+        case["articles_hint"] = []
 
     return case
