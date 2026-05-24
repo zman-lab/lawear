@@ -7022,13 +7022,25 @@
     const host = document.getElementById('ev-multimode-table');
     const critGrid = document.getElementById('ev-criteria-grid');
     if (!host) return;
-    const isMulti = (att && att.grading_mode === 'multi' && att.multi_mode_results);
-    if (!isMulti) {
+    const html = buildMultiModeTableHtml(att);
+    if (!html) {
       host.innerHTML = '';
       host.style.display = 'none';
       if (critGrid) critGrid.style.display = '';
       return;
     }
+    // multi 모드 활성 → criteria-grid 숨김 (9기준 표는 단일 모드 전용)
+    if (critGrid) critGrid.style.display = 'none';
+    host.innerHTML = html;
+    host.style.display = '';
+  }
+
+  // lawear-0d65 (2026-05-24) — 5모드 비교표 HTML 빌더 (모달/시험탭 공용).
+  //   입력: attempt (grading_mode 'multi' 신호 + multi_mode_results JSON 또는 객체)
+  //   출력: HTML string (비어있으면 '')
+  function buildMultiModeTableHtml(att) {
+    const isMulti = (att && (att.grading_mode === 'multi' || att.grading_mode_v2 === 'multi') && att.multi_mode_results);
+    if (!isMulti) return '';
     // JSON 파싱 (string or object 둘 다 허용 — backend forgiving)
     let results = null;
     try {
@@ -7037,13 +7049,11 @@
         : att.multi_mode_results;
     } catch (e) {
       console.warn('multi_mode_results JSON parse failed:', e);
-      host.innerHTML = '';
-      host.style.display = 'none';
-      if (critGrid) critGrid.style.display = '';
-      return;
+      return '';
     }
     // results 형식: { modes: [{mode,score,max,score_pct,grade,summary}, ...], spread, consensus, highest, lowest }
-    //   또는 모드 배열만 (legacy {mode: {...}} dict 호환) — 둘 다 처리.
+    //   또는 { results: {mode: {...}}, summary: {...} } (lawear-0d65 부등법 백엔드 표준)
+    //   또는 모드 배열만 (legacy 호환) — 셋 다 처리.
     let modesArr = [];
     let meta = {};
     if (Array.isArray(results)) {
@@ -7051,6 +7061,29 @@
     } else if (results && Array.isArray(results.modes)) {
       modesArr = results.modes;
       meta = results;
+    } else if (results && results.results && typeof results.results === 'object') {
+      // 부등법 백엔드 표준: {results: {judge:{...}, lecturer:{...}, ...}, summary: {spread_pct, consensus_grade, highest_mode, lowest_mode}}
+      const knownKeys = ['judge', 'lecturer', 'hybrid', 'main_opus', 'strict_outline'];
+      for (const k of knownKeys) {
+        if (results.results[k] && typeof results.results[k] === 'object') {
+          const r = results.results[k];
+          modesArr.push({
+            mode: k,
+            score: (r.absolute_score != null) ? r.absolute_score : r.total,
+            max: (r.absolute_max != null) ? r.absolute_max : r.max,
+            score_pct: r.pct,
+            grade: r.grade,
+            summary: r.eval_notes || r.summary || '',
+          });
+        }
+      }
+      const sm = results.summary || {};
+      meta = {
+        spread: sm.spread_pct,
+        consensus: sm.consensus_grade,
+        highest: sm.highest_mode,
+        lowest: sm.lowest_mode,
+      };
     } else if (results && typeof results === 'object') {
       // dict 형식 fallback — {judge: {...}, lecturer: {...}, ...}
       const knownKeys = ['judge', 'lecturer', 'hybrid', 'main_opus', 'strict_outline'];
@@ -7060,14 +7093,7 @@
         }
       }
     }
-    if (!modesArr.length) {
-      host.innerHTML = '';
-      host.style.display = 'none';
-      if (critGrid) critGrid.style.display = '';
-      return;
-    }
-    // multi 모드 활성 → criteria-grid 숨김 (9기준 표는 단일 모드 전용)
-    if (critGrid) critGrid.style.display = 'none';
+    if (!modesArr.length) return '';
     // 모드 한글 라벨 매핑 (R-09: 백엔드 키와 동일, UI 표시만 한글화)
     const modeLabelKo = {
       judge:           '부장판사 (judge)',
@@ -7115,7 +7141,7 @@
     const metaLine = metaParts.length
       ? `<div class="mm-meta">* ${escapeHtml(metaParts.join(' / '))}</div>`
       : '';
-    host.innerHTML = `
+    return `
       <div class="multimode-table">
         <div class="mm-title">${escapeHtml(titleText)}</div>
         <table>
@@ -7125,7 +7151,6 @@
         ${metaLine}
       </div>
     `;
-    host.style.display = '';
   }
 
   // ─── Step 14 — Reference Diff 2열 분할 렌더 헬퍼 ───
@@ -9216,6 +9241,27 @@
         html += `<div class="modal-note danger"><span class="note-tag">${escapeHtml(dict.fb_missing || 'Missing')}</span>${escapeHtml(notes.missing)}</div>`;
       }
     }
+    // lawear-0d65 (2026-05-24) — 부등법 채점평 (hybrid_eval_notes + mode_grades).
+    //   rich/legacy 외 별도 표시 — 항상 보이게 (부등법은 9기준 대신 5모드라 채점평 표시 필수).
+    if (notes.hybrid_eval_notes && typeof notes.hybrid_eval_notes === 'string') {
+      const hybridLabel = (currentLang === 'ko') ? '하이브리드 채점평' : 'Hybrid Notes';
+      html += `<div class="modal-note"><span class="note-tag">${escapeHtml(hybridLabel)}</span>${escapeHtml(notes.hybrid_eval_notes)}</div>`;
+    }
+    if (notes.mode_grades && typeof notes.mode_grades === 'object') {
+      const gradesLabel = (currentLang === 'ko') ? '모드별 등급' : 'Mode Grades';
+      const parts = [];
+      const modeLabelKo = { judge: '부장판사', lecturer: '강사', hybrid: '하이브리드', main_opus: '메인 Opus', strict_outline: '만능목차' };
+      for (const k of ['judge', 'lecturer', 'hybrid', 'main_opus', 'strict_outline']) {
+        const g = notes.mode_grades[k];
+        if (g) {
+          const label = (currentLang === 'ko') ? (modeLabelKo[k] || k) : k;
+          parts.push(`${label}: ${g}`);
+        }
+      }
+      if (parts.length) {
+        html += `<div class="modal-note"><span class="note-tag">${escapeHtml(gradesLabel)}</span>${escapeHtml(parts.join(' · '))}</div>`;
+      }
+    }
     if (!html) {
       html = `<div class="modal-right-empty">${escapeHtml(dict.modal_no_eval || 'Not yet graded.')}</div>`;
     }
@@ -9383,6 +9429,11 @@
     renderExaminerPane(att, evExaminerEl);
     renderNotesPane(att, evNotesEl);
 
+    // lawear-0d65 (2026-05-24) — 부등법 (problem_answer) 분기 신호.
+    //   * caseData.subject_type='problem_answer' OR att.grading_mode_v2='multi'
+    //   * 부등법이면 우측 9기준 탭을 5모드 비교표로 치환 + 좌측 원본 탭에 lv4 모범답안 추가.
+    const isBudeunglawCase = isBudeunglaw(MODAL_STATE.caseData) || (att && att.grading_mode_v2 === 'multi');
+
     // 우 — 9기준 탭 (점수 메타 + criterion 바 — 기존 그대로 유지)
     let html = '';
     // 메타: 점수/등급/상태
@@ -9448,6 +9499,14 @@
           </div>`;
         }
       }
+      // lawear-0d65 (2026-05-24) — 부등법 5모드 비교표 추가 렌더.
+      //   9기준 grid 와 별개 — criteria 비어있어도 5모드 비교표만 표시 가능.
+      if (isBudeunglawCase) {
+        const mmHtml = buildMultiModeTableHtml(att);
+        if (mmHtml) {
+          html += mmHtml;
+        }
+      }
       // lawear-c63e Sub2 — 9기준 탭은 메타 + criterion 바까지만.
       //   채점평(rich-summary + legacy notes) 은 renderNotesPane 에서 처리.
     } else if (att.status === 'failed' || att.db_status === 'error') {
@@ -9464,8 +9523,12 @@
     //   * 캐시된 MODAL_STATE.caseData.origin 사용 (loadCaseDataForModal 가 준비)
     //   * 강조 태그 색 보존 (renderEmphasisInline) + 매칭 형광펜 (highlightDiffSegments)
     //   * 두 곳 동일 HTML — 탭은 깨끗하게 읽기용, 토글은 동일 데이터 펼침 보기
+    // lawear-0d65 (2026-05-24) — 부등법 분기:
+    //   * 좌측 원본 탭 (originEl): origin(문제 본문) + lv4(강사 모범답안) 둘 다 표시.
+    //   * 하단 diff 패널 (originDiffEl): diff_segments 있으면 origin 강조, 없으면 lv4 vs 사용자 답안 2열.
     const caseData = MODAL_STATE.caseData || {};
     const refText = (typeof caseData.origin === 'string') ? caseData.origin : null;
+    const lv4Text = (typeof caseData.lv4 === 'string') ? caseData.lv4 : null;
     let originHtml = '';
     if (refText) {
       const emphasised = renderEmphasisInline(refText);
@@ -9474,8 +9537,42 @@
     } else {
       originHtml = `<span style="color: var(--text-dim);">${escapeHtml(dict.diff_col_ref_missing || 'No origin reference available.')}</span>`;
     }
+    // 부등법: origin 아래에 모범답안(lv4) 섹션 추가
+    if (isBudeunglawCase && lv4Text) {
+      const lv4Html = renderEmphasisInline(lv4Text);
+      const lv4Title = (currentLang === 'ko') ? '강사 모범답안 (Lv.4)' : 'Model Answer (Lv.4)';
+      originHtml += `<div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
+        <div style="font-size: 11px; color: var(--text-dim); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px;">${escapeHtml(lv4Title)}</div>
+        <div>${lv4Html}</div>
+      </div>`;
+    }
     if (originEl) originEl.innerHTML = originHtml;
-    if (originDiffEl) originDiffEl.innerHTML = originHtml;
+    // 하단 diff 토글 패널 — 부등법 + diff_segments 없으면 lv4 vs 사용자 답안 2열 비교
+    if (originDiffEl) {
+      const hasDiffSegs = Array.isArray(att.diff_segments) && att.diff_segments.length > 0;
+      if (isBudeunglawCase && !hasDiffSegs && lv4Text) {
+        const userAns = (typeof att.answer_text === 'string') ? att.answer_text : '';
+        const mineTitle = (currentLang === 'ko') ? '내 답안' : 'My Answer';
+        const refTitle = (currentLang === 'ko') ? '모범답안 (Lv.4)' : 'Model Answer (Lv.4)';
+        const mineHtml = userAns
+          ? escapeHtml(userAns).replace(/\n/g, '<br>')
+          : `<span style="color: var(--text-dim);">${escapeHtml(dict.modal_no_answer || 'No answer recorded.')}</span>`;
+        const refHtml = renderEmphasisInline(lv4Text);
+        originDiffEl.innerHTML = `
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div>
+              <div style="font-size: 11px; color: var(--text-dim); font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;">${escapeHtml(mineTitle)}</div>
+              <div class="modal-origin">${mineHtml}</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--text-dim); font-weight: 600; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;">${escapeHtml(refTitle)}</div>
+              <div class="modal-origin">${refHtml}</div>
+            </div>
+          </div>`;
+      } else {
+        originDiffEl.innerHTML = originHtml;
+      }
+    }
 
     // 헤더 갱신
     const titleEl = document.getElementById('attempt-modal-title');
