@@ -336,6 +336,19 @@
     display: block; font-size: 11px; color: var(--text-dim);
     margin-bottom: 6px; font-weight: 600;
   }
+  /* 부등법 ## 목차 — 답안 컬럼 맨 위 암기 인덱스 (lawear-c9b0) */
+  .user-toc {
+    margin-bottom: 14px; padding: 10px 12px;
+    border-left: 3px solid var(--accent);
+    background: var(--panel-2);
+    border-radius: 0 4px 4px 0;
+    font-size: 12px; line-height: 1.6;
+  }
+  .user-toc .toc-label {
+    display: block; font-size: 11px; color: var(--text-dim);
+    margin-bottom: 6px; font-weight: 600;
+  }
+  .user-toc ul, .user-toc ol { margin: 0; padding-left: 18px; }
   /* user_input 편집 진입 버튼 (우상단 헤더 옆) */
   .user-input-edit-btn {
     padding: 4px 12px;
@@ -1617,15 +1630,20 @@ function renderContent() {
     // 섹션 추출 — 기존 extractSection 재사용 (## 문제 / ## 답안 / ## 메모)
     const problemMd = extractSection(fullContent, '문제');
     const answerMd = extractSection(fullContent, '답안');
+    const tocMd = extractSection(fullContent, '목차');
     const memoMd = extractSection(fullContent, '메모');
     // 좌우 split 테이블 (compare-table.cols-2 신규 변종)
     // lawear-7ad6 v5 — 점수는 본문 X, 컬럼 헤더 "문제 (NN점)"로 표시 (사용자 명시)
     const pointsTag = meta.points ? ` (${meta.points}점)` : '';
+    // 부등법 전용 ## 목차 (암기 인덱스) — 존재할 때만 답안 컬럼 맨 위에 렌더 (lawear-c9b0)
+    const tocHtml = tocMd
+      ? `<div class="user-toc"><span class="toc-label">목차</span>${renderMd(tocMd)}</div>`
+      : '';
     const splitTableHtml = `<table class="compare-table cols-2">
       <thead><tr><th>문제${pointsTag}</th><th>답안${pointsTag}</th></tr></thead>
       <tbody><tr>
         <td>${renderMd(problemMd || '(문제 없음)')}</td>
-        <td>${renderMd(answerMd || '(답안 없음)')}</td>
+        <td>${tocHtml}${renderMd(answerMd || '(답안 없음)')}</td>
       </tr></tbody>
     </table>`;
     // 메모 footer (## 메모 섹션이 있을 때만)
