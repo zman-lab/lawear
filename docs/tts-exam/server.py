@@ -89,8 +89,10 @@ class ExamHandler(SimpleHTTPRequestHandler):
             return
 
         # 케이스 단건: /api/cases/{id}
+        # lawear-0d65: 한글 case_id URL-decode (bookmark handler L191과 일관성)
+        # 부등법 user_input case (예: '2025_budeunglaw_user_모의고사_01')에서 한글 percent-encode 발생
         if path.startswith("/api/cases/"):
-            case_id = path[len("/api/cases/"):]
+            case_id = urllib.parse.unquote(path[len("/api/cases/"):])
             # trailing slash 제거 + 빈 id 거부
             case_id = case_id.rstrip("/")
             if not case_id or "/" in case_id:
