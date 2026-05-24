@@ -9905,23 +9905,18 @@
     const lv4Text = (typeof caseData.lv4 === 'string') ? caseData.lv4 : null;
     let originHtml = '';
     const segments = Array.isArray(att.diff_segments) ? att.diff_segments : [];
+    // 사용자 피드백 (2026-05-24): "원본 답안" 탭은 17895 강조 태그(em-red/blue/u/em1~4/case/blank2 등)만 표시.
+    //   채점 결과 기반 diff_segments 매칭 형광펜(match/partial/miss) 추가 wrap 제거 — 전과목 장래효 적용.
+    //   diff_segments 데이터 자체는 DB 보존 (하단 토글 패널 + 리포트 등에서 활용 가능).
     if (refText) {
-      const emphasised = renderEmphasisInline(refText);
-      // lawear-0d65: 부등법은 origin(## 문제)에 diff_segments 적용 X.
-      // diff_segments는 사용자 답안 vs lv4(모범답안) 기준이라 origin과 무관.
-      // 사용자 피드백 "원본 답안은 17895에 태그된거 그대로 노출" — origin은 강조 태그 렌더링만.
-      originHtml = (isBudeunglawCase) ? emphasised : highlightDiffSegments(emphasised, segments);
+      originHtml = renderEmphasisInline(refText);
     } else {
       originHtml = `<span style="color: var(--text-dim);">${escapeHtml(dict.diff_col_ref_missing || 'No origin reference available.')}</span>`;
     }
-    // 부등법: origin 아래에 모범답안(lv4) 섹션 추가 + diff_segments 적용 (lv4 위에)
+    // 부등법: origin 아래에 모범답안(lv4) 섹션 추가 — 17895 강조 태그만 표시 (diff 매칭 wrap 제거)
     if (isBudeunglawCase && lv4Text) {
-      let lv4Html = renderEmphasisInline(lv4Text);
-      // diff_segments는 lv4(모범답안)에 적용 — match/miss/partial 색상 표시
-      if (segments.length > 0) {
-        lv4Html = highlightDiffSegments(lv4Html, segments);
-      }
-      const lv4Title = (currentLang === 'ko') ? '강사 모범답안 (Lv.4) — diff 매칭 표시' : 'Model Answer (Lv.4) — diff highlighted';
+      const lv4Html = renderEmphasisInline(lv4Text);
+      const lv4Title = (currentLang === 'ko') ? '강사 모범답안 (Lv.4)' : 'Model Answer (Lv.4)';
       originHtml += `<div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
         <div style="font-size: 11px; color: var(--text-dim); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px;">${escapeHtml(lv4Title)}</div>
         <div>${lv4Html}</div>
