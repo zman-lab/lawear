@@ -1064,6 +1064,91 @@
     color: var(--text-dim);
     font-family: 'SF Mono', Consolas, monospace;
   }
+  /* lawear-0d65 (2026-05-24) — 5모드 mode row 펼침 토글 + criteria detail row (9기준 grid mirror) */
+  .multimode-table tr.mm-mode-row { cursor: pointer; }
+  .multimode-table tr.mm-mode-row:hover td { background: rgba(255,255,255,0.02); }
+  .multimode-table td.mm-mode-cell { position: relative; padding-left: 22px; }
+  .multimode-table .mm-toggle {
+    position: absolute;
+    left: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-dim);
+    font-size: 10px;
+    transition: transform 0.15s ease;
+    user-select: none;
+  }
+  .multimode-table tr.mm-mode-row.expanded .mm-toggle { transform: translateY(-50%) rotate(90deg); }
+  .multimode-table tr.mm-detail-row { display: none; }
+  .multimode-table tr.mm-detail-row.show { display: table-row; }
+  .multimode-table tr.mm-detail-row td {
+    background: var(--bg);
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .multimode-table .mm-detail-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .multimode-table .mm-detail-grid .criteria-row {
+    grid-template-columns: 200px 1fr 90px;
+    gap: 8px;
+    font-size: 11px;
+    padding: 5px 4px;
+  }
+  .multimode-table .mm-detail-grid .criteria-row .comment {
+    grid-column: 1 / -1;
+    color: var(--text-dim);
+    font-size: 10px;
+    padding: 2px 0 4px 0;
+    line-height: 1.45;
+  }
+  .multimode-table .mm-detail-empty {
+    color: var(--text-dim);
+    font-size: 11px;
+    font-style: italic;
+    padding: 4px 0;
+  }
+  /* 누락 항목 박스 — inline_comments 중 type=miss/error + 본문에 target 없는 placeholder */
+  .inline-missing-box {
+    background: var(--bg);
+    border: 1px solid var(--danger);
+    border-left: 3px solid var(--danger);
+    border-radius: 3px;
+    padding: 8px 12px;
+    margin: 8px 0;
+    font-size: 11px;
+  }
+  .inline-missing-box .imb-title {
+    font-weight: 600;
+    color: var(--danger);
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+  .inline-missing-box ul {
+    margin: 0;
+    padding-left: 18px;
+    color: var(--text-dim);
+  }
+  .inline-missing-box li {
+    line-height: 1.5;
+    margin-bottom: 3px;
+  }
+  .inline-missing-box li .imb-target {
+    color: var(--text);
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 10px;
+    background: rgba(209, 105, 105, 0.12);
+    padding: 1px 4px;
+    border-radius: 2px;
+    margin-right: 6px;
+  }
 
   .feedback-section .feedback-block {
     background: var(--bg);
@@ -7033,6 +7118,25 @@
     if (critGrid) critGrid.style.display = 'none';
     host.innerHTML = html;
     host.style.display = '';
+    wireMultiModeToggle(host);
+  }
+
+  // lawear-0d65 (2026-05-24) — 5모드 mode row 클릭 시 detail row 토글 (기본 접힘).
+  //   이벤트 위임 — host 별로 1회 등록. 시험탭/모달 양쪽 공용.
+  function wireMultiModeToggle(host) {
+    if (!host || host.dataset.mmToggleWired === '1') return;
+    host.dataset.mmToggleWired = '1';
+    host.addEventListener('click', (ev) => {
+      const row = ev.target.closest('tr.mm-mode-row');
+      if (!row) return;
+      const tableHost = row.closest('.multimode-table');
+      if (!tableHost) return;
+      const idx = row.getAttribute('data-mm-idx');
+      const detail = tableHost.querySelector(`tr.mm-detail-row[data-mm-detail-idx="${idx}"]`);
+      if (!detail) return;
+      const isOpen = row.classList.toggle('expanded');
+      detail.classList.toggle('show', isOpen);
+    });
   }
 
   // lawear-0d65 (2026-05-24) — 5모드 비교표 HTML 빌더 (모달/시험탭 공용).
@@ -7074,6 +7178,7 @@
             score_pct: r.pct,
             grade: r.grade,
             summary: r.eval_notes || r.summary || '',
+            criteria: r.criteria || null,  // lawear-0d65 (2026-05-24) — detail row 펼침용
           });
         }
       }
@@ -7106,7 +7211,103 @@
     const head = isKo
       ? `<tr><th>모드</th><th>점수</th><th>등급</th><th>평가요지</th></tr>`
       : `<tr><th>Mode</th><th>Score</th><th>Grade</th><th>Summary</th></tr>`;
-    const rows = modesArr.map((m) => {
+    // lawear-0d65 (2026-05-24) — 부등법 5모드 criteria 키별 한글 라벨 (모드별 키 변형 모두 흡수).
+    //   judge 키: outline_b/case_apply_b/rich_b/mnem_b
+    //   lecturer 키: outline_skeleton/articles_rules/precedent_seonrye/attached_info_8/procedure_flow/legal_effect/missing_critical
+    //   hybrid/main_opus/strict_outline 키: outline/articles/precedent/attached/procedure/effect/case_apply/richness/missing
+    //   judge 전용: sources_unified/sem/color/under
+    //   사용자 매핑 (작업 지시 B) + 백엔드 실제 키 합집합
+    const budeungCritLabelKo = {
+      // 공통 (사용자 매핑)
+      outline:             '만능목차 골격',
+      outline_b:           '만능목차 골격',
+      outline_skeleton:    '만능목차 골격',
+      articles:            '조문·규칙 인용',
+      articles_rules:      '조문·규칙 인용',
+      precedent:           '선례·예규 인용',
+      precedent_seonrye:   '선례·예규 인용',
+      attached:            '첨부정보 8칸',
+      attached_info_8:     '첨부정보 8칸',
+      procedure:           '절차 흐름',
+      procedure_flow:      '절차 흐름',
+      effect:              '효력/효과',
+      legal_effect:        '효력/효과',
+      case_apply:          '사안 적용',
+      case_apply_b:        '사안 적용',
+      richness:            '풍부함',
+      rich_b:              '풍부함',
+      rich:                '풍부함',
+      missing:             '핵심 누락 차감',
+      missing_critical:    '핵심 누락 차감',
+      miss:                '핵심 누락 차감',
+      mnem:                '두문자/풀이형',
+      mnem_b:              '두문자/풀이형 (judge)',
+      // judge 전용
+      sources_unified:     '4종 출처 통합 (judge)',
+      sem:                 '의미 일치 (judge)',
+      color:               '색상 강조 평문 인정 (judge)',
+      under:               '밑줄 평문 인정 (judge)',
+    };
+    const fmt2 = (v) => {
+      const n = Number(v);
+      if (!isFinite(n)) return String(v);
+      return n.toFixed(2);
+    };
+    // criteria detail row 빌더 (9기준 grid mirror) — dict {key: {score, max, comment}} 또는 list [{key,score,max,comment}]
+    function buildModeDetailHtml(crit) {
+      if (!crit) return `<div class="mm-detail-empty">${escapeHtml(isKo ? '기준 상세 없음' : 'No criteria detail')}</div>`;
+      // dict → list 정규화
+      let items = [];
+      if (Array.isArray(crit)) {
+        items = crit.slice();
+      } else if (typeof crit === 'object') {
+        for (const k of Object.keys(crit)) {
+          const v = crit[k] || {};
+          items.push({ key: k, score: v.score, max: v.max, comment: v.comment });
+        }
+      }
+      if (!items.length) return `<div class="mm-detail-empty">${escapeHtml(isKo ? '기준 상세 없음' : 'No criteria detail')}</div>`;
+      // max=0 키는 N/A 로 표시 안 함 (사용자 작업 지시 B)
+      const visible = items.filter(it => {
+        const mx = Number(it.max);
+        return isFinite(mx) && mx > 0;
+      });
+      if (!visible.length) return `<div class="mm-detail-empty">${escapeHtml(isKo ? '평가 가능한 기준 없음 (모든 max=0)' : 'All criteria N/A (max=0)')}</div>`;
+      const rowsHtml = visible.map(it => {
+        const k = it.key || '—';
+        const label = isKo ? (budeungCritLabelKo[k] || k) : k;
+        const max = Number(it.max) || 0;
+        const score = Number(it.score) || 0;
+        let pct = 0;
+        let kind = '';
+        let numText = '';
+        if (k === 'miss' || k === 'missing' || k === 'missing_critical') {
+          // 차감 항목: 음수 표시
+          const absRatio = max > 0 ? Math.min(1, Math.abs(score) / max) : 0;
+          pct = Math.round(absRatio * 100);
+          kind = score < 0 ? 'low' : '';
+          numText = `${fmt2(score)} / ${fmt2(max)}`;
+        } else {
+          pct = max > 0 ? Math.round((score / max) * 100) : 0;
+          if (pct >= 90) kind = 'full';
+          else if (pct >= 60) kind = 'partial';
+          else kind = 'low';
+          numText = `${fmt2(score)} / ${fmt2(max)}`;
+        }
+        const commentTxt = String(it.comment || '');
+        const commentHtml = commentTxt
+          ? `<div class="comment">${escapeHtml(commentTxt)}</div>`
+          : '';
+        return `<div class="criteria-row">
+          <div class="label"><span>${escapeHtml(label)}</span> <span class="sub">${escapeHtml(k)}</span></div>
+          <div class="bar-wrap"><div class="bar-fill ${kind}" style="width:${pct}%"></div></div>
+          <div class="num">${escapeHtml(numText)}</div>
+          ${commentHtml}
+        </div>`;
+      }).join('');
+      return `<div class="mm-detail-grid">${rowsHtml}</div>`;
+    }
+    const rows = modesArr.map((m, idx) => {
       const modeKey = m.mode || m.key || '—';
       const modeLabel = isKo
         ? (modeLabelKo[modeKey] || modeKey)
@@ -7121,11 +7322,17 @@
       const v2Slug = gradeV2Slug(gradeText);
       const gradeCell = `<span class="grade-pill ${v2Slug}">${escapeHtml(gradeText)}</span>`;
       const summary = m.summary || m.note || '';
-      return `<tr>
-        <td>${escapeHtml(modeLabel)}</td>
+      // criteria detail — modesArr 빌드 시 results.results[k].criteria 보존 필요. 없으면 빈 string
+      const crit = m.criteria;
+      const detailInner = buildModeDetailHtml(crit);
+      return `<tr class="mm-mode-row" data-mm-idx="${idx}">
+        <td class="mm-mode-cell"><span class="mm-toggle">▶</span>${escapeHtml(modeLabel)}</td>
         <td class="mm-score">${escapeHtml(scoreCell)}</td>
         <td class="mm-grade">${gradeCell}</td>
         <td class="mm-summary">${escapeHtml(summary)}</td>
+      </tr>
+      <tr class="mm-detail-row" data-mm-detail-idx="${idx}">
+        <td colspan="4">${detailInner}</td>
       </tr>`;
     }).join('');
     const titleText = isKo ? '5모드 비교' : 'Multi-mode Comparison';
@@ -9085,7 +9292,10 @@
       // typo/diff wrap 이 본문 사이에 태그를 삽입하면 inline_comments 정규식 매칭 실패 → 마커 0건.
       // 채점 모드의 핵심은 inline_comments (호버 코멘트) 이므로 typo/diff 형광펜 생략.
       // lawear-c63e v7 2026-05-21: 채점탭 롤백 (사용자 요청) — strip X, 원래 코드로.
-      ansEl.innerHTML = applyInlineComments(escaped, inlineComments);
+      // lawear-0d65 (2026-05-24): 본문 미매칭 inline_comments (특히 placeholder "(의의)" 같은 miss) 별도 누락 박스 추가.
+      const innerHtml = applyInlineComments(escaped, inlineComments);
+      const missingBox = buildMissingInlineCommentsBox(ans, inlineComments);
+      ansEl.innerHTML = innerHtml + missingBox;
     } else if (mode === 'diff') {
       // Diff 모드: 4색 매핑 (match/partial/miss). 회색은 unmarked default text 그대로.
       // diff_segments 활용 — 기존 highlightDiffSegments 와 동일하게 처리. typo 도 표시.
@@ -9102,32 +9312,43 @@
   //   * HTML 태그 안쪽(<span class="..."> 등)은 침범 X (중첩 안전)
   //   * NULL/undefined/빈 배열 → 입력 HTML 그대로 반환
   //   * 동일 텍스트 등장 시 첫 번째만 wrap (중복 wrap 방지)
+  // lawear-0d65 (2026-05-24) — 부등법 형식 호환:
+  //   * 표준: {span:{text}, type:ok/warning/error, severity, comment, delta}
+  //   * 부등법: {target, type:good/wrong/miss, comment} — target → span.text 보강, type 매핑 (good→ok, wrong→error, miss→error)
+  //   * miss + 본문에 없는 placeholder (e.g. "(의의)") → wrap skip (호출자가 누락 박스로 별도 노출)
   function applyInlineComments(html, comments) {
     if (!Array.isArray(comments) || comments.length === 0) return html;
     // 캡 15개 — 명세서 §2-1
     const items = comments.slice(0, 15);
+    // 텍스트 정규화 (부등법 target → span.text fallback)
+    const getText = (c) => {
+      if (c && c.span && typeof c.span.text === 'string') return c.span.text;
+      if (c && typeof c.target === 'string') return c.target;
+      return '';
+    };
+    const mapType = (raw) => {
+      if (raw === 'ok' || raw === 'warning' || raw === 'error') return raw;
+      if (raw === 'good') return 'ok';
+      if (raw === 'wrong') return 'error';
+      if (raw === 'miss') return 'error';
+      return 'warning';
+    };
     // 긴 텍스트부터 처리 (짧은 토큰이 긴 토큰 안에 포함될 수 있음)
-    const sorted = items.slice().sort((a, b) => {
-      const al = String(a && a.span && a.span.text || '').length;
-      const bl = String(b && b.span && b.span.text || '').length;
-      return bl - al;
-    });
+    const sorted = items.slice().sort((a, b) => getText(b).length - getText(a).length);
     let out = html;
     for (const c of sorted) {
-      if (!c || !c.span || typeof c.span.text !== 'string') continue;
-      const raw = c.span.text.trim();
-      if (!raw || raw.length < 2) continue;
-      const type = (c.type === 'ok' || c.type === 'warning' || c.type === 'error')
-        ? c.type : 'warning';
-      const sev = (c.severity === 'high' || c.severity === 'mid' || c.severity === 'low')
+      const rawText = getText(c).trim();
+      if (!rawText || rawText.length < 2) continue;
+      const type = mapType(c && c.type);
+      const sev = (c && (c.severity === 'high' || c.severity === 'mid' || c.severity === 'low'))
         ? c.severity : 'mid';
       const icon = (type === 'ok') ? '✅' : (type === 'error') ? '❌' : '⚠️';
-      const commentTxt = String(c.comment || '');
-      const delta = (typeof c.delta === 'number' && c.delta !== 0)
+      const commentTxt = String((c && c.comment) || '');
+      const delta = (c && typeof c.delta === 'number' && c.delta !== 0)
         ? ` (${c.delta > 0 ? '+' : ''}${c.delta}점)` : '';
       const tooltip = (commentTxt + delta).trim();
-      // escape 된 텍스트 매칭 — span.text 도 escape 처리 후 정규식 빌드
-      const safe = escapeHtml(raw);
+      // escape 된 텍스트 매칭 — text 도 escape 처리 후 정규식 빌드
+      const safe = escapeHtml(rawText);
       if (!safe || safe.length < 2) continue;
       const re = new RegExp(safe.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
       // 첫 매칭 1회만 (중복 wrap 방지)
@@ -9141,6 +9362,41 @@
       });
     }
     return out;
+  }
+
+  // lawear-0d65 (2026-05-24) — 본문에 매칭 안 된 inline_comments (특히 placeholder target "(의의)" 같은) 별도 박스 빌더.
+  //   * 답안 본문 plain text 와 대조하여 매칭 0건인 항목 추출
+  //   * type=miss/error (또는 부등법 target 이 괄호 placeholder) → 누락 항목으로 분류
+  //   * good/ok 매칭 0건은 무시 (강조 실패는 표시 안 함 — 부등법 sem 차이 가능성)
+  //   * 빈 결과면 '' 반환
+  function buildMissingInlineCommentsBox(ans, comments) {
+    if (!Array.isArray(comments) || !ans) return '';
+    const ansStr = String(ans);
+    const misses = [];
+    for (const c of comments) {
+      if (!c) continue;
+      const text = (c.span && typeof c.span.text === 'string') ? c.span.text
+                 : (typeof c.target === 'string') ? c.target : '';
+      const rawType = c.type;
+      const isMissType = (rawType === 'miss' || rawType === 'error');
+      // 본문 매칭 여부
+      const matched = (text && text.length >= 2 && ansStr.indexOf(text) >= 0);
+      // placeholder 패턴: 괄호로 시작/끝 (예 "(의의)", "(소유권 유용 예시)")
+      const isPlaceholder = /^\([^)]+\)$/.test(text.trim());
+      if (!matched && (isMissType || isPlaceholder)) {
+        misses.push({ target: text, comment: String(c.comment || '') });
+      }
+    }
+    if (!misses.length) return '';
+    const isKo = (currentLang === 'ko');
+    const title = isKo ? `핵심 누락 항목 ${misses.length}건` : `${misses.length} missing key item(s)`;
+    const lis = misses.map(m =>
+      `<li><span class="imb-target">${escapeHtml(m.target)}</span>${escapeHtml(m.comment)}</li>`
+    ).join('');
+    return `<div class="inline-missing-box">
+      <div class="imb-title">${escapeHtml(title)}</div>
+      <ul>${lis}</ul>
+    </div>`;
   }
 
   // lawear-c63e v9 2026-05-21: body portal 툴팁 — ::after 답안 영역 본문 가림 문제 fix.
@@ -9518,6 +9774,8 @@
       html += `<div style="color: var(--text-dim); font-size: 12px;">${escapeHtml(dict.modal_no_eval || 'Not yet graded.')}</div>`;
     }
     evEl.innerHTML = html;
+    // lawear-0d65 (2026-05-24) — 시험탭 5모드 비교표 detail row 토글 wire
+    wireMultiModeToggle(evEl);
 
     // e571-ui-eval-rework — 원본 답안 본문 (좌측 탭 + 하단 토글 패널 동시 렌더)
     //   * 캐시된 MODAL_STATE.caseData.origin 사용 (loadCaseDataForModal 가 준비)
@@ -9530,17 +9788,24 @@
     const refText = (typeof caseData.origin === 'string') ? caseData.origin : null;
     const lv4Text = (typeof caseData.lv4 === 'string') ? caseData.lv4 : null;
     let originHtml = '';
+    const segments = Array.isArray(att.diff_segments) ? att.diff_segments : [];
     if (refText) {
       const emphasised = renderEmphasisInline(refText);
-      const segments = Array.isArray(att.diff_segments) ? att.diff_segments : [];
-      originHtml = highlightDiffSegments(emphasised, segments);
+      // lawear-0d65: 부등법은 origin(## 문제)에 diff_segments 적용 X.
+      // diff_segments는 사용자 답안 vs lv4(모범답안) 기준이라 origin과 무관.
+      // 사용자 피드백 "원본 답안은 17895에 태그된거 그대로 노출" — origin은 강조 태그 렌더링만.
+      originHtml = (isBudeunglawCase) ? emphasised : highlightDiffSegments(emphasised, segments);
     } else {
       originHtml = `<span style="color: var(--text-dim);">${escapeHtml(dict.diff_col_ref_missing || 'No origin reference available.')}</span>`;
     }
-    // 부등법: origin 아래에 모범답안(lv4) 섹션 추가
+    // 부등법: origin 아래에 모범답안(lv4) 섹션 추가 + diff_segments 적용 (lv4 위에)
     if (isBudeunglawCase && lv4Text) {
-      const lv4Html = renderEmphasisInline(lv4Text);
-      const lv4Title = (currentLang === 'ko') ? '강사 모범답안 (Lv.4)' : 'Model Answer (Lv.4)';
+      let lv4Html = renderEmphasisInline(lv4Text);
+      // diff_segments는 lv4(모범답안)에 적용 — match/miss/partial 색상 표시
+      if (segments.length > 0) {
+        lv4Html = highlightDiffSegments(lv4Html, segments);
+      }
+      const lv4Title = (currentLang === 'ko') ? '강사 모범답안 (Lv.4) — diff 매칭 표시' : 'Model Answer (Lv.4) — diff highlighted';
       originHtml += `<div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
         <div style="font-size: 11px; color: var(--text-dim); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px;">${escapeHtml(lv4Title)}</div>
         <div>${lv4Html}</div>
