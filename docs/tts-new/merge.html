@@ -244,7 +244,7 @@
   #editor-toggle.active { background: #d97706; color: #fff; border-color: #d97706; }
 
   /* ─────────── Content ─────────── */
-  #content { flex: 1; overflow-y: auto; padding: 32px 48px; min-width: 0; }
+  #content { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 32px 48px; min-width: 0; }
   #content h1 { color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 16px; }
   #content h2 { color: var(--text-bright); margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid var(--panel-2); padding-bottom: 4px; }
   #content h3 { color: var(--text); margin-top: 16px; margin-bottom: 8px; }
@@ -484,6 +484,37 @@
   /* lawear-4b59 (2026-05-21): 라이브러리 출처 inline 표기 — 작은 회색 + 호버 강조 (TTS 다운로드 시 strip) */
   .lib-ref { color: #6c757d; font-size: 0.72em; opacity: 0.45; transition: opacity 0.2s, color 0.2s; cursor: help; }
   .lib-ref:hover { opacity: 1; color: #adb5bd; }
+
+  /* lawear-18eb (2026-05-24): [case] 조문원문 마우스오버 툴팁 (17896 .inline-tooltip-portal 이식).
+     조문/규칙 lookup 성공한 [case]에만 data-comment 주입 → 점선밑줄 어포던스 + cursor:help.
+     선례/예규/판례(lookup 실패)는 data-comment 없음 → 기존 초록 강조 유지 (역할분담 의도된 차등). */
+  .tts-case[data-comment] {
+    border-bottom: 1px dotted currentColor;
+    cursor: help;
+  }
+  /* body portal 패턴 (position fixed, JS 동적 div) — CSS 변수 --panel-2/--border/--text-bright 동일 (리매핑 불필요) */
+  .inline-tooltip-portal {
+    position: fixed;
+    background: var(--panel-2);
+    color: var(--text-bright);
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-family: 'SF Mono', Consolas, monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    max-width: 420px;
+    min-width: 200px;
+    z-index: 99999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 120ms;
+  }
+  .inline-tooltip-portal.show { opacity: 1; }
+  /* 위장 모드 — 조문 툴팁 어포던스 숨김 (밑줄/커서 노출 방지) */
+  body.stealth .tts-case[data-comment] { border-bottom: none !important; cursor: default; }
 
   /* 위장 모드 — 좌측 패널 한글 노출 부분 숨김 (case-title, case-meta) */
   body.stealth .case-item .case-title { display: none; }
@@ -725,6 +756,13 @@ let fullContent = '';
 let selectedFiles = new Set();
 let stealthMode = localStorage.getItem('stealth') === 'true';
 
+// lawear-18eb (2026-05-24): [case] 조문원문 툴팁
+// - lawArticles: lawArticlesText.json 통로드 캐시 ({version, target_date, statutes:{...}})
+// - currentRenderSubjectKor: 현재 렌더 중 파일의 meta.subjectKor (법명 생략 시 자과목 보충용).
+//   renderContent() 진입 시 세팅 → renderMd recover()에서 참조. library/기출문제(과목 아님)는 null.
+let lawArticles = null;
+let currentRenderSubjectKor = null;
+
 // Tree 상태 (localStorage 영속)
 const TREE_STATE_KEY = 'lawear_merge_tree_state';
 function loadTreeState() {
@@ -854,6 +892,141 @@ function displayFileKor(fileKor, fileCode) {
   return fileCode || fileKor;
 }
 
+// ─────────── [case] 조문원문 lookup (lawear-18eb 2026-05-24) ───────────
+// R-09: 조문 원문은 lawArticlesText.json 텍스트를 "그대로" 반환. 가공/요약/생성 금지.
+//        lookup 실패(선례/예규/판례 등)면 null → 호출부에서 data-comment 미주입 → 툴팁 안 뜸.
+//        "툴팁 적용 비율 낮음"은 결함 아니라 의도된 역할분담 (조문/규칙=찾는 것, 선례=암기).
+
+// subjectKor(_file_index 실제 값) → 자과목 법령명(JSON statutes 키). 명세 매핑만, 임의 확장 X.
+const SUBJECT_KOR_TO_STATUTE = {
+  '형법': '형법',
+  '형소': '형사소송법',
+  '민법': '민법',
+  '민소': '민사소송법',
+  '부동산등기법': '부동산등기법',
+  '부동산등기서류': '부동산등기법',  // 부등서류 → 부동산등기법
+};
+// 자과목 '규칙' → 해당 규칙 법령명 (subjectKor 기준). 규칙 없는 과목(민법 등)은 매핑 없음 → lookup 실패.
+const SUBJECT_KOR_TO_RULE = {
+  '형소': '형사소송규칙',
+  '민소': '민사소송규칙',
+  '부동산등기법': '부동산등기규칙',
+  '부동산등기서류': '부동산등기규칙',
+};
+// 항 원문자 ①~⑭ (JSON paragraphs[].no 형식). index+1 = 항번호.
+const CIRCLED_NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮'];
+
+// 마커에 명시된 법명(raw) → JSON statutes 키 정규화. 정확 매칭 + 공백차이만 (약칭 추론 X — R-09).
+function normalizeLawName(raw) {
+  if (!raw || !lawArticles || !lawArticles.statutes) return null;
+  const st = lawArticles.statutes;
+  if (st[raw]) return raw;                                  // 정확 일치
+  const collapsed = raw.replace(/\s+/g, '');                // 공백 제거형으로 비교
+  for (const k of Object.keys(st)) {
+    if (k.replace(/\s+/g, '') === collapsed) return k;       // '상가건물임대차보호법' → '상가건물 임대차보호법'
+  }
+  return null;  // statutes에 없는 약칭(주임법/토지보상법 등) → null → lookup 실패 → 미주입
+}
+
+// [case] 본문 content + 현재 과목(subjectKor) → 조문 원문 텍스트(string) 또는 null.
+function resolveCaseArticleText(content, subjectKor) {
+  if (!lawArticles || !lawArticles.statutes) return null;
+  if (!content) return null;
+  // 1) 조 추출 (첫 매칭) — '제215조' / '제215조의2'
+  const artM = content.match(/제(\d+)조(?:의(\d+))?/);
+  if (!artM) return null;
+  const artKey = artM[2] ? `${artM[1]}의${artM[2]}` : artM[1];
+  const artStart = artM.index;          // 조 등장 위치 (항/호는 이 이후만 인정)
+  const artEnd = artStart + artM[0].length;
+
+  // 2) 법명 결정
+  //    a) 명시형: 조 바로 앞(최대 12자)에 '~법' 또는 '~규칙'
+  const before = content.slice(Math.max(0, artStart - 12), artStart);
+  const lawBeforeM = before.match(/([가-힣]{2,}(?:법|규칙)|규칙)\s*$/);
+  let statuteName = null;
+  if (lawBeforeM) {
+    const rawName = lawBeforeM[1];
+    if (/^규칙$/.test(rawName)) {
+      // '규칙 제N조' → 자과목규칙
+      statuteName = SUBJECT_KOR_TO_RULE[subjectKor] || null;
+    } else {
+      statuteName = normalizeLawName(rawName);
+      if (!statuteName && /규칙$/.test(rawName)) {
+        // '○○규칙' 형태인데 매칭 실패 시 자과목규칙 fallback 금지 (R-09 — 다른 규칙일 수 있음)
+        statuteName = null;
+      }
+    }
+  } else {
+    // b) 법명 생략 → 자과목 (subjectKor 보충)
+    statuteName = SUBJECT_KOR_TO_STATUTE[subjectKor] || null;
+  }
+  if (!statuteName) return null;
+
+  const statute = lawArticles.statutes[statuteName];
+  if (!statute || !statute.bodies) return null;
+  const node = statute.bodies[artKey];
+  if (!node) return null;  // 해당 조 없음 → 미주입
+
+  const baseText = (node.text || '').trim();
+  const paras = node.paragraphs;
+
+  // 3) 항/호 추출 (조 등장 이후 구간에서만 — 다른 조의 항 오인 방지)
+  const tail = content.slice(artEnd);
+  // 항: '제N항' (아라비아) 우선, 없으면 원문자 ①②③
+  let hangNo = null;  // 1-based 항번호
+  const hangArab = tail.match(/^[^제]{0,8}제(\d+)항/);     // 조 직후 근처의 제N항
+  if (hangArab) {
+    hangNo = parseInt(hangArab[1], 10);
+  } else {
+    const circM = tail.slice(0, 6).match(/[①-⑮]/);
+    if (circM) {
+      const idx = CIRCLED_NUMS.indexOf(circM[0]);
+      if (idx >= 0) hangNo = idx + 1;
+    }
+  }
+  // 호: '제N호'
+  let hoNo = null;
+  const hoM = tail.match(/^[^제]{0,16}제(\d+)호/);
+  if (hoM) hoNo = parseInt(hoM[1], 10);
+
+  // 4) 텍스트 조립 (R-09 — 원문 그대로, 가공 X)
+  if (!paras || !paras.length) {
+    // 항 없는 조문: text에 본문 포함 (예: 제481조 "...변제로 당연히...")
+    return baseText || null;
+  }
+  // 항 있는 조문: text는 보통 제목만 → 제목 + 항 텍스트
+  const titleLine = baseText;  // '제204조(점유의 회수)'
+  // 호만 지정되고 항 표기 없는 조문(부등법29: paragraphs=[{no:'', items:[...]}]) 처리
+  if (hangNo == null && hoNo != null) {
+    // 모든 항의 items에서 'N.' 호 검색
+    for (const p of paras) {
+      for (const it of (p.items || [])) {
+        if (it.no === `${hoNo}.`) {
+          return [titleLine, (it.text || '').trim()].filter(Boolean).join('\n');
+        }
+      }
+    }
+    // 호 못 찾으면 조 전체로 폴백
+  }
+  if (hangNo != null) {
+    const circ = CIRCLED_NUMS[hangNo - 1];
+    const p = paras.find(pp => pp.no === circ);
+    if (p) {
+      let out = [titleLine, (p.text || '').trim()].filter(Boolean).join('\n');
+      if (hoNo != null) {
+        const it = (p.items || []).find(x => x.no === `${hoNo}.`);
+        if (it && it.text) out += '\n' + it.text.trim();
+      }
+      return out || null;
+    }
+    // 지정 항 못 찾음 → 조 전체로 폴백 (아래)
+  }
+  // 항 미지정 or 못 찾음 → 제목 + 전체 항 연결
+  const allParas = paras.map(p => (p.text || '').trim()).filter(Boolean);
+  const joined = [titleLine, ...allParas].filter(Boolean).join('\n');
+  return joined || null;
+}
+
 // ─────────── 강조 렌더링 ───────────
 // lawear-7ad6 v3 — marked GFM breaks 활성화 (단일 \n → <br>)
 // 사용자 입력 textarea 엔터가 본문에서 한 줄로 흡수되는 버그 fix (5번 버그)
@@ -885,6 +1058,15 @@ function renderMd(md) {
       const { tag, content } = placeholders[parseInt(i, 10)];
       const cls = tag === 'u' ? 'tts-underline' : 'tts-' + tag;
       const inner = recover(content);
+      // lawear-18eb: [case]에 조문/규칙 lookup 성공 시 data-comment 주입 → 마우스오버 툴팁.
+      //   content는 태그 파싱 전 raw 텍스트('제204조...')라 조문번호 그대로 파싱 가능.
+      //   실패(선례/예규/판례)면 미주입 → 기존 초록 강조만 (역할분담 의도된 차등).
+      if (tag === 'case') {
+        const articleText = resolveCaseArticleText(content, currentRenderSubjectKor);
+        if (articleText) {
+          return `<span class="${cls}" data-comment="${escapeAttr(articleText)}">${inner}</span>`;
+        }
+      }
       return `<span class="${cls}">${inner}</span>`;
     });
   }
@@ -1052,6 +1234,21 @@ async function init() {
   document.body.classList.toggle('stealth', stealthMode);
   applyStealthUI();
   renderTree();
+
+  // lawear-18eb: [case] 조문원문 데이터 통로드 캐시 (4MB, 1회).
+  //   web/src/data/는 서빙루트(docs/tts-new) 밖 → build_law_articles.py가 사본을 docs/tts-new/에 출력.
+  //   _file_index.json과 동일한 상대경로 fetch. 실패해도 뷰어 정상 동작(툴팁만 비활성).
+  try {
+    const lawRes = await fetch('lawArticlesText.json');
+    if (lawRes.ok) {
+      lawArticles = await lawRes.json();
+      console.log(`[lawArticles] loaded — ${Object.keys((lawArticles && lawArticles.statutes) || {}).length} statutes (v${lawArticles && lawArticles.version})`);
+    } else {
+      console.warn(`[lawArticles] fetch ${lawRes.status} — [case] 툴팁 비활성`);
+    }
+  } catch (e) {
+    console.warn('[lawArticles] load 실패 — [case] 툴팁 비활성:', e && e.message);
+  }
 }
 
 function updateSelectedCount() {
@@ -1622,6 +1819,11 @@ function renderContent() {
   // Case 메타 헤더 (풍부 메타가 있는 경우)
   const meta = fileMetadata[currentPath];
 
+  // lawear-18eb: [case] 조문 lookup 자과목 보충용 — 현재 파일 subjectKor 세팅.
+  //   renderMd recover()가 참조. 두문자/기출문제는 과목명이 아니라(SUBJECT_KOR_TO_STATUTE 미매칭)
+  //   자과목 추론 안 됨 → 마커 명시형 [case]만 lookup (의도된 동작).
+  currentRenderSubjectKor = meta ? (meta.subjectKor || null) : null;
+
   // ─── 라이브러리(두문자/기출문제) 분기: 탭 없이 전체 마크다운 렌더 + (두문자만) 업로드 UI ───
   if (meta && meta.type === 'library') {
     const caseLabel = stealthMode ? (stealthSubjectMap[meta.case] || stealthCategoryMap[meta.case] || meta.case || '') : (meta.case || '');
@@ -2148,6 +2350,70 @@ function createNewUserInput() {
   console.log('[createNewUserInput] redirect → input.html (모든 입력 input.html 안 콤보박스/필드)');
   window.location.href = '/input.html';
 }
+
+// ─────────── [case] 조문원문 마우스오버 툴팁 (lawear-18eb 2026-05-24) ───────────
+// 17896 docs/tts-exam/index.html (9514~9572) 이식.
+//   셀렉터 교체: getElementById('attempt-modal') → #content,  .inline-marker[data-comment] → .tts-case[data-comment]
+//   body portal 패턴 (position fixed) — 답안/테이블 영역 무관하게 자유 위치 + 화면 가장자리 회피.
+let __tooltipPortalEl = null;
+function showInlineTooltip(marker) {
+  const comment = marker.getAttribute('data-comment');
+  if (!comment) return;
+  if (!__tooltipPortalEl) {
+    __tooltipPortalEl = document.createElement('div');
+    __tooltipPortalEl.className = 'inline-tooltip-portal';
+    document.body.appendChild(__tooltipPortalEl);
+  }
+  const tip = __tooltipPortalEl;
+  tip.textContent = comment;
+  tip.style.left = '0px';
+  tip.style.top = '0px';
+  tip.classList.add('show');
+  // 위치 계산 — 마커 우측 옆 + 화면 가장자리 회피
+  const mRect = marker.getBoundingClientRect();
+  const tRect = tip.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const PAD = 8;
+  // 좌우: 마커 우측 + PAD. 화면 우측 넘으면 마커 좌측 옆.
+  let left = mRect.right + PAD;
+  if (left + tRect.width > vw - PAD) {
+    left = mRect.left - tRect.width - PAD;
+  }
+  if (left < PAD) left = PAD;
+  // 상하: 마커 상단 정렬. 화면 하단 넘으면 위로 조정.
+  let top = mRect.top;
+  if (top + tRect.height > vh - PAD) {
+    top = vh - tRect.height - PAD;
+  }
+  if (top < PAD) top = PAD;
+  tip.style.left = left + 'px';
+  tip.style.top = top + 'px';
+}
+function hideInlineTooltip() {
+  if (__tooltipPortalEl) __tooltipPortalEl.classList.remove('show');
+}
+function wireInlineMarkerTooltipDirection() {
+  const root = document.getElementById('content');  // attempt-modal 없음 → 공통부모 #content
+  if (!root || root.dataset.tooltipWired === '1') return;
+  root.addEventListener('mouseover', (ev) => {
+    const marker = ev.target.closest('.tts-case[data-comment]');  // .inline-marker → .tts-case[data-comment]
+    if (marker) showInlineTooltip(marker);
+  }, true);
+  root.addEventListener('mouseout', (ev) => {
+    const marker = ev.target.closest('.tts-case[data-comment]');
+    if (marker) hideInlineTooltip();
+  }, true);
+  root.dataset.tooltipWired = '1';
+}
+// 페이지 로드 후 1회 wire (#content는 정적 — 내부 innerHTML 교체돼도 이벤트 위임으로 동작).
+(function initTooltipDirWire() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireInlineMarkerTooltipDirection);
+  } else {
+    wireInlineMarkerTooltipDirection();
+  }
+})();
 
 init();
 </script>
