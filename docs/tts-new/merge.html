@@ -313,6 +313,46 @@
     color: var(--text-dim);
   }
 
+  /* ─── user_input(민사서류 등) 청구취지/청구원인 접펼 — 강사원본/AI/작성요령 ─── */
+  /* lawear-18eb: .md 본문에 raw <details class="ui-fold"> 직접 삽입 → renderMd 통과 렌더. */
+  /* lib-item 과 클래스 분리(회귀 0). 답안 컬럼 폭이 좁으므로 패딩 축소. */
+  #content details.ui-fold {
+    margin: 6px 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+  }
+  #content details.ui-fold > summary {
+    cursor: pointer;
+    padding: 7px 10px;
+    list-style: none;
+    line-height: 1.5;
+    user-select: none;
+    font-weight: 600;
+    color: var(--text-bright);
+    font-size: 12.5px;
+  }
+  #content details.ui-fold > summary::-webkit-details-marker { display: none; }
+  #content details.ui-fold > summary::before {
+    content: '▶';
+    display: inline-block;
+    width: 14px;
+    color: var(--accent);
+    font-size: 10px;
+    transition: transform 0.15s;
+  }
+  #content details.ui-fold[open] > summary { border-bottom: 1px solid var(--border); }
+  #content details.ui-fold[open] > summary::before { transform: rotate(90deg); }
+  /* 강사원본 펼침(open) summary 강조 — 기준 원문임을 시각 구분 */
+  #content details.ui-fold[open] > summary { color: var(--accent); }
+  /* details 본문 — summary 직후 요소들 (marked 가 details 내부를 블록 파싱) */
+  #content details.ui-fold > *:not(summary) {
+    padding-left: 12px;
+    padding-right: 10px;
+  }
+  #content details.ui-fold > :nth-child(2) { margin-top: 8px; }
+  #content details.ui-fold > :last-child { margin-bottom: 10px; }
+
   .compare-table { table-layout: fixed; width: 100%; }
   .compare-table th { width: 33.33%; text-align: center; }
   .compare-table td { font-size: 12px; line-height: 1.5; }
@@ -905,6 +945,7 @@ const SUBJECT_KOR_TO_STATUTE = {
   '민소': '민사소송법',
   '부동산등기법': '부동산등기법',
   '부동산등기서류': '부동산등기법',  // 부등서류 → 부동산등기법
+  '민사서류': '민법',  // 민사서류 → 민법 기본 (법명생략 시; 사용자 지시 2026-05-25). 민소법/민집법은 [case]에 법명 명시.
 };
 // 자과목 '규칙' → 해당 규칙 법령명 (subjectKor 기준). 규칙 없는 과목(민법 등)은 매핑 없음 → lookup 실패.
 const SUBJECT_KOR_TO_RULE = {
@@ -942,7 +983,7 @@ function resolveCaseArticleText(content, subjectKor) {
   // 2) 법명 결정
   //    a) 명시형: 조 바로 앞(최대 12자)에 '~법' 또는 '~규칙'
   const before = content.slice(Math.max(0, artStart - 12), artStart);
-  const lawBeforeM = before.match(/([가-힣]{2,}(?:법|규칙)|규칙)\s*$/);
+  const lawBeforeM = before.match(/([가-힣]+(?:법|규칙)|규칙)\s*$/);  // lawear-18eb fix: {2,}→+ ('민법/형법/상법' 2글자 법명 명시형 누락 버그. normalizeLawName 화이트리스트가 과매칭 차단)
   let statuteName = null;
   if (lawBeforeM) {
     const rawName = lawBeforeM[1];
@@ -1899,6 +1940,32 @@ function renderContent() {
     const answerMd = extractSection(fullContent, '답안');
     const tocMd = extractSection(fullContent, '목차');
     const memoMd = extractSection(fullContent, '메모');
+    // lawear-18eb: 공통 캐시·해설형 user_input (예: 부등서류 첨부서면해설_공통캐시)은
+    //   ## 문제 / ## 답안 split 구조가 아니라 전체 마크다운 본문(메타·캐시규칙·항목해설).
+    //   4섹션이 모두 비면 split 테이블로는 "(문제 없음)/(답안 없음)"만 떠 빈 화면이 됨 →
+    //   전체 마크다운을 그대로 렌더(fallback). 모의고사 등 정상 케이스(문제/답안 보유)는 무손상.
+    if (!problemMd && !answerMd && !tocMd && !memoMd) {
+      // lawear-18eb #5: 공통 캐시 전체 렌더 시 ## 메타 · ## 캐시 사용 규칙 섹션은
+      //   사용자가 볼 필요 없으므로 제외 (각 헤더 ~ 다음 #/## 헤더 직전까지 strip).
+      //   R-09: 나머지 본문은 그대로 renderMd. 타 분기/모의고사 케이스 무손상.
+      const ui_hideHeadings = ['메타', '캐시 사용 규칙'];
+      const ui_srcLines = (fullContent || '').split('\n');
+      const ui_keptLines = [];
+      let ui_skipping = false;
+      for (const ln of ui_srcLines) {
+        const hm = ln.match(/^(#{1,6})\s+(.*)$/);
+        if (hm) {
+          // 새 헤더 만나면: 제외 대상이면 skip 시작, 아니면 skip 해제
+          ui_skipping = ui_hideHeadings.includes(hm[2].trim());
+          if (ui_skipping) continue;
+        }
+        if (!ui_skipping) ui_keptLines.push(ln);
+      }
+      // 제외 섹션 뒤에 남은 선두 --- / 공백 라인 정리 (시각적 깔끔)
+      while (ui_keptLines.length && /^(\s*|-{3,})$/.test(ui_keptLines[0])) ui_keptLines.shift();
+      ui_target.innerHTML = renderMd(ui_keptLines.join('\n'));
+      return;
+    }
     // 좌우 split 테이블 (compare-table.cols-2 신규 변종)
     // lawear-7ad6 v5 — 점수는 본문 X, 컬럼 헤더 "문제 (NN점)"로 표시 (사용자 명시)
     const pointsTag = meta.points ? ` (${meta.points}점)` : '';
