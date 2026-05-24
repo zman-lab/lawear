@@ -1,0 +1,311 @@
+{
+  "형법": {
+    "old_mst": "284025",
+    "new_mst": "284025",
+    "new_ef": "20260913",
+    "new_yh": "시행예정",
+    "old_count": 402,
+    "new_count": 402,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "형사소송법": {
+    "old_mst": "269945",
+    "new_mst": "281865",
+    "new_ef": "20260701",
+    "new_yh": "시행예정",
+    "old_count": 608,
+    "new_count": 610,
+    "added": [
+      "215의2",
+      "294의6"
+    ],
+    "removed": [],
+    "title_chg": [
+      [
+        "185",
+        "서류의 열람등",
+        "서류의 열람 등"
+      ],
+      [
+        "294의5",
+        "금전 공탁과 피해자 등의 의견 청취",
+        "피해자 등의 검사 보관 서류 등의 열람ㆍ등사"
+      ]
+    ],
+    "mst_changed": true
+  },
+  "민법": {
+    "old_mst": "284415",
+    "new_mst": "284415",
+    "new_ef": "20260317",
+    "new_yh": "현행",
+    "old_count": 1193,
+    "new_count": 1193,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "민사소송법": {
+    "old_mst": "252393",
+    "new_mst": "252393",
+    "new_ef": "20250712",
+    "new_yh": "현행",
+    "old_count": 521,
+    "new_count": 523,
+    "added": [
+      "402의2",
+      "402의3"
+    ],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "형사소송규칙": {
+    "old_mst": "273605",
+    "new_mst": "273605",
+    "new_ef": "20250919",
+    "new_yh": "현행",
+    "old_count": 306,
+    "new_count": 306,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "민사소송규칙": {
+    "old_mst": "283113",
+    "new_mst": "283113",
+    "new_ef": "20260301",
+    "new_yh": "현행",
+    "old_count": 188,
+    "new_count": 188,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "상법": {
+    "old_mst": "284143",
+    "new_mst": "273629",
+    "new_ef": "20260910",
+    "new_yh": "시행예정",
+    "old_count": 1188,
+    "new_count": 1186,
+    "added": [],
+    "removed": [
+      "542의15",
+      "542의16"
+    ],
+    "title_chg": [
+      [
+        "364",
+        "소집지와 개최방식",
+        "소집지"
+      ],
+      [
+        "368",
+        "총회의 결의방법과 의결권 행사",
+        "총회의 결의방법과 의결권의 행사"
+      ],
+      [
+        "542의14",
+        "전자주주총회",
+        "신탁계약에 의한 자기주식 취득 등"
+      ]
+    ],
+    "mst_changed": true
+  },
+  "민사집행법": {
+    "old_mst": "268837",
+    "new_mst": "268837",
+    "new_ef": "20260201",
+    "new_yh": "현행",
+    "old_count": 313,
+    "new_count": 313,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "민사집행규칙": {
+    "old_mst": "272631",
+    "new_mst": "272631",
+    "new_ef": "20250712",
+    "new_yh": "현행",
+    "old_count": 239,
+    "new_count": 239,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "공탁법": {
+    "old_mst": "284413",
+    "new_mst": "284413",
+    "new_ef": "20260317",
+    "new_yh": "현행",
+    "old_count": 44,
+    "new_count": 44,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "공탁규칙": {
+    "old_mst": "272613",
+    "new_mst": "272613",
+    "new_ef": "20250818",
+    "new_yh": "현행",
+    "old_count": 93,
+    "new_count": 93,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "경찰관 직무집행법": {
+    "old_mst": "273315",
+    "new_mst": "282479",
+    "new_ef": "20260707",
+    "new_yh": "시행예정",
+    "old_count": 25,
+    "new_count": 27,
+    "added": [
+      "6의2",
+      "8의4"
+    ],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": true
+  },
+  "폭력행위 등 처벌에 관한 법률": {
+    "old_mst": "178989",
+    "new_mst": "178989",
+    "new_ef": "20160106",
+    "new_yh": "현행",
+    "old_count": 10,
+    "new_count": 10,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "성폭력방지 및 피해자보호 등에 관한 법률": {
+    "old_mst": "270807",
+    "new_mst": "283891",
+    "new_ef": "20260911",
+    "new_yh": "시행예정",
+    "old_count": 46,
+    "new_count": 47,
+    "added": [
+      "19의3"
+    ],
+    "removed": [],
+    "title_chg": [
+      [
+        "14",
+        "보호시설에 대한 보호비용 지원",
+        "보호시설에 대한 보호비용 지원 등"
+      ]
+    ],
+    "mst_changed": true
+  },
+  "통신비밀보호법": {
+    "old_mst": "268703",
+    "new_mst": "268703",
+    "new_ef": "20250801",
+    "new_yh": "현행",
+    "old_count": 32,
+    "new_count": 32,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "개인정보 보호법": {
+    "old_mst": "270351",
+    "new_mst": "283839",
+    "new_ef": "20260911",
+    "new_yh": "시행예정",
+    "old_count": 126,
+    "new_count": 127,
+    "added": [
+      "30의3"
+    ],
+    "removed": [],
+    "title_chg": [
+      [
+        "34",
+        "개인정보 유출 등의 통지ㆍ신고",
+        "개인정보 유출등의 통지ㆍ신고"
+      ]
+    ],
+    "mst_changed": true
+  },
+  "신탁법": {
+    "old_mst": "198564",
+    "new_mst": "198564",
+    "new_ef": "20181101",
+    "new_yh": "현행",
+    "old_count": 147,
+    "new_count": 147,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "주택임대차보호법": {
+    "old_mst": "276291",
+    "new_mst": "276291",
+    "new_ef": "20260102",
+    "new_yh": "현행",
+    "old_count": 42,
+    "new_count": 42,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "상가건물 임대차보호법": {
+    "old_mst": "276285",
+    "new_mst": "279651",
+    "new_ef": "20260512",
+    "new_yh": "현행",
+    "old_count": 32,
+    "new_count": 33,
+    "added": [
+      "19의2"
+    ],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": true
+  },
+  "부동산등기법": {
+    "old_mst": "265377",
+    "new_mst": "265377",
+    "new_ef": "20250131",
+    "new_yh": "현행",
+    "old_count": 121,
+    "new_count": 121,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  },
+  "부동산등기규칙": {
+    "old_mst": "266847",
+    "new_mst": "266847",
+    "new_ef": "20250801",
+    "new_yh": "현행",
+    "old_count": 191,
+    "new_count": 191,
+    "added": [],
+    "removed": [],
+    "title_chg": [],
+    "mst_changed": false
+  }
+}
