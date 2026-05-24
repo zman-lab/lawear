@@ -9369,6 +9369,18 @@
   //   * type=miss/error (또는 부등법 target 이 괄호 placeholder) → 누락 항목으로 분류
   //   * good/ok 매칭 0건은 무시 (강조 실패는 표시 안 함 — 부등법 sem 차이 가능성)
   //   * 빈 결과면 '' 반환
+  // lawear-0d65 (2026-05-24): 마크다운 inline 렌더 (** → <strong>, \n → <br>).
+  // 사용자 피드백 — 누락 박스 + 4필드 본문에 ** 표기가 raw 노출됨. escapeHtml 후 inline md 변환.
+  function renderInlineMd(text) {
+    if (text == null) return '';
+    let s = escapeHtml(String(text));
+    // **bold** → <strong> (줄바꿈 가로지르지 않음, 별표 인접 텍스트 필수)
+    s = s.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
+    // \n → <br> (멀티라인 텍스트)
+    s = s.replace(/\n/g, '<br>');
+    return s;
+  }
+
   function buildMissingInlineCommentsBox(ans, comments) {
     if (!Array.isArray(comments) || !ans) return '';
     const ansStr = String(ans);
@@ -9390,8 +9402,9 @@
     if (!misses.length) return '';
     const isKo = (currentLang === 'ko');
     const title = isKo ? `핵심 누락 항목 ${misses.length}건` : `${misses.length} missing key item(s)`;
+    // lawear-0d65: m.comment에 마크다운 ** 적용 (renderInlineMd)
     const lis = misses.map(m =>
-      `<li><span class="imb-target">${escapeHtml(m.target)}</span>${escapeHtml(m.comment)}</li>`
+      `<li><span class="imb-target">${escapeHtml(m.target)}</span>${renderInlineMd(m.comment)}</li>`
     ).join('');
     return `<div class="inline-missing-box">
       <div class="imb-title">${escapeHtml(title)}</div>
@@ -9501,7 +9514,8 @@
     //   rich/legacy 외 별도 표시 — 항상 보이게 (부등법은 9기준 대신 5모드라 채점평 표시 필수).
     if (notes.hybrid_eval_notes && typeof notes.hybrid_eval_notes === 'string') {
       const hybridLabel = (currentLang === 'ko') ? '하이브리드 채점평' : 'Hybrid Notes';
-      html += `<div class="modal-note"><span class="note-tag">${escapeHtml(hybridLabel)}</span>${escapeHtml(notes.hybrid_eval_notes)}</div>`;
+      // lawear-0d65: 마크다운 ** 렌더 (사용자 피드백)
+      html += `<div class="modal-note"><span class="note-tag">${escapeHtml(hybridLabel)}</span>${renderInlineMd(notes.hybrid_eval_notes)}</div>`;
     }
     if (notes.mode_grades && typeof notes.mode_grades === 'object') {
       const gradesLabel = (currentLang === 'ko') ? '모드별 등급' : 'Mode Grades';
@@ -9532,6 +9546,12 @@
     const dict = I18N[currentLang] || {};
     const roadmap = (att && att.eval_notes && att.eval_notes.gap_roadmap)
       ? att.eval_notes.gap_roadmap : null;
+    // lawear-0d65: 부등법 gap_roadmap이 문자열(텍스트형)이면 마크다운 렌더 fallback
+    // 메인 채점 시 actions[] 배열이 아니라 멀티라인 + ** + 번호 형식으로 채움
+    if (typeof roadmap === 'string' && roadmap.trim()) {
+      el.innerHTML = `<div class="gap-roadmap-text" style="white-space: normal; line-height: 1.65; font-size: 13px;">${renderInlineMd(roadmap)}</div>`;
+      return;
+    }
     if (!roadmap || !Array.isArray(roadmap.actions) || roadmap.actions.length === 0) {
       el.innerHTML = `<div class="modal-right-empty">${escapeHtml(dict.roadmap_empty || 'No gap roadmap.')}</div>`;
       return;
@@ -9606,7 +9626,7 @@
           <span>👨‍⚖️</span>
           <span class="examiner-role">${escapeHtml(dict.examiner_judge || 'Presiding Judge')}</span>
         </div>
-        <div class="examiner-quote">${escapeHtml(judge)}</div>
+        <div class="examiner-quote">${renderInlineMd(judge)}</div>
       </div>`;
     }
     if (lecturer) {
@@ -9615,7 +9635,7 @@
           <span>👨‍🏫</span>
           <span class="examiner-role">${escapeHtml(dict.examiner_lecturer || 'Lecturer')}</span>
         </div>
-        <div class="examiner-quote">${escapeHtml(lecturer)}</div>
+        <div class="examiner-quote">${renderInlineMd(lecturer)}</div>
       </div>`;
     }
     el.innerHTML = html;
