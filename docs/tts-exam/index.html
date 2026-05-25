@@ -3495,6 +3495,14 @@
             </select>
           </div>
 
+          <!-- lawear-0981 (2026-05-25): By Case 페이지 헤더에 breadcrumb (review/evaluation 탭과 동일 양식) -->
+          <div class="page-header" id="rep-case-header" style="margin-top: 8px; padding-bottom: 0; margin-bottom: 12px; border: none;">
+            <div class="breadcrumb-row">
+              <div class="breadcrumb" id="rep-case-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
+              <button class="btn btn-copy-path" id="rep-case-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
+            </div>
+          </div>
+
           <div class="report-grid" id="rep-case-kpi">
             <div class="kpi-card">
               <div class="k-label" data-i18n="kpi_attempts">Attempts</div>
@@ -4624,6 +4632,8 @@
   }
   bindCopyPathButton('rv-copy-path', 'rv-breadcrumb');
   bindCopyPathButton('ev-copy-path', 'ev-breadcrumb');
+  // lawear-0981 (2026-05-25): Reports By Case breadcrumb 복사 버튼
+  bindCopyPathButton('rep-case-copy-path', 'rep-case-breadcrumb');
 
   // ─── 필터 (개별 클릭) ───────────────────────────
   document.querySelectorAll('.filter-row button').forEach(b => {
@@ -10482,6 +10492,18 @@
       const el = document.getElementById(id);
       if (el) el.textContent = sid;
     });
+
+    // lawear-0981 (2026-05-25): By Case breadcrumb 갱신 (review/evaluation 탭과 동일 양식)
+    const bcEl = document.getElementById('rep-case-breadcrumb');
+    if (bcEl) {
+      const yearMatch = (data.case_id || '').match(/^(\d{4})_/);
+      const yearSeg = yearMatch ? `${yearMatch[1]} ` : '';
+      const subj = data.subject_kor || data.subject || '—';
+      const cat = data.category || '—';
+      const file = data.file || '—';
+      const caseNo = data.case_no || sid;
+      bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> ${yearSeg}${escapeHtml(subj)} <a href="#">/</a> ${escapeHtml(cat)} <a href="#">/</a> ${escapeHtml(file)} <a href="#">/</a> ${escapeHtml(caseNo)}`;
+    }
   }
 
   function renderCaseKpi(kpi, data) {
