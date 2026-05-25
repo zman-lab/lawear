@@ -351,6 +351,22 @@
     gap: 8px;
     min-width: 0;
   }
+  /* lawear-0981 (2026-05-26) 요청 4: 우측 큰 북마크 버튼 — 좌측 ★ 작아서 추가 */
+  .btn-bookmark-large {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 16px;
+    padding: 2px 10px;
+    flex-shrink: 0;
+    line-height: 1.2;
+    transition: color 0.15s, background 0.15s;
+  }
+  .btn-bookmark-large:hover { background: var(--panel-2); color: var(--text); }
+  .btn-bookmark-large.bookmarked { color: #ffd43b; }
+  .btn-bookmark-large.bookmarked:hover { color: #ffe066; }
 
   /* Section */
   .section {
@@ -3140,6 +3156,8 @@
           <div class="breadcrumb-row">
             <div class="breadcrumb" id="rv-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
             <button class="btn btn-copy-path" id="rv-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
+            <!-- lawear-0981 (2026-05-26) 요청 4: 우측 큰 북마크 (좌측 ★ 작아서 추가) -->
+            <button class="btn-bookmark-large" id="rv-bookmark" title="북마크 토글" data-i18n-title="btn_bookmark">⭐</button>
             <!-- 예습하러 가기 (17895 학습 페이지로 점프) — 요청 3 -->
             <button class="btn btn-peer-jump" id="rv-peer-jump" title="예습하러 가기 (17895)" data-i18n-title="btn_peer_jump" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0; display: none;">📖</button>
           </div>
@@ -3245,6 +3263,7 @@
           <div class="breadcrumb-row">
             <div class="breadcrumb" id="ev-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
             <button class="btn btn-copy-path" id="ev-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
+            <button class="btn-bookmark-large" id="ev-bookmark" title="북마크 토글" data-i18n-title="btn_bookmark">⭐</button>
             <button class="btn btn-peer-jump" id="ev-peer-jump" title="예습하러 가기 (17895)" data-i18n-title="btn_peer_jump" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0; display: none;">📖</button>
           </div>
         </div>
@@ -3503,6 +3522,7 @@
             <div class="breadcrumb-row">
               <div class="breadcrumb" id="rep-case-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
               <button class="btn btn-copy-path" id="rep-case-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
+              <button class="btn-bookmark-large" id="rep-case-bookmark" title="북마크 토글" data-i18n-title="btn_bookmark">⭐</button>
             </div>
           </div>
 
@@ -3868,6 +3888,7 @@
       btn_copy_path: 'Copy path',
       btn_refresh: 'Refresh',  // lawear-0981: 사이드패널 새로고침 버튼
       btn_peer_jump: 'Open in 17895 (learn)',  // lawear-0981: 17895로 점프
+      btn_bookmark: 'Bookmark',  // lawear-0981: 우측 큰 북마크 버튼
       toast_path_copied: 'Path copied',
       toast_path_copy_failed: 'Copy failed',
       // sections
@@ -4167,6 +4188,7 @@
       btn_copy_path: '경로 복사',
       btn_refresh: '새로고침',  // lawear-0981: 사이드패널 새로고침 버튼
       btn_peer_jump: '예습 (17895)',  // lawear-0981: 17895로 점프
+      btn_bookmark: '북마크',  // lawear-0981: 우측 큰 북마크 버튼
       toast_path_copied: '경로 복사됨',
       toast_path_copy_failed: '복사 실패',
       sec_background: '사실관계', sec_inquiry: '문제', sec_notes: '검토 의견',
@@ -4521,6 +4543,8 @@
       const tab = btn.dataset.tab;
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b === btn));
       document.querySelectorAll('.content-tab').forEach(c => c.classList.toggle('active', c.dataset.tab === tab));
+      // lawear-0981 (2026-05-25) Q2/Q3 — 활성 탭 영속화
+      saveExamStateDebounced({ activeTab: tab });
     });
   });
 
@@ -4561,6 +4585,8 @@
     const sb = document.getElementById('sidebar');
     sb.classList.toggle('collapsed');
     document.getElementById('sidebar-toggle').textContent = sb.classList.contains('collapsed') ? '›' : '‹';
+    // lawear-0981 (2026-05-25) Q2/Q3 — 사이드 collapsed 영속화
+    saveExamStateDebounced({ sidebarCollapsed: sb.classList.contains('collapsed') });
   });
 
   // ─── lawear-0d65: case-list expand-all / collapse-all (17895 mirror) ─────
@@ -4639,6 +4665,18 @@
   bindCopyPathButton('ev-copy-path', 'ev-breadcrumb');
   // lawear-0981 (2026-05-25): Reports By Case breadcrumb 복사 버튼
   bindCopyPathButton('rep-case-copy-path', 'rep-case-breadcrumb');
+
+  // lawear-0981 (2026-05-26) 요청 4: 우측 큰 ★ 버튼 click wire (rv/ev/rep-case)
+  ['rv-bookmark', 'ev-bookmark'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) btn.addEventListener('click', () => {
+      if (typeof CURRENT_CASE_ID !== 'undefined' && CURRENT_CASE_ID) toggleBookmark(CURRENT_CASE_ID);
+    });
+  });
+  const repBmBtn = document.getElementById('rep-case-bookmark');
+  if (repBmBtn) repBmBtn.addEventListener('click', () => {
+    if (REPORTS_STATE && REPORTS_STATE.currentCaseId) toggleBookmark(REPORTS_STATE.currentCaseId);
+  });
 
   // ─── 필터 (개별 클릭) ───────────────────────────
   document.querySelectorAll('.filter-row button').forEach(b => {
@@ -6607,6 +6645,36 @@
   function treeNodeKey(level, ...parts) {
     return `${level}:${parts.join('|')}`;
   }
+
+  // lawear-0981 (2026-05-25) Q2/Q3 — 페이지 상태 영속화
+  //   브라우저 끄고 다시 켜도 마지막 본 case + 활성 탭 + 사이드 collapsed 복원.
+  //   트리 펼침은 별도 키(lawear_exam_tree_state)에서 처리 — 이 키는 그 외 상태.
+  //   schema: { activeTab: string, caseId: string|null, sidebarCollapsed: bool }
+  const EXAM_STATE_KEY = 'lawear_exam_state';
+  function loadExamState() {
+    try {
+      const raw = localStorage.getItem(EXAM_STATE_KEY);
+      if (!raw) return {};
+      const obj = JSON.parse(raw);
+      return (obj && typeof obj === 'object') ? obj : {};
+    } catch (e) { return {}; }
+  }
+  function saveExamState(patch) {
+    try {
+      const cur = loadExamState();
+      const next = Object.assign({}, cur, patch || {});
+      localStorage.setItem(EXAM_STATE_KEY, JSON.stringify(next));
+    } catch (e) { /* ignore */ }
+  }
+  // debounce 헬퍼 (state 저장 빈번화 방지, 500ms)
+  let __examStateSaveTimer = null;
+  function saveExamStateDebounced(patch) {
+    if (__examStateSaveTimer) clearTimeout(__examStateSaveTimer);
+    __examStateSaveTimer = setTimeout(() => {
+      saveExamState(patch);
+      __examStateSaveTimer = null;
+    }, 500);
+  }
   // 카테고리 표시 순서 (사용자 학습 우선순위: 입문 → 예비 → 1/2/3순환 → 모고)
   const CATEGORY_ORDER = ['입문', '예비', '1순환', '2순환', '3순환', '모의고사', '모고'];
   function categoryRank(cat) {
@@ -6837,17 +6905,56 @@
     const cases = await fetchCases(CURRENT_FILTER);
     if (cases !== null) CASES_CACHE = cases;
     renderCaseList(cases);
-    // 첫 로드 시 첫 케이스 자동 선택
+    // lawear-0981 (2026-05-25) Q2/Q3 — 첫 로드 시 case 자동 선택:
+    //   0) lawear-0981 Q7 (2026-05-25) — hash 우선 (17895 → 17896 점프).
+    //   1) 저장된 caseId가 현재 cases에 있으면 그것 우선 (브라우저 재시작 후 복원)
+    //   2) 없으면 첫 케이스
     if (CURRENT_CASE_ID === null && cases && cases.length > 0) {
-      loadCase(cases[0].id);
+      // lawear-0981 Q7 — URL hash 에 #case=<id> 있으면 최우선 (17895 → 17896 점프).
+      const hashCaseId = parseHashCaseId();
+      const hashExists = hashCaseId && cases.some(c => c.id === hashCaseId);
+      if (hashExists) {
+        loadCase(hashCaseId);
+        return;
+      }
+      const saved = loadExamState();
+      const savedId = saved && saved.caseId;
+      const exists = savedId && cases.some(c => c.id === savedId);
+      loadCase(exists ? savedId : cases[0].id);
     }
   }
+
+  // lawear-0981 Q7 (2026-05-25) 양방향 페이지 동기 — URL hash 에서 case_id 추출.
+  // 형식: #case=<id> 또는 #foo&case=<id>. 매칭 없으면 null.
+  function parseHashCaseId() {
+    const hash = window.location.hash || '';
+    const m = hash.match(/[#&]case=([^&]+)/);
+    return m ? decodeURIComponent(m[1]) : null;
+  }
+  // hashchange 이벤트 — 이미 로드된 페이지에서 hash 변경 시 (외부 링크 클릭) 즉시 case 전환.
+  // CASES_CACHE 에 매칭 id 가 있을 때만 loadCase 호출 (없으면 무시 — race condition 보호).
+  window.addEventListener('hashchange', () => {
+    const caseId = parseHashCaseId();
+    if (!caseId) return;
+    if (caseId === CURRENT_CASE_ID) return;
+    const exists = (CASES_CACHE || []).some(c => c.id === caseId);
+    if (exists && typeof loadCase === 'function') {
+      loadCase(caseId);
+    } else {
+      console.warn('[peer-sync] hash case_id 매칭 실패:', caseId);
+    }
+  });
 
   // ─── Review 탭: 단건 fetch + Background/Inquiry 갱신 ───
   async function loadCase(caseId) {
     CURRENT_CASE_ID = caseId;
+    // lawear-0981 (2026-05-25) Q2/Q3 — 마지막 본 case 영속화 (브라우저 재시작 후 복원)
+    saveExamStateDebounced({ caseId: caseId });
     // lawear-0981 (2026-05-25): 예습 점프 버튼 갱신 (17895로 점프 활성)
     updatePeerJumpButtons(caseId);
+    // lawear-0981 (2026-05-26) 요청 4: 우측 ★ 초기 상태 — 캐시에서 bookmarked 추출
+    const cachedC = (CASES_CACHE || []).find(c => c.id === caseId);
+    if (cachedC) syncRightBookmarkStar(caseId, !!cachedC.bookmarked);
     // 사이드바 active 표시
     document.querySelectorAll('.case-item').forEach(it => {
       it.classList.toggle('active', it.dataset.caseId === caseId);
@@ -8104,6 +8211,20 @@
   // ════════════════════════════════════════════════
   // Step 9 — Bookmarks API wire (POST/DELETE /api/bookmarks/{id})
   // ════════════════════════════════════════════════
+  // lawear-0981 (2026-05-26) 요청 4: 우측 큰 ★ 버튼 상태 sync helper
+  function syncRightBookmarkStar(caseId, isBookmarked) {
+    if (typeof CURRENT_CASE_ID !== 'undefined' && CURRENT_CASE_ID === caseId) {
+      const rv = document.getElementById('rv-bookmark');
+      const ev = document.getElementById('ev-bookmark');
+      if (rv) rv.classList.toggle('bookmarked', !!isBookmarked);
+      if (ev) ev.classList.toggle('bookmarked', !!isBookmarked);
+    }
+    if (typeof REPORTS_STATE !== 'undefined' && REPORTS_STATE && REPORTS_STATE.currentCaseId === caseId) {
+      const rc = document.getElementById('rep-case-bookmark');
+      if (rc) rc.classList.toggle('bookmarked', !!isBookmarked);
+    }
+  }
+
   async function toggleBookmark(caseId) {
     if (!caseId) return;
     // optimistic update: cache 에서 현 상태 토글 → 즉시 렌더
@@ -8112,6 +8233,7 @@
     const newState = !currentlyBookmarked;
     if (cached) cached.bookmarked = newState;
     renderCaseList(CASES_CACHE);
+    syncRightBookmarkStar(caseId, newState);  // lawear-0981: 우측 ★ 동시 갱신
 
     const method = newState ? 'POST' : 'DELETE';
     try {
@@ -8124,6 +8246,7 @@
       // 서버 응답으로 동기화 (혹시 다를 경우)
       if (cached) cached.bookmarked = !!d.bookmarked;
       renderCaseList(CASES_CACHE);
+      syncRightBookmarkStar(caseId, !!d.bookmarked);  // lawear-0981: 서버 응답으로 우측 ★ 재동기화
       // filter=bookmarked 모드에서 해제 시 리스트에서 사라지도록 reload
       if (CURRENT_FILTER === 'book' || CURRENT_FILTER === 'bookmarked') {
         reloadCases();
@@ -8133,6 +8256,7 @@
       // 롤백
       if (cached) cached.bookmarked = currentlyBookmarked;
       renderCaseList(CASES_CACHE);
+      syncRightBookmarkStar(caseId, currentlyBookmarked);  // lawear-0981: 롤백 시 우측 ★ 복구
       const tmpl = (I18N[currentLang] && I18N[currentLang].toast_bookmark_failed) || 'Bookmark toggle failed: {msg}';
       showToast(tmpl.replace('{msg}', err.message || err), 'error');
     }
@@ -10539,6 +10663,11 @@
       const caseNo = data.case_no || sid;
       bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> ${yearSeg}${escapeHtml(subj)} <a href="#">/</a> ${escapeHtml(cat)} <a href="#">/</a> ${escapeHtml(file)} <a href="#">/</a> ${escapeHtml(caseNo)}`;
     }
+
+    // lawear-0981 (2026-05-26) 요청 4: By Case 우측 ★ 초기 상태
+    const cachedC = (CASES_CACHE || []).find(c => c.id === data.case_id);
+    const repStar = document.getElementById('rep-case-bookmark');
+    if (repStar) repStar.classList.toggle('bookmarked', !!(cachedC && cachedC.bookmarked));
   }
 
   function renderCaseKpi(kpi, data) {
@@ -12099,6 +12228,27 @@
       }
     });
   });
+
+  // ─── lawear-0981 (2026-05-25) Q2/Q3 — 페이지 상태 복원 (트리 펼침은 renderCaseList 안에서 별도) ───
+  //   복원 순서: 1) 사이드바 collapsed → 2) 활성 탭 → 3) reloadCases 안에서 caseId
+  //   주의: applyStealth(stealthMode)가 사이드바를 강제 토글하므로 그 이후 사용자 state 적용.
+  try {
+    const __examState = loadExamState();
+    // 1) 사이드바 collapsed 복원 (저장된 값 있을 때만 — undefined면 stealth/기본값 유지)
+    if (typeof __examState.sidebarCollapsed === 'boolean') {
+      const __sb = document.getElementById('sidebar');
+      const __sbToggle = document.getElementById('sidebar-toggle');
+      if (__sb) {
+        __sb.classList.toggle('collapsed', __examState.sidebarCollapsed);
+        if (__sbToggle) __sbToggle.textContent = __sb.classList.contains('collapsed') ? '›' : '‹';
+      }
+    }
+    // 2) 활성 탭 복원 (data-tab 일치 버튼 click → 기존 핸들러 재사용)
+    if (__examState.activeTab && typeof __examState.activeTab === 'string') {
+      const __tabBtn = document.querySelector(`.tab-btn[data-tab="${__examState.activeTab}"]`);
+      if (__tabBtn) __tabBtn.click();
+    }
+  } catch (e) { /* state 복원 실패해도 페이지 정상 동작 */ }
 
   // ─── 초기 로드 ───
   reloadCases();

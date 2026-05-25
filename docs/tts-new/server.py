@@ -20,6 +20,7 @@ import socketserver
 import ssl
 import sys
 import tempfile
+import urllib.request
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import unquote
@@ -175,6 +176,54 @@ def _resolve_auto_nn(rel_path: str) -> str:
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # --------------------------------------------------------------------
+    # GET — 정적 파일 서빙 + /api/peer-url (lawear-0981 Q7 2026-05-25)
+    # --------------------------------------------------------------------
+    def do_GET(self):
+        # Peer server URL 조회 (페이지 동기용 — lawear-0981 Q7 양방향)
+        # 17895 → 17896 ngrok URL (inspect 4040). 17896은 inspect 4041 사용.
+        # GET 만 오버라이드 — PUT/POST/OPTIONS/staging 등 기존 라우팅 무영향.
+        if self.path == '/api/peer-url':
+            self._handle_peer_url()
+            return
+        # 정적 파일 — SimpleHTTPRequestHandler 기본 동작 위임.
+        super().do_GET()
+
+    def _handle_peer_url(self):
+        """GET /api/peer-url — 17896 ngrok URL 조회.
+
+        lawear-0981 Q7 (2026-05-25) 양방향 페이지 동기:
+        17895 → 17896 ngrok URL (4040 inspect).
+        17896 측 _handle_peer_url 패턴 거울 (단 inspect 포트만 4041→4040).
+        ngrok URL random 변경 자동 대응. 실패 시 peer_url=null.
+        """
+        # 17895 server.py 는 항상 17896 으로 peer 향함 (4040 inspect).
+        PEER_NGROK_PORT = 4040
+        PEER_SERVER_PORT = 17896
+        peer_url = None
+        try:
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{PEER_NGROK_PORT}/api/tunnels"
+            )
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                data = json.loads(resp.read())
+                tunnels = data.get("tunnels", [])
+                if tunnels:
+                    peer_url = tunnels[0].get("public_url")
+        except Exception:  # noqa: BLE001
+            peer_url = None
+        payload = {
+            "peer_url": peer_url,
+            "peer_port": PEER_SERVER_PORT,
+            "peer_role": "exam-console",
+        }
+        body = json.dumps(payload, ensure_ascii=False).encode('utf-8')
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json; charset=utf-8')
+        self.send_header('Content-Length', str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     # --------------------------------------------------------------------
     # PUT — 기존 .md 갱신 + staging 업로드 (변경 없음, 기존 17895 무손상)
     # --------------------------------------------------------------------
