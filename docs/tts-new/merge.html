@@ -465,6 +465,17 @@
   }
   .page-header .breadcrumb span.crumb-sep { margin: 0 6px; color: var(--text-mute); }
   .page-header .breadcrumb .case-path-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* lawear-0981 (2026-05-26) 요청 4 v2 17895 적용: 북마크 체크박스 — 17896 패턴 동일 (CSS 공통화 후속) */
+  .bookmark-checkbox {
+    display: inline-flex; align-items: center; gap: 5px;
+    cursor: pointer; flex-shrink: 0;
+    padding: 2px 8px; border: 1px solid var(--border); border-radius: 3px;
+    background: transparent; font-size: 11px; color: var(--text-dim);
+    user-select: none; transition: color 0.15s, background 0.15s;
+  }
+  .bookmark-checkbox:hover { background: var(--panel-2); color: var(--text); }
+  .bookmark-checkbox input[type="checkbox"] { cursor: pointer; width: 14px; height: 14px; margin: 0; }
+  .bookmark-checkbox input[type="checkbox"]:checked ~ .bookmark-label { color: #ffd43b; font-weight: 600; }
   .page-header .btn-copy-path {
     flex-shrink: 0;
     background: var(--panel-2);
@@ -2207,7 +2218,7 @@ function renderContent() {
     const headerHtml = `<div class="page-header">
       <span class="case-id-large">${escapeHtml(caseLabel)}</span>
       <span class="case-subject">${escapeHtml(subjLine)}</span>
-      <div class="breadcrumb"><span class="case-path-text" id="case-path-label">${libPathHtml}</span><button type="button" class="btn-copy-path" id="copy-path-btn" title="경로 복사">복사</button></div>
+      <div class="breadcrumb"><span class="case-path-text" id="case-path-label">${libPathHtml}</span><label class="bookmark-checkbox" for="page-bookmark-cb-1" title="북마크 (체크=북마크 / 언체크=해제)"><input type="checkbox" id="page-bookmark-cb-1" data-bookmark-page="lib" ${isBookmarked(currentPath) ? 'checked' : ''}><span class="bookmark-label">북마크</span></label><button type="button" class="btn-copy-path" id="copy-path-btn" title="경로 복사">복사</button></div>
     </div>`;
     // 업로드 바는 두문자(round 없음)에만 표시 — 기출문제는 .md 직접 관리
     const uploadBarHtml = roundPart ? '' : `<div class="library-upload-bar" data-upload-path="${escapeAttr(currentPath)}" data-upload-subject="${escapeAttr(meta.subjectKor || '')}">
@@ -2259,7 +2270,7 @@ function renderContent() {
       <span class="case-id-large">${escapeHtml(shortId)}</span>
       <span class="case-subject">${escapeHtml(subjLine)}</span>
       <button type="button" class="user-input-edit-btn" onclick="window.location.href='/input.html?path=${encodeURIComponent(currentPath)}'" title="입력 UI로 이동하여 편집">${editBtnLabel}</button>
-      <div class="breadcrumb"><span class="case-path-text" id="case-path-label">${pathHtml}</span><button type="button" class="btn-copy-path" id="copy-path-btn" title="경로 복사">복사</button></div>
+      <div class="breadcrumb"><span class="case-path-text" id="case-path-label">${pathHtml}</span><label class="bookmark-checkbox" for="page-bookmark-cb-2" title="북마크 (체크=북마크 / 언체크=해제)"><input type="checkbox" id="page-bookmark-cb-2" data-bookmark-page="case" ${isBookmarked(currentPath) ? 'checked' : ''}><span class="bookmark-label">북마크</span></label><button type="button" class="btn-copy-path" id="copy-path-btn" title="경로 복사">복사</button></div>
     </div>`;
     // 섹션 추출 (탭 분기 판단용) — extractSection 재사용
     const problemMd = extractSection(fullContent, '문제');
@@ -2324,7 +2335,7 @@ function renderContent() {
     headerHtml = `<div class="page-header">
       <span class="case-id-large">${escapeHtml(shortId)}</span>
       <span class="case-subject">${escapeHtml(subjLine)}</span>
-      <div class="breadcrumb"><span class="case-path-text" id="case-path-label">${pathHtml}</span><button type="button" class="btn-copy-path" id="copy-path-btn" title="경로 복사">복사</button></div>
+      <div class="breadcrumb"><span class="case-path-text" id="case-path-label">${pathHtml}</span><label class="bookmark-checkbox" for="page-bookmark-cb-2" title="북마크 (체크=북마크 / 언체크=해제)"><input type="checkbox" id="page-bookmark-cb-2" data-bookmark-page="case" ${isBookmarked(currentPath) ? 'checked' : ''}><span class="bookmark-label">북마크</span></label><button type="button" class="btn-copy-path" id="copy-path-btn" title="경로 복사">복사</button></div>
     </div>`;
   }
 
@@ -2596,6 +2607,21 @@ function formatUserInputMerge(md, meta) {
 }
 
 document.getElementById('search').addEventListener('input', e => renderTree(e.target.value));
+
+// ─────────── 북마크 체크박스 (event delegation — breadcrumb 재렌더 대응) ───────────
+// lawear-0981 (2026-05-26) 요청 4 v2 17895 적용: 17896 패턴 동일.
+// breadcrumb은 renderContent 시 매번 innerHTML 재생성 → checked attribute 자동 반영 (isBookmarked 호출).
+document.addEventListener('change', (ev) => {
+  const cb = ev.target.closest('input[data-bookmark-page]');
+  if (!cb) return;
+  if (!currentPath) return;
+  // 사용자 변경된 체크 상태 → __bookmarks에 sync (toggleBookmark는 토글이라 직접 add/delete 호출)
+  if (!window.__bookmarks) window.__bookmarks = loadBookmarks();
+  if (cb.checked) window.__bookmarks.add(currentPath);
+  else window.__bookmarks.delete(currentPath);
+  saveBookmarks(window.__bookmarks);
+  renderTree(document.getElementById('search').value);  // 좌측 트리 ★ 동시 갱신
+});
 
 // ─────────── 경로 복사 버튼 (event delegation — breadcrumb 재렌더 대응) ───────────
 document.addEventListener('click', (ev) => {
