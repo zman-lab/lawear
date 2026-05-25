@@ -576,6 +576,25 @@
   /* 위장 모드 — 조문 툴팁 어포던스 숨김 (밑줄/커서 노출 방지) */
   body.stealth .tts-case[data-comment] { border-bottom: none !important; cursor: default; }
 
+  /* lawear-7ea2 (2026-05-25): [case] 안 조문 토큰만 부분 점선밑줄 + 호버.
+     기존 .tts-case[data-comment] (통문장 전체 점선밑줄) 는 normal_wrap 150개 호환을 위해 유지.
+     부분 wrap (tongmun 397개) 은 .tts-case 안의 .tts-case-art 에만 어포던스. */
+  .tts-case .tts-case-art[data-comment] {
+    border-bottom: 1.5px dotted currentColor;
+    cursor: help;
+    /* 부모 .tts-case 의 초록색을 상속 (color: inherit) */
+  }
+  .tts-case .tts-case-art[data-comment]:hover {
+    background: rgba(81, 207, 102, 0.10);
+  }
+  body.stealth .tts-case .tts-case-art[data-comment] {
+    border-bottom: none !important;
+    cursor: default;
+  }
+  @media print {
+    .tts-case .tts-case-art[data-comment] { border-bottom: none; }
+  }
+
   /* 위장 모드 — 좌측 패널 한글 노출 부분 숨김 (case-title, case-meta) */
   body.stealth .case-item .case-title { display: none; }
   body.stealth .case-item .case-meta { display: none; }
@@ -1088,6 +1107,67 @@ function resolveCaseArticleText(content, subjectKor) {
   return joined || null;
 }
 
+// ─────────── [case] 토큰 단위 분할 + 툴팁 부착 (lawear-7ea2 2026-05-25) ───────────
+// 통문장 wrap (예: "제498조의 그 후 취득한 채권에 해당하지 않는다") 안에서
+// "제N조" 토큰만 추출 → 토큰만 점선밑줄 + 툴팁, 나머지는 초록색 글씨만.
+// 반환:
+//   - 토큰 1+개 이상 lookup 성공 → 토큰별 부분 wrap HTML 문자열
+//   - 토큰 0개 또는 전부 lookup 실패 → null (호출부 기존 동작 fallback)
+// R-09 준수 — resolveCaseArticleText() 재사용, lawArticlesText.json 원문 그대로, AI 가공 없음.
+const _ARTICLE_TOKEN_RE_G = /제(\d+)조(?:의(\d+))?(?:[\s,및또는·]*제(\d+)항)?(?:[\s,및또는·]*제(\d+)호)?/g;
+
+function renderCaseInnerWithTokenTooltips(content, subjectKor) {
+  if (!content) return null;
+  if (!lawArticles || !lawArticles.statutes) return null;
+  // C1 가드 (부장판사 QA 권고, lawear-7ea2): [case] 안 다른 마커([em1] 등) 중첩 시
+  // content(raw) 기준 토큰 분할이 inner의 마커 HTML span을 silent loss 시킴 →
+  // 중첩 detect 시 즉시 null 반환하여 기존 통문장 wrap fallback 유지 (회귀 0).
+  if (/\[(em[1-4]|con|fact|bridge|key|free[12]|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\]/.test(content)) return null;
+
+  // 1단계: 모든 "제N조[…]" 토큰 위치 수집
+  _ARTICLE_TOKEN_RE_G.lastIndex = 0;
+  const tokens = [];
+  let m;
+  while ((m = _ARTICLE_TOKEN_RE_G.exec(content)) !== null) {
+    tokens.push({ start: m.index, end: m.index + m[0].length, text: m[0] });
+  }
+  if (tokens.length === 0) return null;  // 조문 토큰 없음 → 호출부 fallback (선례/예규/판례/키워드)
+
+  // 2단계: 토큰별 lookup
+  //   - 각 토큰을 단독 mini content 로 만들어 기존 resolveCaseArticleText 재사용 (DRY + R-09 동일 로직).
+  //   - 토큰 앞 최대 12자 + 토큰 + tail 32자 = 법명 검색 + 항/호 검색 컨텍스트.
+  const resolved = [];
+  for (const t of tokens) {
+    const beforeStart = Math.max(0, t.start - 12);
+    const miniContent = content.slice(beforeStart, t.end + 32);
+    const txt = resolveCaseArticleText(miniContent, subjectKor);
+    if (txt) {
+      resolved.push({ token: t, text: txt });
+    }
+  }
+  if (resolved.length === 0) return null;  // 토큰 있지만 전부 lookup 실패 → fallback
+
+  // 3단계: content 를 토큰/비토큰 segment 로 분할 + HTML 조립
+  //   - 토큰 segment: <span class="tts-case-art" data-comment="..."> — 부모 .tts-case 안에서 점선밑줄 (CSS).
+  //   - 비토큰 segment: escapeHtml(text) — 텍스트 그대로.
+  //   - v1: content 안 다른 placeholder(@@EMP/@@DATE) 가 들어있을 가능성은 매우 낮음 ([case] 안 중첩 마커는 sweep 통계 0~극소).
+  //         만에 하나 placeholder 가 토큰 사이에 끼면 escapeHtml 가 그대로 통과 → 외부 recover 가 그 후 처리 X (이미 우리가 최종 HTML 만듦).
+  //         이 경우 placeholder 가 시각적으로 노출될 위험이 있으나 v1 범위 외 (별도 sweep 검증).
+  let html = '';
+  let cursor = 0;
+  for (const r of resolved) {
+    if (r.token.start > cursor) {
+      html += escapeHtml(content.slice(cursor, r.token.start));
+    }
+    html += `<span class="tts-case-art" data-comment="${escapeAttr(r.text)}">${escapeHtml(r.token.text)}</span>`;
+    cursor = r.token.end;
+  }
+  if (cursor < content.length) {
+    html += escapeHtml(content.slice(cursor));
+  }
+  return html;
+}
+
 // ─────────── 강조 렌더링 ───────────
 // lawear-7ad6 v3 — marked GFM breaks 활성화 (단일 \n → <br>)
 // 사용자 입력 textarea 엔터가 본문에서 한 줄로 흡수되는 버그 fix (5번 버그)
@@ -1132,11 +1212,16 @@ function renderMd(md) {
       // lawear-18eb: [case]에 조문/규칙 lookup 성공 시 data-comment 주입 → 마우스오버 툴팁.
       //   content는 태그 파싱 전 raw 텍스트('제204조...')라 조문번호 그대로 파싱 가능.
       //   실패(선례/예규/판례)면 미주입 → 기존 초록 강조만 (역할분담 의도된 차등).
+      // lawear-7ea2 (2026-05-25): [case] 안 "제N조" 토큰만 부분 wrap + 툴팁.
+      //   통문장 wrap (판례문 + 조문번호 혼재) 시 통문장 전체 점선밑줄 → 토큰만 점선밑줄로 축소.
+      //   조문번호 없는 [case] (선례/예규/판례) 는 기존 동작 유지 (초록색만).
+      //   contentRaw 기준 분할 — inner(중첩 마커 복원 끝난 HTML) 는 v1 에서 fallback 으로만 사용.
       if (tag === 'case') {
-        const articleText = resolveCaseArticleText(content, currentRenderSubjectKor);
-        if (articleText) {
-          return `<span class="${cls}" data-comment="${escapeAttr(articleText)}">${inner}</span>`;
+        const tokenized = renderCaseInnerWithTokenTooltips(content, currentRenderSubjectKor);
+        if (tokenized != null) {
+          return `<span class="${cls}">${tokenized}</span>`;
         }
+        // 조문 토큰 0개 or 전부 lookup 실패 → 기존 동작 (초록색만)
       }
       return `<span class="${cls}">${inner}</span>`;
     });
@@ -2516,12 +2601,15 @@ function hideInlineTooltip() {
 function wireInlineMarkerTooltipDirection() {
   const root = document.getElementById('content');  // attempt-modal 없음 → 공통부모 #content
   if (!root || root.dataset.tooltipWired === '1') return;
+  // lawear-7ea2 (2026-05-25): .tts-case-art[data-comment] (통문장 부분 wrap 신규) 도 호버 대상 추가.
+  //   기존 .tts-case[data-comment] (normal_wrap 150개) 는 그대로 유지 — 호환.
+  const TOOLTIP_SEL = '.tts-case[data-comment], .tts-case-art[data-comment]';
   root.addEventListener('mouseover', (ev) => {
-    const marker = ev.target.closest('.tts-case[data-comment]');  // .inline-marker → .tts-case[data-comment]
+    const marker = ev.target.closest(TOOLTIP_SEL);
     if (marker) showInlineTooltip(marker);
   }, true);
   root.addEventListener('mouseout', (ev) => {
-    const marker = ev.target.closest('.tts-case[data-comment]');
+    const marker = ev.target.closest(TOOLTIP_SEL);
     if (marker) hideInlineTooltip();
   }, true);
   root.dataset.tooltipWired = '1';

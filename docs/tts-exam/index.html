@@ -144,6 +144,30 @@
   #sidebar-toggle:hover { background: var(--panel-2); color: var(--accent); }
   .sidebar.collapsed ~ #sidebar-toggle { left: 0; }
 
+  /* lawear-0981 (2026-05-25): 새로고침 버튼 — 토글 아래에 동일 크기, 색 구분 */
+  #sidebar-refresh {
+    position: absolute;
+    top: 84px;  /* toggle top:10 + height:64 + gap:10 */
+    left: 280px;
+    z-index: 50;
+    width: 36px;
+    height: 64px;
+    border: 1px solid var(--border);
+    border-left: none;
+    background: var(--panel);
+    color: var(--accent, #4ec9b0);  /* 토글(text-dim)과 색 구분 */
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    font-size: 18px;  /* ↻ 잘 보이게 토글보다 큰 폰트 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: left 0.18s, transform 0.3s;
+  }
+  #sidebar-refresh:hover { background: var(--panel-2); color: var(--text); }
+  #sidebar-refresh:active { transform: rotate(180deg); }
+  .sidebar.collapsed ~ #sidebar-refresh { left: 0; }
+
   .sidebar .filters {
     padding: 10px;
     border-bottom: 1px solid var(--border);
@@ -309,9 +333,24 @@
   .page-header .breadcrumb {
     font-size: 11px;
     color: var(--text-dim);
-    flex-basis: 100%;
+    /* lawear-0981 (2026-05-25): flex-basis 100% 제거 (breadcrumb-row가 한 라인 점령).
+       기존엔 breadcrumb이 한 라인 점령 → copy-path 버튼이 다음 줄로 떨어짐.
+       이제 breadcrumb-row 안에서 breadcrumb 텍스트(flex:1) + copy-path(flex-shrink:0) 같은 라인. */
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
   .page-header .breadcrumb a { color: var(--link); text-decoration: none; }
+  /* lawear-0981: breadcrumb + copy-path 같은 라인 wrapper */
+  .page-header .breadcrumb-row {
+    flex-basis: 100%;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
 
   /* Section */
   .section {
@@ -3085,6 +3124,7 @@
   </div>
 
   <button id="sidebar-toggle" title="Sidebar Toggle">‹</button>
+  <button id="sidebar-refresh" title="새로고침" data-i18n-title="btn_refresh" onclick="location.reload()">↻</button>
 
   <!-- Content -->
   <div class="content">
@@ -3096,8 +3136,11 @@
           <div class="case-id-large" id="rv-case-id">—</div>
           <div class="case-status" data-i18n="status_in_review">In Review</div>
           <div class="case-subject" id="rv-subject">—</div>
-          <div class="breadcrumb" id="rv-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
-          <button class="btn btn-copy-path" id="rv-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; margin-left: 8px;">📋</button>
+          <!-- lawear-0981 (2026-05-25): breadcrumb + copy-path 한 라인 wrap -->
+          <div class="breadcrumb-row">
+            <div class="breadcrumb" id="rv-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
+            <button class="btn btn-copy-path" id="rv-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
+          </div>
         </div>
 
         <div class="section" data-collapsible>
@@ -3196,8 +3239,11 @@
           <div class="case-id-large" id="ev-case-id">—</div>
           <div class="case-status" id="ev-status" data-i18n="status_in_review">In Review</div>
           <div class="case-subject" id="ev-subject">—</div>
-          <div class="breadcrumb" id="ev-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
-          <button class="btn btn-copy-path" id="ev-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; margin-left: 8px;">📋</button>
+          <!-- lawear-0981 (2026-05-25): breadcrumb + copy-path 한 라인 wrap (ev-header) -->
+          <div class="breadcrumb-row">
+            <div class="breadcrumb" id="ev-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
+            <button class="btn btn-copy-path" id="ev-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
+          </div>
         </div>
 
         <div id="ev-empty" class="section-body" style="padding: 20px; color: var(--text-dim);">
@@ -3809,6 +3855,7 @@
       // lawear-2e42 (2026-05-20) — breadcrumb year + copy button
       bc_year: '2026',
       btn_copy_path: 'Copy path',
+      btn_refresh: 'Refresh',  // lawear-0981: 사이드패널 새로고침 버튼
       toast_path_copied: 'Path copied',
       toast_path_copy_failed: 'Copy failed',
       // sections
@@ -4106,6 +4153,7 @@
       // lawear-2e42 (2026-05-20) — breadcrumb year + copy button
       bc_year: '2026',
       btn_copy_path: '경로 복사',
+      btn_refresh: '새로고침',  // lawear-0981: 사이드패널 새로고침 버튼
       toast_path_copied: '경로 복사됨',
       toast_path_copy_failed: '복사 실패',
       sec_background: '사실관계', sec_inquiry: '문제', sec_notes: '검토 의견',
