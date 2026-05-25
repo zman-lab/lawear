@@ -127,8 +127,8 @@
     top: 10px;
     left: 280px;
     z-index: 50;
-    width: 18px;
-    height: 32px;
+    width: 36px;
+    height: 64px;
     border: 1px solid var(--border);
     border-left: none;
     background: var(--panel);
@@ -3656,8 +3656,40 @@
           </div>
           <div class="slider-row">
             <div class="s-label"><span data-i18n="voice_silence">Auto-stop (silence sec)</span></div>
-            <input type="range" min="1" max="60" value="3" data-voice-key="silence_sec">
-            <div class="s-val" data-voice-val="silence_sec">3s</div>
+            <input type="range" min="1" max="60" value="60" data-voice-key="silence_sec">
+            <div class="s-val" data-voice-val="silence_sec">60s</div>
+          </div>
+          <div class="slider-row">
+            <div class="s-label"><span data-i18n="set_voice_engine">음성입력 엔진</span></div>
+            <select data-voice-key="engine" id="voice-engine-select" style="width:100%;padding:4px 8px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:3px;font-size:12px;">
+              <option value="auto" data-i18n="voice_engine_auto">자동 (접속 기기에 맞춰)</option>
+              <option value="web-speech" data-i18n="voice_engine_web">페이지 mic (Web Speech API)</option>
+              <option value="os-keyboard" data-i18n="voice_engine_os">OS 키보드 받아쓰기</option>
+            </select>
+            <div class="s-val" data-voice-val="engine">auto</div>
+          </div>
+        </div>
+
+        <div class="settings-section" id="settings-cert-section">
+          <h3 data-i18n="set_cert">HTTPS 인증서 (모바일 마이크 필수)</h3>
+          <div class="sub" data-i18n="set_cert_desc">처음 1회 자기 OS에 맞춰 다운받고 자격증명 설치.</div>
+          <div class="slider-row" style="grid-template-columns: 220px 1fr;">
+            <div class="s-label"><span data-i18n="set_cert_os">내 OS</span></div>
+            <select id="cert-os-select" style="width:100%;padding:4px 8px;background:var(--panel);color:var(--text);border:1px solid var(--border);border-radius:3px;font-size:12px;">
+              <option value="macos">macOS</option>
+              <option value="windows">Windows</option>
+              <option value="android">Android (갤럭시폰/탭)</option>
+              <option value="ios">iOS (아이폰/아이패드)</option>
+            </select>
+          </div>
+          <div class="slider-row" style="grid-template-columns: 220px 1fr;">
+            <div class="s-label"></div>
+            <div>
+              <a href="/api/cert/root-ca" download="lawear-setup.zip" class="btn" id="cert-download-btn" style="display:inline-block;text-decoration:none;padding:6px 14px;">
+                📥 <span data-i18n="cert_download">Root CA 다운로드</span>
+              </a>
+              <div id="cert-guide" class="cert-guide-hint" style="margin-top:8px;font-size:12px;color:var(--text-dim);line-height:1.5;"></div>
+            </div>
           </div>
         </div>
 
@@ -3848,6 +3880,17 @@
       bias_err_th: 'High Error Threshold', bias_stale_th: 'Stale Threshold',
       set_voice: 'Voice Input', set_voice_desc: 'Web Speech API · browser/OS built-in STT.',
       voice_lang: 'Language', voice_silence: 'Auto-stop (silence sec)',
+      // hybrid X (lawear) — voice engine select + OS-keyboard fallback
+      set_voice_engine: 'Voice Input Engine',
+      voice_engine_auto: 'Auto (match device)',
+      voice_engine_web: 'Page mic (Web Speech API)',
+      voice_engine_os: 'OS Keyboard Dictation',
+      voice_os_keyboard_hint: '📱 Tap the mic button (🎤) on your keyboard to dictate',
+      // hybrid X (lawear) — Root CA download UI
+      set_cert: 'HTTPS Certificate (Required for Mobile Mic)',
+      set_cert_desc: 'Download once per device and install via OS credential store.',
+      set_cert_os: 'My OS',
+      cert_download: 'Download Root CA',
       btn_reset: 'Reset to Default', btn_save: 'Save Settings',
       // wire (Step 5)
       sync_log_empty: 'Click "Preview Diff" to load.',
@@ -4130,6 +4173,17 @@
       bias_err_th: '자주 틀린 기준', bias_stale_th: '오래된 기준',
       set_voice: '음성 입력', set_voice_desc: 'Web Speech API · 브라우저/OS 내장 STT.',
       voice_lang: '언어', voice_silence: '자동 정지 (무음 초)',
+      // 하이브리드 X (lawear) — voice engine 셀렉트 + OS 키보드 fallback
+      set_voice_engine: '음성입력 엔진',
+      voice_engine_auto: '자동 (접속 기기에 맞춰)',
+      voice_engine_web: '페이지 mic (Web Speech API)',
+      voice_engine_os: 'OS 키보드 받아쓰기',
+      voice_os_keyboard_hint: '📱 키보드의 마이크 버튼(🎤)을 눌러 음성으로 입력하세요',
+      // 하이브리드 X (lawear) — Root CA 다운로드 UI
+      set_cert: 'HTTPS 인증서 (모바일 마이크 필수)',
+      set_cert_desc: '처음 1회 자기 OS에 맞춰 다운받고 자격증명 설치.',
+      set_cert_os: '내 OS',
+      cert_download: 'Root CA 다운로드',
       btn_reset: '기본값', btn_save: '설정 저장',
       // wire (Step 5)
       sync_log_empty: '"변경 미리보기" 를 눌러 불러오세요.',
@@ -4481,6 +4535,8 @@
       // 직전 부모 .label 또는 .crit-row 내 라벨에서 key 유추는 어려움 — 데이터 속성 X
       // 다음 렌더에서 i18n 적용되므로 즉시 갱신은 skip
     });
+    // 하이브리드 X — cert-guide 텍스트 lang 즉시 반영
+    if (typeof updateCertGuide === 'function') updateCertGuide();
   });
 
   // ─── stealth toggle (Z 단축키 + 클릭) ──────────
@@ -4597,11 +4653,11 @@
     }
 
     function getSilenceMs() {
-      // Settings 응답 우선, 없으면 디폴트 3s
-      let sec = 3;
+      // Settings 응답 우선, 없으면 디폴트 60s (모바일 갤럭시 마이크 끊김 방지)
+      let sec = 60;
       try {
         if (window.SETTINGS_CACHE && window.SETTINGS_CACHE.voice && window.SETTINGS_CACHE.voice.silence_sec) {
-          sec = Number(window.SETTINGS_CACHE.voice.silence_sec) || 3;
+          sec = Number(window.SETTINGS_CACHE.voice.silence_sec) || 60;
         }
       } catch (e) { /* ignore */ }
       return Math.max(1, sec) * 1000;
@@ -4749,17 +4805,46 @@
       }
     }
 
+    // 현재 engine 결정 (auto이면 UA 감지) — wireMic 클릭 시 동적 평가
+    function getEffectiveEngine() {
+      try {
+        const v = (window.SETTINGS_CACHE && window.SETTINGS_CACHE.voice) || {};
+        const e = v.engine || 'auto';
+        if (e === 'auto') {
+          return (typeof detectVoiceEngine === 'function')
+            ? detectVoiceEngine()
+            : (/Android|iPhone|iPod|iPad/i.test(navigator.userAgent) ? 'os-keyboard' : 'web-speech');
+        }
+        return e;
+      } catch (e) { return 'web-speech'; }
+    }
+
     // mic 버튼 1개에 클릭 핸들러 + 툴팁/미지원 처리 (idempotent — 한 번만 wire)
     function wireMic(btn) {
       if (!btn || btn.dataset.lawearMicWired === '1') return;
       btn.dataset.lawearMicWired = '1';
-      if (!supported) {
-        disableUnsupported(btn);
-        return;
-      }
       btn.title = (I18N[currentLang] && I18N[currentLang].voice_tooltip) || 'Click to start / stop voice input';
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
+        const effEngine = getEffectiveEngine();
+        // 하이브리드 X (lawear) — OS 키보드 분기: textarea 포커스 + 안내 토스트, Web Speech 호출 X
+        if (effEngine === 'os-keyboard') {
+          const textarea = resolveTargetTextarea(btn);
+          if (textarea) {
+            try { textarea.focus(); } catch (err) { /* ignore */ }
+          }
+          const msg = (I18N[currentLang] && I18N[currentLang].voice_os_keyboard_hint)
+            || (currentLang === 'en'
+                ? '📱 Tap the mic button (🎤) on your keyboard to dictate'
+                : '📱 키보드의 마이크 버튼(🎤)을 눌러 음성으로 입력하세요');
+          showToast(msg, 'success');
+          return;
+        }
+        // engine === 'web-speech' (또는 'auto'+데스크탑): 기존 Web Speech API 흐름
+        if (!supported) {
+          disableUnsupported(btn);
+          return;
+        }
         // 이미 다른 mic 가 active 면 정지 (카드 간 전환 시 자연스럽게 stop → 사용자가 다시 누르면 다른 카드 시작)
         if (activeRec) {
           stopAll();
@@ -7612,7 +7697,7 @@
     // Step 21 (v5, 2026-05-17): case_apply 신설 + rich 20→15 — 9기준 합계 100
     weights: { mnem: 16, color: 13, under: 8, outline: 10, sem: 12, rich: 15, miss: 11, articles: 10, case_apply: 5 },
     bias:    { err_weight: 60, stale_weight: 40, err_threshold: 3, stale_threshold_days: 14 },
-    voice:   { lang: 'ko-KR', silence_sec: 3 },
+    voice:   { lang: 'ko-KR', silence_sec: 60, engine: 'auto' },
     grading_mode: 'manual',  // Step 13 — Claude Code 외부 채점이 기본
   };
   const VOICE_LANG_OPTIONS = ['ko-KR', 'en-US'];
@@ -7697,6 +7782,32 @@
     const silVal = document.querySelector('[data-voice-val="silence_sec"]');
     if (silInp && voice.silence_sec != null) silInp.value = voice.silence_sec;
     if (silVal && voice.silence_sec != null) silVal.textContent = voice.silence_sec + 's';
+
+    // hybrid X (lawear) — voice.engine: 'auto' | 'web-speech' | 'os-keyboard'
+    const engSel = document.querySelector('select[data-voice-key="engine"]');
+    const engVal = document.querySelector('[data-voice-val="engine"]');
+    const eng = voice.engine || 'auto';
+    if (engSel) engSel.value = eng;
+    if (engVal) engVal.textContent = eng;
+    // OS 키보드 선택 시 silence_sec 슬라이더 disabled (Web Speech 한정)
+    applyEngineUiDisable(eng);
+  }
+
+  // OS 키보드 선택 시 Web Speech 한정 설정들(silence_sec) UI disable
+  function applyEngineUiDisable(engine) {
+    const effective = engine === 'auto' ? detectVoiceEngine() : engine;
+    const silInp = document.querySelector('input[data-voice-key="silence_sec"]');
+    const silRow = silInp ? silInp.closest('.slider-row') : null;
+    const isOs = (effective === 'os-keyboard');
+    if (silInp) silInp.disabled = isOs;
+    if (silRow) silRow.style.opacity = isOs ? '0.5' : '';
+  }
+
+  // 하이브리드 X — 음성입력 엔진 자동 감지 (모바일은 OS 키보드, 데스크탑은 Web Speech)
+  function detectVoiceEngine() {
+    const ua = navigator.userAgent;
+    if (/Android|iPhone|iPod|iPad/i.test(ua)) return 'os-keyboard';
+    return 'web-speech';
   }
 
   function updateWeightsTotal() {
@@ -7729,10 +7840,12 @@
   function readVoiceFromUI() {
     const langInp = document.querySelector('input[data-voice-key="lang"]');
     const silInp = document.querySelector('input[data-voice-key="silence_sec"]');
+    const engSel = document.querySelector('select[data-voice-key="engine"]');
     const idx = langInp ? parseInt(langInp.value || '0', 10) : 0;
     return {
       lang: VOICE_LANG_OPTIONS[idx] || 'ko-KR',
-      silence_sec: silInp ? parseInt(silInp.value || '3', 10) : 3,
+      silence_sec: silInp ? parseInt(silInp.value || '60', 10) : 60,
+      engine: engSel ? (engSel.value || 'auto') : 'auto',
     };
   }
 
@@ -7836,6 +7949,52 @@
       }
     });
   });
+
+  // 하이브리드 X — voice.engine 셀렉트 즉시 반응 + silence_sec disable 토글
+  document.querySelectorAll('select[data-voice-key]').forEach(sel => {
+    sel.addEventListener('change', () => {
+      const k = sel.dataset.voiceKey;
+      const valEl = document.querySelector(`[data-voice-val="${k}"]`);
+      if (valEl) valEl.textContent = sel.value;
+      if (k === 'engine') applyEngineUiDisable(sel.value);
+    });
+  });
+
+  // 하이브리드 X — Root CA 다운로드 OS 가이드 (UA 자동 감지로 디폴트, 사용자가 변경 가능)
+  const CERT_GUIDE_TEXTS_KO = {
+    macos: "다운로드 후 더블클릭 → 키체인 접근에서 신뢰 → 'Always Trust' 선택",
+    windows: "다운로드 후 더블클릭 → '인증서 설치' → '로컬 컴퓨터' → '신뢰할 수 있는 루트 인증 기관' 선택",
+    android: "다운로드 후 설정 → 보안 → 자격증명 설치 → CA 인증서 선택 → 경고 수락 → 이름 부여 → PIN 인증",
+    ios: "다운로드 후 설정 → 일반 → VPN 및 기기 관리 → 프로파일 설치 → 인증서 신뢰 설정에서 토글 ON",
+  };
+  const CERT_GUIDE_TEXTS_EN = {
+    macos: "Download → double-click → Keychain Access → trust → set 'Always Trust'",
+    windows: "Download → double-click → 'Install Certificate' → 'Local Machine' → 'Trusted Root Certification Authorities'",
+    android: "Download → Settings → Security → Install credential → CA certificate → accept warning → name it → PIN",
+    ios: "Download → Settings → General → VPN & Device Management → Install profile → Certificate Trust Settings → toggle ON",
+  };
+  function detectCertOs() {
+    const ua = navigator.userAgent;
+    if (/iPhone|iPod|iPad/i.test(ua)) return 'ios';
+    if (/Android/i.test(ua)) return 'android';
+    if (/Macintosh|Mac OS X/i.test(ua)) return 'macos';
+    if (/Windows/i.test(ua)) return 'windows';
+    return 'macos';
+  }
+  function updateCertGuide() {
+    const sel = document.getElementById('cert-os-select');
+    const guide = document.getElementById('cert-guide');
+    if (!sel || !guide) return;
+    const os = sel.value;
+    const dict = (currentLang === 'ko' || !currentLang) ? CERT_GUIDE_TEXTS_KO : CERT_GUIDE_TEXTS_EN;
+    guide.textContent = dict[os] || '';
+  }
+  const certOsSelect = document.getElementById('cert-os-select');
+  if (certOsSelect) {
+    certOsSelect.value = detectCertOs();
+    certOsSelect.addEventListener('change', updateCertGuide);
+    updateCertGuide();
+  }
 
   const btnSettingsSave = document.getElementById('btn-settings-save');
   if (btnSettingsSave) btnSettingsSave.addEventListener('click', saveSettings);

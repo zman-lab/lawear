@@ -1211,8 +1211,87 @@ function setupMetaInputs() {
 //   - 17896 LAWEAR_STT 영감, 단순화 버전
 //   - ko-KR / continuous + interimResults / final transcript만 textarea append
 //   - 미지원 브라우저: 버튼 disabled
+//
+// v5 (#17895 모바일 HTTPS X안):
+//   - silence_sec 디폴트 60s (Web Speech API 무음 종료 타이머)
+//     · 17895에는 settings UI 없음 → 코드 상수 + localStorage override (`lawear_voice_silence_sec`)
+//   - 음성입력 엔진 자동 감지 (detectVoiceEngine):
+//     · 모바일(Android/iOS) → 'os-keyboard' (OS 키보드 마이크 버튼 활용)
+//     · 그 외 → 'web-speech' (Web Speech API)
+//     · 사용자 override: localStorage `lawear_voice_engine` (auto/web-speech/os-keyboard)
+//   - 'os-keyboard' 분기 시 mic 버튼 클릭 → textarea 포커스 + inline 안내 (rec.start() X)
 // ============================================================================
+
+// 음성입력 엔진 자동 감지 (모바일=OS 키보드, 데스크탑=Web Speech)
+function detectVoiceEngine() {
+  const ua = navigator.userAgent;
+  if (/Android|iPhone|iPod|iPad/i.test(ua)) return 'os-keyboard';
+  return 'web-speech';
+}
+
+// 사용자 override 우선 (auto → 자동 감지)
+function getVoiceEngine() {
+  try {
+    const override = localStorage.getItem('lawear_voice_engine');
+    if (override === 'web-speech' || override === 'os-keyboard') return override;
+  } catch (e) { /* ignore */ }
+  return detectVoiceEngine();
+}
+
+// Web Speech 무음 종료 타이머 (디폴트 60s, localStorage override 가능)
+function getVoiceSilenceMs() {
+  let sec = 60;
+  try {
+    const raw = localStorage.getItem('lawear_voice_silence_sec');
+    if (raw) {
+      const n = parseInt(raw, 10);
+      if (Number.isFinite(n) && n >= 1 && n <= 600) sec = n;
+    }
+  } catch (e) { /* ignore */ }
+  return sec * 1000;
+}
+
+// inline 안내 토스트 (alert 회피, 기존 17895 UI 패턴 따름)
+function showVoiceInfo(msg) {
+  let el = document.getElementById('voice-info-toast');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'voice-info-toast';
+    el.style.cssText = `
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #2a2f38; color: var(--text, #e4e6eb); padding: 12px 18px;
+      border: 1px solid var(--accent, #4ec9b0); border-radius: 6px;
+      font-size: 14px; line-height: 1.6; max-width: 90vw; white-space: pre-wrap;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4); z-index: 9999;
+    `;
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(showVoiceInfo._t);
+  showVoiceInfo._t = setTimeout(() => { el.style.display = 'none'; }, 6000);
+}
+
 function setupVoiceInput(textarea, micBtn) {
+  const engine = getVoiceEngine();
+  console.log('[voice] engine =', engine, '(silence_sec =', getVoiceSilenceMs() / 1000, 's)');
+
+  // 분기 1: OS 키보드 모드 (모바일) — Web Speech API 호출 X
+  if (engine === 'os-keyboard') {
+    micBtn.title = 'OS 키보드 마이크 사용 (모바일)';
+    micBtn.onclick = () => {
+      textarea.focus();
+      showVoiceInfo(
+        '📱 키보드의 마이크 버튼(🎤)을 눌러 음성으로 입력하세요\n' +
+        '🔐 모바일에서 마이크 작동 안 하면 17896 설정 페이지(' +
+        location.protocol + '//' + location.hostname + ':17896/#settings)에서 Root CA 다운로드 후 자격증명 설치 필요'
+      );
+      console.log('[voice] os-keyboard fallback — textarea 포커스');
+    };
+    return;
+  }
+
+  // 분기 2: Web Speech API (데스크탑)
   const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
   if (!SR) {
     micBtn.disabled = true;
@@ -1221,7 +1300,16 @@ function setupVoiceInput(textarea, micBtn) {
     console.warn('[voice] SpeechRecognition 미지원');
     return;
   }
-  let rec = null, recording = false;
+  let rec = null, recording = false, silenceTimer = null;
+
+  function resetSilenceTimer() {
+    if (silenceTimer) clearTimeout(silenceTimer);
+    silenceTimer = setTimeout(() => {
+      console.log('[voice] silence timeout →', getVoiceSilenceMs() / 1000, 's 무음 → stop()');
+      try { rec.stop(); } catch (e) { /* ignore */ }
+    }, getVoiceSilenceMs());
+  }
+
   micBtn.onclick = () => {
     if (recording) {
       try { rec.stop(); } catch (e) { /* ignore */ }
@@ -1236,12 +1324,14 @@ function setupVoiceInput(textarea, micBtn) {
       recording = true;
       micBtn.textContent = '■ 녹음중';
       micBtn.classList.add('recording');
-      console.log('[voice] 시작');
+      console.log('[voice] 시작 (silence_sec =', getVoiceSilenceMs() / 1000, 's)');
+      resetSilenceTimer();
     };
     rec.onend = () => {
       recording = false;
       micBtn.textContent = '🎤 음성';
       micBtn.classList.remove('recording');
+      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
       console.log('[voice] 종료');
     };
     rec.onresult = (ev) => {
@@ -1256,19 +1346,26 @@ function setupVoiceInput(textarea, micBtn) {
         textarea.dispatchEvent(new Event('input', { bubbles: true }));
         console.log('[voice] final transcript append:', final.trim().length, 'chars');
       }
+      // 음성 활동 감지 시 무음 타이머 리셋 (interim/final 모두)
+      resetSilenceTimer();
     };
     rec.onerror = (ev) => {
       recording = false;
       micBtn.textContent = '🎤 음성';
       micBtn.classList.remove('recording');
+      if (silenceTimer) { clearTimeout(silenceTimer); silenceTimer = null; }
       console.error('[voice] error:', ev.error);
-      alert('음성 오류: ' + (ev.error || 'unknown'));
+      showVoiceInfo(
+        '음성 오류: ' + (ev.error || 'unknown') + '\n' +
+        '🔐 모바일에서 마이크 작동 안 하면 17896 설정 페이지(' +
+        location.protocol + '//' + location.hostname + ':17896/#settings)에서 Root CA 다운로드 후 자격증명 설치 필요'
+      );
     };
     try {
       rec.start();
     } catch (e) {
       console.error('[voice] start 실패:', e);
-      alert('음성 시작 실패: ' + e.message);
+      showVoiceInfo('음성 시작 실패: ' + e.message);
     }
   };
 }
