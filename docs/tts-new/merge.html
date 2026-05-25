@@ -2062,8 +2062,8 @@ function showSection(section, event) {
         <thead><tr><th>${originalLabel}</th><th>Lv.1</th><th>Lv.4</th></tr></thead>
         <tbody><tr>
           <td>${renderMd(original || '(없음)')}</td>
-          <td>${renderMd(lv1 || '(없음)')}</td>
-          <td>${renderMd(lv4 || '(없음)')}</td>
+          <td>${wrapLvToc(renderMd(lv1 || '(없음)'))}</td>
+          <td>${wrapLvToc(renderMd(lv4 || '(없음)'))}</td>
         </tr></tbody>
       </table>
     `;
@@ -2076,7 +2076,12 @@ function showSection(section, event) {
   else if (section === 'Lv.4') { sectionKey = 'Lv.4 암기노트'; sectionHeader = 'Lv.4 암기노트'; }
 
   const c = extractSection(md, sectionKey);
-  target.innerHTML = c ? renderMd(`## ${sectionHeader}\n\n${c}`) : '<p style="color:#484f58;">해당 섹션을 찾을 수 없습니다.</p>';
+  target.innerHTML = c ? wrapLvToc(renderMd(`## ${sectionHeader}\n\n${c}`)) : '<p style="color:#484f58;">해당 섹션을 찾을 수 없습니다.</p>';
+}
+
+function wrapLvToc(html) {
+  // Lv.1/Lv.4 안 ### 목차 → user-toc 박스 (부등법 ## 목차와 동일 스타일, lawear-18eb)
+  return html.replace(/<h3[^>]*>\s*목차\s*<\/h3>\s*(<ol[\s\S]*?<\/ol>)/, '<div class="user-toc"><span class="toc-label">목차</span>$1</div>');
 }
 
 function extractSection(md, sectionName) {
