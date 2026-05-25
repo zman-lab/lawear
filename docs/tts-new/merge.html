@@ -229,6 +229,30 @@
   #sidebar-toggle:hover { background: var(--panel-2); color: var(--accent); }
   #sidebar.collapsed ~ #sidebar-toggle { left: 0; }
 
+  /* lawear-0981 (2026-05-25): 새로고침 버튼 — 토글 아래에 동일 크기, 색 구분 */
+  #sidebar-refresh {
+    position: absolute;
+    top: 84px;  /* toggle top:10 + height:64 + gap:10 */
+    left: 280px;
+    z-index: 50;
+    width: 36px;
+    height: 64px;
+    border: 1px solid var(--border);
+    border-left: none;
+    background: var(--panel);
+    color: var(--accent, #4ec9b0);
+    border-radius: 0 4px 4px 0;
+    cursor: pointer;
+    font-size: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: left 0.18s, transform 0.3s;
+  }
+  #sidebar-refresh:hover { background: var(--panel-2); color: var(--text); }
+  #sidebar-refresh:active { transform: rotate(180deg); }
+  #sidebar.collapsed ~ #sidebar-refresh { left: 0; }
+
   /* Right Toggle Buttons */
   .right-toggles { position: fixed; top: 10px; right: 14px; z-index: 100; display: flex; gap: 6px; }
   .right-toggles button {
@@ -767,6 +791,7 @@
   </div>
 </div>
 <button id="sidebar-toggle" onclick="toggleSidebar()" title="Sidebar Toggle (B)">‹</button>
+<button id="sidebar-refresh" onclick="location.reload()" title="새로고침">↻</button>
 <div class="right-toggles">
   <button id="editor-toggle" onclick="toggleEditor()" title="편집 모드 토글 (E)">✏️</button>
   <button id="stealth-toggle" onclick="toggleStealth()" title="위장 모드 토글 (Z)">👀</button>
