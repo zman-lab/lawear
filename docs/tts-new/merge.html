@@ -256,6 +256,26 @@
   #content th { background: var(--panel); color: var(--accent); }
   #content ul, #content ol { padding-left: 24px; margin-bottom: 8px; }
   #content li { line-height: 1.6; margin-bottom: 4px; }
+  /* lawear-18eb 2026-05-25: 계층 뎁스 (Style B + L4 둥근 sub-block) — L1·L2는 그대로 */
+  /* L3 ul(dash): 파란 세로 가이드 레일 */
+  #content li > ul {
+    border-left: 2px solid #3a6ea5;
+    padding-left: 14px;
+    margin-left: 4px;
+    margin-top: 4px;
+  }
+  /* L4 ol(번호): 둥근 sub-block 느낌 (L3과 시각 구분) */
+  #content li > ol {
+    border-left: 2px solid rgba(51,154,240,0.5);
+    padding: 6px 14px 6px 18px;
+    margin-left: 1.4em;
+    margin-top: 4px;
+    background: rgba(51,154,240,0.06);
+    border-radius: 0 6px 6px 0;
+  }
+  #content li li > ul { border-left-color: #4a4a4a; }
+  /* user-toc(목차 박스)는 영향 X */
+  .user-toc li > ul, .user-toc li > ol { border-left: none; background: none; padding-left: 18px; margin-left: 0; margin-top: 0; }
   #content blockquote { border-left: 3px solid var(--accent); padding-left: 16px; color: var(--text-dim); margin: 8px 0; }
 
   /* 라이브러리(두문자) 접펼 항목 — 각 ###을 한 줄 요약 + details */
@@ -1947,23 +1967,17 @@ function renderContent() {
       <button type="button" class="user-input-edit-btn" onclick="window.location.href='/input.html?path=${encodeURIComponent(currentPath)}'" title="입력 UI로 이동하여 편집">${editBtnLabel}</button>
       <div class="breadcrumb"><span class="case-path-text" id="case-path-label">${pathHtml}</span><button type="button" class="btn-copy-path" id="copy-path-btn" title="경로 복사">복사</button></div>
     </div>`;
-    // 본문 컨테이너 (탭 없음)
-    content.innerHTML = ui_headerHtml + '<div id="mdContent"></div>';
-    if (editorWrap) content.appendChild(editorWrap);
-    const ui_target = document.getElementById('mdContent');
-    // 섹션 추출 — 기존 extractSection 재사용 (## 문제 / ## 답안 / ## 메모)
+    // 섹션 추출 (탭 분기 판단용) — extractSection 재사용
     const problemMd = extractSection(fullContent, '문제');
     const answerMd = extractSection(fullContent, '답안');
     const tocMd = extractSection(fullContent, '목차');
     const memoMd = extractSection(fullContent, '메모');
-    // lawear-18eb: 공통 캐시·해설형 user_input (예: 부등서류 첨부서면해설_공통캐시)은
-    //   ## 문제 / ## 답안 split 구조가 아니라 전체 마크다운 본문(메타·캐시규칙·항목해설).
-    //   4섹션이 모두 비면 split 테이블로는 "(문제 없음)/(답안 없음)"만 떠 빈 화면이 됨 →
-    //   전체 마크다운을 그대로 렌더(fallback). 모의고사 등 정상 케이스(문제/답안 보유)는 무손상.
+
+    // 공통 캐시·해설형 fallback: 4섹션 모두 비면 탭 X, 전체 .md 그대로 (메타·캐시규칙 strip)
     if (!problemMd && !answerMd && !tocMd && !memoMd) {
-      // lawear-18eb #5: 공통 캐시 전체 렌더 시 ## 메타 · ## 캐시 사용 규칙 섹션은
-      //   사용자가 볼 필요 없으므로 제외 (각 헤더 ~ 다음 #/## 헤더 직전까지 strip).
-      //   R-09: 나머지 본문은 그대로 renderMd. 타 분기/모의고사 케이스 무손상.
+      content.innerHTML = ui_headerHtml + '<div id="mdContent"></div>';
+      if (editorWrap) content.appendChild(editorWrap);
+      const ui_target = document.getElementById('mdContent');
       const ui_hideHeadings = ['메타', '캐시 사용 규칙'];
       const ui_srcLines = (fullContent || '').split('\n');
       const ui_keptLines = [];
@@ -1971,36 +1985,26 @@ function renderContent() {
       for (const ln of ui_srcLines) {
         const hm = ln.match(/^(#{1,6})\s+(.*)$/);
         if (hm) {
-          // 새 헤더 만나면: 제외 대상이면 skip 시작, 아니면 skip 해제
           ui_skipping = ui_hideHeadings.includes(hm[2].trim());
           if (ui_skipping) continue;
         }
         if (!ui_skipping) ui_keptLines.push(ln);
       }
-      // 제외 섹션 뒤에 남은 선두 --- / 공백 라인 정리 (시각적 깔끔)
       while (ui_keptLines.length && /^(\s*|-{3,})$/.test(ui_keptLines[0])) ui_keptLines.shift();
       ui_target.innerHTML = renderMd(ui_keptLines.join('\n'));
       return;
     }
-    // 좌우 split 테이블 (compare-table.cols-2 신규 변종)
-    // lawear-7ad6 v5 — 점수는 본문 X, 컬럼 헤더 "문제 (NN점)"로 표시 (사용자 명시)
-    const pointsTag = meta.points ? ` (${meta.points}점)` : '';
-    // 부등법 전용 ## 목차 (암기 인덱스) — 존재할 때만 답안 컬럼 맨 위에 렌더 (lawear-c9b0)
-    const tocHtml = tocMd
-      ? `<div class="user-toc"><span class="toc-label">목차</span>${renderMd(tocMd)}</div>`
-      : '';
-    const splitTableHtml = `<table class="compare-table cols-2">
-      <thead><tr><th>문제${pointsTag}</th><th>답안${pointsTag}</th></tr></thead>
-      <tbody><tr>
-        <td>${renderMd(problemMd || '(문제 없음)')}</td>
-        <td>${tocHtml}${renderMd(answerMd || '(답안 없음)')}</td>
-      </tr></tbody>
-    </table>`;
-    // 메모 footer (## 메모 섹션이 있을 때만)
-    const memoHtml = memoMd
-      ? `<div class="user-memo"><span class="memo-label">메모</span>${renderMd(memoMd)}</div>`
-      : '';
-    ui_target.innerHTML = splitTableHtml + memoHtml;
+
+    // 일반 케이스: 탭 [문제/목차/답안/전체] + showSection 분기 (lawear-18eb 2026-05-25 모바일 친화)
+    const ui_tabKeys = ['문제', '목차', '답안', '전체'];
+    let ui_tabs = '<div class="lv-tabs">';
+    ui_tabKeys.forEach((s, i) => {
+      ui_tabs += `<div class="lv-tab${i===3?' active':''}" data-key="${s}" onclick="showSection('${s}', event)">${s}</div>`;
+    });
+    ui_tabs += '</div>';
+    content.innerHTML = ui_headerHtml + ui_tabs + '<div id="mdContent"></div>';
+    if (editorWrap) content.appendChild(editorWrap);
+    showSection('전체');
     return;
   }
 
@@ -2049,6 +2053,34 @@ function showSection(section, event) {
 
   const md = fullContent;
   const target = document.getElementById('mdContent');
+
+  // lawear-18eb 2026-05-25: user_input 분기 (탭 [문제/목차/답안/전체])
+  const ui_meta = fileMetadata[currentPath];
+  if (ui_meta && ui_meta.type === 'user_input') {
+    const problemMd = extractSection(md, '문제');
+    const answerMd = extractSection(md, '답안');
+    const tocMd = extractSection(md, '목차');
+    const memoMd = extractSection(md, '메모');
+    const pointsTag = ui_meta.points ? ` (${ui_meta.points}점)` : '';
+    const tocHtml = tocMd ? `<div class="user-toc"><span class="toc-label">목차</span>${renderMd(tocMd)}</div>` : '';
+    const memoHtml = memoMd ? `<div class="user-memo"><span class="memo-label">메모</span>${renderMd(memoMd)}</div>` : '';
+    if (section === '전체') {
+      target.innerHTML = `<table class="compare-table cols-2">
+        <thead><tr><th>문제${pointsTag}</th><th>답안${pointsTag}</th></tr></thead>
+        <tbody><tr>
+          <td>${renderMd(problemMd || '(문제 없음)')}</td>
+          <td>${tocHtml}${renderMd(answerMd || '(답안 없음)')}</td>
+        </tr></tbody>
+      </table>` + memoHtml;
+    } else if (section === '문제') {
+      target.innerHTML = renderMd(problemMd || '<p style="color:#888;">(문제 없음)</p>') + memoHtml;
+    } else if (section === '답안') {
+      target.innerHTML = tocHtml + renderMd(answerMd || '<p style="color:#888;">(답안 없음)</p>') + memoHtml;
+    } else if (section === '목차') {
+      target.innerHTML = (tocMd ? renderMd(tocMd) : '<p style="color:#888;">(목차 섹션 없음)</p>') + memoHtml;
+    }
+    return;
+  }
 
   if (section === '전체') {
     const original = extractSection(md, '원본');
