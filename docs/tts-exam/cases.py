@@ -232,6 +232,7 @@ def parse_md_file(md_text: str) -> dict[str, str | None]:
           "origin_points": 17 (None 가능),
           "lv1":      "## Lv.1 빠른복습\n\n### 문제\n...",
           "lv4":      "## Lv.4 암기노트 (사용자 스타일)\n결론...",
+          "toc":      "1. 결론\n2. 이유" (## 목차 H2 본문, 헤더 제외, strip),
           "meta":     "## 메타\n- PDF: ...",
         }
         섹션 없으면 해당 키 None.
@@ -239,7 +240,7 @@ def parse_md_file(md_text: str) -> dict[str, str | None]:
     # 헤더 위치 모음
     headers: list[tuple[int, str]] = [(m.start(), m.group(1)) for m in _HEADER_RE.finditer(md_text)]
     if not headers:
-        return {"origin": None, "origin_points": None, "lv1": None, "lv4": None, "meta": None}
+        return {"origin": None, "origin_points": None, "lv1": None, "lv4": None, "toc": None, "meta": None}
 
     # 다음 헤더 시작 위치 = 현재 섹션의 끝
     sections: dict[str, str] = {}
@@ -252,6 +253,7 @@ def parse_md_file(md_text: str) -> dict[str, str | None]:
     origin_points = None
     lv1 = None
     lv4 = None
+    toc = None
     meta = None
 
     for name, body in sections.items():
@@ -273,6 +275,15 @@ def parse_md_file(md_text: str) -> dict[str, str | None]:
         elif name.startswith("Lv.4") or name.startswith("답안"):
             # 부등법 '## 답안' → lv4 (reference answer로 활용)
             lv4 = body
+        elif name.startswith("목차"):
+            # lawear-23d9 (P2-a, 2026-05-25): 부등법 ## 목차 H2 본문 → 답안 박스 인덱스용
+            # 17895 merge.html user-toc 박스 패턴 mirror (commit 66f854b).
+            # body 는 "## 목차\n\n1. 결론\n2. 이유" 형태 — 헤더 라인 제거하고 본문만 노출.
+            # R-09: 원문 verbatim (요약/가공 X). 헤더 줄만 떼고 strip.
+            body_lines = body.split("\n", 1)
+            toc = body_lines[1].strip() if len(body_lines) > 1 else ""
+            if not toc:
+                toc = None
         elif name.startswith("메타"):
             meta = body
 
@@ -291,6 +302,7 @@ def parse_md_file(md_text: str) -> dict[str, str | None]:
         "origin_points": origin_points,
         "lv1": lv1,
         "lv4": lv4,
+        "toc": toc,
         "meta": meta,
     }
 
@@ -455,6 +467,115 @@ def parse_md_subqs_cloze(md_content: str) -> list[dict]:
             "is_cloze": True,
         })
     return cards
+
+
+def parse_md_subqs_minsa_practice(md_content: str) -> list[dict]:
+    """17896 민사서류 1순환 작성연습 .md → 단일 카드 4 슬롯 분해 (lawear-23d9 Track D 2026-05-25).
+
+    1순환 .md 구조 (3건 공통: 01_금전 / 02_등기 / 03_인도):
+        ## 문제
+        본문...
+        ## 답안
+        ### 소장 표제부 / ### 당사자 칸 / ### 사건명 칸
+        ### 청구취지 칸
+        ### 청구원인 칸 (요건사실 위주)
+        ### 증명방법·첨부서류 칸
+        ### 작성일·제출자·관할법원 칸
+        ### 별지 목록 (03 인도만)
+
+    Returns:
+        list[dict] — 단일 카드 1개, slots[] 안에 청구취지/청구원인/증명방법/첨부서류 4개 슬롯.
+            ``{"key": "단일", "score_max": 30, "body": str (## 문제 본문),
+              "answer": str (## 답안 전체 raw), "mnemonic": str,
+              "slots": [{"label": str, "key": str, "exemplar_md": str}, ...],
+              "is_minsa_practice": True}``
+
+        - ``body``:        `## 문제` 헤더 다음 ~ `## 답안` 직전 (수험생에게 보여줄 문제).
+        - ``answer``:      `## 답안` 전체 본문 (사이드패널/AI 비교용 raw).
+        - ``slots[i]``:    4개 입력 슬롯 (사용자 요구: 청구취지/청구원인/입증서류/첨부서류).
+            ``label``:       UI 표시명 ("청구취지", "청구원인", "증명방법", "첨부서류").
+            ``key``:         data 키 (cheong_chwiji / cheong_wonin / jeungmyeong / cheombu).
+            ``exemplar_md``: 해당 슬롯의 강사 답안 .md raw (ui-fold details 포함, renderMd 처리).
+
+    매핑 (.md 헤더 → 슬롯):
+        - 청구취지 ← `### 청구취지 칸` 본문
+        - 청구원인 ← `### 청구원인 칸 (요건사실 위주)` 본문
+        - 증명방법 ← `### 증명방법·첨부서류 칸` 본문 안 "증명방법" 텍스트 ~ "첨부서류" 직전
+        - 첨부서류 ← `### 증명방법·첨부서류 칸` 본문 안 "첨부서류" 텍스트 ~ 다음 헤더 직전
+
+    R-09 (자의 해석 금지): .md raw verbatim. ui-fold details 그대로 슬롯 본문에 포함.
+                          매칭 안 되면 slots[i].exemplar_md = "" (빈 문자열 — 사용자 진단 대상).
+
+    매칭 0건 (`## 답안` 헤더 없음) → 빈 list 반환 (호출자 fallback).
+    """
+    if not md_content:
+        return []
+    # `## 답안` 헤더 위치 (1순환 작성연습 식별자)
+    answer_h2 = re.search(r"^## 답안\s*$", md_content, re.MULTILINE)
+    if not answer_h2:
+        return []
+    # `## 문제` 헤더 → body
+    problem_h2 = re.search(r"^## 문제\s*$", md_content, re.MULTILINE)
+    if problem_h2:
+        body = md_content[problem_h2.end():answer_h2.start()].strip()
+    else:
+        body = ""
+    # `## 답안` 본문 = answer (사이드 + AI 비교용)
+    # 다음 `## ` 또는 EOF 까지
+    after_answer = md_content[answer_h2.end():]
+    next_h2 = re.search(r"^## ", after_answer, re.MULTILINE)
+    answer_block_end = answer_h2.end() + (next_h2.start() if next_h2 else len(after_answer))
+    answer_raw = md_content[answer_h2.end():answer_block_end].strip()
+
+    # H3 슬롯 매핑 — R-09 raw verbatim, exemplar_md 에 포함.
+    def _h3_body(label_regex: str) -> str:
+        m = re.search(rf"^### {label_regex}\s*$", answer_raw, re.MULTILINE)
+        if not m:
+            return ""
+        return _extract_section_body(answer_raw, m.start(), m.end())
+
+    cheong_chwiji_body = _h3_body(r"청구취지 칸")
+    cheong_wonin_body = _h3_body(r"청구원인 칸.*")
+    # 증명방법·첨부서류 칸 — 본문 split "증명방법" / "첨부서류"
+    jm_cb_body = _h3_body(r"증명방법·첨부서류 칸")
+    # split 시도 — "증명방법" 라인 ~ "첨부서류" 라인 직전 / "첨부서류" 라인 ~ 끝
+    jeungmyeong_body = ""
+    cheombu_body = ""
+    if jm_cb_body:
+        # "증명방법" / "첨부서류" 단독 라인 위치 (앞뒤 공백 허용)
+        jm_match = re.search(r"^증명방법\s*$", jm_cb_body, re.MULTILINE)
+        cb_match = re.search(r"^첨부서류\s*$", jm_cb_body, re.MULTILINE)
+        if jm_match and cb_match:
+            jeungmyeong_body = jm_cb_body[jm_match.end():cb_match.start()].strip()
+            cheombu_body = jm_cb_body[cb_match.end():].strip()
+        else:
+            # 라인 단독 매칭 실패 → 통합 본문을 첫 슬롯에 넣고 두 번째는 빈값 (R-09: 자의 분할 X)
+            jeungmyeong_body = jm_cb_body
+            cheombu_body = ""
+
+    slots = [
+        {"label": "청구취지", "key": "cheong_chwiji", "exemplar_md": cheong_chwiji_body},
+        {"label": "청구원인", "key": "cheong_wonin", "exemplar_md": cheong_wonin_body},
+        {"label": "증명방법", "key": "jeungmyeong", "exemplar_md": jeungmyeong_body},
+        {"label": "첨부서류", "key": "cheombu", "exemplar_md": cheombu_body},
+    ]
+
+    # mnemonic — body+answer 안 [blank2] (보통 0)
+    mnemonic_chars = _extract_blank2_chars(body) + _extract_blank2_chars(answer_raw)
+    mnemonic = ",".join(mnemonic_chars)
+
+    return [{
+        "key": "단일",
+        "score_max": 30,
+        "body": body,
+        "answer": answer_raw,
+        "mnemonic": mnemonic,
+        "blanks": {},
+        "body_with_placeholders": body,
+        "blank_count": 0,
+        "slots": slots,
+        "is_minsa_practice": True,
+    }]
 
 
 def parse_md_subqs(md_content: str) -> list[dict]:
@@ -1010,6 +1131,9 @@ def get_case(conn: sqlite3.Connection, case_id: str) -> dict[str, Any]:
     case["origin_points"] = sections["origin_points"]
     case["lv1"] = sections["lv1"]
     case["lv4"] = sections["lv4"]
+    # lawear-23d9 (P2-a, 2026-05-25): 부등법 ## 목차 H2 본문 (답안 컬럼 user-toc 박스용).
+    # 17895 merge.html mirror — extractSection('목차') 패턴.
+    case["toc_md"] = sections.get("toc")
     case["meta"] = sections["meta"]
     # 채점 시 레퍼런스로 쓰는 전체 .md raw (Step 6 grader 에서 활용)
     case["md_body"] = md_text
@@ -1022,13 +1146,33 @@ def get_case(conn: sqlite3.Connection, case_id: str) -> dict[str, Any]:
         case["points"] = sections["origin_points"]
 
     # lawear-0d65 (2026-05-24): 부등법 힌트 Lv.3 — [case] 태그 → 조문명 lookup.
-    # 부등법 (subject == 'budeunglaw' OR subject_type == 'problem_answer')만 적용.
-    # 다른 과목 (민법/민소)는 articles_hint 키 미주입 → 클라이언트 기존 로직 유지.
+    # lawear-23d9 Track B (2026-05-25): 5과목 공통 적용 (사용자 피드백 — 과목별 다른 렌더 → 공통 함수).
+    #   subject_kor → 기본 법명 매핑 (제N조 단독 표기 시 자과목 보충용, JS SUBJECT_KOR_TO_STATUTE mirror).
+    #   민법/민소 도 [case]태그 있으면 articles_hint 채움 — 클라이언트는 articles_hint 비면 grep fallback.
     # R-09: 캐시 미존재 → article_title None (자의 해석 X).
-    if case.get("subject") == "budeunglaw" or case.get("subject_type") == "problem_answer":
-        case["articles_hint"] = extract_case_tags(md_text, default_subject_kor="부동산등기법")
-    else:
-        case["articles_hint"] = []
+    _SUBJECT_KOR_TO_STATUTE = {
+        "형법": "형법",
+        "형소": "형사소송법",
+        "민법": "민법",
+        "민소": "민사소송법",
+        "부동산등기법": "부동산등기법",
+        "부동산등기서류": "부동산등기법",
+        "민사서류": "민법",
+    }
+    _subject_kor_val = case.get("subject_kor")
+    _default_law = _SUBJECT_KOR_TO_STATUTE.get(_subject_kor_val) or "부동산등기법"
+    # lawear-23d9 (2026-05-25): 본문 동일 조문 중복 인용 dedupe.
+    # (law_name, article_num) 기준 — 같은 조는 1번만 (첫 등장 보존).
+    # 항/호 차이는 무시 (사용자: "형소법 제8조 3번" → 1번으로).
+    _raw_hints = extract_case_tags(md_text, default_subject_kor=_default_law)
+    _seen_keys: set = set()
+    _deduped: list = []
+    for _h in _raw_hints:
+        _key = (_h.get("law_name") or "", _h.get("article_num") or "", _h.get("law_type") or "")
+        if _key not in _seen_keys:
+            _seen_keys.add(_key)
+            _deduped.append(_h)
+    case["articles_hint"] = _deduped
 
     # lawear-23d9 (2026-05-25): 17896 민사서류 cloze .md → subqs 분기.
     # subject_type='civil_doc' 인 경우 cloze parser (H2 `## 문제 N`) 사용.
@@ -1042,5 +1186,19 @@ def get_case(conn: sqlite3.Connection, case_id: str) -> dict[str, Any]:
             case["has_cause_section"] = True
             # cloze 모드 메타 — 채점 + UI 분기용
             case["cloze_mode"] = True
+
+    # lawear-23d9 Track D (2026-05-25): 17896 민사서류 1순환 작성연습 분기.
+    # subject='minsaseoryu' + category='1순환' (lv1234) — 4슬롯 단일 카드.
+    # 사용자 요구 (2026-05-25): 청구취지/청구원인/증명방법/첨부서류 4개 입력칸 + 접펼.
+    # R-09: parse_md_subqs_minsa_practice 가 .md raw verbatim 분해 — 슬롯별 exemplar_md 그대로.
+    if (
+        case.get("subject") == "minsaseoryu"
+        and case.get("category") == "1순환"
+        and not case.get("cloze_mode")
+    ):
+        practice_subqs = parse_md_subqs_minsa_practice(md_text)
+        if practice_subqs:
+            case["subqs"] = practice_subqs
+            case["minsa_practice_mode"] = True
 
     return case

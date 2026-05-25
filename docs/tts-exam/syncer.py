@@ -122,6 +122,15 @@ def _entry_to_case_row(entry: dict[str, Any], content_hash: str, synced_at: str)
         "user_case": str(entry["userCase"]) if entry.get("userCase") is not None else None,
         "synced_at": synced_at,
         "content_hash": content_hash,
+        # design v2 결정 1 (lawear-23d9 후속) — subject_type 매핑 (civil_doc 등 신규 type 지원)
+        # _file_index 키 호환: subjectType (camel) OR subject_type (snake).
+        # 자동 추론: 부등법은 _file_index 미명시 (598/601 entry 미명시) → subject='budeunglaw' → 'problem_answer'
+        # 기존 cases.subject_type='problem_answer' 102 entry 보존, syncer가 default 'lv1234'로 덮어쓰지 않음.
+        # 그 외 미명시 entry → 'lv1234' default. civil_doc 등은 _file_index에 명시.
+        "subject_type": (
+            entry.get("subjectType") or entry.get("subject_type")
+            or ("problem_answer" if entry.get("subject") == "budeunglaw" else "lv1234")
+        ),
     }
 
 
@@ -221,15 +230,16 @@ def sync_apply(conn: sqlite3.Connection) -> dict[str, Any]:
             conn.execute(
                 """
                 INSERT INTO cases (
-                  id, subject, subject_kor, category, file, file_kor, case_no,
+                  id, subject, subject_kor, subject_type, category, file, file_kor, case_no,
                   title, path, pdf_path, points, user_case, synced_at, content_hash
                 ) VALUES (
-                  :id, :subject, :subject_kor, :category, :file, :file_kor, :case_no,
+                  :id, :subject, :subject_kor, :subject_type, :category, :file, :file_kor, :case_no,
                   :title, :path, :pdf_path, :points, :user_case, :synced_at, :content_hash
                 )
                 ON CONFLICT(id) DO UPDATE SET
                   subject      = excluded.subject,
                   subject_kor  = excluded.subject_kor,
+                  subject_type = excluded.subject_type,
                   category     = excluded.category,
                   file         = excluded.file,
                   file_kor     = excluded.file_kor,

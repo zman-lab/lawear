@@ -4,6 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Internal Review Console</title>
+<!-- lawear-23d9 Track A (2026-05-25): 마크다운 렌더링용 marked.min.js 추가.
+     17895 merge.html L7 mirror — 17896에서도 사용자.md `### 헤더`, `1. 항목`, `> 인용` 등 마크다운 요소가 카드/힌트패널에서 정상 렌더되도록 도입. -->
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -730,6 +733,23 @@
   .hint-panel .hint-body {
     color: var(--text);
     line-height: 1.35;
+    /* Track F (2026-05-25): marked.parse 출력 (ol/ul 등) 가 .hint-panel{white-space:pre-wrap} 상속받으면
+       HTML 안 줄바꿈(\n) 이 시각적 빈줄로 표시 → 라인 간격 과다.
+       부등법 입문 예상문제 힌트 1.목차 사용자 피드백: "여백이 많고 라인이 왜케 높지, 개행이 많이 됨".
+       hint-body 안에서는 normal 로 복원 (marked HTML 정상 흐름). pre/code 등은 자기 white-space 가짐. */
+    white-space: normal;
+  }
+  .hint-panel .hint-body ol,
+  .hint-panel .hint-body ul {
+    margin: 0;
+    padding-left: 18px;
+  }
+  .hint-panel .hint-body li {
+    margin: 0;
+    line-height: 1.35;
+  }
+  .hint-panel .hint-body p {
+    margin: 0 0 4px 0;
   }
   .hint-panel .hint-body code {
     background: var(--panel);
@@ -772,6 +792,21 @@
     color: var(--hint-3);
     font-weight: 500;
   }
+
+  /* 부등법 ## 목차 — 답안(lv4) 컬럼 맨 위 암기 인덱스 박스
+     (lawear-23d9 P2-a 2026-05-25: 17895 merge.html L379-391 mirror, commit 66f854b) */
+  .user-toc {
+    margin-bottom: 14px; padding: 10px 12px;
+    border-left: 3px solid var(--accent);
+    background: var(--panel-2);
+    border-radius: 0 4px 4px 0;
+    font-size: 12px; line-height: 1.6;
+  }
+  .user-toc .toc-label {
+    display: block; font-size: 11px; color: var(--text-dim);
+    margin-bottom: 6px; font-weight: 600;
+  }
+  .user-toc ul, .user-toc ol { margin: 0; padding-left: 18px; }
 
   /* ─── Card answer textarea + grade result ─── */
   .sub-answer-block { margin-bottom: 8px; }
@@ -1961,6 +1996,13 @@
     transition: opacity 120ms;
   }
   .inline-tooltip-portal.show { opacity: 1; }
+  /* lawear-23d9 (2026-05-25): [case] 조문원문 마우스오버 툴팁 — 17895 merge.html 6b1ba05 패턴 이식.
+     조문/규칙 lookup 성공한 .em-case 에만 data-comment 주입 → 점선밑줄 어포던스 + cursor:help.
+     선례/예규/판례(lookup 실패)는 data-comment 없음 → 기존 초록 강조 유지 (역할분담 의도된 차등). */
+  .em-case[data-comment] {
+    border-bottom: 1px dotted currentColor;
+    cursor: help;
+  }
   /* lawear-c63e v8: 답안 영역 자체 overflow-x: hidden (가로스크롤 안전망) */
   #attempt-modal-answer { overflow-x: hidden; }
   .inline-marker .marker-icon {
@@ -2614,6 +2656,30 @@
     letter-spacing: 0.5px;
     vertical-align: middle;
   }
+  /* Track G (lawear-23d9 2026-05-25) — 미채점 시도 표시 */
+  .eval-overview-table .badge-pending {
+    display: inline-block;
+    margin-left: 6px;
+    padding: 1px 6px;
+    font-size: 9px;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    border-radius: 2px;
+    font-family: 'SF Mono', Consolas, monospace;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+    background: rgba(74, 158, 255, 0.08);
+  }
+  .eval-overview-table .ev-pending-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    font-size: 11px;
+    color: var(--accent);
+    border: 1px dashed var(--accent);
+    border-radius: 3px;
+    font-family: 'SF Mono', Consolas, monospace;
+    background: rgba(74, 158, 255, 0.06);
+  }
   .eval-overview-table .grade-pill {
     display: inline-block;
     padding: 1px 6px;
@@ -2800,6 +2866,160 @@
     font-size: 10px;
     font-family: 'SF Mono', Consolas, monospace;
     color: var(--text);
+  }
+
+  /* P1-b (lawear-23d9, 17895 merge.html L319-354 이식) — ui-fold details 접펼 표시.
+     17895가 작성한 민사서류 1순환 3건(.md)에 raw <details class="ui-fold">로 강사원본/AI/작성요령 접펼.
+     17896 시험 모드에서도 동일 표시. */
+  details.ui-fold {
+    margin: 6px 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+  }
+  details.ui-fold > summary {
+    cursor: pointer;
+    padding: 7px 10px;
+    list-style: none;
+    line-height: 1.5;
+    user-select: none;
+    font-weight: 600;
+    color: var(--text);
+    font-size: 12.5px;
+  }
+  details.ui-fold > summary::-webkit-details-marker { display: none; }
+  details.ui-fold > summary::before {
+    content: '▶';
+    display: inline-block;
+    width: 14px;
+    color: var(--accent, #0e639c);
+    font-size: 10px;
+    transition: transform 0.15s;
+  }
+  details.ui-fold[open] > summary { border-bottom: 1px solid var(--border); }
+  details.ui-fold[open] > summary::before { transform: rotate(90deg); }
+  details.ui-fold[open] > summary { color: var(--accent, #0e639c); }
+  details.ui-fold > *:not(summary) {
+    padding-left: 12px;
+    padding-right: 10px;
+  }
+  details.ui-fold > :nth-child(2) { margin-top: 8px; }
+  details.ui-fold > :last-child { margin-bottom: 10px; }
+
+  /* lawear-23d9 Track D (2026-05-25) — 17896 민사 1순환 작성연습 카드 스타일.
+     사용자 요구: 4 슬롯(청구취지/청구원인/입증서류/첨부서류) 접펼 + textarea + 강사 답안례.
+     details.ui-fold 베이스 + .minsa-slot/.minsa-exemplar 변형. */
+  .minsa-practice-card .minsa-slots {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  details.minsa-slot {
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--panel);
+  }
+  details.minsa-slot > summary {
+    cursor: pointer;
+    padding: 10px 12px;
+    list-style: none;
+    user-select: none;
+    font-weight: 600;
+    color: var(--text);
+    font-size: 13.5px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  details.minsa-slot > summary::-webkit-details-marker { display: none; }
+  details.minsa-slot > summary::before {
+    content: '▶';
+    display: inline-block;
+    width: 14px;
+    color: var(--accent, #0e639c);
+    font-size: 11px;
+    transition: transform 0.15s;
+  }
+  details.minsa-slot[open] > summary::before { transform: rotate(90deg); }
+  details.minsa-slot[open] > summary {
+    border-bottom: 1px solid var(--border);
+    color: var(--accent, #0e639c);
+    background: var(--bg-muted, rgba(14, 99, 156, 0.06));
+  }
+  details.minsa-slot .slot-label { flex: 0 0 auto; }
+  details.minsa-slot .slot-status {
+    margin-left: auto;
+    font-size: 11px;
+    background: var(--bg-muted, rgba(0,0,0,0.04));
+    color: var(--text-dim);
+  }
+  .minsa-slot-body {
+    padding: 10px 12px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .minsa-slot-input textarea {
+    width: 100%;
+    min-height: 100px;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg, #fff);
+    color: var(--text);
+    font-size: 13.5px;
+    line-height: 1.55;
+    font-family: inherit;
+    resize: vertical;
+  }
+  .minsa-slot-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11.5px;
+    color: var(--text-dim);
+  }
+  .minsa-slot-toolbar .info { flex: 1; }
+  details.minsa-exemplar {
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    background: var(--panel);
+  }
+  details.minsa-exemplar > summary {
+    cursor: pointer;
+    padding: 6px 10px;
+    list-style: none;
+    font-size: 12px;
+    color: var(--text-dim);
+    user-select: none;
+  }
+  details.minsa-exemplar > summary::-webkit-details-marker { display: none; }
+  details.minsa-exemplar > summary::before {
+    content: '▶';
+    display: inline-block;
+    width: 12px;
+    color: var(--text-dim);
+    font-size: 9px;
+    transition: transform 0.15s;
+  }
+  details.minsa-exemplar[open] > summary::before { transform: rotate(90deg); }
+  details.minsa-exemplar .minsa-exemplar-body {
+    padding: 8px 12px 10px;
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--text);
+    border-top: 1px dashed var(--border);
+  }
+  .minsa-practice-card .minsa-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .minsa-practice-card .minsa-status {
+    font-size: 11.5px;
+    color: var(--text-dim);
   }
 </style>
 </head>
@@ -3652,6 +3872,9 @@
       ev_overview_col_last_date: 'Last Submitted',
       ev_overview_col_solve: 'Solve Time',
       ev_overview_multi_fmt: 'Multi {n}',
+      // Track G (lawear-23d9 2026-05-25) — 미채점 row 표시
+      ev_overview_pending_label: 'Awaiting Grade',
+      ev_overview_pending_badge_fmt: 'pending {n}',
       solve_time_label: 'Solve Time',
       solve_not_tracked: 'Not Tracked',
       solve_prefix: 'Solve',
@@ -3931,6 +4154,9 @@
       ev_overview_col_last_date: '최근 제출',
       ev_overview_col_solve: '풀이 시간',
       ev_overview_multi_fmt: '다중 {n}',
+      // Track G (lawear-23d9 2026-05-25) — 미채점 row 표시
+      ev_overview_pending_label: '채점 대기',
+      ev_overview_pending_badge_fmt: '대기 {n}',
       solve_time_label: '풀이 시간',
       solve_not_tracked: '측정 안 됨',
       solve_prefix: '풀이',
@@ -4804,20 +5030,42 @@
     return !!caseMnem;
   }
 
+  // lawear-23d9 Track B (2026-05-25): 힌트 4종(목차/조문키워드/결론근거/전체답안) 공통 렌더 헬퍼.
+  //   부등법 전체답안 (Lv.5 renderMd) 패턴 베이스 — "퍼펙트"로 평가받은 깔끔 렌더 (사용자 피드백).
+  //   민법/민소: 목차(H3 `### 목차`) 우선, 없으면 toc_md(H2 `## 목차`) fallback — 기존 로직 보존.
+  //   부등법/형법/형소/부등서류/민사서류: toc_md(H2) 우선, 없으면 toc(H3) fallback.
+  //   조문+키워드(Lv.3): articles_hint 가 5과목 공통으로 채워짐 (cases.py 수정) → 동일 list 렌더 + [case] 호버 툴팁.
+  //   결론근거(Lv.4) / 전체답안(Lv.5): renderMd(answer) — 강조 태그 + 마크다운 풀파싱 (Track A 동일).
+  // R-09: 원문 verbatim. 자의 해석 X. caseFull/card 의 기존 필드만 사용.
+  function _isMinSeriesSubject(subjectKor) {
+    return subjectKor === '민법' || subjectKor === '민소';
+  }
+
   function buildHintContent(card, level, caseFull) {
     // level: 1~5 정수. 반환: HTML string (escape 처리됨)
     const dictKey = `hint_no_content`;
     const noData = `<em style="color: var(--text-dim);">${escapeHtml(I18N[currentLang][dictKey] || '(no data)')}</em>`;
+    const subjectKor = (caseFull && caseFull.subject_kor) || null;
 
     if (level === 1) {
-      // Lv.1: case.toc 또는 card.body 의 첫 줄들
-      // lawear-e571 (2026-05-19) — 강조 태그 변환 추가 (평문 노출 fix)
-      const toc = (caseFull && caseFull.toc) || '';
-      if (toc.trim()) return applyEmphasisTags(escapeHtml(toc)).replace(/\n/g, '<br>');
-      // fallback — body 첫 부분
-      const body = card.body || '';
-      const lines = body.split('\n').filter(l => l.trim()).slice(0, 3);
-      return lines.length ? applyEmphasisTags(escapeHtml(lines.join('\n'))).replace(/\n/g, '<br>') : noData;
+      // Lv.1 목차: 5과목 공통 — toc(H3) / toc_md(H2) 둘 다 시도. 자과목 헤더 레벨 상이 (cases.py parse_md_*).
+      //   민법/민소: H3 `### 목차` (toc 필드).
+      //   부등법/형법/형소/부등서류/민사서류: H2 `## 목차` (toc_md 필드).
+      //   둘 다 비면 card.body 첫 줄 fallback (legacy 동작 유지).
+      // lawear-e571 (2026-05-19) — 강조 태그 변환 (renderMd 통합).
+      // lawear-23d9 Track A (2026-05-25) — 마크다운 풀파싱 (renderMd).
+      // lawear-23d9 Track C-1 (2026-05-25) — toc_md fallback 추가 (부등법 힌트 "목차" 클릭 시 답안 본문 노출 fix).
+      const tocH3 = (caseFull && typeof caseFull.toc === 'string') ? caseFull.toc.trim() : '';
+      const tocH2 = (caseFull && typeof caseFull.toc_md === 'string') ? caseFull.toc_md.trim() : '';
+      // 민법/민소는 H3 우선, 그 외 과목은 H2 우선 — 자과목 헤더 컨벤션 차이 흡수
+      const primary = _isMinSeriesSubject(subjectKor) ? tocH3 : tocH2;
+      const secondary = _isMinSeriesSubject(subjectKor) ? tocH2 : tocH3;
+      if (primary) return renderMd(primary);
+      if (secondary) return renderMd(secondary);
+      // lawear-23d9 (P0-2, 2026-05-25): toc 없는 케이스 → "목차 없음" 안내 (사용자 #3).
+      //   이전 fallback `card.body 첫 3줄`은 부등법 단일모드에서 문제/답안 본문 노출 사고 (R-09 위반).
+      //   toc_md/toc 둘 다 없으면 noData 안내 (정답 본문 노출 X) — fallback 제거.
+      return noData;
     }
     if (level === 2) {
       // Lv.2: 두문자 — [blank2]X[/blank2] 태그 글자만 노출 (정답 본문 노출 X)
@@ -4849,12 +5097,13 @@
     if (level === 3) {
       // Lv.3: 조문 키워드 (R-09: 서버 미리 lookup 결과만 사용, AI 가공 X).
       //
-      // 부등법 분기 (lawear-0d65 2026-05-24):
-      //   caseFull.articles_hint 가 있으면 (서버 cases.py extract_case_tags 결과) 그것 사용.
+      // 부등법 분기 (lawear-0d65 2026-05-24): articles_hint 리스트 노출.
+      // lawear-23d9 Track B (2026-05-25): 5과목 공통 적용 — cases.py 가 모든 과목에 articles_hint 채움.
       //   - 법/규칙 구분 + 조문명 + 본문 인용 (캐시 미보유 → 조문명만)
       //   - 캐시 미존재 항목은 raw 본문 표시 (자의 해석 X)
-      //
-      // 다른 과목 (민법/민소): 기존 extractArticleTokens grep fallback.
+      // lawear-23d9 Track C-2 (2026-05-25): 각 item을 .em-case[data-comment]로 래핑 — 호버 시 inline-tooltip 표시.
+      //   resolveCaseArticleText(h.raw, subjectKor) → lawArticles 캐시 조문 원문 텍스트 lookup.
+      //   wireCaseTooltipDelegation (body delegation, L10454) 가 자동 wire — 신규 DOM 노드도 동작.
       const articlesHint = caseFull && Array.isArray(caseFull.articles_hint)
         ? caseFull.articles_hint
         : null;
@@ -4865,6 +5114,7 @@
           '공탁법': '📘', '민사집행법': '📘', '주택임대차보호법': '📘',
           '상가건물 임대차보호법': '📘', '집합건물의 소유 및 관리에 관한 법률': '📘',
           '부동산등기특별조치법': '📘',
+          '형법': '📘', '형사소송법': '📘', '민사소송법': '📘',
           '규칙': '📕',
           '선례': '📒',
           '예규': '📓',
@@ -4891,11 +5141,21 @@
             // 기타 자연어 [case]
             label = escapeHtml(h.raw);
           }
-          return `<div class="article-hint-item">${icon} ${label}</div>`;
+          // [case] 호버 툴팁 wiring — raw 본문 + 현재 과목 subjectKor 로 조문 원문 lookup.
+          //   lookup 성공 시 .em-case[data-comment]로 래핑, 실패 시 plain (선례/예규/판례 등).
+          //   R-09: lawArticlesText.json 조문 원문 그대로. 자의 가공 X.
+          let itemHtml = `<div class="article-hint-item">${icon} ${label}</div>`;
+          const articleText = (typeof resolveCaseArticleText === 'function' && h.raw)
+            ? resolveCaseArticleText(_decodeForLookup(h.raw), subjectKor)
+            : null;
+          if (articleText) {
+            itemHtml = `<div class="article-hint-item em-case" data-comment="${escapeAttr(articleText)}">${icon} ${label}</div>`;
+          }
+          return itemHtml;
         });
         return `<div class="article-hint-list">${items.join('')}</div>`;
       }
-      // 다른 과목 fallback — 기존 grep 로직
+      // articles_hint 비어있음 — 기존 grep fallback (legacy, [case]태그 없는 .md 대비)
       const src = (card.body || '') + '\n' + (card.answer || '');
       const tokens = extractArticleTokens(src);
       const tokList = tokens.length
@@ -4906,18 +5166,20 @@
     if (level === 4) {
       // Lv.4: subq.answer 앞부분 (결론 + 처음 N문장)
       // lawear-e571 (2026-05-19) — 강조 태그 변환 추가 (평문 노출 fix)
+      // lawear-23d9 Track A (2026-05-25) — 마크다운 풀파싱 (renderMd) — `### 헤더`/`1. 항목` 평문 노출 fix
       const ans = (card.answer || '').trim();
       if (!ans) return noData;
       // 줄바꿈 기준 처음 10줄까지
       const head = ans.split('\n').slice(0, 10).join('\n');
-      return applyEmphasisTags(escapeHtml(head)).replace(/\n/g, '<br>');
+      return renderMd(head);
     }
     if (level === 5) {
       // Lv.5: subq.answer 전체
       // lawear-e571 (2026-05-19) — 강조 태그 변환 추가 (평문 노출 fix)
+      // lawear-23d9 Track A (2026-05-25) — 마크다운 풀파싱 (renderMd) — `### 헤더`/`1. 항목` 평문 노출 fix
       const ans = card.answer || '';
       if (!ans.trim()) return noData;
-      return applyEmphasisTags(escapeHtml(ans)).replace(/\n/g, '<br>');
+      return renderMd(ans);
     }
     return noData;
   }
@@ -4945,13 +5207,13 @@
   }
 
   // 카드 데이터에서 단계별 hint 내용 추출 (cases.py parse_md_subqs_cloze.hints)
+  // lawear-23d9 Track A (2026-05-25) — 마크다운 풀파싱 (renderMd) — 힌트 내 `**X**`/리스트/강조 태그 정상 렌더
   function buildClozeHintContent(card, step) {
     const noData = `<em style="color: var(--text-dim);">${escapeHtml(I18N[currentLang].hint_no_content || '(no data)')}</em>`;
     if (!card || !card.hints) return noData;
     const content = card.hints[clozeHintKey(step)];
     if (!content) return noData;
-    // 평문 → escape + 줄바꿈 처리
-    return escapeHtml(String(content)).replace(/\n/g, '<br>');
+    return renderMd(String(content));
   }
 
   // [blank] input 컴포넌트 — body_with_placeholders 의 <input> 마커가 이미 들어있음.
@@ -4959,18 +5221,11 @@
   // 여기서는 body_with_placeholders 를 그대로 출력 (이미 HTML).
   function renderClozeBody(card) {
     const raw = (card && card.body_with_placeholders) || '';
-    if (!raw) return escapeHtml((card && card.body) || '');
-    // 본문은 마크다운/cloze 본문 — 한 줄씩 escape 후 <input> 마커는 그대로 둠.
-    // 가장 단순한 처리: <input ... /> 마커는 보존, 다른 텍스트는 그대로 (cases.py 가 raw HTML 만들어줌).
-    // 줄바꿈만 <br> 처리.
-    // NOTE: cases.py 가 본문 + `### 청구취지 (cloze)\n\n` + target_with_placeholders 합성한 결과이므로
-    //       헤더는 mini 마크다운 처리 (### 헤더 → 굵게)
-    let html = String(raw);
-    // ### 청구취지 (cloze) 헤더 → <h4>
-    html = html.replace(/^### (.+)$/mg, (m, t) => `<h4 class="cloze-section-heading">${escapeHtml(t)}</h4>`);
-    // ### 조건 등도 동일 처리. 줄바꿈은 nl2br
-    html = html.replace(/\n/g, '<br>\n');
-    return html;
+    if (!raw) return renderMd((card && card.body) || '');
+    // lawear-23d9 Track A (2026-05-25) — 마크다운 풀파싱 (renderMd) — `### 조건`/`### 청구취지 (cloze)` 정상 렌더
+    //   cases.py 가 본문 + `### 청구취지 (cloze)\n\n` + target_with_placeholders 합성. <input> raw HTML 은 marked 통과.
+    //   강조 태그 ([blank] → input 이미 치환됨, 그 외 [em1]/[bold] 등은 renderMd 가 placeholder 보호 후 마크다운 처리).
+    return renderMd(String(raw));
   }
 
   // 카드별 hint count 표시 라벨 (cloze 6단계로 변경)
@@ -5049,6 +5304,91 @@
     `;
   }
 
+  // lawear-23d9 Track D (2026-05-25) — 17896 민사 1순환 작성연습 카드 빌더.
+  // 사용자 요구 (2026-05-25): 청구취지/청구원인/입증서류/첨부서류 4개 입력칸 + 접펼.
+  // 각 슬롯: textarea + 강사 답안례 details/summary (renderMd 처리, ui-fold 보존).
+  function buildMinsaPracticeCardHtml(card, idx, isActive, singleModeClass, idSafe, score, sugMin, subqLabel, subTitle) {
+    const cid = card.key;
+    const slots = Array.isArray(card.slots) ? card.slots : [];
+    const titleSuffix = card.title ? ` — ${escapeHtml(card.title)}` : '';
+    // 문제 본문 (## 문제 영역) — renderMd 처리
+    const problemBodyHtml = renderMd((card.body || '').trim());
+    // 4 슬롯 카드 빌더 (사용자 요구: 접펼 방식)
+    const slotsHtml = slots.map((slot, slotIdx) => {
+      const slotKey = escapeHtml(slot.key || `slot_${slotIdx}`);
+      const slotLabel = escapeHtml(slot.label || '');
+      const slotIdSafe = `${idSafe}_${slot.key || slotIdx}`;
+      const exemplarMd = String(slot.exemplar_md || '');
+      const exemplarHtml = exemplarMd ? renderMd(exemplarMd) : `<em class="muted">${currentLang === 'ko' ? '강사 답안례 없음' : 'No exemplar'}</em>`;
+      const openAttr = slotIdx === 0 ? ' open' : '';  // 첫 슬롯(청구취지)만 열림 시작
+      return `
+        <details class="minsa-slot ui-fold"${openAttr} data-slot-key="${slotKey}">
+          <summary>
+            <span class="slot-label">${slotLabel}</span>
+            <span class="meta-pill slot-status" data-slot-status="${slotKey}">0${currentLang === 'ko' ? '자' : ' chars'}</span>
+          </summary>
+          <div class="minsa-slot-body">
+            <div class="minsa-slot-input">
+              <textarea
+                data-card-textarea="${escapeHtml(cid)}"
+                data-slot-key="${slotKey}"
+                data-slot-idx="${slotIdx}"
+                placeholder="${escapeHtml(slotLabel)} ${currentLang === 'ko' ? '답안을 입력하세요' : 'enter your answer'}"
+                rows="6"
+              ></textarea>
+              <div class="minsa-slot-toolbar">
+                <span class="info" data-slot-info="${slotKey}">0${currentLang === 'ko' ? '자' : ' chars'}</span>
+                <button type="button" class="btn mic" data-slot-mic="${slotKey}">
+                  ● <span>${I18N[currentLang].btn_voice || 'Voice Input'}</span>
+                </button>
+              </div>
+            </div>
+            <details class="minsa-exemplar ui-fold">
+              <summary>${currentLang === 'ko' ? '강사 답안례 / AI / 작성요령' : 'Exemplar / AI / Tips'}</summary>
+              <div class="minsa-exemplar-body">${exemplarHtml}</div>
+            </details>
+          </div>
+        </details>
+      `;
+    }).join('');
+
+    return `
+      <div class="sub-card${isActive ? ' active' : ''}${singleModeClass} minsa-practice-card" data-card-id="${escapeHtml(cid)}" data-minsa-practice="1">
+        <div class="sub-card-header" data-card-id="${escapeHtml(cid)}">
+          <span class="sub-id">${escapeHtml(cid)}${titleSuffix}</span>
+          <span class="meta-pill score">${escapeHtml(String(score))}${currentLang === 'ko' ? '점' : ' pt'}</span>
+          <span class="meta-pill">${currentLang === 'ko' ? '4 슬롯' : '4 slots'}</span>
+          <span class="meta-pill elapsed" id="elapsed-${idSafe}">00:00</span>
+          <span class="toggle-icon">▼</span>
+        </div>
+        <div class="sub-card-body">
+          <div class="sub-inquiry">
+            <span class="inquiry-label">${escapeHtml(currentLang === 'ko' ? '문제' : 'Problem')}</span>
+            <div class="inquiry-body">${problemBodyHtml}</div>
+          </div>
+          <div class="minsa-slots">
+            ${slotsHtml}
+          </div>
+          <div class="sub-answer-block">
+            <div class="minsa-actions">
+              <button type="button" class="btn primary" data-minsa-grade="${escapeHtml(cid)}">
+                ${currentLang === 'ko' ? '4슬롯 통합 채점' : 'Grade All Slots'}
+              </button>
+              <span class="minsa-status" id="minsa-status-${idSafe}"></span>
+            </div>
+            <div class="sub-grade-result" id="sub-grade-${idSafe}">
+              <div class="grade-head">
+                <span class="grade-score">--/--</span>
+                <span class="grade-label">--</span>
+              </div>
+              <div class="grade-comment"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   // 청구원인 placeholder (1라운드 회색 비활성 카드)
   function buildCauseSectionPlaceholderHtml() {
     const title = (currentLang === 'ko')
@@ -5073,6 +5413,94 @@
         </div>
       </div>
     `;
+  }
+
+  // lawear-23d9 Track D (2026-05-25) — 17896 민사 1순환 작성연습 wire.
+  // 4 슬롯 textarea char count + 통합 채점 버튼 + 음성입력 hook.
+  function wireMinsaPracticeEvents() {
+    // 슬롯별 textarea char count (요약: 사용자 진척 시각화)
+    document.querySelectorAll('#rv-cards-container .minsa-practice-card textarea[data-slot-key]').forEach(ta => {
+      const key = ta.dataset.slotKey;
+      const update = () => {
+        const len = (ta.value || '').length;
+        const lbl = (currentLang === 'ko') ? '자' : ' chars';
+        const info = document.querySelector(`[data-slot-info="${cssQuoteAttr(key)}"]`);
+        if (info) info.textContent = `${len}${lbl}`;
+        const status = document.querySelector(`[data-slot-status="${cssQuoteAttr(key)}"]`);
+        if (status) status.textContent = `${len}${lbl}`;
+      };
+      ta.addEventListener('input', update);
+      update();
+    });
+    // 통합 채점 버튼 — 4슬롯 textarea 값을 답안 텍스트로 결합 → 기존 essay grader 호출
+    document.querySelectorAll('#rv-cards-container [data-minsa-grade]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const cid = btn.dataset.minsaGrade;
+        if (cid) gradeMinsaPracticeCard(cid);
+      });
+    });
+    // 음성입력 버튼 — 기존 mic 로직 재사용 (slot textarea 활성화)
+    document.querySelectorAll('#rv-cards-container [data-slot-mic]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const key = btn.dataset.slotMic;
+        const ta = document.querySelector(`textarea[data-slot-key="${cssQuoteAttr(key)}"]`);
+        if (ta) {
+          ta.focus();
+          try { showToast(currentLang === 'ko' ? '음성입력은 슬롯 textarea 포커스 후 OS 음성받아쓰기 사용' : 'Use OS dictation after focusing the slot textarea', 'info'); } catch (e) {}
+        }
+      });
+    });
+  }
+
+  // 민사 1순환 4슬롯 통합 답안 수집 (key 순서대로 라벨 + 본문 결합)
+  function collectMinsaPracticeAnswer(cardId) {
+    const sel = `#rv-cards-container .sub-card[data-card-id="${cssQuoteAttr(cardId)}"] textarea[data-slot-key]`;
+    const tas = document.querySelectorAll(sel);
+    const parts = [];
+    tas.forEach(ta => {
+      const slotKey = ta.dataset.slotKey;
+      // slots 메타에서 label 찾기 — CURRENT_SUBQ_CARDS 활용
+      const card = (CURRENT_SUBQ_CARDS || []).find(c => c.key === cardId);
+      const slot = (card && Array.isArray(card.slots)) ? card.slots.find(s => s.key === slotKey) : null;
+      const label = (slot && slot.label) ? slot.label : slotKey;
+      const val = (ta.value || '').trim();
+      if (val) parts.push(`### ${label}\n\n${val}`);
+    });
+    return parts.join('\n\n');
+  }
+
+  // 4슬롯 통합 채점 — 기존 attempts POST 흐름 재사용 (essay grader, 9기준).
+  // R-09: textarea 값 verbatim 결합, 자의 변환 X.
+  function gradeMinsaPracticeCard(cardId) {
+    const merged = collectMinsaPracticeAnswer(cardId);
+    if (!merged.trim()) {
+      try { showToast(currentLang === 'ko' ? '4 슬롯 모두 비어있음' : 'All slots empty', 'warn'); } catch (e) {}
+      return;
+    }
+    // 기존 단일 카드 채점 흐름 진입 — submitSingleAttempt 등 호출체인 활용
+    // 호출 패턴: data-card-textarea="단일" 인 hidden textarea 가 있으면 set + 트리거.
+    // 여기서는 통합 텍스트를 hidden textarea 에 주입 후 #btn-grade-card 클릭.
+    const hidden = document.querySelector(`#rv-cards-container .sub-card[data-card-id="${cssQuoteAttr(cardId)}"] textarea[data-card-textarea="${cssQuoteAttr(cardId)}"]`);
+    // Track D — 4슬롯 카드에는 data-card-textarea 가 없음. 새 textarea hidden 주입.
+    let proxy = document.querySelector(`#rv-cards-container .sub-card[data-card-id="${cssQuoteAttr(cardId)}"] textarea[data-minsa-merged="1"]`);
+    if (!proxy) {
+      proxy = document.createElement('textarea');
+      proxy.setAttribute('data-card-textarea', cardId);
+      proxy.setAttribute('data-minsa-merged', '1');
+      proxy.style.display = 'none';
+      const cardEl = document.querySelector(`#rv-cards-container .sub-card[data-card-id="${cssQuoteAttr(cardId)}"]`);
+      if (cardEl) cardEl.appendChild(proxy);
+    }
+    proxy.value = merged;
+    // 기존 채점 흐름 트리거 — modal submit 버튼이 있으면 우선 사용
+    const submitBtn = document.querySelector('#btn-submit-attempt, [data-action="submit-attempt"]');
+    if (submitBtn) {
+      submitBtn.click();
+    } else {
+      try { showToast(currentLang === 'ko' ? `통합 답안 수집 완료 (${merged.length}자) — 제출 버튼이 활성화됨` : `Merged ${merged.length} chars — submit ready`, 'info'); } catch (e) {}
+    }
   }
 
   // cloze 카드 이벤트 wire (채점 버튼 + 청구원인 placeholder 토스트)
@@ -5212,6 +5640,10 @@
 
     const rawSubqs = Array.isArray(caseData && caseData.subqs) ? caseData.subqs : [];
     CURRENT_CASE_FULL = caseData;
+    // lawear-23d9 (2026-05-25): [case] 조문 lookup 자과목 보충용 — 현재 case subject_kor 세팅.
+    //   applyEmphasisTags 가 참조. 두문자/기출문제는 과목명이 아니라(SUBJECT_KOR_TO_STATUTE 미매칭)
+    //   자과목 추론 안 됨 → 마커 명시형 [case]만 lookup (의도된 동작).
+    currentRenderSubjectKor = (caseData && caseData.subject_kor) ? caseData.subject_kor : null;
 
     // 에러 sentinel — loadCase 실패 시 호출. 카드/타이머 정리 후 즉시 반환.
     if (caseData && caseData.__error) {
@@ -5293,7 +5725,18 @@
     const hideBudeunglawHints = isBudeunglaw(caseData);
     // lawear-23d9 (2026-05-25) — 17896 민사서류 cloze 분기.
     //   cloze 카드는 textarea 대신 [blank] input 컴포넌트 + 6단계 힌트(1/2/2.5/3/4/5).
-    const isCivilDocCloze = isMinsaseoryu(caseData);
+    // lawear-23d9 Track D (2026-05-25) — isMinsaseoryu 단독은 1순환 작성연습도 True →
+    //   cloze 분기 잘못 진입 (subqs=0). cloze_mode/civil_doc 신호로 좁힘.
+    //   1순환 작성연습은 별도 isMinsaPractice 분기 (4슬롯 textarea).
+    const isCivilDocCloze = isMinsaseoryu(caseData) && (
+      caseData.cloze_mode === true ||
+      caseData.subject_type === 'civil_doc' ||
+      (caseData.category && String(caseData.category).indexOf('cloze') >= 0)
+    );
+    const isMinsaPractice = isMinsaseoryu(caseData) && !isCivilDocCloze && (
+      caseData.minsa_practice_mode === true ||
+      (subqs[0] && subqs[0].is_minsa_practice === true)
+    );
     const html = subqs.map((card, idx) => {
       const cid = card.key;
       const idSafe = cssEscapeId(cid);
@@ -5320,6 +5763,13 @@
       // (design_mvp1.md v2 결정 4·7·9)
       if (isCivilDocCloze) {
         return buildClozeCardHtml(card, idx, isActive, singleModeClass, idSafe, score, sugMin, subqLabel, subTitle);
+      }
+
+      // ── lawear-23d9 Track D: 17896 민사 1순환 작성연습 카드 분기 ──
+      // 사용자 요구 (2026-05-25): 청구취지/청구원인/입증서류/첨부서류 4 textarea + 접펼 (details).
+      // R-09: card.slots[].exemplar_md raw verbatim → renderMd 처리 (ui-fold details 보존).
+      if (isMinsaPractice) {
+        return buildMinsaPracticeCardHtml(card, idx, isActive, singleModeClass, idSafe, score, sugMin, subqLabel, subTitle);
       }
 
       return `
@@ -5390,6 +5840,10 @@
     if (labelEl) {
       const tmpl = I18N[currentLang].cards_label || '하위 설문 카드 ({n})';
       labelEl.textContent = tmpl.replace('{n}', subqs.length);
+    }
+    // lawear-23d9 Track D (2026-05-25) — 민사 1순환 작성연습 wire: 4 슬롯 통합 채점 버튼 + textarea 이벤트.
+    if (isMinsaPractice) {
+      wireMinsaPracticeEvents();
     }
     // lawear-23d9 (2026-05-25) — cloze 카드 wire: 카드별 채점 버튼 + 청구원인 placeholder 토스트.
     if (isCivilDocCloze) {
@@ -5763,22 +6217,14 @@
       return;
     }
 
-    // 즉시 Evaluation 탭 전환 (Step 24-e: case-view 표시 의도 플래그 set)
-    window.__EV_TAB_CASE_VIEW_INTENT = true;
+    // Track G (lawear-23d9 2026-05-25) — Submit 시 평가탭 overview 로 직행 (case-view "채점 중" UI 제거).
+    //   사용자: "기존에 검토탭에서 제출누르면 평가탭에서 채점중이라고 노출하는건 빼는게 좋겠네…
+    //           제출버튼 누르면 새로고침하면서 평가탭으로 이동해서 제출목록에 채점안한게 눈으로 확인할수있을정도로 리스트에 차곡차곡 row 지금처럼 쌓아서 보여주면 돼"
+    //   - case-view + "Grading…" / "pending" 섹션 제거 → overview 리스트에 새 row 추가로 통일.
+    //   - polling 도 시작하지 않음 (overview 가 표시 채널, 결과는 사용자가 클릭해서 확인).
+    window.__EV_TAB_CASE_VIEW_INTENT = false;
     const evTab = document.querySelector('.tab-btn[data-tab="evaluation"]');
     if (evTab) evTab.click();
-
-    const cachedMode = (window.SETTINGS_CACHE && window.SETTINGS_CACHE.grading_mode) || 'manual';
-    const initialState = (cachedMode === 'auto') ? 'grading' : 'pending_grade';
-    setEvHeader(CURRENT_CASE_ID, I18N[currentLang].info_submitted || 'Grading…', 'status_in_review');
-    if (initialState === 'grading') {
-      const eEl = document.getElementById('ev-elapsed');
-      if (eEl) eEl.textContent = '0.0s';
-    } else {
-      const eEl = document.getElementById('ev-pending-elapsed');
-      if (eEl) eEl.textContent = '0.0s';
-    }
-    setEvSection(initialState);
     stopPolling();
 
     const subCardBtn = document.getElementById('btn-submit-cards');
@@ -5839,8 +6285,12 @@
       });
       resetTimer();
       (CURRENT_SUBQ_CARDS || []).forEach(card => updateCardCharInfo(card.key));
-      // 폴링 시작
-      pollAttempt(CURRENT_ATTEMPT_ID);
+      // Track G (lawear-23d9 2026-05-25) — 평가탭 overview 새로고침 → 신규 미채점 row 노출.
+      //   기존: pollAttempt(CURRENT_ATTEMPT_ID)  — case-view "Grading…" 갱신용. 제거.
+      //   대체: loadEvOverview({force:true})    — 리스트에 새 row 가 차곡차곡 쌓이게.
+      if (typeof loadEvOverview === 'function') {
+        loadEvOverview({ force: true });
+      }
     } catch (err) {
       console.error('submitAttemptCards failed:', err);
       renderEvaluationError({
@@ -6231,6 +6681,15 @@
     const bgEl = document.getElementById('rv-background');
     const inqEl = document.getElementById('rv-inquiry');
     const ptsEl = document.getElementById('rv-points');
+    // lawear-23d9 Track A (2026-05-25) — 사실관계 .section 자체 가시성 토글 helper.
+    //   A2: facts 비어있을 때(부등법/cloze/공통사실관계 별도/통문제 fallback) `.section` 자체 hide.
+    //   기존: bgEl 내부에 안내 텍스트("(공통사실관계 별도 — ...)") 노출 → 사용자 피드백 "사실관계 카드 UI 노출 안 하는 게 좋을 듯"
+    //   변경: bgEl.closest('.section') hide → 시각적 노이즈 제거.
+    const bgSection = bgEl ? bgEl.closest('.section') : null;
+    const setBackgroundSectionVisible = (visible) => {
+      if (bgSection) bgSection.style.display = visible ? '' : 'none';
+    };
+    setBackgroundSectionVisible(true);  // case 진입 시 일단 보이게 (loading 표시용), 본문 분기에서 facts 없으면 hide
     if (idEl) idEl.textContent = caseId;
     if (bgEl) bgEl.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].loading}</span>`;
     if (inqEl) inqEl.innerHTML = `<span style="color: var(--text-dim);">${I18N[currentLang].loading}</span>`;
@@ -6258,16 +6717,20 @@
       //   사실관계/문제 구분 없는 단일 설문 형식이라 background 영역 비움 (외부 안내 텍스트).
       // lawear-23d9 (2026-05-25): 17896 민사서류 cloze 도 동일 — H2 문제별 카드 split, origin 사이드패널은 외부 안내.
       if (isBudeunglaw(c) || isMinsaseoryu(c)) {
-        if (bgEl) {
-          bgEl.innerHTML = `<span style="color: var(--text-dim); font-style: italic;">${I18N[currentLang].sec_background_external || '—'}</span>`;
-        }
+        // A2 (lawear-23d9 Track A 2026-05-25): 부등법/cloze 는 사실관계 영역 미사용 → .section hide
+        //   기존: bgEl 에 "(공통사실관계 별도 — 본 케이스는 변형 설문만)" 안내 노출 → 시각 노이즈
+        //   변경: .section 자체 hide → 사실관계 카드 UI 노출 X (사용자 피드백 반영)
+        setBackgroundSectionVisible(false);
         if (inqEl) {
           // 민사서류는 H1 제목만 (각 문제는 카드로 별도 렌더)
           if (isMinsaseoryu(c)) {
             const titleText = c.title || '';
             inqEl.innerHTML = `<div style="color: var(--text-dim); font-style: italic; padding: 4px 0;">${escapeHtml(currentLang === 'ko' ? '문제는 아래 카드에서 풀이' : 'See cards below')}</div>`;
           } else {
-            const originText = (c.origin || '').trim();
+            // lawear-23d9 Track A (2026-05-25) — `## 문제` 헤더 라인 strip.
+            //   부등법 origin = "## 문제\n본문..." 형식. Inquiry 섹션 헤더가 별도 노출되므로 H2 중복 방지.
+            //   본문(헤더 다음 줄부터)만 renderMd 처리. R-09: 본문 텍스트는 verbatim.
+            const originText = (c.origin || '').replace(/^##\s*문제\s*\n+/, '').trim();
             if (originText) {
               inqEl.innerHTML = renderOriginText(originText);
             } else {
@@ -6279,12 +6742,15 @@
         const { facts, question, multiInquiries } = splitOriginFactsQuestion(c.origin || '');
         if (bgEl) {
           if (facts) {
+            // facts 본문 있음 → 사실관계 .section 노출 + 본문 렌더
+            setBackgroundSectionVisible(true);
             bgEl.innerHTML = renderOriginText(facts);
-          } else if (question) {
-            // 변형 설문 등 공통사실관계가 별도 case에 있는 경우
-            bgEl.innerHTML = `<span style="color: var(--text-dim); font-style: italic;">${I18N[currentLang].sec_background_external}</span>`;
           } else {
-            bgEl.textContent = I18N[currentLang].err_load;
+            // A2 (lawear-23d9 Track A 2026-05-25): facts 없음 → .section 자체 hide
+            //   기존: "(공통사실관계 별도)" 안내 또는 err_load 노출 → 시각 노이즈
+            //   변경: .section hide → 사실관계 UI 완전 제거 (사용자 피드백 반영)
+            //   A3 통합: splitOriginFactsQuestion fallback 변경(facts→question 반전)으로 통문제도 여기서 hide.
+            setBackgroundSectionVisible(false);
           }
         }
         if (inqEl) {
@@ -6316,6 +6782,8 @@
     } catch (err) {
       console.error('loadCase failed:', err);
       CURRENT_CASE_DATA = null;
+      // lawear-23d9 Track A — 에러 시 사실관계 .section 다시 show (이전 case 에서 hide 상태 잔류 방지)
+      setBackgroundSectionVisible(true);
       if (bgEl) bgEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
       if (inqEl) inqEl.innerHTML = `<span style="color: var(--danger);">${I18N[currentLang].err_load}</span>`;
       // 실패 시 카드 모드 종료 — 카드/타이머/단일 textarea 전부 정리 (sentinel 모드)
@@ -6412,10 +6880,18 @@
       if (fb) factsText = fb[1].trim();
     }
 
-    // 5) 최종 fallback — facts 도 question/inquiry 도 없으면 origin 전체를 facts 로
-    //    (## 원본 헤더조차 없는 비정상 입력 대비)
+    // 5) 최종 fallback — facts 도 question/inquiry 도 없으면 origin 전체를 question 으로
+    //    (lawear-23d9 Track A 2026-05-25 — A3: 사실관계 vs 설문 중복 제거)
+    //    이전: facts=originRaw, question='' → bgEl 통문제 + inqEl inq_pending_lv 안내 → 중복
+    //    변경: facts='', question=originRaw → bgEl 빈 → .section hide (A2) + inqEl 통문제 표시
+    //    R-09: 원문 verbatim 보존 (단순 영역 반전, 가공/축약 X).
+    //    형법 미케_01_1 등 `## 문제` 본문에 사실관계가 첫 문단으로 통합된 케이스 대상.
+    //    추가: `## 문제` / `## 원본 (NN점)` 헤더 라인은 Inquiry 섹션 헤더와 중복이므로 strip (renderMd가 H2 시각노출 회피).
     if (!factsText && !question) {
-      return { facts: originRaw.trim(), question: '', multiInquiries: multiInquiries };
+      const stripped = originRaw
+        .replace(/^##\s*(?:문제|원본)[^\n]*\n+/, '')
+        .trim();
+      return { facts: '', question: stripped, multiInquiries: multiInquiries };
     }
 
     // lawear-c63e-sub3 2026-05-21 spec #2138: multiInquiries 도 반환값에 노출 —
@@ -6427,31 +6903,292 @@
     };
   }
 
-  // 원본 텍스트 → 안전한 HTML (escape + 줄바꿈 + **bold** + 강조 태그 인식)
-  // R-09 — 원문 그대로 보존 (Markdown 풀파싱 X, bold 헤더만 가독성 강조).
-  // lawear-e571 (2026-05-19) — 강조 태그 ([red]/[blue]/[bold]/[u]/[blank]/[blank2]) 변환 추가.
-  //   사실관계/설문 본문에 들어있는 강조 태그가 평문 노출되는 문제 fix.
-  //   escape 가 먼저 적용되므로 태그는 [red] → [red] 그대로 유지 (대괄호는 escape 대상 X).
+  // 원본 텍스트 → 안전한 HTML (마크다운 풀파싱 + 강조 태그 + [case] 호버 lookup)
+  // lawear-23d9 Track A (2026-05-25) — `renderMd` 위임 (marked.min.js + placeholder).
+  //   사용자.md `### 헤더`, `1. 항목`, `> 인용` 등 마크다운 요소가 평문 노출되던 문제 fix.
+  //   17895 merge.html `renderMd` 패턴 이식 — escape 는 marked.parse 가 내부 처리.
+  // R-09 — 원문 verbatim. marked 는 형식만 변환 (요약/가공 X).
+  // 이전 패턴(escape + **bold** + applyEmphasisTags + nl2br) 은 renderMd 내 fallback 으로 보존.
   function renderOriginText(raw) {
     if (!raw) return '';
-    const escaped = String(raw)
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-    // **bold** → <strong>bold</strong> (마크다운 bold만 인식, 다른 마크다운은 raw 유지)
-    let html = escaped.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
-    // 강조 태그 ([red]X[/red] 등) → <span class="em-*">X</span>
-    //   대괄호([])는 escapeHtml 대상이 아니므로 위 escape 통과 후에도 패턴 그대로.
-    html = applyEmphasisTags(html);
-    // 줄바꿈 보존
-    return html.replace(/\n/g, '<br>');
+    return renderMd(raw);
+  }
+
+  // ─────────── [case] 조문원문 lookup (lawear-23d9 2026-05-25 — 17895 merge.html 6b1ba05 패턴 이식) ───────────
+  // R-09: 조문 원문은 lawArticlesText.json 텍스트를 "그대로" 반환. 가공/요약/생성 금지.
+  //        lookup 실패(선례/예규/판례 등)면 null → 호출부에서 data-comment 미주입 → 툴팁 안 뜸.
+  //        "툴팁 적용 비율 낮음"은 결함 아니라 의도된 역할분담 (조문/규칙=찾는 것, 선례=암기).
+  let lawArticles = null;            // lawArticlesText.json 통로드 캐시 ({version, target_date, statutes:{...}})
+  let currentRenderSubjectKor = null; // 현재 렌더 중인 case 의 subject_kor (법명 생략 시 자과목 보충용)
+
+  // attribute 안전 escape — escapeHtml 이 이미 " → &quot; 변환하므로 동일 동작.
+  function escapeAttr(s) {
+    return escapeHtml(s);
+  }
+
+  // [case] inner 가 이미 escape 된 상태(예: '제200조(점유의...)')에서 lookup 정규식이 안전하도록 최소 decode.
+  //   조문 마커는 한글/숫자/괄호만 사용 → escape 영향 거의 없음. 안전망 차원.
+  function _decodeForLookup(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'");
+  }
+
+  // subjectKor(_file_index 실제 값) → 자과목 법령명(JSON statutes 키). 명세 매핑만, 임의 확장 X.
+  const SUBJECT_KOR_TO_STATUTE = {
+    '형법': '형법',
+    '형소': '형사소송법',
+    '민법': '민법',
+    '민소': '민사소송법',
+    '부동산등기법': '부동산등기법',
+    '부동산등기서류': '부동산등기법',  // 부등서류 → 부동산등기법
+  };
+  // 자과목 '규칙' → 해당 규칙 법령명 (subjectKor 기준). 규칙 없는 과목(민법 등)은 매핑 없음 → lookup 실패.
+  const SUBJECT_KOR_TO_RULE = {
+    '형소': '형사소송규칙',
+    '민소': '민사소송규칙',
+    '부동산등기법': '부동산등기규칙',
+    '부동산등기서류': '부동산등기규칙',
+  };
+  // 항 원문자 ①~⑮ (JSON paragraphs[].no 형식). index+1 = 항번호.
+  const CIRCLED_NUMS = ['①','②','③','④','⑤','⑥','⑦','⑧','⑨','⑩','⑪','⑫','⑬','⑭','⑮'];
+
+  // 마커에 명시된 법명(raw) → JSON statutes 키 정규화. 정확 매칭 + 공백차이만 (약칭 추론 X — R-09).
+  function normalizeLawName(raw) {
+    if (!raw || !lawArticles || !lawArticles.statutes) return null;
+    const st = lawArticles.statutes;
+    if (st[raw]) return raw;                                  // 정확 일치
+    const collapsed = raw.replace(/\s+/g, '');                // 공백 제거형으로 비교
+    for (const k of Object.keys(st)) {
+      if (k.replace(/\s+/g, '') === collapsed) return k;
+    }
+    return null;  // statutes에 없는 약칭(주임법/토지보상법 등) → null → lookup 실패 → 미주입
+  }
+
+  // [case] 본문 content + 현재 과목(subjectKor) → 조문 원문 텍스트(string) 또는 null.
+  function resolveCaseArticleText(content, subjectKor) {
+    if (!lawArticles || !lawArticles.statutes) return null;
+    if (!content) return null;
+    // 1) 조 추출 (첫 매칭) — '제215조' / '제215조의2'
+    const artM = content.match(/제(\d+)조(?:의(\d+))?/);
+    if (!artM) return null;
+    const artKey = artM[2] ? `${artM[1]}의${artM[2]}` : artM[1];
+    const artStart = artM.index;          // 조 등장 위치 (항/호는 이 이후만 인정)
+    const artEnd = artStart + artM[0].length;
+
+    // 2) 법명 결정
+    //    a) 명시형: 조 바로 앞(최대 12자)에 '~법' 또는 '~규칙'
+    const before = content.slice(Math.max(0, artStart - 12), artStart);
+    const lawBeforeM = before.match(/([가-힣]{2,}(?:법|규칙)|규칙)\s*$/);
+    let statuteName = null;
+    if (lawBeforeM) {
+      const rawName = lawBeforeM[1];
+      if (/^규칙$/.test(rawName)) {
+        // '규칙 제N조' → 자과목규칙
+        statuteName = SUBJECT_KOR_TO_RULE[subjectKor] || null;
+      } else {
+        statuteName = normalizeLawName(rawName);
+        if (!statuteName && /규칙$/.test(rawName)) {
+          // '○○규칙' 형태인데 매칭 실패 시 자과목규칙 fallback 금지 (R-09 — 다른 규칙일 수 있음)
+          statuteName = null;
+        }
+      }
+    } else {
+      // b) 법명 생략 → 자과목 (subjectKor 보충)
+      statuteName = SUBJECT_KOR_TO_STATUTE[subjectKor] || null;
+    }
+    if (!statuteName) return null;
+
+    const statute = lawArticles.statutes[statuteName];
+    if (!statute || !statute.bodies) return null;
+    const node = statute.bodies[artKey];
+    if (!node) return null;  // 해당 조 없음 → 미주입
+
+    const baseText = (node.text || '').trim();
+    const paras = node.paragraphs;
+
+    // 3) 항/호 추출 (조 등장 이후 구간에서만 — 다른 조의 항 오인 방지)
+    const tail = content.slice(artEnd);
+    let hangNo = null;  // 1-based 항번호
+    const hangArab = tail.match(/^[^제]{0,8}제(\d+)항/);
+    if (hangArab) {
+      hangNo = parseInt(hangArab[1], 10);
+    } else {
+      const circM = tail.slice(0, 6).match(/[①-⑮]/);
+      if (circM) {
+        const idx = CIRCLED_NUMS.indexOf(circM[0]);
+        if (idx >= 0) hangNo = idx + 1;
+      }
+    }
+    // 호: '제N호'
+    let hoNo = null;
+    const hoM = tail.match(/^[^제]{0,16}제(\d+)호/);
+    if (hoM) hoNo = parseInt(hoM[1], 10);
+
+    // 4) 텍스트 조립 (R-09 — 원문 그대로, 가공 X)
+    if (!paras || !paras.length) {
+      // 항 없는 조문: text에 본문 포함 (예: 제481조 "...변제로 당연히...")
+      return baseText || null;
+    }
+    const titleLine = baseText;  // '제204조(점유의 회수)'
+    // 호만 지정되고 항 표기 없는 조문(부등법29: paragraphs=[{no:'', items:[...]}]) 처리
+    if (hangNo == null && hoNo != null) {
+      for (const p of paras) {
+        for (const it of (p.items || [])) {
+          if (it.no === `${hoNo}.`) {
+            return [titleLine, (it.text || '').trim()].filter(Boolean).join('\n');
+          }
+        }
+      }
+      // 호 못 찾으면 조 전체로 폴백
+    }
+    if (hangNo != null) {
+      const circ = CIRCLED_NUMS[hangNo - 1];
+      const p = paras.find(pp => pp.no === circ);
+      if (p) {
+        let out = [titleLine, (p.text || '').trim()].filter(Boolean).join('\n');
+        if (hoNo != null) {
+          const it = (p.items || []).find(x => x.no === `${hoNo}.`);
+          if (it && it.text) out += '\n' + it.text.trim();
+        }
+        return out || null;
+      }
+      // 지정 항 못 찾음 → 조 전체로 폴백 (아래)
+    }
+    // 항 미지정 or 못 찾음 → 제목 + 전체 항 연결
+    const allParas = paras.map(p => (p.text || '').trim()).filter(Boolean);
+    const joined = [titleLine, ...allParas].filter(Boolean).join('\n');
+    return joined || null;
+  }
+
+  // lawear-23d9 (2026-05-25): [case] 조문원문 데이터 통로드 캐시 (4MB, 1회).
+  //   심링크 ../web/src/data/lawArticlesText.json → docs/tts-exam/lawArticlesText.json (서빙루트 동일).
+  //   실패해도 콘솔 정상 동작(툴팁만 비활성).
+  (function loadLawArticles() {
+    fetch('lawArticlesText.json').then(r => {
+      if (!r.ok) {
+        console.warn('[lawArticles] fetch ' + r.status + ' — [case] 툴팁 비활성');
+        return null;
+      }
+      return r.json();
+    }).then(data => {
+      if (!data) return;
+      lawArticles = data;
+      const n = Object.keys((lawArticles && lawArticles.statutes) || {}).length;
+      console.log('[lawArticles] loaded — ' + n + ' statutes (v' + (lawArticles && lawArticles.version) + ')');
+    }).catch(e => {
+      console.warn('[lawArticles] load 실패 — [case] 툴팁 비활성:', e && e.message);
+    });
+  })();
+
+  // ─────────── 마크다운 렌더러 (lawear-23d9 Track A 2026-05-25) ───────────
+  // 17895 merge.html L1077 `renderMd` 패턴 이식. marked.min.js + placeholder 보호.
+  // 변환 절차:
+  //   1) 강조 태그 ([em1]/[red]/[case] ...) → @@EMP{i}@@ placeholder 치환 (marked 가 [...] 를 망가뜨리지 않도록)
+  //   2) marked.parse(escaped) — 마크다운 → HTML
+  //   3) recover() — placeholder → <span class="em-*"> 복원. [case] 만 lookup 후 data-comment 주입.
+  // R-09: 원문 verbatim 보존. marked 가 풀이를 가공하지 않음 (단지 ###/리스트/인용 등 형식만 처리).
+  // breaks: true — 단일 \n → <br> (사용자 textarea 줄바꿈 보존, merge.html L1075 mirror).
+  if (typeof marked !== 'undefined' && marked.setOptions) {
+    marked.setOptions({ breaks: true });
+  }
+  // 강조 태그 8종 + 색상 6종 + 본문 4종 + 폰트 5종 + 여분 2종. merge.html L1079 mirror.
+  const _EMP_TAG_NAMES = 'em1|em2|em3|em4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank';
+  function renderMd(md) {
+    if (md == null) return '';
+    const placeholders = [];
+    const tagRe = new RegExp(
+      '\\[(' + _EMP_TAG_NAMES + ')\\]((?:(?!\\[(?:' + _EMP_TAG_NAMES + ')\\])[\\s\\S])*?)\\[\\/\\1\\]',
+      'g'
+    );
+    let escaped = String(md);
+    let prev;
+    let iter = 0;
+    do {
+      prev = escaped;
+      escaped = escaped.replace(tagRe, (m, tag, content) => {
+        placeholders.push({ tag, content });
+        return `@@EMP${placeholders.length - 1}@@`;
+      });
+      iter++;
+    } while (escaped !== prev && iter < 20);
+
+    // lawear-23d9 (P0-1, 2026-05-25): 날짜 패턴 `2024. 7. 15.` 보호 (사용자 #1).
+    //   marked.parse 가 라인 시작 `\d+\. ` 를 ordered list 로 해석 → "2024." → "7." → "15." 분리되며 줄바꿈/들여쓰기 깨짐.
+    //   placeholder 보호 + recover 시 원문 그대로 복원 (R-09: 원문 verbatim).
+    //   패턴: 4자리 연도 + 마침표 + 공백 + 1~2자리 월 + 마침표 + 공백 + 1~2자리 일 + 마침표 (한국어 날짜 표기 관습).
+    //
+    // Track F fix (2026-05-25): bullet/list-marker 뒤 날짜도 보호.
+    //   민사서류 1순환 01_금전 `- 2024. 7. 15. 김종우...` 케이스에서 marked 가
+    //   bullet 직후 `2024. 7. 15.`를 3중 중첩 ordered list (start=2024 → start=7 → start=15)로 파싱하던 문제.
+    //   기존 `^...` 매칭은 bullet (`- `/`* `/`숫자. `) 뒤 날짜를 못 잡았음.
+    //   허용 prefix: 라인 시작 직후 + 선택적 indent + 선택적 bullet/ordered marker.
+    //     - bullet: `-`, `*`, `+` 다음 공백
+    //     - ordered: `숫자.` 다음 공백 (1~3 자리 숫자 — `2024.`처럼 4자리 미만으로 ambiguity 회피)
+    //   날짜 본문(\d{4}\. \d{1,2}\. \d{1,2}\.)만 placeholder 로 치환, prefix 는 보존.
+    const _DATE_PLACEHOLDERS = [];
+    // m flag — 라인 단위. prefix(공백/들여쓰기/bullet/ordered marker)는 보존, 날짜부만 placeholder.
+    const _DATE_RE = /^([ \t]*(?:[-*+]\s+|\d{1,3}\.\s+)?)(\d{4}\.\s+\d{1,2}\.\s+\d{1,2}\.)/gm;
+    escaped = escaped.replace(_DATE_RE, (m, prefix, dateLit) => {
+      _DATE_PLACEHOLDERS.push(dateLit);
+      return `${prefix}@@DATE${_DATE_PLACEHOLDERS.length - 1}@@`;
+    });
+
+    // marked.parse — 마크다운 → HTML. typeof 가드 (CDN 실패 시 fallback)
+    let html;
+    if (typeof marked !== 'undefined' && marked.parse) {
+      html = marked.parse(escaped);
+    } else {
+      // marked 미로드 시 fallback — escape + nl2br (이전 동작 호환)
+      html = String(escaped)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;')
+        .replace(/\n/g, '<br>');
+    }
+
+    function recover(s) {
+      return s.replace(/@@EMP(\d+)@@/g, (m, i) => {
+        const ph = placeholders[parseInt(i, 10)];
+        if (!ph) return m;
+        const { tag, content } = ph;
+        const cls = tag === 'u' ? 'em-u' : 'em-' + tag;
+        const inner = recover(content);
+        if (tag === 'case') {
+          // [case] lookup — applyEmphasisTags 와 동일 분기 (data-comment 호버 툴팁)
+          const rawInner = _decodeForLookup(content);
+          const articleText = resolveCaseArticleText(rawInner, currentRenderSubjectKor);
+          if (articleText) {
+            return `<span class="em-case" data-comment="${escapeAttr(articleText)}">${inner}</span>`;
+          }
+          return `<span class="em-case">${inner}</span>`;
+        }
+        return `<span class="${cls}">${inner}</span>`;
+      });
+    }
+    // lawear-23d9 (P0-1, 2026-05-25): 날짜 placeholder 복원 (raw 텍스트 그대로).
+    //   marked.parse 가 끝난 HTML 에서 @@DATE{i}@@ → 원본 `2024. 7. 15.` 복원.
+    let recovered = recover(html);
+    recovered = recovered.replace(/@@DATE(\d+)@@/g, (m, i) => {
+      const orig = _DATE_PLACEHOLDERS[parseInt(i, 10)];
+      return (orig != null) ? orig : m;
+    });
+    return recovered;
   }
 
   // lawear-e571 (2026-05-19) — 이미 escape 된 HTML 에 강조 태그 ([red]X[/red] 등) 패턴만 span 으로 변환.
   //   renderEmphasisInline 과 달리 입력이 이미 escape 된 상태라고 가정 (이중 escape 회피).
   //   순서: red → blue → bold → u → blank2 → blank (blank2 가 blank 의 substring 매칭 회피 위해 먼저).
+  // lawear-23d9 (2026-05-25) — [case] 조문원문 호버 툴팁 17895 merge.html 6b1ba05 패턴 이식.
+  //   [case] 만 별도 분기 — lookup 성공 시 data-comment 주입 → .em-case[data-comment] 호버 시 inline-tooltip-portal 표시.
+  //   실패(선례/예규/판례)면 미주입 → 기존 .em-case 초록 강조만 (역할분담 의도된 차등).
+  //   R-09: lawArticlesText.json 텍스트 그대로. 가공 X.
   function applyEmphasisTags(htmlEscaped) {
     if (htmlEscaped == null) return '';
     let html = String(htmlEscaped);
@@ -6469,7 +7206,7 @@
       ['em4', 'em-em4'],
       ['con', 'em-con'],
       ['fact', 'em-fact'],
-      ['case', 'em-case'],
+      // 'case' 는 별도 분기 (data-comment 주입)
       ['bridge', 'em-bridge'],
       ['key', 'em-key'],
       ['free1', 'em-free1'],
@@ -6480,6 +7217,18 @@
       const re = new RegExp('\\[' + tag + '\\]([\\s\\S]*?)\\[\\/' + tag + '\\]', 'g');
       html = html.replace(re, '<span class="' + cls + '">$1</span>');
     }
+    // [case] 별도 — 조문/규칙 lookup 성공 시 data-comment 주입 (호버 툴팁).
+    //   content 는 이미 escape 된 상태 ('제200조' 등 한자/숫자/괄호만 — escape 영향 거의 없음).
+    //   lookup 입력은 decode 한 raw 텍스트 사용 (정규식 매칭 안전).
+    //   실패(선례/예규/판례 등)면 data-comment 미주입 → 기존 동작 유지.
+    html = html.replace(/\[case\]([\s\S]*?)\[\/case\]/g, function (_m, inner) {
+      const rawInner = _decodeForLookup(inner);
+      const articleText = resolveCaseArticleText(rawInner, currentRenderSubjectKor);
+      if (articleText) {
+        return '<span class="em-case" data-comment="' + escapeAttr(articleText) + '">' + inner + '</span>';
+      }
+      return '<span class="em-case">' + inner + '</span>';
+    });
     return html;
   }
 
@@ -7972,6 +8721,35 @@
     return applyEmphasisTags(escapeHtml(String(text)));
   }
 
+  // 부등법 ## 목차 박스 본문 렌더 — `1. 결론\n2. 이유` 형태를 <ol><li>로 변환
+  //   (lawear-23d9 P2-a 2026-05-25: 17896은 marked 미사용 → 간단 ol/ul 변환만 지원).
+  //   17895 merge.html renderMd(tocMd) 결과와 시각적으로 동등한 박스 본문 생성.
+  //   R-09: 원문 verbatim — 숫자/`-` prefix 만 떼고 본문 escapeHtml.
+  //   미매칭 라인은 <br> 로 연결 (markdown 외 형태도 안전 표시).
+  function renderTocMarkdown(md) {
+    if (!md) return '';
+    const lines = String(md).split('\n').map(l => l.trim()).filter(Boolean);
+    if (lines.length === 0) return '';
+    // 전부 `^\d+\.` 면 <ol>, 전부 `^-` 면 <ul>, 혼합/그 외면 <br> 연결.
+    const olRe = /^(\d+)\.\s+(.+)$/;
+    const ulRe = /^[-*]\s+(.+)$/;
+    if (lines.every(l => olRe.test(l))) {
+      const lis = lines.map(l => {
+        const m = l.match(olRe);
+        return `<li>${escapeHtml(m[2])}</li>`;
+      }).join('');
+      return `<ol>${lis}</ol>`;
+    }
+    if (lines.every(l => ulRe.test(l))) {
+      const lis = lines.map(l => {
+        const m = l.match(ulRe);
+        return `<li>${escapeHtml(m[1])}</li>`;
+      }).join('');
+      return `<ul>${lis}</ul>`;
+    }
+    return lines.map(l => escapeHtml(l)).join('<br>');
+  }
+
   // Step 15-3 + 19-2 — diff_segments → 형광펜 강조 (특정 클래스로 표시)
   //   * type='match'   → .diff-match  (옅은 녹색)
   //   * type='partial' → .diff-partial (옅은 황)
@@ -8572,23 +9350,13 @@
       alert(I18N[currentLang].err_submit_empty);
       return;
     }
-    // 즉시 Evaluation 탭 전환 (Step 24-e: case-view 표시 의도 플래그 set)
-    window.__EV_TAB_CASE_VIEW_INTENT = true;
+    // Track G (lawear-23d9 2026-05-25) — Submit 시 평가탭 overview 로 직행 (case-view "채점 중" UI 제거).
+    //   사용자 명시: "평가탭에서 채점중이라고 노출하는건 빼는게 좋겠네, 괜히 충돌날듯".
+    //   - case-view + "Grading…" / "pending" 섹션 제거 → overview 리스트에 새 row 추가로 통일.
+    //   - polling 도 시작하지 않음 (overview 가 표시 채널).
+    window.__EV_TAB_CASE_VIEW_INTENT = false;
     const evTab = document.querySelector('.tab-btn[data-tab="evaluation"]');
     if (evTab) evTab.click();
-
-    // Step 13 — 캐시된 grading_mode 로 초기 상태 결정 (manual=pending, auto=grading)
-    const cachedMode = (window.SETTINGS_CACHE && window.SETTINGS_CACHE.grading_mode) || 'manual';
-    const initialState = (cachedMode === 'auto') ? 'grading' : 'pending_grade';
-    setEvHeader(CURRENT_CASE_ID, I18N[currentLang].info_submitted || 'Grading…', 'status_in_review');
-    if (initialState === 'grading') {
-      const eEl = document.getElementById('ev-elapsed');
-      if (eEl) eEl.textContent = '0.0s';
-    } else {
-      const eEl = document.getElementById('ev-pending-elapsed');
-      if (eEl) eEl.textContent = '0.0s';
-    }
-    setEvSection(initialState);
 
     // 폴링 정지 (이전 attempt 가 있으면)
     stopPolling();
@@ -8643,8 +9411,12 @@
         notesEl.value = '';
         updateNotesInfo(null);
       }
-      // 즉시 1회 폴링
-      pollAttempt(CURRENT_ATTEMPT_ID);
+      // Track G (lawear-23d9 2026-05-25) — 평가탭 overview 새로고침 → 신규 미채점 row 노출.
+      //   기존: pollAttempt(CURRENT_ATTEMPT_ID)  — case-view "Grading…" 갱신용. 제거.
+      //   대체: loadEvOverview({force:true})    — 리스트에 새 row 가 차곡차곡 쌓이게.
+      if (typeof loadEvOverview === 'function') {
+        loadEvOverview({ force: true });
+      }
     } catch (err) {
       console.error('submitAttempt failed:', err);
       renderEvaluationError({
@@ -10081,12 +10853,33 @@
     }, true);
     modal.dataset.tooltipWired = '1';
   }
+  // lawear-23d9 (2026-05-25): [case] 조문원문 호버 툴팁 wire — 17895 merge.html 6b1ba05 이식.
+  //   document.body 위임 — 시험탭 본문 + 채점탭 모달 둘 다 커버 (modal 도 body 의 자식).
+  //   셀렉터는 .em-case[data-comment] — lookup 성공한 [case] 만 (data-comment 없으면 무반응).
+  //   기존 .inline-marker wire 와 충돌 없음 (셀렉터/마커 클래스 상호 배타).
+  //   showInlineTooltip / hideInlineTooltip / __tooltipPortalEl 재사용 (포털 단일).
+  function wireCaseTooltipDelegation() {
+    if (document.body.dataset.caseTooltipWired === '1') return;
+    document.body.addEventListener('mouseover', (ev) => {
+      const marker = ev.target.closest('.em-case[data-comment]');
+      if (marker) showInlineTooltip(marker);
+    }, true);
+    document.body.addEventListener('mouseout', (ev) => {
+      const marker = ev.target.closest('.em-case[data-comment]');
+      if (marker) hideInlineTooltip();
+    }, true);
+    document.body.dataset.caseTooltipWired = '1';
+  }
   // 모달 IIFE 안 wire — 페이지 로드 후 1회.
   (function initTooltipDirWire() {
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', wireInlineMarkerTooltipDirection);
-    } else {
+    const wireBoth = () => {
       wireInlineMarkerTooltipDirection();
+      wireCaseTooltipDelegation();
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', wireBoth);
+    } else {
+      wireBoth();
     }
   })();
 
@@ -10451,9 +11244,18 @@
     if (isBudeunglawCase && lv4Text) {
       const lv4Html = renderEmphasisInline(lv4Text);
       const lv4Title = (currentLang === 'ko') ? '강사 모범답안 (Lv.4)' : 'Model Answer (Lv.4)';
+      // lawear-23d9 (P2-a 2026-05-25): 부등법 ## 목차 user-toc 박스 — 답안(lv4) 컬럼 맨 위.
+      // 17895 merge.html L1972-1981 mirror (commit 66f854b). caseData.toc_md 있으면 렌더.
+      // R-09: 원문 verbatim (요약 X). marked 없으므로 간단 ol 변환 — `^숫자. 텍스트` 라인을 li로.
+      const tocMd = (typeof caseData.toc_md === 'string') ? caseData.toc_md.trim() : '';
+      let tocBoxHtml = '';
+      if (tocMd) {
+        const tocBodyHtml = renderTocMarkdown(tocMd);
+        tocBoxHtml = `<div class="user-toc"><span class="toc-label">목차</span>${tocBodyHtml}</div>`;
+      }
       originHtml += `<div style="margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--border);">
         <div style="font-size: 11px; color: var(--text-dim); font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.3px;">${escapeHtml(lv4Title)}</div>
-        <div>${lv4Html}</div>
+        <div>${tocBoxHtml}${lv4Html}</div>
       </div>`;
     }
     if (originEl) originEl.innerHTML = originHtml;
@@ -10541,6 +11343,9 @@
       if (!r.ok) throw new Error('HTTP ' + r.status);
       const data = await r.json();
       MODAL_STATE.caseData = data;
+      // lawear-23d9 (2026-05-25): 채점 모달 origin/lv4 렌더 시 [case] 조문 lookup 자과목 보충용.
+      //   모달 origin/diff 영역도 applyEmphasisTags 통과 → currentRenderSubjectKor 필요.
+      currentRenderSubjectKor = (data && data.subject_kor) ? data.subject_kor : null;
       return data;
     } catch (err) {
       console.warn('loadCaseDataForModal failed:', err);
@@ -10671,9 +11476,10 @@
   // ═══════════════════════════════════════════════════════════════
   // - 평가 탭 진입 시 기본 화면: 사용자가 제출한 모든 케이스의 리스트
   // - 사이드바 케이스 클릭 시: case-specific 평가 뷰 (기존 동작 보존)
-  // - 데이터 소스: GET /api/attempts?status=done&limit=200 → 클라이언트에서 case_id 그룹핑
+  // - 데이터 소스: GET /api/attempts?limit=200 → 클라이언트에서 case_id 그룹핑
   //   (서버에 group API 가 없어 attempts 한 번에 가져와서 그룹핑)
-  // - 빈 상태 / 다중 카드(subq_count) / legacy 답안 모두 처리
+  //   Track G (lawear-23d9 2026-05-25): status 필터 제거 → done + pending_grade 모두 표시.
+  // - 빈 상태 / 다중 카드(subq_count) / legacy 답안 / 미채점 모두 처리
   const EV_OVERVIEW_STATE = {
     loaded: false,
     loading: false,
@@ -10698,15 +11504,24 @@
   // 입력: [{id, case_id, case_short_id, subject_kor, subject, submitted_at, status, db_status,
   //         score_total, score_max, score_pct, grade, subq_count, ...}, ...]
   // 출력: [{case_id, case_short_id, subject_label, subq_count, attempt_count, best_pct, last_pct,
-  //         last_grade, last_submitted_at}, ...]  // last_submitted_at DESC 정렬
+  //         last_grade, last_submitted_at, pending_count, last_is_pending}, ...]  // last_submitted_at DESC 정렬
+  //
+  // Track G (2026-05-25 lawear-23d9): 채점 완료(done) + 미채점(pending_grade) 둘 다 집계.
+  // - 사용자: "평가탭 누르면 제출케이스에 아직 채점안한것도 노출해줘"
+  // - best/last_pct 는 done attempt 한정으로 계산 (점수가 없으니까).
+  // - pending_count: 해당 케이스의 pending_grade attempt 수 (UI 배지 노출용).
+  // - last_is_pending: 최신 attempt 가 미채점인지 (Last 열 "채점 대기" 표시 분기).
   function groupAttemptsByCase(attempts) {
     const map = new Map();
     for (const a of (attempts || [])) {
       const cid = a.case_id || a.case_short_id;
       if (!cid) continue;
-      // done/completed 만 집계 — pending/grading 은 제외 (사용자가 "제출했다" 인식하는 시점은 done)
-      const isDone = (a.status === 'completed') || (a.db_status === 'done');
-      if (!isDone) continue;
+      // Track G — done/completed + pending_grade 둘 다 집계 (사용자 명시).
+      // error/failed/grading 은 여전히 제외 (사용자가 "제출 케이스"로 인식하는 범위 아님).
+      const st = a.status;
+      const isDone = (st === 'completed') || (a.db_status === 'done');
+      const isPending = (st === 'pending_grade');
+      if (!isDone && !isPending) continue;
       let g = map.get(cid);
       if (!g) {
         g = {
@@ -10715,19 +11530,22 @@
           subject_label: a.subject_kor || a.subject || '',
           subq_count: Number(a.subq_count) || 0,
           attempt_count: 0,
+          pending_count: 0,
           best_pct: null,
           last_pct: null,
           last_grade: null,
           last_submitted_at: null,
           last_solve_sec: null,
+          last_is_pending: false,
           // e571-score-display — case_points 추적 (실제 시험 배점)
           case_points: (a.case_points != null) ? Number(a.case_points) : null,
         };
         map.set(cid, g);
       }
       g.attempt_count += 1;
+      if (isPending) g.pending_count += 1;
       const pct = Number(a.score_pct);
-      if (isFinite(pct)) {
+      if (isDone && isFinite(pct)) {
         if (g.best_pct == null || pct > g.best_pct) g.best_pct = pct;
       }
       // 최신 attempt 추적 (submitted_at DESC)
@@ -10735,8 +11553,15 @@
       const tCur = g.last_submitted_at ? Date.parse(g.last_submitted_at) : 0;
       if (tNew >= tCur) {
         g.last_submitted_at = a.submitted_at || g.last_submitted_at;
-        g.last_pct = isFinite(pct) ? pct : g.last_pct;
-        g.last_grade = a.grade || g.last_grade;
+        g.last_is_pending = isPending;
+        // pending 이면 점수/등급 없음 → null 로 명시 (이전 done 값 덮어쓰기)
+        if (isPending) {
+          g.last_pct = null;
+          g.last_grade = null;
+        } else {
+          g.last_pct = isFinite(pct) ? pct : g.last_pct;
+          g.last_grade = a.grade || g.last_grade;
+        }
         // Step 24-f — 풀이 시간 추적: total_solve_sec(v6 마이그) 우선, fallback solve_elapsed_sec
         // (legacy attempts 의 경우 둘 다 null → last_solve_sec=null → "—" 표시)
         const solveRaw = (a.total_solve_sec != null) ? a.total_solve_sec
@@ -10791,6 +11616,9 @@
       </thead>`;
     const multiTmpl = dict.ev_overview_multi_fmt || 'Multi {n}';
     const notTracked = dict.solve_not_tracked || 'Not Tracked';
+    // Track G (lawear-23d9) — 미채점 라벨 (Last 열 + 시도 옆 배지)
+    const pendingLabel = dict.ev_overview_pending_label || '채점 대기';
+    const pendingBadgeTmpl = dict.ev_overview_pending_badge_fmt || '대기 {n}';
     const bodyHtml = rows.map(r => {
       const cid = escapeHtml(r.case_id || '');
       const sid = escapeHtml(r.case_short_id || r.case_id || '—');
@@ -10799,16 +11627,27 @@
         ? `<span class="badge-multi">${escapeHtml(multiTmpl.replace('{n}', String(r.subq_count)))}</span>`
         : '';
       const cnt = String(r.attempt_count);
+      // Track G — 케이스에 pending_grade attempt 가 있으면 배지로 시각 표시
+      const pendingBadge = (r.pending_count && r.pending_count > 0)
+        ? `<span class="badge-pending">${escapeHtml(pendingBadgeTmpl.replace('{n}', String(r.pending_count)))}</span>`
+        : '';
       // e571-score-display — 실제 시험 배점 + 100점 환산 (case_points 부재 시 % 폴백)
       const bestPct = fmtScoreReal(r.best_pct, r.case_points);
-      const lastPct = fmtScoreReal(r.last_pct, r.case_points);
       const bestColor = pctColor(r.best_pct);
-      const lastColor = pctColor(r.last_pct);
-      // lawear-e571 (2026-05-19) — V2 grade-pill 클래스 + 합격 배지 (last_pct 기반)
-      const lastGradeSlug = gradeV2Slug(r.last_grade);
-      const lastGrade = r.last_grade
-        ? `<span class="grade-pill ${lastGradeSlug}">${escapeHtml(r.last_grade)}</span>${passBadgeHtml(r.last_pct, { small: true })}`
-        : '';
+      // Track G — Last 열 분기: pending 이면 "채점 대기" 라벨, done 이면 점수+등급
+      let lastCellHtml;
+      if (r.last_is_pending) {
+        lastCellHtml = `<span class="ev-pending-tag">${escapeHtml(pendingLabel)}</span>`;
+      } else {
+        const lastPct = fmtScoreReal(r.last_pct, r.case_points);
+        const lastColor = pctColor(r.last_pct);
+        // lawear-e571 (2026-05-19) — V2 grade-pill 클래스 + 합격 배지 (last_pct 기반)
+        const lastGradeSlug = gradeV2Slug(r.last_grade);
+        const lastGrade = r.last_grade
+          ? `<span class="grade-pill ${lastGradeSlug}">${escapeHtml(r.last_grade)}</span>${passBadgeHtml(r.last_pct, { small: true })}`
+          : '';
+        lastCellHtml = `<span style="color:${lastColor};">${escapeHtml(lastPct)}</span>${lastGrade}`;
+      }
       const lastDate = r.last_submitted_at ? escapeHtml(fmtSeoul(r.last_submitted_at, { style: 'full' })) : '—';
       // Step 24-f — 최근 제출 옆 풀이 시간 셀 (legacy attempts: "측정 안 됨")
       const solveLabel = (r.last_solve_sec != null)
@@ -10817,9 +11656,9 @@
       return `<tr data-case-id="${cid}">
         <td class="id">${sid}${multi}</td>
         <td class="subject">${subj}</td>
-        <td class="count">${escapeHtml(cnt)}</td>
+        <td class="count">${escapeHtml(cnt)}${pendingBadge}</td>
         <td class="score" style="color:${bestColor};">${escapeHtml(bestPct)}</td>
-        <td class="score" style="color:${lastColor};">${escapeHtml(lastPct)}${lastGrade}</td>
+        <td class="score">${lastCellHtml}</td>
         <td class="last-date">${lastDate}</td>
         <td class="solve-time">${solveLabel}</td>
       </tr>`;
@@ -10837,8 +11676,14 @@
   }
 
   async function loadEvOverview(opts) {
-    if (EV_OVERVIEW_STATE.loading) return;
     const force = !!(opts && opts.force);
+    // Track G (lawear-23d9 2026-05-25) — force 인데 in-flight 면 끝난 뒤 한 번 더 재호출.
+    //   (Submit → tab.click() 가 loadEvOverview() 를 먼저 발동시켜 loading=true 인 상태에서
+    //    POST 완료 후 loadEvOverview({force:true}) 가 들어오는 케이스 보호.)
+    if (EV_OVERVIEW_STATE.loading) {
+      if (force) EV_OVERVIEW_STATE._refreshPending = true;
+      return;
+    }
     if (!force && EV_OVERVIEW_STATE.loaded) {
       renderEvOverview();
       return;
@@ -10848,9 +11693,11 @@
     if (bodyEl) bodyEl.innerHTML = `<div class="eval-overview-loading">${escapeHtml(dict.ev_overview_loading || 'Loading…')}</div>`;
     EV_OVERVIEW_STATE.loading = true;
     try {
-      // status=done + limit 충분히 크게 (사용자 시도 누적 수 < 200 가정).
-      // 추후 누적 200건 초과 시 server-side group API 도입 검토.
-      const r = await fetch(`${API_BASE}/api/attempts?status=done&limit=200`, {
+      // Track G (lawear-23d9 2026-05-25) — 채점 완료(done) + 미채점(pending_grade) 둘 다 노출.
+      //   status 필터 제거 → 클라이언트가 groupAttemptsByCase 에서 done/pending_grade 만 채택.
+      //   error/grading 은 그룹핑 단계에서 자동 제외.
+      // limit=200 유지 (사용자 시도 누적 수 < 200 가정). 추후 server-side group API 도입 검토.
+      const r = await fetch(`${API_BASE}/api/attempts?limit=200`, {
         headers: { 'Accept': 'application/json' },
       });
       if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -10865,6 +11712,11 @@
       if (bodyEl) bodyEl.innerHTML = `<div class="eval-overview-empty" style="color: var(--danger);">${escapeHtml(tmpl.replace('{msg}', err.message || ''))}</div>`;
     } finally {
       EV_OVERVIEW_STATE.loading = false;
+      // Track G — in-flight 중에 들어온 force 요청이 있으면 한 번 더.
+      if (EV_OVERVIEW_STATE._refreshPending) {
+        EV_OVERVIEW_STATE._refreshPending = false;
+        setTimeout(() => loadEvOverview({ force: true }), 0);
+      }
     }
   }
 

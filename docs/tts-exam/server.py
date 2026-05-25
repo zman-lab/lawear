@@ -359,7 +359,12 @@ class ExamHandler(SimpleHTTPRequestHandler):
                 case = cases_mod.get_case(conn, case_id)
             # Step 24-5 — md_body 기반 추가 파싱 노출 (R-09: 가공 X, 파서 결과 그대로).
             md_body = case.get("md_body") or ""
-            case["subqs"] = cases_mod.parse_md_subqs(md_body)
+            # lawear-23d9 Track D (2026-05-25) — civil_doc cloze 보호.
+            #   cases.get_case 가 이미 parse_md_subqs_cloze 로 subqs 채움 → 덮어쓰기 X.
+            #   parse_md_subqs (`### 설문 N` H3) 는 cloze .md `## 문제 N` (H2) 미매칭 → 0건 반환 →
+            #   기존 cloze subqs 가 빈 list 로 덮어써져 cloze_full subqs=0 버그.
+            if not case.get("subqs"):
+                case["subqs"] = cases_mod.parse_md_subqs(md_body)
             case["toc"] = cases_mod.parse_md_toc(md_body)
             case["mnemonic"] = cases_mod.parse_md_mnemonic(md_body)
             self._send_json(200, case)

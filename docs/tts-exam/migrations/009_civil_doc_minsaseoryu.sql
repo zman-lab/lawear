@@ -16,11 +16,17 @@
 
 BEGIN TRANSACTION;
 
--- 1) 기존 row 백필 (subject_kor='민사서류' 또는 subject='minsaseoryu')
+-- 1) 기존 row 백필 (subject_kor='민사서류' 또는 subject='minsaseoryu') — category 한정
 --    syncer 가 _file_index.json 의 'civil_doc' entry 를 읽어 cases 에 INSERT 한 후 본 마이그레이션 재실행해도 멱등.
+--
+-- P1-a fix (lawear-23d9 후속, 17895 리뉴얼 정합):
+--   17895가 작성한 민사서류 1순환 3건(.md 일반 구조, category='1순환')은 lv1234 유지 — cloze 분기 진입 X
+--   청구취지_cloze 3건만 civil_doc 백필 — category='청구취지_cloze' 한정
+--   서브 분석 P1 권고 + 부장판사 QA 권고 C 반영.
 UPDATE cases
    SET subject_type = 'civil_doc'
  WHERE (subject_kor = '민사서류' OR subject = 'minsaseoryu')
+   AND category = '청구취지_cloze'
    AND (subject_type IS NULL OR subject_type = 'lv1234');
 
 -- 2) PRAGMA user_version 갱신 (db.py TARGET_SCHEMA_VERSION 동기화)
