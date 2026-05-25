@@ -3136,10 +3136,12 @@
           <div class="case-id-large" id="rv-case-id">—</div>
           <div class="case-status" data-i18n="status_in_review">In Review</div>
           <div class="case-subject" id="rv-subject">—</div>
-          <!-- lawear-0981 (2026-05-25): breadcrumb + copy-path 한 라인 wrap -->
+          <!-- lawear-0981 (2026-05-25): breadcrumb + copy-path + 예습 점프 한 라인 -->
           <div class="breadcrumb-row">
             <div class="breadcrumb" id="rv-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
             <button class="btn btn-copy-path" id="rv-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
+            <!-- 예습하러 가기 (17895 학습 페이지로 점프) — 요청 3 -->
+            <button class="btn btn-peer-jump" id="rv-peer-jump" title="예습하러 가기 (17895)" data-i18n-title="btn_peer_jump" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0; display: none;">📖</button>
           </div>
         </div>
 
@@ -3239,10 +3241,11 @@
           <div class="case-id-large" id="ev-case-id">—</div>
           <div class="case-status" id="ev-status" data-i18n="status_in_review">In Review</div>
           <div class="case-subject" id="ev-subject">—</div>
-          <!-- lawear-0981 (2026-05-25): breadcrumb + copy-path 한 라인 wrap (ev-header) -->
+          <!-- lawear-0981 (2026-05-25): breadcrumb + copy-path + 예습 점프 한 라인 (ev-header) -->
           <div class="breadcrumb-row">
             <div class="breadcrumb" id="ev-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
             <button class="btn btn-copy-path" id="ev-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
+            <button class="btn btn-peer-jump" id="ev-peer-jump" title="예습하러 가기 (17895)" data-i18n-title="btn_peer_jump" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0; display: none;">📖</button>
           </div>
         </div>
 
@@ -3864,6 +3867,7 @@
       bc_year: '2026',
       btn_copy_path: 'Copy path',
       btn_refresh: 'Refresh',  // lawear-0981: 사이드패널 새로고침 버튼
+      btn_peer_jump: 'Open in 17895 (learn)',  // lawear-0981: 17895로 점프
       toast_path_copied: 'Path copied',
       toast_path_copy_failed: 'Copy failed',
       // sections
@@ -4162,6 +4166,7 @@
       bc_year: '2026',
       btn_copy_path: '경로 복사',
       btn_refresh: '새로고침',  // lawear-0981: 사이드패널 새로고침 버튼
+      btn_peer_jump: '예습 (17895)',  // lawear-0981: 17895로 점프
       toast_path_copied: '경로 복사됨',
       toast_path_copy_failed: '복사 실패',
       sec_background: '사실관계', sec_inquiry: '문제', sec_notes: '검토 의견',
@@ -6538,6 +6543,34 @@
   const API_BASE = '';  // same origin (17896 자체)
   let CASES_CACHE = [];  // /api/cases 마지막 응답
   let CURRENT_CASE_ID = null;
+  // lawear-0981 (2026-05-25) 요청 3 페이지 동기 — 17895 ngrok URL 캐시
+  let PEER_URL = null;
+  async function fetchPeerUrl() {
+    try {
+      const data = await fetchJson(`${API_BASE}/api/peer-url`);
+      PEER_URL = data.peer_url || null;
+      // case 이미 로드되어 있으면 즉시 버튼 활성
+      if (CURRENT_CASE_ID) updatePeerJumpButtons(CURRENT_CASE_ID);
+    } catch (e) {
+      console.warn('[peer-url] fetch failed:', e);
+    }
+  }
+  function updatePeerJumpButtons(caseId) {
+    ['rv-peer-jump', 'ev-peer-jump'].forEach(btnId => {
+      const btn = document.getElementById(btnId);
+      if (!btn) return;
+      if (PEER_URL && caseId) {
+        btn.style.display = '';
+        btn.onclick = () => {
+          // 17895 merge.html에 hash로 case_id 전달 → 17895 측에서 hash 파싱하여 자동 선택
+          const url = `${PEER_URL}/merge.html#case=${encodeURIComponent(caseId)}`;
+          window.open(url, '_blank', 'noopener');
+        };
+      } else {
+        btn.style.display = 'none';
+      }
+    });
+  }
   let CURRENT_CASE_DATA = null;  // Step 14 — /api/cases/{id} 마지막 응답 (lv1 등) — Reference Diff 2열 렌더 자료
   let CURRENT_FILTER = 'all';
   let SEARCH_TERM = '';
@@ -6813,6 +6846,8 @@
   // ─── Review 탭: 단건 fetch + Background/Inquiry 갱신 ───
   async function loadCase(caseId) {
     CURRENT_CASE_ID = caseId;
+    // lawear-0981 (2026-05-25): 예습 점프 버튼 갱신 (17895로 점프 활성)
+    updatePeerJumpButtons(caseId);
     // 사이드바 active 표시
     document.querySelectorAll('.case-item').forEach(it => {
       it.classList.toggle('active', it.dataset.caseId === caseId);
@@ -12073,6 +12108,9 @@
     settingsLoadedOnce = true;
     fetchSettings();
   }
+
+  // lawear-0981 (2026-05-25) 요청 3: 페이지 진입 시 17895 ngrok URL 캐시 (예습 점프 버튼용)
+  fetchPeerUrl();
 </script>
 
 </body>

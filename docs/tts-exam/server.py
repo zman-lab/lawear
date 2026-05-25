@@ -34,6 +34,7 @@ import os
 import ssl
 import sys
 import urllib.parse
+import urllib.request
 import zipfile
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -171,6 +172,12 @@ class ExamHandler(SimpleHTTPRequestHandler):
         # lawear-{session} (2026-05-25): mkcert root CA를 사용자가 다운받아 OS 자격증명에 설치
         if path == "/api/cert/root-ca":
             self._handle_cert_root_ca()
+            return
+
+        # Peer server URL 조회 (페이지 동기용 — lawear-0981 2026-05-25 요청 3)
+        # 17896 → 17895 ngrok URL (inspect 4041)
+        if path == "/api/peer-url":
+            self._handle_peer_url()
             return
 
         # 미구현 API (Step 11+ placeholder)
@@ -865,6 +872,34 @@ class ExamHandler(SimpleHTTPRequestHandler):
             self._send_json(200, result)
         except Exception as e:  # noqa: BLE001
             self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
+
+    def _handle_peer_url(self) -> None:
+        """`GET /api/peer-url` — 다른 lawear 서버의 ngrok URL 조회.
+
+        lawear-0981 (2026-05-25) 요청 3 페이지 동기:
+        17896 → 17895 ngrok URL (4041 inspect) / 또는 그 반대.
+        클라이언트가 다른 서버로 점프 시 사용. ngrok URL random 변경 자동 대응.
+        """
+        # 17896 server.py는 항상 17895로 peer 향함 (4041 inspect)
+        PEER_NGROK_PORT = 4041
+        PEER_SERVER_PORT = 17895
+        peer_url = None
+        try:
+            req = urllib.request.Request(
+                f"http://127.0.0.1:{PEER_NGROK_PORT}/api/tunnels"
+            )
+            with urllib.request.urlopen(req, timeout=2) as resp:
+                data = json.loads(resp.read())
+                tunnels = data.get("tunnels", [])
+                if tunnels:
+                    peer_url = tunnels[0].get("public_url")
+        except Exception:  # noqa: BLE001
+            peer_url = None
+        self._send_json(200, {
+            "peer_url": peer_url,
+            "peer_port": PEER_SERVER_PORT,
+            "peer_role": "tts-merger",
+        })
 
     def _handle_cert_root_ca(self) -> None:
         """`GET /api/cert/root-ca` — mkcert root CA를 .zip으로 응답.

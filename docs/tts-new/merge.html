@@ -1436,6 +1436,34 @@ async function init() {
   } catch (e) {
     console.warn('[lawArticles] load 실패 — [case] 툴팁 비활성:', e && e.message);
   }
+
+  // lawear-0981 (2026-05-25) 요청 3: 페이지 동기 hash routing
+  // 17896에서 `#case=2026_minbeop_immun_mike01_01` 양식으로 hash 전달 시 자동 파일 열기.
+  // fileMetadata[path].id 매칭으로 17896 case.id → 17895 path 변환 (양식 일관).
+  handleHashRouting();
+  window.addEventListener('hashchange', handleHashRouting);
+}
+
+// lawear-0981 (2026-05-25): 페이지 동기 hash routing 핸들러
+function handleHashRouting() {
+  const hash = window.location.hash;
+  const caseMatch = hash.match(/[#&]case=([^&]+)/);
+  if (!caseMatch) return;
+  const caseId = decodeURIComponent(caseMatch[1]);
+  // fileMetadata에서 id 매칭
+  let matchedPath = null;
+  for (const [path, meta] of Object.entries(fileMetadata)) {
+    if (meta && meta.id === caseId) {
+      matchedPath = path;
+      break;
+    }
+  }
+  if (matchedPath && typeof loadFileByPath === 'function') {
+    console.log('[peer-sync] hash case 매칭:', caseId, '→', matchedPath);
+    loadFileByPath(matchedPath);
+  } else {
+    console.warn('[peer-sync] hash case_id 매칭 실패:', caseId);
+  }
 }
 
 function updateSelectedCount() {
