@@ -56,7 +56,10 @@ DEFAULT_BIAS: dict[str, int] = {
 
 DEFAULT_VOICE: dict[str, Any] = {
     "lang": "ko-KR",
-    "silence_sec": 3,
+    # 사용자 명시 (2026-05-25): 시험 중 2~3초 침묵해도 안 끊김 보장 → 디폴트 60s
+    "silence_sec": 60,
+    # X안 (2026-05-25): 음성입력 엔진 — 'auto' / 'web-speech' / 'os-keyboard'
+    "engine": "auto",
 }
 
 # Step 13 — Claude Code 외부 채점이 기본 (사용자 명시 2026-05-16:
@@ -69,6 +72,9 @@ VOICE_SILENCE_MIN: int = 1
 # Step 18 — 사용자 명시 (2026-05-16): "잘 생각 안 나면 고민할 수도 있단 말야"
 #   기존 max 10초 → 60초로 확장. 1초 단위 그대로.
 VOICE_SILENCE_MAX: int = 60
+
+# X안 (2026-05-25): 음성입력 엔진 — 모바일 OS 키보드 STT vs Web Speech API 분기
+ALLOWED_VOICE_ENGINES: tuple[str, ...] = ("auto", "web-speech", "os-keyboard")
 
 # ─── grading_mode 허용값 ─────────────────────────────────────────────
 GRADING_MODE_MANUAL: str = "manual"
@@ -299,6 +305,20 @@ def validate_voice(voice: dict[str, Any]) -> dict[str, Any]:
             "bad_request",
         )
     coerced["silence_sec"] = silence_sec
+
+    # engine (선택 — 미명시 시 'auto', X안 2026-05-25)
+    engine = voice.get("engine", "auto")
+    if not isinstance(engine, str):
+        raise SettingsValidationError(
+            f"voice.engine must be string, got {type(engine).__name__}", "bad_request"
+        )
+    if engine not in ALLOWED_VOICE_ENGINES:
+        raise SettingsValidationError(
+            f"voice.engine must be one of {ALLOWED_VOICE_ENGINES}, got {engine!r}",
+            "bad_request",
+        )
+    coerced["engine"] = engine
+
     return coerced
 
 

@@ -56,3 +56,8 @@ docs/tts-new/_file_index.json.bak
 # lawear-7ad6 v4 — server.py 자동 생성 보조 파일
 docs/tts-new/**/*.md.bak
 docs/tts-new/_file_index.lock
+
+# lawear HTTPS — mkcert self-signed certs (각 머신별 로컬 발급, git tracked X)
+certs/
+*.pem
+!docs/**/sample.pem  # 문서 예시는 예외

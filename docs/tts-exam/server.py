@@ -28,10 +28,13 @@ dev-impl-plan #51 Step 3~11 + Step 24-1~24-5 표 1:1.
 """
 from __future__ import annotations
 
+import io
 import json
 import os
+import ssl
 import sys
 import urllib.parse
+import zipfile
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
@@ -55,6 +58,12 @@ PORT: int = int(os.environ.get("LAWEAR_EXAM_PORT", "17896"))
 BIND: str = os.environ.get("LAWEAR_EXAM_BIND", "127.0.0.1")
 ROOT: Path = Path(__file__).parent.resolve()
 DB_PATH: str = os.environ.get("LAWEAR_EXAM_DB", str(ROOT / "exam.db"))
+CERT_PATH: str = os.environ.get("LAWEAR_EXAM_CERT", "")
+KEY_PATH: str = os.environ.get("LAWEAR_EXAM_KEY", "")
+ROOT_CA_PATH: str = os.environ.get(
+    "LAWEAR_ROOT_CA",
+    str(Path.home() / "Library/Application Support/mkcert/rootCA.pem"),
+)
 SERVER_NAME: str = "lawear-examconsole"
 SERVER_VERSION: str = "0.10.0-subq-d"
 
@@ -156,6 +165,12 @@ class ExamHandler(SimpleHTTPRequestHandler):
         if path == "/api/reports/cases":
             qs = urllib.parse.parse_qs(parsed.query)
             self._handle_reports_cases(qs)
+            return
+
+        # Root CA 다운로드 (X안 — 갤럭시/iOS/맥북/윈도우 HTTPS 신뢰 등록용)
+        # lawear-{session} (2026-05-25): mkcert root CA를 사용자가 다운받아 OS 자격증명에 설치
+        if path == "/api/cert/root-ca":
+            self._handle_cert_root_ca()
             return
 
         # 미구현 API (Step 11+ placeholder)
@@ -851,6 +866,70 @@ class ExamHandler(SimpleHTTPRequestHandler):
         except Exception as e:  # noqa: BLE001
             self._send_error(500, "internal_error", f"{type(e).__name__}: {e}")
 
+    def _handle_cert_root_ca(self) -> None:
+        """`GET /api/cert/root-ca` — mkcert root CA를 .zip으로 응답.
+
+        X안 (lawear 2026-05-25): 모바일/맥북/윈도우 HTTPS 신뢰 등록용.
+
+        zip으로 감싸는 이유: 안드 크롬이 self-signed cert 사이트에서
+        .pem/.crt 직접 다운을 보안상 차단함 (root CA 자동 심기 우려).
+        zip은 일반 압축 파일로 인식되어 통과 → 사용자가 압축 풀고 .crt 설치.
+        데스크탑(맥/윈)도 zip 1단계 더 거치지만 큰 부담 X.
+        """
+        if not ROOT_CA_PATH or not os.path.exists(ROOT_CA_PATH):
+            self._send_error(
+                404,
+                "cert_not_found",
+                f"root CA not found at {ROOT_CA_PATH} — run 'mkcert -install' first",
+            )
+            return
+        try:
+            with open(ROOT_CA_PATH, "rb") as f:
+                cert_bytes = f.read()
+        except Exception as e:  # noqa: BLE001
+            self._send_error(500, "cert_read_failed", f"{type(e).__name__}: {e}")
+            return
+        # in-memory zip 생성 — lawear-rootCA.crt 1개 파일
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+            zf.writestr("lawear-rootCA.crt", cert_bytes)
+            # 설치 가이드 README도 함께 (사용자 편의)
+            readme = (
+                "lawear local CA 인증서 설치 가이드\n"
+                "===================================\n\n"
+                "[Android (갤럭시폰/탭)]\n"
+                "1. 압축 해제 후 lawear-rootCA.crt 파일 추출\n"
+                "2. 설정 → 보안 및 개인정보 보호 → 기타 보안 설정 → 저장소에서 설치\n"
+                "3. 다운로드 폴더에서 lawear-rootCA.crt 선택\n"
+                "4. 인증서 유형: CA 인증서 선택 → 경고 수락\n"
+                "5. 이름 'lawear local CA' 입력 → PIN/지문 인증\n"
+                "6. 크롬 재시작 → https://{서버IP}:17896/ 자물쇠 확인\n\n"
+                "[iOS (아이폰/아이패드)]\n"
+                "1. 압축 해제 후 lawear-rootCA.crt 더블탭\n"
+                "2. '프로파일 다운로드' 알림 → 설정 → 일반 → VPN 및 기기 관리\n"
+                "3. 프로파일 설치 → 비밀번호 입력\n"
+                "4. 설정 → 일반 → 정보 → 인증서 신뢰 설정 → 토글 ON\n\n"
+                "[macOS]\n"
+                "1. 압축 해제 후 lawear-rootCA.crt 더블클릭\n"
+                "2. 키체인 접근 → 'Always Trust' 선택\n\n"
+                "[Windows]\n"
+                "1. 압축 해제 후 lawear-rootCA.crt 더블클릭\n"
+                "2. '인증서 설치' → '로컬 컴퓨터' → '신뢰할 수 있는 루트 인증 기관' 선택\n"
+            )
+            zf.writestr("README_설치가이드.txt", readme.encode("utf-8"))
+        data = buf.getvalue()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/zip")
+        # 파일명 위장 — 안드 크롬이 'rootCA'/'cert' 키워드 휴리스틱 차단
+        # 2026-05-25 사용자: "파일명 때문에 또 크롬 차단당하는 거 같은데, mytest.zip 식 위장"
+        self.send_header(
+            "Content-Disposition",
+            'attachment; filename="lawear-setup.zip"',
+        )
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     # ─── CORS / 캐시 헤더 ───────────────────────────────────────
     def end_headers(self) -> None:
         self.send_header("Access-Control-Allow-Origin", "*")
@@ -898,8 +977,17 @@ def main() -> int:
     # ThreadingHTTPServer (dev-design #48 D-2 / archive #51 §5-2)
     httpd = ThreadingHTTPServer((BIND, PORT), ExamHandler)
     httpd.allow_reuse_address = True
+
+    # HTTPS — mkcert self-signed cert 가 있으면 SSL wrap (모바일 마이크 권한용)
+    proto = "http"
+    if CERT_PATH and KEY_PATH and os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH):
+        ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(CERT_PATH, KEY_PATH)
+        httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+        proto = "https"
+
     print(
-        f"[{SERVER_NAME}] Serving {ROOT} (db={DB_PATH}) at http://{BIND}:{PORT}",
+        f"[{SERVER_NAME}] Serving {ROOT} (db={DB_PATH}) at {proto}://{BIND}:{PORT}",
         file=sys.stderr,
     )
     try:

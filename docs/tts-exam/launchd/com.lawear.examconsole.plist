@@ -19,7 +19,11 @@
         <key>LAWEAR_EXAM_PORT</key>
         <string>17896</string>
         <key>LAWEAR_EXAM_BIND</key>
-        <string>127.0.0.1</string>
+        <string>0.0.0.0</string>
+        <key>LAWEAR_EXAM_CERT</key>
+        <string>/Users/nhn/zman-lab/lawear/certs/lawear-cert.pem</string>
+        <key>LAWEAR_EXAM_KEY</key>
+        <string>/Users/nhn/zman-lab/lawear/certs/lawear-key.pem</string>
     </dict>
 
     <key>RunAtLoad</key>

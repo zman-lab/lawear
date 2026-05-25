@@ -17,6 +17,7 @@ import logging
 import os
 import re
 import socketserver
+import ssl
 import sys
 import tempfile
 from datetime import datetime
@@ -29,6 +30,11 @@ BIND = "0.0.0.0"
 ROOT = Path(__file__).parent.resolve()
 STAGING_DIR = ROOT / '_staging'
 INDEX_PATH = ROOT / '_file_index.json'
+
+# HTTPS — mkcert self-signed cert (모바일 마이크 권한용, lawear 2026-05-25)
+# 환경변수 없으면 http fallback (워크트리 임시 실행 시 cert 없이도 동작)
+CERT_PATH = os.environ.get("LAWEAR_TTS_CERT", "")
+KEY_PATH = os.environ.get("LAWEAR_TTS_KEY", "")
 
 # 라이브러리/두문자 staging 업로드 허용 과목 — lawear-7ad6: 민사서류/부등서류 추가
 ALLOWED_STAGING_SUBJECTS = {
@@ -641,5 +647,12 @@ if __name__ == '__main__':
     # R6: 워크트리 임시 포트 (env PORT override 가능)
     port = int(os.environ.get('PORT', PORT))
     with ReusableTCPServer((BIND, port), Handler) as httpd:
-        log.info("Serving %s at http://%s:%d", ROOT, BIND, port)
+        # HTTPS wrap — cert 환경변수 있고 파일 존재할 때만
+        proto = "http"
+        if CERT_PATH and KEY_PATH and os.path.exists(CERT_PATH) and os.path.exists(KEY_PATH):
+            ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+            ctx.load_cert_chain(CERT_PATH, KEY_PATH)
+            httpd.socket = ctx.wrap_socket(httpd.socket, server_side=True)
+            proto = "https"
+        log.info("Serving %s at %s://%s:%d", ROOT, proto, BIND, port)
         httpd.serve_forever()
