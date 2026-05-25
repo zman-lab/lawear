@@ -1089,6 +1089,16 @@ function renderMd(md) {
     iter++;
   } while (escaped !== prev && iter < 20);
 
+  // lawear-23d9 (P0-1, 2026-05-25): 날짜 패턴 `2024. 7. 15.` 보호 (17896 mirror).
+  //   marked.parse 가 라인 시작 `\d+\. ` 를 ordered list 로 해석 → "2024." → "7." → "15." 분리되며 줄바꿈/들여쓰기 깨짐.
+  //   placeholder 보호 + recover 시 원문 그대로 복원 (R-09: 원문 verbatim).
+  //   패턴: 4자리 연도 + 마침표 + 공백 + 1~2자리 월 + 마침표 + 공백 + 1~2자리 일 + 마침표 (한국어 날짜 표기 관습).
+  const _DATE_PLACEHOLDERS = [];
+  escaped = escaped.replace(/^(\d{4})\.\s+(\d{1,2})\.\s+(\d{1,2})\./gm, (m) => {
+    _DATE_PLACEHOLDERS.push(m);
+    return `@@DATE${_DATE_PLACEHOLDERS.length - 1}@@`;
+  });
+
   let html = marked.parse(escaped);
   // lawear-4b59 (2026-05-21): (라이브러리 N-N) inline 표기 → 시각 약화 (작은 회색, 호버 강조)
   // 다운로드 시에는 stripEmphasis에서 별도로 제거됨 (TTS 노이즈 방지)
@@ -1111,7 +1121,13 @@ function renderMd(md) {
       return `<span class="${cls}">${inner}</span>`;
     });
   }
-  return recover(html);
+  // lawear-23d9 (P0-1, 2026-05-25): 날짜 placeholder 복원 (raw 텍스트 그대로).
+  let recovered = recover(html);
+  recovered = recovered.replace(/@@DATE(\d+)@@/g, (m, i) => {
+    const orig = _DATE_PLACEHOLDERS[parseInt(i, 10)];
+    return (orig != null) ? orig : m;
+  });
+  return recovered;
 }
 
 // ─────────── 라이브러리 collapsible (각 ### → details) ───────────
@@ -2046,8 +2062,8 @@ function showSection(section, event) {
         <thead><tr><th>${originalLabel}</th><th>Lv.1</th><th>Lv.4</th></tr></thead>
         <tbody><tr>
           <td>${renderMd(original || '(없음)')}</td>
-          <td>${renderMd(lv1 || '(없음)')}</td>
-          <td>${renderMd(lv4 || '(없음)')}</td>
+          <td>${wrapLvToc(renderMd(lv1 || '(없음)'))}</td>
+          <td>${wrapLvToc(renderMd(lv4 || '(없음)'))}</td>
         </tr></tbody>
       </table>
     `;
@@ -2060,7 +2076,12 @@ function showSection(section, event) {
   else if (section === 'Lv.4') { sectionKey = 'Lv.4 암기노트'; sectionHeader = 'Lv.4 암기노트'; }
 
   const c = extractSection(md, sectionKey);
-  target.innerHTML = c ? renderMd(`## ${sectionHeader}\n\n${c}`) : '<p style="color:#484f58;">해당 섹션을 찾을 수 없습니다.</p>';
+  target.innerHTML = c ? wrapLvToc(renderMd(`## ${sectionHeader}\n\n${c}`)) : '<p style="color:#484f58;">해당 섹션을 찾을 수 없습니다.</p>';
+}
+
+function wrapLvToc(html) {
+  // Lv.1/Lv.4 안 ### 목차 → user-toc 박스 (부등법 ## 목차와 동일 스타일, lawear-18eb)
+  return html.replace(/<h3[^>]*>\s*목차\s*<\/h3>\s*(<ol[\s\S]*?<\/ol>)/, '<div class="user-toc"><span class="toc-label">목차</span>$1</div>');
 }
 
 function extractSection(md, sectionName) {
