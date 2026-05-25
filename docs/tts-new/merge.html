@@ -793,6 +793,8 @@
 <button id="sidebar-toggle" onclick="toggleSidebar()" title="Sidebar Toggle (B)">‹</button>
 <button id="sidebar-refresh" onclick="location.reload()" title="새로고침">↻</button>
 <div class="right-toggles">
+  <!-- lawear-0981 Q7 (2026-05-25) 양방향 페이지 동기 — 17896 시험 콘솔로 점프 (현재 case_id hash) -->
+  <button id="peer-jump-exam" onclick="jumpToExamPeer()" title="시험 바로 보기 (17896)" style="display: none;">🎯</button>
   <button id="editor-toggle" onclick="toggleEditor()" title="편집 모드 토글 (E)">✏️</button>
   <button id="stealth-toggle" onclick="toggleStealth()" title="위장 모드 토글 (Z)">👀</button>
 </div>
@@ -867,6 +869,46 @@ let stealthMode = localStorage.getItem('stealth') === 'true';
 let lawArticles = null;
 let currentRenderSubjectKor = null;
 
+// lawear-0981 Q7 (2026-05-25) 양방향 페이지 동기 — 17896 ngrok URL 캐시 (시험 점프 버튼용).
+// PEER_URL=null: 17896 ngrok 미가동 또는 fetch 실패 → 버튼 hidden.
+// 페이지 진입 시 1회 fetch. ngrok 재시작 시 사용자 재로드 필요 (random URL 변경).
+let PEER_URL = null;
+async function fetchPeerUrl() {
+  try {
+    const resp = await fetch('/api/peer-url', { cache: 'no-store' });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    PEER_URL = data && data.peer_url ? data.peer_url : null;
+    // 이미 파일 열려 있으면 즉시 버튼 활성화 (init 순서 무관).
+    if (currentPath) updatePeerJumpButton(currentPath);
+  } catch (e) {
+    console.warn('[peer-url] fetch failed:', e && e.message);
+  }
+}
+// 현재 파일 → case_id → 17896 ngrok URL + hash 점프 버튼 갱신.
+// currentPath 의 fileMetadata.id 가 17896 case.id 와 1:1 (양방향 일관).
+function updatePeerJumpButton(path) {
+  const btn = document.getElementById('peer-jump-exam');
+  if (!btn) return;
+  const meta = path ? fileMetadata[path] : null;
+  const caseId = meta && meta.id ? meta.id : null;
+  if (PEER_URL && caseId) {
+    btn.style.display = '';
+    btn.dataset.caseId = caseId;
+  } else {
+    btn.style.display = 'none';
+    btn.dataset.caseId = '';
+  }
+}
+function jumpToExamPeer() {
+  const btn = document.getElementById('peer-jump-exam');
+  const caseId = btn && btn.dataset.caseId;
+  if (!PEER_URL || !caseId) return;
+  // 17896 index.html 진입 시 hash 파싱 → loadCase(caseId).
+  const url = `${PEER_URL}/#case=${encodeURIComponent(caseId)}`;
+  window.open(url, '_blank', 'noopener');
+}
+
 // Tree 상태 (localStorage 영속)
 const TREE_STATE_KEY = 'lawear_merge_tree_state';
 function loadTreeState() {
@@ -882,6 +924,33 @@ function saveTreeState(state) {
 }
 function treeNodeKey(level, ...parts) {
   return `${level}:${parts.join('|')}`;
+}
+
+// lawear-0981 (2026-05-25) Q2/Q3 — 페이지 상태 영속화 (트리 펼침은 위 키, 그 외 상태는 이 키)
+//   schema: { currentPath: string|null, sidebarCollapsed: bool }
+const TTS_STATE_KEY = 'lawear_tts_state';
+function loadTtsState() {
+  try {
+    const raw = localStorage.getItem(TTS_STATE_KEY);
+    if (!raw) return {};
+    const obj = JSON.parse(raw);
+    return (obj && typeof obj === 'object') ? obj : {};
+  } catch (e) { return {}; }
+}
+function saveTtsState(patch) {
+  try {
+    const cur = loadTtsState();
+    const next = Object.assign({}, cur, patch || {});
+    localStorage.setItem(TTS_STATE_KEY, JSON.stringify(next));
+  } catch (e) { /* ignore */ }
+}
+let __ttsStateSaveTimer = null;
+function saveTtsStateDebounced(patch) {
+  if (__ttsStateSaveTimer) clearTimeout(__ttsStateSaveTimer);
+  __ttsStateSaveTimer = setTimeout(() => {
+    saveTtsState(patch);
+    __ttsStateSaveTimer = null;
+  }, 500);
 }
 
 // 카테고리 표시 순서 (사용자 학습 우선순위) — '민법'/'민소'는 두문자 라이브러리용 (최상위)
@@ -1440,8 +1509,32 @@ async function init() {
   // lawear-0981 (2026-05-25) 요청 3: 페이지 동기 hash routing
   // 17896에서 `#case=2026_minbeop_immun_mike01_01` 양식으로 hash 전달 시 자동 파일 열기.
   // fileMetadata[path].id 매칭으로 17896 case.id → 17895 path 변환 (양식 일관).
+  // lawear-0981 (2026-05-25) Q2/Q3 — hash 우선, hash 없으면 저장된 currentPath 복원.
+  const __hadHash = !!(window.location.hash && /[#&]case=/.test(window.location.hash));
   handleHashRouting();
   window.addEventListener('hashchange', handleHashRouting);
+
+  // lawear-0981 Q7 (2026-05-25) 양방향 페이지 동기 — 17896 ngrok URL prefetch (시험 점프 버튼 활성).
+  // fire-and-forget — 실패해도 페이지 정상 동작 (버튼만 hidden 유지).
+  fetchPeerUrl();
+
+  // lawear-0981 (2026-05-25) Q2/Q3 — 페이지 상태 복원 (트리 펼침은 renderTree 안에서 별도)
+  try {
+    const __ttsState = loadTtsState();
+    // 1) 사이드바 collapsed 복원 (저장된 값 있을 때만)
+    if (typeof __ttsState.sidebarCollapsed === 'boolean') {
+      const __sb = document.getElementById('sidebar');
+      const __sbToggle = document.getElementById('sidebar-toggle');
+      if (__sb) {
+        __sb.classList.toggle('collapsed', __ttsState.sidebarCollapsed);
+        if (__sbToggle) __sbToggle.textContent = __sb.classList.contains('collapsed') ? '›' : '‹';
+      }
+    }
+    // 2) 마지막 본 파일 복원 — hash 우선 (peer-sync), hash 없을 때만 saved path 사용.
+    if (!__hadHash && __ttsState.currentPath && fileMetadata[__ttsState.currentPath]) {
+      loadFileByPath(__ttsState.currentPath);
+    }
+  } catch (e) { /* state 복원 실패해도 페이지 정상 동작 */ }
 }
 
 // lawear-0981 (2026-05-25): 페이지 동기 hash routing 핸들러
@@ -1452,14 +1545,58 @@ function handleHashRouting() {
   const caseId = decodeURIComponent(caseMatch[1]);
   // fileMetadata에서 id 매칭
   let matchedPath = null;
+  let matchedMeta = null;
   for (const [path, meta] of Object.entries(fileMetadata)) {
     if (meta && meta.id === caseId) {
       matchedPath = path;
+      matchedMeta = meta;
       break;
     }
   }
   if (matchedPath && typeof loadFileByPath === 'function') {
     console.log('[peer-sync] hash case 매칭:', caseId, '→', matchedPath);
+    // lawear-0981 (2026-05-26) Q6 fix — hash routing 시 해당 case의 L3만 펼침, 형제 L3는 접힘.
+    //   원인: L3 디폴트 = user_input 강제 펼침 (1743 line) → 같은 카테고리 모든 user_input L3 펼쳐짐.
+    //   대응: 매칭된 case의 (year, sk, cat) 산하 모든 fileCode L3를 순회하여 명시 state 주입.
+    //   - 매칭 fileCode: state[l3Key] = true (펼침)
+    //   - 형제 fileCode: state[l3Key] = false (접힘) — 사용자 명시 펼침도 덮어씀 (Q6 원문 "그 모고만")
+    //   - L0/L1/L2(year/sk/cat) chain은 펼침 (해당 case로 가는 경로 보장)
+    //   일반 클릭(사이드패널 트리)은 이 코드 미경유 → 기존 정책 보존.
+    try {
+      if (matchedMeta && matchedMeta.subjectKor && matchedMeta.category) {
+        const sk = matchedMeta.subjectKor;
+        const cat = matchedMeta.category;
+        const fileCode = matchedMeta.file || matchedMeta.fileKor;
+        const year = (matchedMeta.id && /^\d{4}_/.test(matchedMeta.id))
+          ? matchedMeta.id.slice(0, 4)
+          : (matchedMeta._year || 'unknown');
+        const s = loadTreeState();
+        // L0/L1/L2 chain 펼침 (접힘이면 풀어줌)
+        s[treeNodeKey('y', year)] = true;
+        s[treeNodeKey('s', year, sk)] = true;
+        s[treeNodeKey('c', year, sk, cat)] = true;
+        // 같은 (year, sk, cat) 산하 모든 fileCode 수집 → 형제는 false, 본인만 true
+        const siblingFileCodes = new Set();
+        for (const [p, mm] of Object.entries(fileMetadata)) {
+          if (!mm) continue;
+          const mYear = (mm.id && /^\d{4}_/.test(mm.id)) ? mm.id.slice(0, 4) : (mm._year || 'unknown');
+          if (mYear === year && mm.subjectKor === sk && mm.category === cat) {
+            const fc = mm.file || mm.fileKor;
+            if (fc) siblingFileCodes.add(fc);
+          }
+        }
+        for (const fc of siblingFileCodes) {
+          const l3Key = treeNodeKey('f', year, sk, cat, fc);
+          s[l3Key] = (fc === fileCode);
+        }
+        saveTreeState(s);
+        // 트리 재렌더 — state 반영
+        if (typeof renderTree === 'function') {
+          const filterEl = document.getElementById('search');
+          renderTree(filterEl ? filterEl.value : '');
+        }
+      }
+    } catch (e) { /* state 적용 실패해도 파일 로드는 계속 */ }
     loadFileByPath(matchedPath);
   } else {
     console.warn('[peer-sync] hash case_id 매칭 실패:', caseId);
@@ -1680,8 +1817,21 @@ function renderTree(filter = '') {
           // L3 디폴트: 검색 중이거나 펼침 저장된 경우만 펼침 (단, user_input 1-case 노드는 디폴트 펼침)
           const firstMeta = fileNode.items && fileNode.items[0] && fileNode.items[0].meta;
           const isUserInput = firstMeta && firstMeta.type === 'user_input';
-          // user_input 노드는 항상 펼침 (L3 = title, L4 = case 1개라 폴더 의미 X — 버그 4 fix)
-          const l3Collapsed = isUserInput ? false : (!searching && state[l3Key] !== true);
+          // lawear-0981 (2026-05-25) Q5 fix — 사용자 펼침 상태 우선 (localStorage state)
+          //   기존: isUserInput 강제 펼침 → 사용자가 모고01만 펼쳐도 새로고침 시 모든 user_input L3 펼쳐짐
+          //   변경: state[l3Key] 명시값 우선, 미저장 시에만 user_input 디폴트 펼침 적용
+          //   우선순위: searching > state 명시값 > isUserInput 디폴트 > 일반 디폴트(접힘)
+          let l3Collapsed;
+          if (searching) {
+            l3Collapsed = false;
+          } else if (state[l3Key] === true) {
+            l3Collapsed = false;  // 사용자 명시 펼침
+          } else if (state[l3Key] === false) {
+            l3Collapsed = true;   // 사용자 명시 접힘 (user_input이라도 사용자 의사 존중)
+          } else {
+            // 미저장 — 디폴트: user_input 펼침 / 일반 접힘
+            l3Collapsed = isUserInput ? false : true;
+          }
           // 파일명 표시 (lawear-7ad6 v4):
           //  - user_input: meta.file 직접 (예: "01_공유물분할") — 사용자 명시 파일명 그대로
           //  - 일반: fileKor에서 과목/카테고리 prefix 제거 (예: '민법_입문_미케_01' → '미케_01')
@@ -1957,6 +2107,8 @@ function toggleSidebar() {
   const btn = document.getElementById('sidebar-toggle');
   sidebar.classList.toggle('collapsed');
   btn.textContent = sidebar.classList.contains('collapsed') ? '›' : '‹';
+  // lawear-0981 (2026-05-25) Q2/Q3 — 사이드 collapsed 영속화
+  saveTtsStateDebounced({ sidebarCollapsed: sidebar.classList.contains('collapsed') });
 }
 
 // ─────────── 파일 로드 ───────────
@@ -1969,6 +2121,10 @@ async function loadFileByPath(path) {
   fullContent = await res.text();
   currentFile = filename;
   currentPath = path;
+  // lawear-0981 (2026-05-25) Q2/Q3 — 마지막 열린 파일 영속화 (브라우저 재시작 후 복원)
+  saveTtsStateDebounced({ currentPath: path });
+  // lawear-0981 Q7 (2026-05-25) — 시험 점프 버튼 갱신 (case_id 변경 반영).
+  updatePeerJumpButton(path);
   renderContent();
 }
 
