@@ -351,22 +351,34 @@
     gap: 8px;
     min-width: 0;
   }
-  /* lawear-0981 (2026-05-26) 요청 4: 우측 큰 북마크 버튼 — 좌측 ★ 작아서 추가 */
-  .btn-bookmark-large {
-    background: transparent;
-    border: 1px solid var(--border);
-    color: var(--text-dim);
+  /* lawear-0981 (2026-05-26) 요청 4 v2: 우측 북마크 체크박스 — 좌측 사이드패널 체크박스와 동일 동작.
+     체크 = 북마크 / 언체크 = 해제. 페이지 진입 시 북마크 상태 반영. */
+  .bookmark-checkbox {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
     cursor: pointer;
-    border-radius: 3px;
-    font-size: 16px;
-    padding: 2px 10px;
     flex-shrink: 0;
-    line-height: 1.2;
+    padding: 2px 8px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: transparent;
+    font-size: 12px;
+    color: var(--text-dim);
+    user-select: none;
     transition: color 0.15s, background 0.15s;
   }
-  .btn-bookmark-large:hover { background: var(--panel-2); color: var(--text); }
-  .btn-bookmark-large.bookmarked { color: #ffd43b; }
-  .btn-bookmark-large.bookmarked:hover { color: #ffe066; }
+  .bookmark-checkbox:hover { background: var(--panel-2); color: var(--text); }
+  .bookmark-checkbox input[type="checkbox"] {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+  }
+  .bookmark-checkbox input[type="checkbox"]:checked ~ .bookmark-label {
+    color: #ffd43b;
+    font-weight: 600;
+  }
 
   /* Section */
   .section {
@@ -3157,7 +3169,10 @@
             <div class="breadcrumb" id="rv-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
             <button class="btn btn-copy-path" id="rv-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
             <!-- lawear-0981 (2026-05-26) 요청 4: 우측 큰 북마크 (좌측 ★ 작아서 추가) -->
-            <button class="btn-bookmark-large" id="rv-bookmark" title="북마크 토글" data-i18n-title="btn_bookmark">⭐</button>
+            <label class="bookmark-checkbox" for="rv-bookmark" title="북마크 (체크=북마크 / 언체크=해제)">
+              <input type="checkbox" id="rv-bookmark">
+              <span class="bookmark-label" data-i18n="btn_bookmark">북마크</span>
+            </label>
             <!-- 예습하러 가기 (17895 학습 페이지로 점프) — 요청 3 -->
             <button class="btn btn-peer-jump" id="rv-peer-jump" title="예습하러 가기 (17895)" data-i18n-title="btn_peer_jump" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0; display: none;">📖</button>
           </div>
@@ -3263,7 +3278,10 @@
           <div class="breadcrumb-row">
             <div class="breadcrumb" id="ev-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
             <button class="btn btn-copy-path" id="ev-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
-            <button class="btn-bookmark-large" id="ev-bookmark" title="북마크 토글" data-i18n-title="btn_bookmark">⭐</button>
+            <label class="bookmark-checkbox" for="ev-bookmark" title="북마크 (체크=북마크 / 언체크=해제)">
+              <input type="checkbox" id="ev-bookmark">
+              <span class="bookmark-label" data-i18n="btn_bookmark">북마크</span>
+            </label>
             <button class="btn btn-peer-jump" id="ev-peer-jump" title="예습하러 가기 (17895)" data-i18n-title="btn_peer_jump" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0; display: none;">📖</button>
           </div>
         </div>
@@ -3522,7 +3540,10 @@
             <div class="breadcrumb-row">
               <div class="breadcrumb" id="rep-case-breadcrumb"><span data-i18n="bc_cases">Cases</span> <a href="#">/</a> —</div>
               <button class="btn btn-copy-path" id="rep-case-copy-path" title="Copy path" aria-label="Copy path" data-i18n-title="btn_copy_path" data-i18n-aria="btn_copy_path" style="padding: 2px 8px; font-size: 11px; flex-shrink: 0;">📋</button>
-              <button class="btn-bookmark-large" id="rep-case-bookmark" title="북마크 토글" data-i18n-title="btn_bookmark">⭐</button>
+              <label class="bookmark-checkbox" for="rep-case-bookmark" title="북마크 (체크=북마크 / 언체크=해제)">
+                <input type="checkbox" id="rep-case-bookmark">
+                <span class="bookmark-label" data-i18n="btn_bookmark">북마크</span>
+              </label>
             </div>
           </div>
 
@@ -8211,17 +8232,18 @@
   // ════════════════════════════════════════════════
   // Step 9 — Bookmarks API wire (POST/DELETE /api/bookmarks/{id})
   // ════════════════════════════════════════════════
-  // lawear-0981 (2026-05-26) 요청 4: 우측 큰 ★ 버튼 상태 sync helper
+  // lawear-0981 (2026-05-26) 요청 4 v2: 우측 북마크 체크박스 상태 sync helper
+  // input.checked 갱신 (★ classList 패턴 → checkbox 패턴으로 변경)
   function syncRightBookmarkStar(caseId, isBookmarked) {
     if (typeof CURRENT_CASE_ID !== 'undefined' && CURRENT_CASE_ID === caseId) {
       const rv = document.getElementById('rv-bookmark');
       const ev = document.getElementById('ev-bookmark');
-      if (rv) rv.classList.toggle('bookmarked', !!isBookmarked);
-      if (ev) ev.classList.toggle('bookmarked', !!isBookmarked);
+      if (rv) rv.checked = !!isBookmarked;
+      if (ev) ev.checked = !!isBookmarked;
     }
     if (typeof REPORTS_STATE !== 'undefined' && REPORTS_STATE && REPORTS_STATE.currentCaseId === caseId) {
       const rc = document.getElementById('rep-case-bookmark');
-      if (rc) rc.classList.toggle('bookmarked', !!isBookmarked);
+      if (rc) rc.checked = !!isBookmarked;
     }
   }
 
@@ -10664,10 +10686,10 @@
       bcEl.innerHTML = `<span data-i18n="bc_cases">${I18N[currentLang].bc_cases}</span> <a href="#">/</a> ${yearSeg}${escapeHtml(subj)} <a href="#">/</a> ${escapeHtml(cat)} <a href="#">/</a> ${escapeHtml(file)} <a href="#">/</a> ${escapeHtml(caseNo)}`;
     }
 
-    // lawear-0981 (2026-05-26) 요청 4: By Case 우측 ★ 초기 상태
+    // lawear-0981 (2026-05-26) 요청 4 v2: By Case 우측 체크박스 초기 상태
     const cachedC = (CASES_CACHE || []).find(c => c.id === data.case_id);
-    const repStar = document.getElementById('rep-case-bookmark');
-    if (repStar) repStar.classList.toggle('bookmarked', !!(cachedC && cachedC.bookmarked));
+    const repCb = document.getElementById('rep-case-bookmark');
+    if (repCb) repCb.checked = !!(cachedC && cachedC.bookmarked);
   }
 
   function renderCaseKpi(kpi, data) {
