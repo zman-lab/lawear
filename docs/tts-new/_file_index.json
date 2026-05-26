@@ -1221,6 +1221,30 @@
       "userCase": null
     },
     {
+      "id": "2026_index_hyungbeop",
+      "subject": "index",
+      "subjectKor": "두문자",
+      "type": "library",
+      "case": "형법",
+      "title": "형법 두문자/요건 라이브러리",
+      "path": "두문자/형법.md",
+      "pdfPath": null,
+      "points": null,
+      "userCase": null
+    },
+    {
+      "id": "2026_index_hyungso",
+      "subject": "index",
+      "subjectKor": "두문자",
+      "type": "library",
+      "case": "형사소송법",
+      "title": "형사소송법 두문자/요건 라이브러리",
+      "path": "두문자/형소.md",
+      "pdfPath": null,
+      "points": null,
+      "userCase": null
+    },
+    {
       "id": "2026_minbeop_immun_mike01_01",
       "subject": "minbeop",
       "subjectKor": "민법",
