@@ -1494,6 +1494,16 @@
   .em-em2 { background: #f59f00; color: #1a1a1a; padding: 0 6px; border-radius: 3px; font-weight: 700; }
   .em-em3 { background: #1971c2; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
   .em-em4 { background: #6741d9; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  /* lawear-7ea2 (2026-05-26) 부등법 뎁스 태그 d1~d4 — 목차 들여쓰기 1:1 매핑 (좌측 보더 차등) */
+  .em-d1 { border-left: 4px solid #4ec9b0; padding-left: 8px; font-weight: 700; }
+  .em-d2 { border-left: 3px solid #569cd6; padding-left: 6px; font-weight: 600; }
+  .em-d3 { border-left: 2px solid #858585; padding-left: 4px; font-weight: 600; }
+  .em-d4 { border-left: 1px dashed #858585; padding-left: 3px; }
+  /* lawear-7ea2 (2026-05-26) 부등법 본문 강조 hl1~hl4 — 기존 em1~4 색상 계승 (두문자 em과 분리) */
+  .em-hl1 { background: #c92a2a; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .em-hl2 { background: #f59f00; color: #1a1a1a; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .em-hl3 { background: #1971c2; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .em-hl4 { background: #6741d9; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
   .em-con    { color: #ff6b6b; font-weight: 700; }
   .em-fact   { color: #ff922b; font-weight: 700; }
   .em-case   { color: #51cf66; font-weight: 700; }
@@ -7403,7 +7413,7 @@
     marked.setOptions({ breaks: true });
   }
   // 강조 태그 8종 + 색상 6종 + 본문 4종 + 폰트 5종 + 여분 2종. merge.html L1079 mirror.
-  const _EMP_TAG_NAMES = 'em1|em2|em3|em4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank';
+  const _EMP_TAG_NAMES = 'em1|em2|em3|em4|d1|d2|d3|d4|hl1|hl2|hl3|hl4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank';
   function renderMd(md) {
     if (md == null) return '';
     const placeholders = [];
@@ -7510,6 +7520,15 @@
       ['em2', 'em-em2'],
       ['em3', 'em-em3'],
       ['em4', 'em-em4'],
+      // lawear-7ea2 (2026-05-26) 부등법 뎁스 d1~4 + 본문 강조 hl1~4
+      ['d1', 'em-d1'],
+      ['d2', 'em-d2'],
+      ['d3', 'em-d3'],
+      ['d4', 'em-d4'],
+      ['hl1', 'em-hl1'],
+      ['hl2', 'em-hl2'],
+      ['hl3', 'em-hl3'],
+      ['hl4', 'em-hl4'],
       ['con', 'em-con'],
       ['fact', 'em-fact'],
       // 'case' 는 별도 분기 (data-comment 주입)

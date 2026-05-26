@@ -562,6 +562,17 @@
   .tts-em2 { background: #f59f00; color: #1a1a1a; padding: 0 6px; border-radius: 3px; font-weight: 700; }
   .tts-em3 { background: #1971c2; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
   .tts-em4 { background: #6741d9; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  /* lawear-7ea2 (2026-05-26): 부등법 뎁스 d1~d4 — 좌측 보더 차등 (17896 index.html 정본 일치).
+     recover() 가 [d1] → <span class="tts-d1"> 로 렌더 (cls = 'tts-' + tag). */
+  .tts-d1 { border-left: 4px solid #4ec9b0; padding-left: 8px; font-weight: 700; }
+  .tts-d2 { border-left: 3px solid #569cd6; padding-left: 6px; font-weight: 600; }
+  .tts-d3 { border-left: 2px solid #858585; padding-left: 4px; font-weight: 600; }
+  .tts-d4 { border-left: 1px dashed #858585; padding-left: 3px; }
+  /* lawear-7ea2 (2026-05-26): 부등법 본문 색강조 hl1~hl4 — 기존 em1~4 색 계승 (배경+흰글). */
+  .tts-hl1 { background: #c92a2a; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .tts-hl2 { background: #f59f00; color: #1a1a1a; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .tts-hl3 { background: #1971c2; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
+  .tts-hl4 { background: #6741d9; color: #ffffff; padding: 0 6px; border-radius: 3px; font-weight: 700; }
   /* 신규: 의미 5종 (케이스/Lv.4용, 폰트색만, 자동 굵게) */
   .tts-con    { color: #ff6b6b; font-weight: 700; }
   .tts-fact   { color: #ff922b; font-weight: 700; }
@@ -668,6 +679,10 @@
   body.stealth .tts-em2,
   body.stealth .tts-em3,
   body.stealth .tts-em4,
+  body.stealth .tts-hl1,
+  body.stealth .tts-hl2,
+  body.stealth .tts-hl3,
+  body.stealth .tts-hl4,
   body.stealth .tts-con,
   body.stealth .tts-fact,
   body.stealth .tts-case,
@@ -681,6 +696,15 @@
     text-decoration: none !important;
     padding: 0 !important;
     border-radius: 0 !important;
+  }
+  /* lawear-7ea2 (2026-05-26): 위장 모드 — 뎁스 d1~d4 좌측 보더도 제거 (구조 강조 평탄화). */
+  body.stealth .tts-d1,
+  body.stealth .tts-d2,
+  body.stealth .tts-d3,
+  body.stealth .tts-d4 {
+    border-left: none !important;
+    padding-left: 0 !important;
+    font-weight: normal !important;
   }
 
   /* Modal */
@@ -747,6 +771,16 @@
   .em-btn.em-em2 { background: #f59f00; color: #1a1a1a; border-color: #d18e00; }
   .em-btn.em-em3 { background: #1971c2; color: #fff; border-color: #155a9c; }
   .em-btn.em-em4 { background: #6741d9; color: #fff; border-color: #5333b8; }
+  /* lawear-7ea2 (2026-05-26): 부등법 뎁스 d1~d4 버튼 — 좌측 보더로 단계 시각화 (17896 보더 색 일치) */
+  .em-btn.em-d1 { border-left: 4px solid #4ec9b0; color: #4ec9b0; font-weight: 700; }
+  .em-btn.em-d2 { border-left: 3px solid #569cd6; color: #569cd6; font-weight: 600; }
+  .em-btn.em-d3 { border-left: 2px solid #858585; color: #b5b5b5; font-weight: 600; }
+  .em-btn.em-d4 { border-left: 1px dashed #858585; color: #858585; }
+  /* lawear-7ea2 (2026-05-26): 부등법 본문 색강조 hl1~hl4 버튼 — em1~4 색 계승 */
+  .em-btn.em-hl1 { background: #c92a2a; color: #fff; border-color: #a51e1e; }
+  .em-btn.em-hl2 { background: #f59f00; color: #1a1a1a; border-color: #d18e00; }
+  .em-btn.em-hl3 { background: #1971c2; color: #fff; border-color: #155a9c; }
+  .em-btn.em-hl4 { background: #6741d9; color: #fff; border-color: #5333b8; }
   /* 신규 의미 5종 버튼 */
   .em-btn.em-con    { color: #ff6b6b; font-weight: 700; }
   .em-btn.em-fact   { color: #ff922b; font-weight: 700; }
@@ -821,7 +855,7 @@
   </div>
 </div>
 <button id="sidebar-toggle" onclick="toggleSidebar()" title="Sidebar Toggle (B)">‹</button>
-<button id="sidebar-refresh" onclick="location.reload()" title="새로고침">↻</button>
+<button id="sidebar-refresh" onclick="location.href = location.pathname + '?_t=' + Date.now() + location.hash" title="강력 새로고침 (모바일 캐시 우회)">↻</button>
 <div class="right-toggles">
   <!-- lawear-0981 Q7 (2026-05-25) 양방향 페이지 동기 — 17896 시험 콘솔로 점프 (현재 case_id hash) -->
   <button id="peer-jump-exam" onclick="jumpToExamPeer()" title="시험 바로 보기 (17896)" style="display: none;">🎯</button>
@@ -848,6 +882,16 @@
       <button class="em-btn em-em2" onclick="wrapEmphasis('em2')" title="em2 — 메인 풀이 (노/흰)">em2</button>
       <button class="em-btn em-em3" onclick="wrapEmphasis('em3')" title="em3 — 풀이형 보조 (파/흰)">em3</button>
       <button class="em-btn em-em4" onclick="wrapEmphasis('em4')" title="em4 — 풀이형 키워드 (보/흰)">em4</button>
+      <!-- 부등법 뎁스 d1~d4 (헤더 들여쓰기, 좌측 보더 차등) — lawear-7ea2 -->
+      <button class="em-btn em-d1" onclick="wrapEmphasis('d1')" title="뎁스1 (목차 1단)">d1</button>
+      <button class="em-btn em-d2" onclick="wrapEmphasis('d2')" title="뎁스2 (목차 2단)">d2</button>
+      <button class="em-btn em-d3" onclick="wrapEmphasis('d3')" title="뎁스3 (목차 3단)">d3</button>
+      <button class="em-btn em-d4" onclick="wrapEmphasis('d4')" title="뎁스4 (목차 4단)">d4</button>
+      <!-- 부등법 본문 색강조 hl1~hl4 (em1~4 색 계승) — lawear-7ea2 -->
+      <button class="em-btn em-hl1" onclick="wrapEmphasis('hl1')" title="강조1 (빨강)">hl1</button>
+      <button class="em-btn em-hl2" onclick="wrapEmphasis('hl2')" title="강조2 (노랑)">hl2</button>
+      <button class="em-btn em-hl3" onclick="wrapEmphasis('hl3')" title="강조3 (파랑)">hl3</button>
+      <button class="em-btn em-hl4" onclick="wrapEmphasis('hl4')" title="강조4 (보라)">hl4</button>
       <!-- 신규 의미 5종 (Lv.4 케이스) -->
       <button class="em-btn em-con" onclick="wrapEmphasis('con')" title="결론 [con]">결론</button>
       <button class="em-btn em-fact" onclick="wrapEmphasis('fact')" title="요건 사실 [fact]">요건</button>
@@ -1392,7 +1436,10 @@ if (typeof marked !== 'undefined' && marked.setOptions) {
 }
 function renderMd(md) {
   const placeholders = [];
-  const tagRe = /\[(em1|em2|em3|em4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\]((?:(?!\[(?:em1|em2|em3|em4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\])[\s\S])*?)\[\/\1\]/g;
+  // lawear-7ea2 (2026-05-26): 부등법 신규 태그 d1~d4(헤더 뎁스) + hl1~hl4(본문 색강조) 추가.
+  //   d/hl 도 [em1] 등과 동일하게 placeholder 보호 → recover 에서 <span class="tts-{tag}">.
+  //   누락 시 marked 가 [d2]...[/d2] 를 raw 노출하므로 양쪽 정규식에 모두 등재 필수.
+  const tagRe = /\[(em1|em2|em3|em4|d1|d2|d3|d4|hl1|hl2|hl3|hl4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\]((?:(?!\[(?:em1|em2|em3|em4|d1|d2|d3|d4|hl1|hl2|hl3|hl4|con|fact|case|bridge|key|free1|free2|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\])[\s\S])*?)\[\/\1\]/g;
   let escaped = md;
   let prev;
   let iter = 0;
@@ -2590,6 +2637,15 @@ function stripEmphasis(text) {
     .replace(/\[em2\]([\s\S]+?)\[\/em2\]/g, '$1')
     .replace(/\[em3\]([\s\S]+?)\[\/em3\]/g, '$1')
     .replace(/\[em4\]([\s\S]+?)\[\/em4\]/g, '$1')
+    // lawear-7ea2 (2026-05-26): 부등법 d1~d4(뎁스) + hl1~hl4(강조) 다운로드 시 strip (TTS 노이즈 방지)
+    .replace(/\[d1\]([\s\S]+?)\[\/d1\]/g, '$1')
+    .replace(/\[d2\]([\s\S]+?)\[\/d2\]/g, '$1')
+    .replace(/\[d3\]([\s\S]+?)\[\/d3\]/g, '$1')
+    .replace(/\[d4\]([\s\S]+?)\[\/d4\]/g, '$1')
+    .replace(/\[hl1\]([\s\S]+?)\[\/hl1\]/g, '$1')
+    .replace(/\[hl2\]([\s\S]+?)\[\/hl2\]/g, '$1')
+    .replace(/\[hl3\]([\s\S]+?)\[\/hl3\]/g, '$1')
+    .replace(/\[hl4\]([\s\S]+?)\[\/hl4\]/g, '$1')
     .replace(/\[con\]([\s\S]+?)\[\/con\]/g, '$1')
     .replace(/\[fact\]([\s\S]+?)\[\/fact\]/g, '$1')
     .replace(/\[case\]([\s\S]+?)\[\/case\]/g, '$1')
@@ -2842,7 +2898,7 @@ function wrapEmphasis(tag) {
   const end = ta.selectionEnd;
   if (start === end) { setSaveStatus('텍스트를 먼저 선택하세요', 'error'); return; }
   const selected = ta.value.substring(start, end);
-  const allTags = ['em1', 'em2', 'em3', 'em4', 'con', 'fact', 'case', 'bridge', 'key', 'free1', 'free2', 'red', 'blue', 'purple', 'violet', 'magenta', 'indigo', 'bold', 'u', 'blank2', 'blank'];
+  const allTags = ['em1', 'em2', 'em3', 'em4', 'd1', 'd2', 'd3', 'd4', 'hl1', 'hl2', 'hl3', 'hl4', 'con', 'fact', 'case', 'bridge', 'key', 'free1', 'free2', 'red', 'blue', 'purple', 'violet', 'magenta', 'indigo', 'bold', 'u', 'blank2', 'blank'];
   let cleaned = selected;
   for (const t of allTags) {
     const re = new RegExp(`\\[${t}\\]([\\s\\S]+?)\\[\\/${t}\\]`, 'g');
