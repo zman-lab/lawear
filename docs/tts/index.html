@@ -37,6 +37,21 @@
   #sidebar-toggle:hover { background: #21262d; color: #58a6ff; }
   #sidebar.collapsed ~ #sidebar-toggle { left: 0; }
 
+  /* lawear-7ea2 (2026-05-26): 강력새로고침 버튼 — 토글 옆에 색 구분, 캐시 우회 */
+  #sidebar-refresh {
+    position: fixed; top: 56px; left: 320px; z-index: 100;
+    width: 22px; height: 36px;
+    border: 1px solid #30363d; border-left: none;
+    background: #161b22; color: #4ec9b0;
+    border-radius: 0 6px 6px 0;
+    cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: left 0.2s, transform 0.3s;
+  }
+  #sidebar-refresh:hover { background: #21262d; color: #58a6ff; }
+  #sidebar-refresh:active { transform: rotate(180deg); }
+  #sidebar.collapsed ~ #sidebar-refresh { left: 0; }
+
   #content { flex: 1; overflow-y: auto; padding: 32px 48px; }
   #content h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 8px; margin-bottom: 16px; }
   #content h2 { color: #e6edf3; margin-top: 24px; margin-bottom: 8px; border-bottom: 1px solid #21262d; padding-bottom: 4px; }
@@ -84,6 +99,7 @@
   <div id="fileTree"></div>
 </div>
 <button id="sidebar-toggle" onclick="toggleSidebar()" title="사이드바 토글 (B)">◀</button>
+<button id="sidebar-refresh" title="강력새로고침 (캐시 우회)" onclick="location.href = location.pathname + '?_t=' + Date.now() + location.hash">↻</button>
 <div id="content">
   <div class="empty">좌측에서 파일을 선택하세요</div>
 </div>

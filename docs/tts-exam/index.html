@@ -3152,7 +3152,7 @@
   </div>
 
   <button id="sidebar-toggle" title="Sidebar Toggle">‹</button>
-  <button id="sidebar-refresh" title="새로고침" data-i18n-title="btn_refresh" onclick="location.reload()">↻</button>
+  <button id="sidebar-refresh" title="새로고침" data-i18n-title="btn_refresh" onclick="location.href = location.pathname + '?_t=' + Date.now() + location.hash">↻</button>
 
   <!-- Content -->
   <div class="content">

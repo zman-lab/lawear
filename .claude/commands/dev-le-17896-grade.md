@@ -53,6 +53,7 @@ metadata:
 5. **사용자 27건 침범 X** — 채점은 DB만 변경 (코드/.md 변경 0건). 매 채점 후 `git status -s docs/tts-new/` 0줄 확인 강제
 6. **자동 polling 금지** — 사용자 발화 트리거 (a91b #1976)
 7. **cases path mismatch 시 자동 SQL UPDATE 금지** — 사용자에게 17895 리스캔 안내만
+8. **STT 발음 교정 조언 절대 금지** ([[no-stt-phonetic-advice]] 2026-05-26 lawear-7ea2) — STT 오타는 갤럭시 STT 자동 치환(시스템 한계), 사용자 정확 발음. next_study/pattern_warning/gap_roadmap에 발음/어휘 부합/STT/단어카드 음성 녹음/표제어 발음 항목 X. 부장판사·강사 SE prompt에 명시. 부장판사·강사 SE input은 typo_corrections 적용 교정본 (원본 STT 오타 노출 X — 매핑 검증은 부장판사 R-09 검증 영역에서만 원본 비교). 메인 1차 채점도 STT 오타 자체를 9기준 점수에 반영 X (sem/color/under는 교정본 기준).
 
 ## 워크플로우
 
