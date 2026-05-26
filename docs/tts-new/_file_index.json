@@ -1209,6 +1209,18 @@
       "userCase": null
     },
     {
+      "id": "2026_index_budeunglaw",
+      "subject": "index",
+      "subjectKor": "두문자",
+      "type": "library",
+      "case": "부동산등기법",
+      "title": "부동산등기법 두문자/요건 라이브러리",
+      "path": "두문자/부등법.md",
+      "pdfPath": null,
+      "points": null,
+      "userCase": null
+    },
+    {
       "id": "2026_minbeop_immun_mike01_01",
       "subject": "minbeop",
       "subjectKor": "민법",
