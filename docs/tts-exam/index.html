@@ -7340,9 +7340,12 @@
         if (idx >= 0) hangNo = idx + 1;
       }
     }
-    // 호: '제N호'
+    // 호: '제N호' (lawear-6be6 fix: anchor `^[^제]{0,16}` 가 "제N항 제K호" 패턴에서 호 매칭 실패.
+    //              다른 조(다음 "제N조") 등장 전까지만 검색하여 cross-contamination 방지.)
     let hoNo = null;
-    const hoM = tail.match(/^[^제]{0,16}제(\d+)호/);
+    const nextArtIdx = tail.search(/제\d+조/);
+    const hoScope = nextArtIdx >= 0 ? tail.slice(0, nextArtIdx) : tail;
+    const hoM = hoScope.match(/제(\d+)호/);
     if (hoM) hoNo = parseInt(hoM[1], 10);
 
     // 4) 텍스트 조립 (R-09 — 원문 그대로, 가공 X)
