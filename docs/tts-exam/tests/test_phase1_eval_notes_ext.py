@@ -386,5 +386,129 @@ class SaveGradeResultPhase1Test(unittest.TestCase):
         self.assertEqual(en["missing_critical"][0]["item"], "X")
 
 
+# ─── mnemonic_suggestions (lawear-6be6 #6, 2026-05-26) ───────────────
+
+
+class MnemonicSuggestionsNormalizeTest(unittest.TestCase):
+    """attempts._normalize_eval_notes — mnemonic_suggestions 키 정규화.
+
+    M4 attempts.py L1567-L1595 (mnemonic_suggestions 블록) 검증.
+    구조: {judge: list[dict], lecturer: list[dict]} | None.
+    R-09: 각 dict 통째 보존(extra_field_xyz/nested 등). 캡 10 silent slice.
+    """
+
+    def test_mnemonic_suggestions_legacy_attempt(self) -> None:
+        """레거시 attempts (mnemonic_suggestions 키 미존재) → None 자동 정규화.
+
+        [블록 1] 사용자 룰 #1 backward compat 100% — legacy attempt 미존재키 graceful.
+        """
+        out = attempts_mod._normalize_eval_notes({"strength": "..."})
+        self.assertIn("mnemonic_suggestions", out)
+        self.assertIsNone(out["mnemonic_suggestions"])
+
+    def test_mnemonic_suggestions_explicit_none(self) -> None:
+        """명시 None → None 통과 (attempts.py L1572-L1573)."""
+        out = attempts_mod._normalize_eval_notes({"mnemonic_suggestions": None})
+        self.assertIsNone(out["mnemonic_suggestions"])
+
+    def test_mnemonic_suggestions_empty_both_lists_to_none(self) -> None:
+        """양쪽 빈 list → None 정규화 (UI 분기 단순화, attempts.py L1584-L1585)."""
+        out = attempts_mod._normalize_eval_notes(
+            {"mnemonic_suggestions": {"judge": [], "lecturer": []}}
+        )
+        self.assertIsNone(out["mnemonic_suggestions"])
+
+    def test_mnemonic_suggestions_valid_dict_passthrough(self) -> None:
+        """유효 dict → 통째 보존 (R-09).
+
+        [블록 1] 사용자 룰 #2 R-09 통째 보존 — dict 내부 nested 필드 그대로.
+        attempts.py L1582-L1583: dict(item) shallow copy 후 통째 보존.
+        """
+        raw = {
+            "mnemonic_suggestions": {
+                "judge": [
+                    {
+                        "mnemonic_text": "[em1]일[/em1]·[em1]시[/em1]·[em1]불[/em1]",
+                        "source": "민법.md#L499",
+                        "extra_field_xyz": 123,
+                        "nested": {"a": 1},
+                    }
+                ],
+                "lecturer": [],
+            }
+        }
+        out = attempts_mod._normalize_eval_notes(raw)
+        ms = out["mnemonic_suggestions"]
+        self.assertIsNotNone(ms)
+        self.assertEqual(ms["judge"][0]["source"], "민법.md#L499")
+        # R-09 통째 보존
+        self.assertEqual(ms["judge"][0]["extra_field_xyz"], 123)
+        # nested 보존
+        self.assertEqual(ms["judge"][0]["nested"], {"a": 1})
+        # 한쪽 빈 list 도 dict 형태로 보존 (다른 쪽 비어있지 않으므로)
+        self.assertEqual(ms["lecturer"], [])
+
+    def test_mnemonic_suggestions_cap_10(self) -> None:
+        """15개 입력 → silent slice 10개 (사용자 피로 방지).
+
+        [블록 1] 사용자 룰 #4 캡 10 검증.
+        attempts.py L1588-L1589: judge_normalized[:10] / lecturer_normalized[:10].
+        """
+        items = [
+            {"mnemonic_text": f"m{i}", "source": f"민법.md#L{i}"} for i in range(15)
+        ]
+        out = attempts_mod._normalize_eval_notes(
+            {"mnemonic_suggestions": {"judge": items, "lecturer": []}}
+        )
+        self.assertEqual(len(out["mnemonic_suggestions"]["judge"]), 10)
+
+    def test_mnemonic_suggestions_invalid_type_list_reject(self) -> None:
+        """list 입력 → GradeInjectionError (dict 아님).
+
+        [블록 1] 사용자 룰 #3 타입 strict 검증.
+        attempts.py L1591-L1595: dict/None 아니면 reject.
+        """
+        with self.assertRaises(attempts_mod.GradeInjectionError):
+            attempts_mod._normalize_eval_notes({"mnemonic_suggestions": ["bad"]})
+
+    def test_mnemonic_suggestions_invalid_type_str_reject(self) -> None:
+        """str 입력 → GradeInjectionError. attempts.py L1591-L1595."""
+        with self.assertRaises(attempts_mod.GradeInjectionError):
+            attempts_mod._normalize_eval_notes({"mnemonic_suggestions": "bad"})
+
+    def test_mnemonic_suggestions_invalid_type_int_reject(self) -> None:
+        """int 입력 → GradeInjectionError. attempts.py L1591-L1595."""
+        with self.assertRaises(attempts_mod.GradeInjectionError):
+            attempts_mod._normalize_eval_notes({"mnemonic_suggestions": 42})
+
+    def test_mnemonic_suggestions_invalid_inner_type(self) -> None:
+        """judge=str → GradeInjectionError (nested type strict).
+
+        attempts.py L1577-L1581: judge/lecturer 각각 list 아니면 reject.
+        """
+        with self.assertRaises(attempts_mod.GradeInjectionError):
+            attempts_mod._normalize_eval_notes(
+                {"mnemonic_suggestions": {"judge": "bad", "lecturer": []}}
+            )
+
+    def test_mnemonic_suggestions_non_dict_items_skipped(self) -> None:
+        """list 안 non-dict 항목 graceful skip.
+
+        attempts.py L1582-L1583: `for item in judge_raw if isinstance(item, dict)`.
+        """
+        raw = {
+            "mnemonic_suggestions": {
+                "judge": [{"mnemonic_text": "ok"}, "bad", 123],
+                "lecturer": [],
+            }
+        }
+        out = attempts_mod._normalize_eval_notes(raw)
+        # bad/123 skip → judge 1개만 살아남음
+        self.assertEqual(len(out["mnemonic_suggestions"]["judge"]), 1)
+        self.assertEqual(
+            out["mnemonic_suggestions"]["judge"][0]["mnemonic_text"], "ok"
+        )
+
+
 if __name__ == "__main__":
     unittest.main()

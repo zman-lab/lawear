@@ -2236,6 +2236,23 @@
   }
   .examiner-card .examiner-quote::before { content: '“'; color: var(--text-dim); margin-right: 2px; }
   .examiner-card .examiner-quote::after  { content: '”'; color: var(--text-dim); margin-left: 2px; }
+  /* lawear-6be6 Task M6 (Phase 1 MVP) — examiner-card 안 두문자 섹션 (judge/lecturer 별 mnemonic 제안) */
+  .examiner-mnemonic {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+  }
+  .examiner-mnemonic-head { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .examiner-mnemonic-list { list-style: none; padding: 0; margin: 0; }
+  .examiner-mnemonic-item { position: relative; padding: 8px 30px 8px 10px; margin-bottom: 6px; background: var(--bg-soft, rgba(255,255,255,0.04)); border-radius: 3px; font-size: 12px; line-height: 1.5; }
+  .examiner-mnemonic-item .mnemonic-text { font-weight: 600; font-family: 'SF Mono', monospace; }
+  .examiner-mnemonic-item .mnemonic-expansion { color: var(--text); margin-top: 2px; }
+  .examiner-mnemonic-item .mnemonic-meta { color: var(--text-dim); font-size: 11px; margin-top: 4px; display: flex; gap: 10px; }
+  .mnemonic-source-link { color: var(--accent); text-decoration: none; }
+  .mnemonic-source-link:hover { text-decoration: underline; }
+  .mnemonic-dismiss-btn { position: absolute; top: 6px; right: 6px; padding: 2px 6px; font-size: 10px; background: transparent; border: 1px solid var(--border); border-radius: 2px; color: var(--text-dim); cursor: pointer; }
+  .mnemonic-dismiss-btn:hover { color: var(--text); }
+  .examiner-mnemonic-empty { font-size: 11px; color: var(--text-dim); font-style: italic; }
   /* e571-ui-eval-rework — 평가지 영역 확장 (origin 하단 제거 → eval 가 모달 높이 거의 전체) */
   .modal-grid .modal-right { display: flex; flex-direction: column; min-height: 0; }
   .modal-grid .modal-right h5 { flex: none; }
@@ -4079,6 +4096,13 @@
       examiner_empty: 'No examiner quotes — legacy attempt or new grading not yet applied.',
       examiner_judge: 'Presiding Judge',
       examiner_lecturer: 'Lecturer',
+      // lawear-6be6 Task M6 — examiner-card 안 두문자 섹션 (judge/lecturer)
+      examiner_mnemonic_judge: "Judge's Mnemonic Suggestions",
+      examiner_mnemonic_lecturer: "Lecturer's Mnemonic Suggestions",
+      mnemonic_dismiss: 'Dismiss',
+      mnemonic_unavailable_subject: 'Mnemonic library not collected for this subject',
+      mnemonic_lib_link: 'View library',
+      mnemonic_no_suggestions: 'No suggestions (answer covered sufficiently)',
       // e571-ui-eval-rework — pattern_warning header (legacy graceful)
       rich_pattern_warning: 'Recurring Pattern Warning',
       // e571-typo-system — typo_corrections title (음성 STT 오타 교정)
@@ -4375,6 +4399,13 @@
       examiner_empty: '시험관 코멘트 없음 — 이전 채점이거나 신규 채점 데이터 미적용.',
       examiner_judge: '부장판사',
       examiner_lecturer: '강사',
+      // lawear-6be6 Task M6 — examiner-card 안 두문자 섹션 (부장판사/강사)
+      examiner_mnemonic_judge: '🎓 부장판사 두문자 제안',
+      examiner_mnemonic_lecturer: '📚 강사 두문자 제안',
+      mnemonic_dismiss: '닫기',
+      mnemonic_unavailable_subject: '이 과목은 두문자 라이브러리 미수집',
+      mnemonic_lib_link: '📖 라이브러리 보기',
+      mnemonic_no_suggestions: '제안 두문자 없음 (충분히 답안 작성)',
       // e571-ui-eval-rework — pattern_warning 헤더 (legacy graceful)
       rich_pattern_warning: '반복 약점 패턴 경고',
       // e571-typo-system — typo_corrections 헤더 (음성 STT 오타 교정)
@@ -11449,9 +11480,82 @@
     el.innerHTML = html;
   }
 
+  // lawear-6be6 Task M6 (Phase 1 MVP) — dismiss-only localStorage 헬퍼.
+  //   * 서버 PATCH X — 클라이언트만 저장 (per-attempt 키).
+  //   * source 식별자(라이브러리 ref) 단위 dismiss → 동일 attempt 재진입 시 hidden.
+  function loadDismissedMnemonics(attemptId) {
+    try {
+      const raw = localStorage.getItem(`dismissedMnemonics_${attemptId}`);
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch { return new Set(); }
+  }
+
+  function onMnemonicDismiss(e, attemptId) {
+    const source = e.currentTarget.dataset.source;
+    if (!source) return;
+    const set = loadDismissedMnemonics(attemptId);
+    set.add(source);
+    localStorage.setItem(`dismissedMnemonics_${attemptId}`, JSON.stringify([...set]));
+    e.currentTarget.closest('.examiner-mnemonic-item').remove();
+  }
+
+  // lawear-6be6 Task M6 — perspective(judge/lecturer)별 두문자 섹션 HTML 빌드.
+  //   * 빈 case 분기: suggestions === null → "라이브러리 미수집" / [] → "제안 없음 (충분히 답안)".
+  //   * letter 묶음 보존: mnemonic_text 안 [em1]/점(·) 태그 그대로 (R-09 + 사용자 룰 #2).
+  //     escapeHtml() + applyEmphasisTags() 조합으로 안전 렌더 (XSS 방지 + [em1] span 변환).
+  //   * dismiss 버튼은 source(라이브러리 ref) 단위. 클릭 시 localStorage 저장 + DOM 제거.
+  //   * 라이브러리 링크: Phase 1 alert (Phase 2에서 라이브러리 뷰어 새 탭 연결 예정).
+  function buildMnemonicSection(suggestions, perspective, attemptId, dict, dismissedSet) {
+    const headLabel = (perspective === 'judge')
+      ? (dict.examiner_mnemonic_judge || "Judge's Mnemonic Suggestions")
+      : (dict.examiner_mnemonic_lecturer || "Lecturer's Mnemonic Suggestions");
+    const head = `<div class="examiner-mnemonic-head">${escapeHtml(headLabel)}</div>`;
+    // 빈 case 분기 — 라이브러리 미수집(null) vs 매칭 0건([])
+    if (suggestions === null || suggestions === undefined) {
+      return `<div class="examiner-mnemonic">${head}<div class="examiner-mnemonic-empty">${escapeHtml(dict.mnemonic_unavailable_subject || 'Mnemonic library not collected for this subject')}</div></div>`;
+    }
+    // 부장판사 QA P0 fix: dev-design 명세 dict 구조 {judge: [...], lecturer: [...]}
+    //   (이전 array + perspective 필드 가정 — 서버 dict 구조와 미스매치)
+    const arr = (suggestions && typeof suggestions === 'object' && Array.isArray(suggestions[perspective]))
+      ? suggestions[perspective]
+      : [];
+    const items = arr.filter(s => s && !dismissedSet.has(s.source || ''));
+    if (items.length === 0) {
+      return `<div class="examiner-mnemonic">${head}<div class="examiner-mnemonic-empty">${escapeHtml(dict.mnemonic_no_suggestions || 'No suggestions (answer covered sufficiently)')}</div></div>`;
+    }
+    const dismissLabel = escapeHtml(dict.mnemonic_dismiss || 'Dismiss');
+    const libLinkLabel = escapeHtml(dict.mnemonic_lib_link || 'View library');
+    let listHtml = '';
+    for (const s of items) {
+      const text = (typeof s.mnemonic_text === 'string') ? s.mnemonic_text : '';
+      // 부장판사 QA P0 fix: 필드명 dev-design 명세 부합 (mnemonic_expansion → expansion)
+      const expansion = (typeof s.expansion === 'string') ? s.expansion : '';
+      const source = (typeof s.source === 'string') ? s.source : '';
+      // [em1] 태그 + 점(·) 보존 — escapeHtml 후 applyEmphasisTags 로 span 변환.
+      const textHtml = applyEmphasisTags(escapeHtml(text));
+      const expansionHtml = applyEmphasisTags(escapeHtml(expansion));
+      const sourceAttr = escapeAttr(source);
+      // Phase 1: source-link 는 alert 스텁 (Phase 2 라이브러리 뷰어 연결 예정).
+      //   inline onclick 회피 — addEventListener wire (XSS 안전 + HTML 엔티티 디코딩 사고 방지).
+      const metaHtml = source
+        ? `<div class="mnemonic-meta"><a href="#" class="mnemonic-source-link" data-source="${sourceAttr}">${libLinkLabel}</a></div>`
+        : '';
+      listHtml += `<li class="examiner-mnemonic-item">
+        <button type="button" class="mnemonic-dismiss-btn" data-source="${sourceAttr}" title="${dismissLabel}">${dismissLabel}</button>
+        <div class="mnemonic-text">${textHtml}</div>
+        ${expansionHtml ? `<div class="mnemonic-expansion">${expansionHtml}</div>` : ''}
+        ${metaHtml}
+      </li>`;
+    }
+    return `<div class="examiner-mnemonic">${head}<ul class="examiner-mnemonic-list">${listHtml}</ul></div>`;
+  }
+
   // 시험관 pane (judge_quote + lecturer_quote 카드 2개).
   //   * 둘 다 NULL → 빈 상태 메시지.
   //   * 한쪽만 있어도 정상 표시 (해당 카드만).
+  // lawear-6be6 Task M6 (Phase 1 MVP): 각 카드 안에 두문자 제안 섹션 추가.
+  //   * eval_notes.mnemonic_suggestions 배열에서 perspective 필드로 분기 (judge/lecturer).
+  //   * 인용(quote) 없어도 mnemonic 만으로 카드 표시 — judge/lecturer 어느 한쪽이라도 데이터 있으면 노출.
   function renderExaminerPane(att, el) {
     if (!el) return;
     const dict = I18N[currentLang] || {};
@@ -11460,30 +11564,67 @@
       ? notes.judge_quote.trim() : null;
     const lecturer = (typeof notes.lecturer_quote === 'string' && notes.lecturer_quote.trim())
       ? notes.lecturer_quote.trim() : null;
-    if (!judge && !lecturer) {
+    // mnemonic_suggestions: undefined(legacy) / null(라이브러리 미수집) / [](매칭 0건) / [...] 정상.
+    const hasMnemonicField = Object.prototype.hasOwnProperty.call(notes, 'mnemonic_suggestions');
+    const mnemonicSuggestions = hasMnemonicField ? notes.mnemonic_suggestions : undefined;
+    const attemptId = (att && (att.id || att.attempt_id)) || '';
+    const dismissedSet = loadDismissedMnemonics(attemptId);
+    // 두문자 데이터가 perspective 별로 존재하는지 판정 (카드 단독 노출용).
+    const suggestionsArr = Array.isArray(mnemonicSuggestions) ? mnemonicSuggestions : [];
+    const hasJudgeMnemonic = hasMnemonicField && (mnemonicSuggestions === null || suggestionsArr.some(s => s && s.perspective === 'judge'));
+    const hasLecturerMnemonic = hasMnemonicField && (mnemonicSuggestions === null || suggestionsArr.some(s => s && s.perspective === 'lecturer'));
+    const showJudgeCard = judge || hasJudgeMnemonic;
+    const showLecturerCard = lecturer || hasLecturerMnemonic;
+    if (!showJudgeCard && !showLecturerCard) {
       el.innerHTML = `<div class="modal-right-empty">${escapeHtml(dict.examiner_empty || 'No examiner quotes.')}</div>`;
       return;
     }
     let html = '';
-    if (judge) {
+    if (showJudgeCard) {
+      const quoteHtml = judge
+        ? `<div class="examiner-quote">${renderInlineMd(judge)}</div>`
+        : '';
+      const mnemonicHtml = hasMnemonicField
+        ? buildMnemonicSection(mnemonicSuggestions, 'judge', attemptId, dict, dismissedSet)
+        : '';
       html += `<div class="examiner-card role-judge">
         <div class="examiner-head">
           <span>👨‍⚖️</span>
           <span class="examiner-role">${escapeHtml(dict.examiner_judge || 'Presiding Judge')}</span>
         </div>
-        <div class="examiner-quote">${renderInlineMd(judge)}</div>
+        ${quoteHtml}
+        ${mnemonicHtml}
       </div>`;
     }
-    if (lecturer) {
+    if (showLecturerCard) {
+      const quoteHtml = lecturer
+        ? `<div class="examiner-quote">${renderInlineMd(lecturer)}</div>`
+        : '';
+      const mnemonicHtml = hasMnemonicField
+        ? buildMnemonicSection(mnemonicSuggestions, 'lecturer', attemptId, dict, dismissedSet)
+        : '';
       html += `<div class="examiner-card role-lecturer">
         <div class="examiner-head">
           <span>👨‍🏫</span>
           <span class="examiner-role">${escapeHtml(dict.examiner_lecturer || 'Lecturer')}</span>
         </div>
-        <div class="examiner-quote">${renderInlineMd(lecturer)}</div>
+        ${quoteHtml}
+        ${mnemonicHtml}
       </div>`;
     }
     el.innerHTML = html;
+    // dismiss 버튼 wire — addEventListener (HTML attribute onclick 회피, CSP 친화).
+    el.querySelectorAll('.mnemonic-dismiss-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => onMnemonicDismiss(e, attemptId));
+    });
+    // 라이브러리 링크 wire — Phase 1 alert 스텁 (Phase 2 라이브러리 뷰어 연결 예정).
+    el.querySelectorAll('.mnemonic-source-link').forEach(a => {
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        const src = e.currentTarget.dataset.source || '';
+        alert(src);
+      });
+    });
   }
 
   // View Mode 토글 전환 — 현재 attempt 다시 렌더 (재fetch X).

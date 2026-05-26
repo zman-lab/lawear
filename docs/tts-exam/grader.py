@@ -438,6 +438,16 @@ typo_corrections 사전 매칭 후에도 남은 표기 차이는 *의미*가 통
   - 형식: list[{"from": str, "to": str, "reason": str}]
   - 정적 사전 매칭 결과는 메인 세션이 별도로 누적 — AI 채점관은 *추가 발견* 항목만 기록 가능.
 
+[두문자 제안 코너 룰 — lawear-6be6 #6 (2026-05-26)]
+1. 라이브러리 entry 없는 두문자 자체 생성 절대 금지 — 서버 사이드 mnemonic_lib.match_missing_to_mnemonic 결과만 사용.
+2. "포기"·"미수집" 마킹 entry는 라이브러리 측에서 자동 skip (Sub-A 검증 완료).
+3. mnemonic_text는 점(·) 구분 묶음 보존 — AI가 1글자 쪼개기 금지.
+4. STT 발음 교정 조언 영역 절대 침투 X — 법률 지식 (요건/조문/판례) 만.
+5. judge / lecturer 분리:
+   - judge (조문/판례 시각): 누락된 조문 + 요건 + 판례 매칭
+   - lecturer (암기 시각): 교과서 카테고리 위주 매칭
+6. SE는 mnemonic_suggestions 필드 채울 필요 X — 서버 사이드 후처리에서 자동 주입.
+
 반드시 위 JSON 형식만 출력하세요. 다른 텍스트 (설명, 사과, 코드펜스) 절대 추가 X.
 자료에 없는 내용 추가 X — R-09 자의적 해석 금지.
 """
@@ -962,6 +972,75 @@ def grade(
             raise
         # JSON 파싱
         parsed = _parse_response(raw_response)
+
+    # lawear-6be6 #6 — 두문자 제안 후처리 (dismiss-only, mnemonic_lib 자동 주입)
+    # 부장판사 QA P0 fix: dev-design 명세 필드명 변환 (mnemonic_text/expansion/source/
+    #   applicable_missing_critical/role) + dict 구조 {judge, lecturer} 유지.
+    try:
+        import mnemonic_lib as _ml
+        subject_kor = case_meta.get("subject_kor") or ""
+        missing_critical = parsed.get("eval_notes", {}).get("missing_critical") or []
+
+        judge_typed: list[dict] = []
+        lecturer_typed: list[dict] = []
+        for mc in missing_critical:
+            item_text = (mc.get("item") if isinstance(mc, dict) else str(mc)) or ""
+            if not item_text.strip():
+                continue
+            raw_judge = _ml.match_missing_to_mnemonic(
+                [{"item": item_text}], subject_kor, role="judge", limit=3
+            )
+            raw_lecturer = _ml.match_missing_to_mnemonic(
+                [{"item": item_text}], subject_kor, role="lecturer", limit=3
+            )
+            for r in raw_judge:
+                judge_typed.append({"_raw": r, "item_text": item_text})
+            for r in raw_lecturer:
+                lecturer_typed.append({"_raw": r, "item_text": item_text})
+
+        def _to_spec(typed_list: list[dict], role: str) -> list[dict]:
+            """mnemonic_lib raw → dev-design 명세 필드명 변환 + dedup by source_entry + cap 3."""
+            out: list[dict] = []
+            seen: set[str] = set()
+            for entry in typed_list:
+                r = entry["_raw"]
+                item_text = entry["item_text"]
+                source = r.get("source_entry") or ""
+                if not source or source in seen:
+                    continue
+                seen.add(source)
+                letters = r.get("suggested_letters") or []
+                keywords = r.get("suggested_keywords") or ""
+                mnemonic_text = "[em1]" + "[/em1]·[em1]".join(letters) + "[/em1]" if letters else ""
+                # expansion 우선순위: suggested_keywords (str/list) > 빈 문자열
+                # (lib_section은 H2 prefix "1" 같은 무의미 값일 수 있어 fallback 제외)
+                if isinstance(keywords, str):
+                    expansion = keywords.strip()
+                elif isinstance(keywords, list):
+                    expansion = ", ".join(str(k) for k in keywords if k)
+                else:
+                    expansion = ""
+                out.append({
+                    "mnemonic_text": mnemonic_text,
+                    "expansion": expansion,
+                    "source": source,
+                    "applicable_missing_critical": item_text,
+                    "role": role,
+                })
+                if len(out) >= 3:
+                    break
+            return out
+
+        judge_final = _to_spec(judge_typed, "judge")
+        lecturer_final = _to_spec(lecturer_typed, "lecturer")
+
+        if judge_final or lecturer_final:
+            parsed.setdefault("eval_notes", {})["mnemonic_suggestions"] = {
+                "judge": judge_final,
+                "lecturer": lecturer_final,
+            }
+    except Exception as e:
+        print(f"[Grader] mnemonic_lib skipped: {type(e).__name__}: {e}", file=sys.stderr)
 
     # 점수 산정
     total, score_max, pct, grade_letter = _compute_score(parsed["criteria"], weights)

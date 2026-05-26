@@ -154,14 +154,15 @@ class TestEvalNotesKeysTuple(unittest.TestCase):
         self.assertIn("typo_corrections", attempts_mod._EVAL_NOTES_KEYS_EXT_OPT_LIST)
 
     def test_total_keys_count_15(self):
-        """총 15개 키 — Phase 1 (11) + 옵션 C 4 (inline_comments, gap_roadmap,
-        judge_quote, lecturer_quote).
+        """총 16개 키 — Phase 1 (11) + 옵션 C 4 (inline_comments, gap_roadmap,
+        judge_quote, lecturer_quote) + lawear-6be6 #6 (mnemonic_suggestions).
 
         분해: legacy 3 + EXT_STR 2 + EXT_LIST 4 + OPT_STR 3 + OPT_LIST 1
-              + OPT_DICT_LIST 1 + OPT_DICT 1 = 15.
+              + OPT_DICT_LIST 1 + OPT_DICT 2 = 16.
         (lawear-c63e 2026-05-21 옵션 C 도입 — 명세서 #2111)
+        (lawear-6be6 2026-05-26 #6 — mnemonic_suggestions 추가)
         """
-        self.assertEqual(len(attempts_mod._EVAL_NOTES_KEYS), 15)
+        self.assertEqual(len(attempts_mod._EVAL_NOTES_KEYS), 16)
 
 
 # ─── 4. DB round-trip — inject_grade → get_attempt ──────────────────────

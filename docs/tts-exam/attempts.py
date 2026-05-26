@@ -1242,7 +1242,11 @@ _EVAL_NOTES_KEYS_EXT_OPT_DICT_LIST: tuple[str, ...] = ("inline_comments",)
 _INLINE_COMMENTS_CAP: int = 15
 # 옵션 C 확장 (lawear-c63e, 2026-05-21, 명세서 #2111):
 #   gap_roadmap — dict | None — 합격선까지 액션 로드맵. dict pass-through.
-_EVAL_NOTES_KEYS_EXT_OPT_DICT: tuple[str, ...] = ("gap_roadmap",)
+# lawear-6be6 #6 확장 (2026-05-26):
+#   mnemonic_suggestions — dict | None — {judge: list[dict], lecturer: list[dict]}.
+#   탑레벨 dict 구조이므로 DICT_LIST(list[dict]) 아닌 DICT(dict 통째) 그룹에 등록.
+#   세부 정규화(judge/lecturer 분리 + 캡 10 + 빈 양쪽 → None)는 dedicated 블록에서 처리.
+_EVAL_NOTES_KEYS_EXT_OPT_DICT: tuple[str, ...] = ("gap_roadmap", "mnemonic_suggestions")
 # 통합 (서버 검증 + 응답 형식 일관성)
 _EVAL_NOTES_KEYS: tuple[str, ...] = (
     _EVAL_NOTES_KEYS_LEGACY
@@ -1547,6 +1551,8 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
     # gap_roadmap — dict | None (lawear-c63e/옵션 C, 2026-05-21, #2111)
     # R-09: dict pass-through (내부 구조 강제 X — Sub3 채점 책임).
     # 빈 dict 는 None 으로 정규화.
+    # NOTE: mnemonic_suggestions 도 이 루프에서 1차 passthrough 후,
+    #       아래 dedicated 블록에서 judge/lecturer 분리 + 캡 10 + 빈 양쪽 → None 으로 재정규화.
     for k in _EVAL_NOTES_KEYS_EXT_OPT_DICT:
         v = src.get(k)
         if v is None:
@@ -1557,6 +1563,36 @@ def _normalize_eval_notes(raw: Any) -> dict[str, Any]:
             raise GradeInjectionError(
                 f"eval_notes.{k} must be object or null, got {type(v).__name__}"
             )
+
+    # mnemonic_suggestions — dict | None (lawear-6be6 #6, 2026-05-26)
+    # 구조: {judge: list[dict], lecturer: list[dict]} — gap_roadmap 패턴 mirror.
+    # R-09: 각 list 원소(dict) 통째 보존, 내부 키 강제 X.
+    # 빈 양쪽 list → None 정규화 (UI 분기 단순화). 캡 10 silent slice (사용자 피로 방지).
+    mnem = src.get("mnemonic_suggestions")
+    if mnem is None:
+        out["mnemonic_suggestions"] = None
+    elif isinstance(mnem, dict):
+        judge_raw = mnem.get("judge", [])
+        lecturer_raw = mnem.get("lecturer", [])
+        if not isinstance(judge_raw, list) or not isinstance(lecturer_raw, list):
+            raise GradeInjectionError(
+                f"eval_notes.mnemonic_suggestions.judge/lecturer must be list, "
+                f"got {type(judge_raw).__name__}/{type(lecturer_raw).__name__}"
+            )
+        judge_normalized = [dict(item) for item in judge_raw if isinstance(item, dict)]
+        lecturer_normalized = [dict(item) for item in lecturer_raw if isinstance(item, dict)]
+        if not judge_normalized and not lecturer_normalized:
+            out["mnemonic_suggestions"] = None
+        else:
+            out["mnemonic_suggestions"] = {
+                "judge": judge_normalized[:10],
+                "lecturer": lecturer_normalized[:10],
+            }
+    else:
+        raise GradeInjectionError(
+            f"eval_notes.mnemonic_suggestions must be object or null, "
+            f"got {type(mnem).__name__}"
+        )
 
     return out
 
