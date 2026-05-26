@@ -630,6 +630,25 @@
     .tts-case .tts-case-art[data-comment] { border-bottom: none; }
   }
 
+  /* lawear-7ea2 (a354053 recovery, 2026-05-26): 부모 무관 .tts-case-art 룰.
+     renderArticleTokensInTextNodes 가 [em1]/[con]/[fact] 등 다른 강조 마커 내부 텍스트 노드에서도
+     "제N조" 토큰을 wrap → 부모가 .tts-case 가 아닌 경우에도 점선밑줄 + 호버 어포던스 유지.
+     currentColor 로 부모 색상 상속 (em1 빨강이면 빨강 점선, em2 노랑이면 노랑 점선 등). */
+  .tts-case-art[data-comment] {
+    border-bottom: 1.5px dotted currentColor;
+    cursor: help;
+  }
+  .tts-case-art[data-comment]:hover {
+    background: rgba(81, 207, 102, 0.10);
+  }
+  body.stealth .tts-case-art[data-comment] {
+    border-bottom: none !important;
+    cursor: default;
+  }
+  @media print {
+    .tts-case-art[data-comment] { border-bottom: none; }
+  }
+
   /* 위장 모드 — 좌측 패널 한글 노출 부분 숨김 (case-title, case-meta) */
   body.stealth .case-item .case-title { display: none; }
   body.stealth .case-item .case-meta { display: none; }
@@ -1228,6 +1247,10 @@ function renderCaseInnerWithTokenTooltips(content, subjectKor) {
   // content(raw) 기준 토큰 분할이 inner의 마커 HTML span을 silent loss 시킴 →
   // 중첩 detect 시 즉시 null 반환하여 기존 통문장 wrap fallback 유지 (회귀 0).
   if (/\[(em[1-4]|con|fact|bridge|key|free[12]|red|blue|purple|violet|magenta|indigo|bold|u|blank2|blank)\]/.test(content)) return null;
+  // v3 P0-1 placeholder 가드 (lawear-7ea2 a354053 recovery): renderMd 내부 호출 시
+  // content 가 raw 텍스트라 placeholder(@@EMP/@@DATE) 는 원래 없으나, 외부에서 본 함수가
+  // 재호출되거나 inner 가 들어올 가능성 대비. 검출 시 즉시 null → fallback (recover 가 처리).
+  if (/@@(EMP|DATE)\d+@@/.test(content)) return null;
 
   // 1단계: 모든 "제N조[…]" 토큰 위치 수집
   _ARTICLE_TOKEN_RE_G.lastIndex = 0;
@@ -1241,10 +1264,17 @@ function renderCaseInnerWithTokenTooltips(content, subjectKor) {
   // 2단계: 토큰별 lookup
   //   - 각 토큰을 단독 mini content 로 만들어 기존 resolveCaseArticleText 재사용 (DRY + R-09 동일 로직).
   //   - 토큰 앞 최대 12자 + 토큰 + tail 32자 = 법명 검색 + 항/호 검색 컨텍스트.
+  //   - v3 P0-2 boundary clamp (lawear-7ea2 a354053 recovery): 인접 토큰 영역 침범 방지.
+  //     이전 토큰 end(prevEnd) 와 다음 토큰 start(nextStart) 로 mini content 범위 clamp →
+  //     "제2조 ... 제3조" 시 제2조 lookup 이 제3조 컨텍스트 흡수하는 다중 토큰 cross-contamination 차단.
   const resolved = [];
-  for (const t of tokens) {
-    const beforeStart = Math.max(0, t.start - 12);
-    const miniContent = content.slice(beforeStart, t.end + 32);
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    const prevEnd = i > 0 ? tokens[i - 1].end : 0;
+    const nextStart = i < tokens.length - 1 ? tokens[i + 1].start : content.length;
+    const beforeStart = Math.max(prevEnd, t.start - 12);
+    const afterEnd = Math.min(nextStart, t.end + 32);
+    const miniContent = content.slice(beforeStart, afterEnd);
     const txt = resolveCaseArticleText(miniContent, subjectKor);
     if (txt) {
       resolved.push({ token: t, text: txt });
@@ -1271,6 +1301,87 @@ function renderCaseInnerWithTokenTooltips(content, subjectKor) {
     html += escapeHtml(content.slice(cursor));
   }
   return html;
+}
+
+// ─────────── [em1]/[con]/[fact] 등 내부 텍스트 노드의 "제N조" 토큰 부분 wrap (lawear-7ea2 a354053 recovery) ───────────
+// renderMd 의 recover 종료 후 최종 HTML 에서 텍스트 노드만 골라 "제N조" 토큰을 wrap.
+//   - [case] 외 다른 강조 마커([em1]/[con]/[fact] 등) 안의 조문 토큰도 점선밑줄 + 툴팁.
+//   - 이미 .tts-case-art 안에 있는 토큰은 skip (이중 wrap 방지).
+//   - 텍스트 노드 단위라 HTML 구조 손상 0 (DOMParser + TreeWalker 사용).
+//   - graceful degradation: lawArticles 미로딩 / DOMParser 없음 / 토큰 0개 / 예외 → 원본 그대로.
+// R-09 준수 — resolveCaseArticleText() 재사용, lawArticlesText.json 원문 그대로, AI 가공 없음.
+function renderArticleTokensInTextNodes(html, subjectKor) {
+  if (!html) return html;
+  if (!lawArticles || !lawArticles.statutes) return html;
+  if (typeof DOMParser === 'undefined') return html;
+
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString('<div>' + html + '</div>', 'text/html');
+    const root = doc.body.firstChild;
+    if (!root) return html;
+
+    // 텍스트 노드 수집 (TreeWalker)
+    const walker = doc.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    const textNodes = [];
+    let n;
+    while ((n = walker.nextNode())) textNodes.push(n);
+
+    let modified = false;
+    textNodes.forEach(node => {
+      const text = node.nodeValue;
+      if (!text || !/제\d+조/.test(text)) return;
+
+      // skip if 이미 .tts-case-art wrap 안 (parent ancestry 체크) — 이중 wrap 방지
+      let p = node.parentElement;
+      while (p && p !== root.parentElement) {
+        if (p.classList && p.classList.contains('tts-case-art')) return;
+        p = p.parentElement;
+      }
+
+      // 토큰 매칭
+      _ARTICLE_TOKEN_RE_G.lastIndex = 0;
+      const tokens = [];
+      let m;
+      while ((m = _ARTICLE_TOKEN_RE_G.exec(text)) !== null) {
+        tokens.push({ start: m.index, end: m.index + m[0].length, text: m[0] });
+      }
+      if (tokens.length === 0) return;
+
+      // v3 P0-2 boundary clamp 적용 (인접 토큰 영역 침범 방지)
+      const frag = doc.createDocumentFragment();
+      let lastEnd = 0;
+      for (let i = 0; i < tokens.length; i++) {
+        const t = tokens[i];
+        if (t.start > lastEnd) frag.appendChild(doc.createTextNode(text.slice(lastEnd, t.start)));
+        const prevEnd = i > 0 ? tokens[i - 1].end : 0;
+        const nextStart = i < tokens.length - 1 ? tokens[i + 1].start : text.length;
+        const beforeStart = Math.max(prevEnd, t.start - 12);
+        const afterEnd = Math.min(nextStart, t.end + 32);
+        const miniContent = text.slice(beforeStart, afterEnd);
+        const lookup = resolveCaseArticleText(miniContent, subjectKor);
+        if (lookup) {
+          const span = doc.createElement('span');
+          span.className = 'tts-case-art';
+          span.setAttribute('data-comment', lookup);
+          span.textContent = t.text;
+          frag.appendChild(span);
+        } else {
+          frag.appendChild(doc.createTextNode(t.text));
+        }
+        lastEnd = t.end;
+      }
+      if (lastEnd < text.length) frag.appendChild(doc.createTextNode(text.slice(lastEnd)));
+
+      node.parentNode.replaceChild(frag, node);
+      modified = true;
+    });
+
+    return modified ? root.innerHTML : html;
+  } catch (e) {
+    console.warn('renderArticleTokensInTextNodes error', e);
+    return html;
+  }
 }
 
 // ─────────── 강조 렌더링 ───────────
@@ -1337,6 +1448,10 @@ function renderMd(md) {
     const orig = _DATE_PLACEHOLDERS[parseInt(i, 10)];
     return (orig != null) ? orig : m;
   });
+  // lawear-7ea2 (a354053 recovery, 2026-05-26): [em1]/[con]/[fact] 등 다른 강조 마커 내부
+  // 텍스트 노드에서도 "제N조" 토큰 부분 wrap + 툴팁. placeholder 복원 끝난 후 호출 (안전).
+  // graceful degradation 내장 — lawArticles 미로딩/DOMParser 없음/예외 시 원본 그대로.
+  recovered = renderArticleTokensInTextNodes(recovered, currentRenderSubjectKor);
   return recovered;
 }
 
