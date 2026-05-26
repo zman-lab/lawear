@@ -147,6 +147,68 @@ R-09 sweep과 동일 디렉토리 분담:
 3. 강조 위치 어색한 케이스 spot-check
 4. git commit + push
 
+## Dry-run 모드 (`--dry-run`, 2026-05-26 추가)
+
+본 sweep 시작 전 영향 분석. **실제 .md 수정 X**. lawear-7ea2 docs 손실 사고 후 추가 (사전 영향 분석 필수).
+
+### 사용
+
+```
+/dev-le-17895-emphasis-sweep --dry-run --subject=민법 --year=2026 --round=입문
+/dev-le-17895-emphasis-sweep --dry-run --subject=민법 --out=/tmp/sweep_preview.md
+```
+
+### Dry-run 흐름 (실제 sweep과 동일하나 Edit 호출 X)
+
+1. **대상 파일 식별** (E-1~E-6 + E-Lib 분담과 동일)
+2. **각 파일 Read** (Opus 의미 분석)
+3. **변경 예측 카운트** (Edit 호출 직전 시뮬레이션):
+   - 신규 적용: em1/em2/em3/em4/con/fact/case/bridge/key/free1/2 — 카운트만
+   - 기존 제거: red/blue/purple/blank/blank2/u/bold — 카운트만
+4. **per-file 변경 요약** + **sample Before/After 5건** (`diff` 형식)
+5. **보고서 `.md` 저장** (`--out={경로}`, 미지정 시 stdout)
+
+### Dry-run 출력 형식
+
+```markdown
+# Phase C sweep dry-run — {SUBJECT} {YEAR} {ROUND}
+
+## 대상 파일: N개 (E-1 N / E-2 N / ... / E-Lib N)
+
+## 변경 영향 예측 (총합)
+- 신규 적용: em1=N / em2=N / em3=N / em4=N / con=N / fact=N / case=N / bridge=N / key=N / free1=N / free2=N
+- 기존 제거: red=N / blue=N / purple=N / blank=N / blank2=N / u=N / bold=N
+- 순 변경: +N -N = 총 N 강조 변경
+
+## per-file 변경 라인 수 Top 10
+| 파일 | 신규 | 제거 | 순 변경 |
+|------|------|------|---------|
+| ... |
+
+## Sample Before/After (5건)
+... (diff 형식, 의미 분석 근거 포함)
+
+## 권고
+- 변경 영향 큰 파일 (Top 10) spot-check 후 실제 sweep
+- R-09 위반 우려 케이스 (있으면) 별도 표시
+- 실제 적용: --dry-run 제거 후 재호출 또는 --apply flag
+```
+
+### 실제 적용 (dry-run 검토 후)
+
+```
+/dev-le-17895-emphasis-sweep --subject=민법 --year=2026 --round=입문
+```
+
+`--dry-run` 없이 호출 시 실제 적용. 또는 `--apply` 명시.
+
+### 권장 워크플로우
+
+1. `--dry-run` 호출 → 영향 분석 보고서
+2. 사용자/메인 spot-check (Top 10 변경 큰 파일 + R-09 우려 케이스)
+3. 문제 없으면 실제 sweep (Phase C 본 흐름)
+4. 결과 즉시 commit + `/dev-push` (사고 재발 방지)
+
 ## 메모리 연동
 
 - `feedback_em_color_system.md` — 시안2 색상 정의
