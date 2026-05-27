@@ -2497,6 +2497,7 @@ function renderContent() {
     }
 
     // lawear-6be6 2026-05-28: 접펼 UI 통일 (배지 = 섹션 토글, sticky [모두 펼침/접힘])
+    const md = fullContent;
     const ui_sections = extractAllH2Sections(md);
     let ui_tabs = '<div class="lv-tabs">';
     ui_tabs += `<div class="lv-tab expand-all-btn" onclick="expandAllSections()">모두 펼침</div>`;
@@ -2540,6 +2541,7 @@ function renderContent() {
   }
 
   // lawear-6be6 2026-05-28: 일반 케이스도 접펼 UI 통일
+  const md = fullContent;
   const all_sections = extractAllH2Sections(md);
   let tabs = '<div class="lv-tabs">';
   tabs += `<div class="lv-tab expand-all-btn" onclick="expandAllSections()">모두 펼침</div>`;
