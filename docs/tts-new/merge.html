@@ -543,6 +543,37 @@
   }
   .lv-tab:hover { border-color: var(--accent); color: var(--accent); }
   .lv-tab.active { background: var(--accent-strong); color: #fff; border-color: var(--accent-strong); }
+  .lv-tab.expand-all-btn, .lv-tab.collapse-all-btn { background: var(--panel-2); color: var(--text); border-color: var(--accent); }
+  .lv-tab.expand-all-btn:hover, .lv-tab.collapse-all-btn:hover { background: var(--accent); color: #fff; }
+
+  /* lawear-6be6 2026-05-28: 접펼 섹션 UI (모든 과목 통일) */
+  .section-collapse {
+    margin-bottom: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--panel);
+  }
+  .section-summary {
+    padding: 10px 16px;
+    cursor: pointer;
+    font-weight: 600;
+    background: var(--panel);
+    color: var(--text);
+    list-style: none;
+    user-select: none;
+  }
+  .section-summary::-webkit-details-marker { display: none; }
+  .section-summary::before {
+    content: '▶';
+    display: inline-block;
+    margin-right: 8px;
+    transition: transform 0.15s;
+    font-size: 10px;
+  }
+  details.section-collapse[open] > .section-summary::before { transform: rotate(90deg); }
+  details.section-collapse[open] > .section-summary { background: var(--panel-2); border-bottom: 1px solid var(--border); }
+  .section-body { padding: 12px 16px; }
 
   .empty { color: var(--text-mute); text-align: center; margin-top: 40vh; font-size: 14px; }
 
@@ -2465,19 +2496,20 @@ function renderContent() {
       return;
     }
 
-    // 일반 케이스: 탭 [문제/목차/답안/Lv.4/전체] + showSection 분기
-    // lawear-18eb 2026-05-25 모바일 친화. lawear-6be6 2026-05-28: Lv.4 자유노트 배지 추가 (빈 시도 표시, 클릭 시 단독뷰)
-    const ui_tabKeys = ['문제', '목차', '답안', 'Lv.4', '전체'];
+    // lawear-6be6 2026-05-28: 접펼 UI 통일 (배지 = 섹션 토글, sticky [모두 펼침/접힘])
+    const ui_sections = extractAllH2Sections(md);
     let ui_tabs = '<div class="lv-tabs">';
-    ui_tabKeys.forEach((s, i) => {
-      // 디폴트 active = '전체' (마지막 인덱스)
-      const isActive = i === ui_tabKeys.length - 1;
-      ui_tabs += `<div class="lv-tab${isActive?' active':''}" data-key="${s}" onclick="showSection('${s}', event)">${s}</div>`;
-    });
+    ui_tabs += `<div class="lv-tab expand-all-btn" onclick="expandAllSections()">모두 펼침</div>`;
+    ui_tabs += `<div class="lv-tab collapse-all-btn" onclick="collapseAllSections()">모두 접힘</div>`;
+    for (const s of ui_sections) {
+      const dataAttr = escapeAttr(s.name);
+      const escName = escapeHtml(s.name);
+      ui_tabs += `<div class="lv-tab" data-section-badge="${dataAttr}" onclick='toggleSection(${JSON.stringify(s.name)}, event)'>${escName}</div>`;
+    }
     ui_tabs += '</div>';
     content.innerHTML = ui_headerHtml + ui_tabs + '<div id="mdContent"></div>';
     if (editorWrap) content.appendChild(editorWrap);
-    showSection('전체');
+    renderCollapsibleSections(document.getElementById('mdContent'), md);
     return;
   }
 
@@ -2507,14 +2539,20 @@ function renderContent() {
     </div>`;
   }
 
+  // lawear-6be6 2026-05-28: 일반 케이스도 접펼 UI 통일
+  const all_sections = extractAllH2Sections(md);
   let tabs = '<div class="lv-tabs">';
-  tabKeys.forEach((s, i) => {
-    tabs += `<div class="lv-tab${i===1?' active':''}" data-key="${s}" onclick="showSection('${s}', event)">${tabLabels[i]}</div>`;
-  });
+  tabs += `<div class="lv-tab expand-all-btn" onclick="expandAllSections()">모두 펼침</div>`;
+  tabs += `<div class="lv-tab collapse-all-btn" onclick="collapseAllSections()">모두 접힘</div>`;
+  for (const s of all_sections) {
+    const dataAttr = escapeAttr(s.name);
+    const escName = escapeHtml(s.name);
+    tabs += `<div class="lv-tab" data-section-badge="${dataAttr}" onclick='toggleSection(${JSON.stringify(s.name)}, event)'>${escName}</div>`;
+  }
   tabs += '</div>';
   content.innerHTML = headerHtml + tabs + '<div id="mdContent"></div>';
   if (editorWrap) content.appendChild(editorWrap);
-  showSection('전체');
+  renderCollapsibleSections(document.getElementById('mdContent'), md);
 }
 
 function showSection(section, event) {
@@ -2603,6 +2641,60 @@ function showSection(section, event) {
 
   const c = extractSection(md, sectionKey);
   target.innerHTML = c ? wrapLvToc(renderMd(`## ${sectionHeader}\n\n${c}`)) : '<p style="color:#484f58;">해당 섹션을 찾을 수 없습니다.</p>';
+}
+
+// lawear-6be6 2026-05-28: 접펼 섹션 UI 공통 함수.
+//   모든 ## H2 헤더 추출 → details/summary 렌더 (디폴트 모두 접힘).
+//   메타 섹션은 제외. 임의 H2 추가 (예: ## 내메모) 자동 접펼 영역.
+function extractAllH2Sections(md) {
+  const result = [];
+  const re = /^## (.+?)\s*\r?\n([\s\S]*?)(?=^## |\Z)/gm;
+  let m;
+  while ((m = re.exec(md)) !== null) {
+    const name = m[1].trim();
+    if (name === '메타') continue;
+    result.push({ name: name, body: m[2].trim() });
+  }
+  return result;
+}
+function renderCollapsibleSections(targetEl, md, opts) {
+  opts = opts || {};
+  const sections = extractAllH2Sections(md);
+  if (sections.length === 0) {
+    targetEl.innerHTML = '<p style="color:#888;">(섹션 없음 — ## 헤더 1개 이상 필요)</p>';
+    return;
+  }
+  let html = '';
+  for (const s of sections) {
+    const dataAttr = escapeAttr(s.name);
+    const label = escapeHtml(s.name);
+    // 부등법 ## 목차 같은 짧은 본문은 user-toc 박스로 wrap (lv1/lv4와 별개)
+    const bodyHtml = renderMd(s.body || '(비어있음)');
+    html += `<details class="section-collapse" data-section="${dataAttr}">
+      <summary class="section-summary">${label}</summary>
+      <div class="section-body">${bodyHtml}</div>
+    </details>`;
+  }
+  targetEl.innerHTML = html;
+}
+function expandAllSections() {
+  document.querySelectorAll('details.section-collapse').forEach(d => d.open = true);
+  document.querySelectorAll('.lv-tab[data-section-badge]').forEach(t => t.classList.add('active'));
+}
+function collapseAllSections() {
+  document.querySelectorAll('details.section-collapse').forEach(d => d.open = false);
+  document.querySelectorAll('.lv-tab[data-section-badge]').forEach(t => t.classList.remove('active'));
+}
+function toggleSection(name, event) {
+  const sel = `details.section-collapse[data-section="${CSS.escape(name)}"]`;
+  const d = document.querySelector(sel);
+  if (!d) return;
+  d.open = !d.open;
+  if (event) {
+    const tab = event.target.closest('.lv-tab');
+    if (tab) tab.classList.toggle('active', d.open);
+    d.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 }
 
 function wrapLvToc(html) {
