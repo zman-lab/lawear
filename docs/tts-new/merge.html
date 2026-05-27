@@ -2649,13 +2649,27 @@ function showSection(section, event) {
 //   모든 ## H2 헤더 추출 → details/summary 렌더 (디폴트 모두 접힘).
 //   메타 섹션은 제외. 임의 H2 추가 (예: ## 내메모) 자동 접펼 영역.
 function extractAllH2Sections(md) {
+  // JS regex \Z 미지원 — line-by-line parse로 마지막 H2 섹션 매칭 보장 (lawear-6be6 2026-05-28 fix)
+  const lines = md.split('\n');
   const result = [];
-  const re = /^## (.+?)\s*\r?\n([\s\S]*?)(?=^## |\Z)/gm;
-  let m;
-  while ((m = re.exec(md)) !== null) {
-    const name = m[1].trim();
-    if (name === '메타') continue;
-    result.push({ name: name, body: m[2].trim() });
+  let curName = null;
+  let curBody = [];
+  for (const ln of lines) {
+    const m = ln.match(/^## (.+?)\s*$/);
+    if (m) {
+      // 이전 섹션 flush
+      if (curName !== null && curName !== '메타') {
+        result.push({ name: curName, body: curBody.join('\n').trim() });
+      }
+      curName = m[1].trim();
+      curBody = [];
+    } else if (curName !== null) {
+      curBody.push(ln);
+    }
+  }
+  // 마지막 섹션 flush (## test 같은 끝 섹션 누락 방지)
+  if (curName !== null && curName !== '메타') {
+    result.push({ name: curName, body: curBody.join('\n').trim() });
   }
   return result;
 }
