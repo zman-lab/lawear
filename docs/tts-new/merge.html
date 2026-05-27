@@ -2525,29 +2525,50 @@ function showSection(section, event) {
   const target = document.getElementById('mdContent');
 
   // lawear-18eb 2026-05-25: user_input 분기 (탭 [문제/목차/답안/전체])
+  // lawear-6be6 2026-05-28: 부등법 Lv.4 자유노트 컬럼 (빈 시 숨김, 본문 있을 때 cols-3)
   const ui_meta = fileMetadata[currentPath];
   if (ui_meta && ui_meta.type === 'user_input') {
     const problemMd = extractSection(md, '문제');
     const answerMd = extractSection(md, '답안');
     const tocMd = extractSection(md, '목차');
     const memoMd = extractSection(md, '메모');
+    const lv4FreeMd = extractSection(md, 'Lv.4 자유노트');
+    const hasLv4Free = !!(lv4FreeMd && lv4FreeMd.trim().length > 0);
     const pointsTag = ui_meta.points ? ` (${ui_meta.points}점)` : '';
     const tocHtml = tocMd ? `<div class="user-toc"><span class="toc-label">목차</span>${renderMd(tocMd)}</div>` : '';
     const memoHtml = memoMd ? `<div class="user-memo"><span class="memo-label">메모</span>${renderMd(memoMd)}</div>` : '';
     if (section === '전체') {
-      target.innerHTML = `<table class="compare-table cols-2">
-        <thead><tr><th>문제${pointsTag}</th><th>답안${pointsTag}</th></tr></thead>
-        <tbody><tr>
-          <td>${renderMd(problemMd || '(문제 없음)')}</td>
-          <td>${tocHtml}${renderMd(answerMd || '(답안 없음)')}</td>
-        </tr></tbody>
-      </table>` + memoHtml;
+      if (hasLv4Free) {
+        // 3컬럼 (문제 / 답안 / Lv.4 자유노트) — 사용자가 Lv.4 자유노트에 입력한 경우만
+        target.innerHTML = `<table class="compare-table cols-3">
+          <thead><tr><th>문제${pointsTag}</th><th>답안${pointsTag}</th><th>Lv.4 자유노트</th></tr></thead>
+          <tbody><tr>
+            <td>${renderMd(problemMd || '(문제 없음)')}</td>
+            <td>${tocHtml}${renderMd(answerMd || '(답안 없음)')}</td>
+            <td>${renderMd(lv4FreeMd)}</td>
+          </tr></tbody>
+        </table>` + memoHtml;
+      } else {
+        // 2컬럼 (문제 / 답안) — Lv.4 자유노트 빈 시 기존 폭 유지
+        target.innerHTML = `<table class="compare-table cols-2">
+          <thead><tr><th>문제${pointsTag}</th><th>답안${pointsTag}</th></tr></thead>
+          <tbody><tr>
+            <td>${renderMd(problemMd || '(문제 없음)')}</td>
+            <td>${tocHtml}${renderMd(answerMd || '(답안 없음)')}</td>
+          </tr></tbody>
+        </table>` + memoHtml;
+      }
     } else if (section === '문제') {
       target.innerHTML = renderMd(problemMd || '<p style="color:#888;">(문제 없음)</p>') + memoHtml;
     } else if (section === '답안') {
       target.innerHTML = tocHtml + renderMd(answerMd || '<p style="color:#888;">(답안 없음)</p>') + memoHtml;
     } else if (section === '목차') {
       target.innerHTML = (tocMd ? renderMd(tocMd) : '<p style="color:#888;">(목차 섹션 없음)</p>') + memoHtml;
+    } else if (section === 'Lv.4') {
+      // 부등법 Lv.4 자유노트 탭 (탭 클릭 시 자유노트만 표시)
+      target.innerHTML = (hasLv4Free
+        ? renderMd(lv4FreeMd)
+        : '<p style="color:#888;">(Lv.4 자유노트 비어있음 — .md 파일에 직접 입력하세요)</p>') + memoHtml;
     }
     return;
   }
