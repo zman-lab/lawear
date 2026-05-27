@@ -2465,11 +2465,14 @@ function renderContent() {
       return;
     }
 
-    // 일반 케이스: 탭 [문제/목차/답안/전체] + showSection 분기 (lawear-18eb 2026-05-25 모바일 친화)
-    const ui_tabKeys = ['문제', '목차', '답안', '전체'];
+    // 일반 케이스: 탭 [문제/목차/답안/Lv.4/전체] + showSection 분기
+    // lawear-18eb 2026-05-25 모바일 친화. lawear-6be6 2026-05-28: Lv.4 자유노트 배지 추가 (빈 시도 표시, 클릭 시 단독뷰)
+    const ui_tabKeys = ['문제', '목차', '답안', 'Lv.4', '전체'];
     let ui_tabs = '<div class="lv-tabs">';
     ui_tabKeys.forEach((s, i) => {
-      ui_tabs += `<div class="lv-tab${i===3?' active':''}" data-key="${s}" onclick="showSection('${s}', event)">${s}</div>`;
+      // 디폴트 active = '전체' (마지막 인덱스)
+      const isActive = i === ui_tabKeys.length - 1;
+      ui_tabs += `<div class="lv-tab${isActive?' active':''}" data-key="${s}" onclick="showSection('${s}', event)">${s}</div>`;
     });
     ui_tabs += '</div>';
     content.innerHTML = ui_headerHtml + ui_tabs + '<div id="mdContent"></div>';
