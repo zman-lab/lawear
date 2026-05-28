@@ -534,6 +534,50 @@
     margin-bottom: 6px; font-weight: 600;
   }
   .user-toc ul, .user-toc ol { margin: 0; padding-left: 18px; }
+
+  /* ─── 분설 정보 박스 (lawear-6be6 2026-05-28) ─── */
+  /* user_input ## 문제 본문 위에 ## 메타 _분설_* 활용 N개 라벨·요약 미리보기. */
+  /* 다크 테마 위 살구색 액센트로 ## 문제와 시각 구분. 컴팩트(~80px), 모바일 대응. */
+  .bunseol-box {
+    margin: 0 0 12px 0;
+    padding: 8px 10px;
+    background: #fef3c7;
+    color: #1a1d23;
+    border-left: 3px solid #d97706;
+    border-radius: 0 4px 4px 0;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .bunseol-box .bunseol-title {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: #92400e;
+    margin-bottom: 5px;
+    letter-spacing: 0.3px;
+  }
+  .bunseol-box ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .bunseol-box li {
+    padding: 1px 0;
+    color: #1a1d23;
+  }
+  .bunseol-box li .bunseol-label {
+    font-weight: 600;
+    color: #78350f;
+    margin-right: 4px;
+  }
+  .bunseol-box li .bunseol-summary {
+    color: #3f3f46;
+  }
+  @media (max-width: 767px) {
+    .bunseol-box { font-size: 11px; padding: 7px 9px; }
+    .bunseol-box .bunseol-title { font-size: 10px; }
+  }
+
   /* user_input 편집 진입 버튼 (우상단 헤더 옆) */
   .user-input-edit-btn {
     padding: 4px 12px;
@@ -2612,6 +2656,12 @@ function renderContent() {
       // 부등법은 Lv.4 자유노트 컬럼 후보, 형법/형소는 무시 (2컬럼 고정)
       const showRightCol = isBudeung && hasLv4Free;
       const pointsTag = meta.points ? ` (${meta.points}점)` : '';
+      // 분설 박스 HTML (lawear-6be6 2026-05-28) — ## 메타 _분설_* 활용
+      //   ## 문제 본문 위에 컴팩트 박스로 N개·라벨·요약 미리보기.
+      //   _분설_count 부재 (단일 .md) → '' 반환 → UI 영향 X.
+      const bunseolMeta = extractSection(md, '메타');
+      const bunseolData = parseBunseolMeta(bunseolMeta);
+      const bunseolBoxHtml = renderBunseolBox(bunseolData);
       const tocHtml = tocMd ? `<div class="user-toc"><span class="toc-label">목차</span>${renderMd(tocMd)}</div>` : '';
       const memoHtml = memoMd ? `<div class="user-memo"><span class="memo-label">메모</span>${renderMd(memoMd)}</div>` : '';
       const colCount = showRightCol ? 3 : 2;
@@ -2630,7 +2680,7 @@ function renderContent() {
       stickyHtml += '</div>';
       // 그리드 본체
       let gridHtml = `<div class="tab-cols ${colCount === 2 ? 'cols-2' : ''}" id="tab-cols-root">`;
-      gridHtml += `<section class="tab-col" data-col="left"><div class="tab-col-header">문제${pointsTag}</div><div class="tab-col-body">${renderMd(problemMd || '(문제 없음)')}</div></section>`;
+      gridHtml += `<section class="tab-col" data-col="left"><div class="tab-col-header">문제${pointsTag}</div><div class="tab-col-body">${bunseolBoxHtml}${renderMd(problemMd || '(문제 없음)')}</div></section>`;
       gridHtml += `<section class="tab-col" data-col="mid"><div class="tab-col-header">목차 + 답안${pointsTag}</div><div class="tab-col-body">${tocHtml}${renderMd(answerMd || '(답안 없음)')}</div></section>`;
       if (showRightCol) {
         gridHtml += `<section class="tab-col" data-col="right"><div class="tab-col-header">Lv.4 자유노트</div><div class="tab-col-body">${renderMd(lv4FreeMd)}</div></section>`;
@@ -2958,6 +3008,49 @@ function extractSection(md, sectionName) {
     if (capture) result.push(line);
   }
   return result.join('\n').trim();
+}
+
+// 분설 메타 파서 (lawear-6be6 2026-05-28) — ## 메타 YAML 본문에서 _분설_* 라인 추출
+//  - 입력: metaSection (extractSection(md, '메타') 결과)
+//  - 출력: { count: N, labels: [...], summaries: { 라벨: 요약 } } 또는 null
+//  - 분설 메타 없는 (_분설_count 부재) 단일 .md = null 반환 → UI 영향 X
+function parseBunseolMeta(metaSection) {
+  if (!metaSection) return null;
+  const m = metaSection.match(/_분설_count:\s*(\d+)/);
+  if (!m) return null;
+  const count = parseInt(m[1], 10);
+  let labels = [];
+  const labelsM = metaSection.match(/_분설_라벨:\s*(\[[^\]]+\])/);
+  if (labelsM) {
+    try { labels = JSON.parse(labelsM[1]); }
+    catch (e) { labels = []; }
+  }
+  const summaries = {};
+  for (const label of labels) {
+    const key = label.replace(/\s+/g, '_');
+    // _분설_{key}_요약: "..." — 라벨에 공백/한글 OK (key는 _로 정규화)
+    const escKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const sM = metaSection.match(new RegExp('_분설_' + escKey + '_요약:\\s*"([^"]+)"'));
+    if (sM) summaries[label] = sM[1];
+  }
+  return { count, labels, summaries };
+}
+
+// 분설 박스 HTML 렌더 (lawear-6be6 2026-05-28)
+//  - 입력: bunseol = { count, labels, summaries } (parseBunseolMeta 결과)
+//  - 출력: <div class="bunseol-box">...</div> HTML 문자열
+//  - 라벨만 있고 요약 없는 경우도 라벨만 표시
+function renderBunseolBox(bunseol) {
+  if (!bunseol || !bunseol.count) return '';
+  const items = (bunseol.labels || []).map(label => {
+    const summary = bunseol.summaries[label];
+    const labelEsc = escapeHtml(label);
+    if (summary) {
+      return `<li><span class="bunseol-label">${labelEsc}:</span><span class="bunseol-summary">${escapeHtml(summary)}</span></li>`;
+    }
+    return `<li><span class="bunseol-label">${labelEsc}</span></li>`;
+  }).join('');
+  return `<div class="bunseol-box"><span class="bunseol-title">📋 분설 ${bunseol.count}개</span><ul>${items}</ul></div>`;
 }
 
 function extractSectionHeader(md, sectionName) {
