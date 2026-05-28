@@ -407,6 +407,107 @@
   /* 사용자 룰 5: "기존 17895처럼 테이블로 좌우 나눠서 문제/답안 형식" */
   .compare-table.cols-2 th { width: 50%; }
   .compare-table.cols-2 td { width: 50%; vertical-align: top; }
+
+  /* ─── 옵션 A: 3컬럼 grid + 개별 토글 (lawear-6be6 2026-05-28) ─── */
+  /* 그룹 매핑:
+     - 부등법 user_input: 좌 문제 / 중 목차+답안 / 우 Lv.4 자유노트 (Lv.4 빈 시 2컬럼)
+     - 형법/형소 user_input: 좌 문제 / 중 목차+답안 (2컬럼)
+     - 민법/민소 regular: 좌 원본 hidden default / 중 Lv.1 / 우 Lv.4 (3컬럼) */
+  .tab-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin-top: 8px;
+    align-items: start;
+  }
+  .tab-cols.cols-2 { grid-template-columns: 1fr 1fr; }
+  .tab-cols.cols-1 { grid-template-columns: 1fr; }
+  .tab-col {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    min-width: 0;  /* grid 자식 overflow 방지 (테이블/긴 단어) */
+  }
+  .tab-col .tab-col-header {
+    padding: 8px 12px;
+    background: var(--panel-2);
+    border-bottom: 1px solid var(--border);
+    color: var(--text-bright);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .tab-col .tab-col-body {
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .tab-col .tab-col-body > :first-child { margin-top: 0; }
+  .tab-col .tab-col-body > :last-child { margin-bottom: 0; }
+  /* 컬럼 단위 hide (개별 토글 OFF) */
+  .tab-col.hidden { display: none; }
+
+  /* 상단 sticky 컨트롤 박스 (컬럼 토글 + 전체 펼침/접힘 — 기존 lv-tabs와 별도 행) */
+  /* .lv-tabs(top:0)와 시각적으로 결합 — sticky top:46px (lv-tabs 높이 보정) */
+  .col-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin: 0 0 12px;
+    padding: 6px 10px;
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 12px;
+    position: sticky;
+    top: 46px;
+    z-index: 9;
+  }
+  .col-toggles .col-toggle-label {
+    color: var(--text-dim);
+    font-size: 11px;
+    margin-right: 4px;
+  }
+  .col-toggles label.col-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    cursor: pointer;
+    padding: 3px 9px;
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    background: var(--bg);
+    color: var(--text-dim);
+    user-select: none;
+    font-size: 12px;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+  }
+  .col-toggles label.col-toggle:hover {
+    border-color: var(--accent-dim);
+    color: var(--text);
+  }
+  .col-toggles label.col-toggle input[type="checkbox"] {
+    cursor: pointer;
+    accent-color: var(--accent);
+    margin: 0;
+  }
+  .col-toggles label.col-toggle.active {
+    background: var(--accent-dim);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  /* 반응형 — 모바일 (< 768px): 컬럼 세로 나열 */
+  @media (max-width: 767px) {
+    .tab-cols,
+    .tab-cols.cols-2,
+    .tab-cols.cols-1 {
+      grid-template-columns: 1fr;
+    }
+  }
   /* 메모 footer (선택 — ## 메모 섹션이 있을 때만 표시) */
   .user-memo {
     margin-top: 16px; padding: 12px;
@@ -770,6 +871,7 @@
   #editor-wrap { display: none; height: calc(100vh - 64px); flex-direction: column; }
   body.editing #content { padding: 32px 24px 16px; display: flex; flex-direction: column; }
   body.editing #content > .lv-tabs,
+  body.editing #content > .col-toggles,
   body.editing #content > #mdContent,
   body.editing #content > .page-header,
   body.editing #content > #empty-msg { display: none !important; }
@@ -2496,8 +2598,49 @@ function renderContent() {
       return;
     }
 
-    // lawear-6be6 2026-05-28: 접펼 UI 통일 (배지 = 섹션 토글, sticky [모두 펼침/접힘])
+    // lawear-6be6 2026-05-28: 옵션 A — 부등법/형법/형소 user_input 은 3컬럼/2컬럼 grid 분기.
+    //   서류(민사서류/부동산등기서류)는 기존 collapse UI 유지 (그룹 C — 노터치).
+    //   기타 (subjectKor 미매칭) 도 안전 폴백으로 기존 collapse UI 유지.
     const md = fullContent;
+    const _sk = meta.subjectKor || '';
+    const isBudeung = (_sk === '부동산등기법');
+    const isHyung = (_sk === '형법' || _sk === '형소');
+    if (isBudeung || isHyung) {
+      // 3컬럼/2컬럼 grid 렌더 (좌 문제 / 중 목차+답안 / 우 Lv.4 자유노트)
+      const lv4FreeMd = extractSection(md, 'Lv.4 자유노트');
+      const hasLv4Free = !!(lv4FreeMd && lv4FreeMd.trim().length > 0);
+      // 부등법은 Lv.4 자유노트 컬럼 후보, 형법/형소는 무시 (2컬럼 고정)
+      const showRightCol = isBudeung && hasLv4Free;
+      const pointsTag = meta.points ? ` (${meta.points}점)` : '';
+      const tocHtml = tocMd ? `<div class="user-toc"><span class="toc-label">목차</span>${renderMd(tocMd)}</div>` : '';
+      const memoHtml = memoMd ? `<div class="user-memo"><span class="memo-label">메모</span>${renderMd(memoMd)}</div>` : '';
+      const colCount = showRightCol ? 3 : 2;
+      // 상단 sticky: 기존 lv-tabs(모두 펼침/접힘) 유지 + 컬럼 토글 행 추가
+      let stickyHtml = '<div class="lv-tabs">';
+      stickyHtml += `<div class="lv-tab expand-all-btn" onclick="expandAllCols()">전체 펼침</div>`;
+      stickyHtml += `<div class="lv-tab collapse-all-btn" onclick="collapseAllCols()">전체 접힘</div>`;
+      stickyHtml += '</div>';
+      stickyHtml += '<div class="col-toggles">';
+      stickyHtml += `<span class="col-toggle-label">컬럼</span>`;
+      stickyHtml += `<label class="col-toggle active" data-col-target="left"><input type="checkbox" checked onchange="toggleCol('left', this.checked)"><span>문제</span></label>`;
+      stickyHtml += `<label class="col-toggle active" data-col-target="mid"><input type="checkbox" checked onchange="toggleCol('mid', this.checked)"><span>목차 + 답안</span></label>`;
+      if (showRightCol) {
+        stickyHtml += `<label class="col-toggle active" data-col-target="right"><input type="checkbox" checked onchange="toggleCol('right', this.checked)"><span>Lv.4 자유노트</span></label>`;
+      }
+      stickyHtml += '</div>';
+      // 그리드 본체
+      let gridHtml = `<div class="tab-cols ${colCount === 2 ? 'cols-2' : ''}" id="tab-cols-root">`;
+      gridHtml += `<section class="tab-col" data-col="left"><div class="tab-col-header">문제${pointsTag}</div><div class="tab-col-body">${renderMd(problemMd || '(문제 없음)')}</div></section>`;
+      gridHtml += `<section class="tab-col" data-col="mid"><div class="tab-col-header">목차 + 답안${pointsTag}</div><div class="tab-col-body">${tocHtml}${renderMd(answerMd || '(답안 없음)')}</div></section>`;
+      if (showRightCol) {
+        gridHtml += `<section class="tab-col" data-col="right"><div class="tab-col-header">Lv.4 자유노트</div><div class="tab-col-body">${renderMd(lv4FreeMd)}</div></section>`;
+      }
+      gridHtml += '</div>';
+      content.innerHTML = ui_headerHtml + stickyHtml + '<div id="mdContent">' + gridHtml + memoHtml + '</div>';
+      if (editorWrap) content.appendChild(editorWrap);
+      return;
+    }
+    // 그룹 C 서류 (민사서류/부동산등기서류) — 기존 collapse UI 유지 (사용자 spec: 노터치)
     const ui_sections = extractAllH2Sections(md);
     let ui_tabs = '<div class="lv-tabs">';
     ui_tabs += `<div class="lv-tab expand-all-btn" onclick="expandAllSections()">모두 펼침</div>`;
@@ -2540,8 +2683,45 @@ function renderContent() {
     </div>`;
   }
 
-  // lawear-6be6 2026-05-28: 일반 케이스도 접펼 UI 통일
+  // lawear-6be6 2026-05-28: 민법/민소 3컬럼 분기 (옵션 A)
+  //   좌 = ## 원본 (기본 hide — 사용자 토글 ON 시 표시)
+  //   중 = ## Lv.1 빠른복습
+  //   우 = ## Lv.4 암기노트
+  //   기타 (기출문제/특수 등 — meta 있어도 subjectKor 미매칭, meta 없음) 는 기존 collapse UI 유지.
   const md = fullContent;
+  const _sk2 = (meta && meta.subjectKor) || '';
+  const isMinFamily = (_sk2 === '민법' || _sk2 === '민소');
+  if (isMinFamily) {
+    const originalMd = extractSection(md, '원본');
+    const lv1Md = extractSection(md, 'Lv.1 빠른복습');
+    const lv4Md = extractSection(md, 'Lv.4 암기노트');
+    // 원본 헤더는 ## 원본 (NN점) 형식 — 이미 점수 포함이므로 별도 pointsTag 부착 X
+    const originalHeader = extractSectionHeader(md, '원본') || '원본';
+    // 상단 sticky: 전체 펼침/접힘 + 컬럼 토글 (좌 OFF default)
+    let stickyHtml = '<div class="lv-tabs">';
+    stickyHtml += `<div class="lv-tab expand-all-btn" onclick="expandAllCols()">전체 펼침</div>`;
+    stickyHtml += `<div class="lv-tab collapse-all-btn" onclick="collapseAllCols()">전체 접힘</div>`;
+    stickyHtml += '</div>';
+    stickyHtml += '<div class="col-toggles">';
+    stickyHtml += `<span class="col-toggle-label">컬럼</span>`;
+    // 좌 = 원본 — 기본 OFF (사용자: "원본은 평소 안 봄, 필요할 때만 클릭")
+    stickyHtml += `<label class="col-toggle" data-col-target="left"><input type="checkbox" onchange="toggleCol('left', this.checked)"><span>원본</span></label>`;
+    stickyHtml += `<label class="col-toggle active" data-col-target="mid"><input type="checkbox" checked onchange="toggleCol('mid', this.checked)"><span>Lv.1 빠른복습</span></label>`;
+    stickyHtml += `<label class="col-toggle active" data-col-target="right"><input type="checkbox" checked onchange="toggleCol('right', this.checked)"><span>Lv.4 암기노트</span></label>`;
+    stickyHtml += '</div>';
+    // 그리드 본체 (3컬럼, 좌 hidden 클래스 default)
+    let gridHtml = `<div class="tab-cols" id="tab-cols-root">`;
+    gridHtml += `<section class="tab-col hidden" data-col="left"><div class="tab-col-header">${escapeHtml(originalHeader)}</div><div class="tab-col-body">${renderMd(originalMd || '(원본 섹션 없음)')}</div></section>`;
+    gridHtml += `<section class="tab-col" data-col="mid"><div class="tab-col-header">Lv.1 빠른복습</div><div class="tab-col-body">${wrapLvToc(renderMd(lv1Md || '(Lv.1 빠른복습 없음)'))}</div></section>`;
+    gridHtml += `<section class="tab-col" data-col="right"><div class="tab-col-header">Lv.4 암기노트</div><div class="tab-col-body">${wrapLvToc(renderMd(lv4Md || '(Lv.4 암기노트 없음)'))}</div></section>`;
+    gridHtml += '</div>';
+    content.innerHTML = headerHtml + stickyHtml + '<div id="mdContent">' + gridHtml + '</div>';
+    if (editorWrap) content.appendChild(editorWrap);
+    // 초기 컬럼 수 동기화 (좌 hidden default → cols-2 클래스 부여, 1개만 보이면 cols-1)
+    updateColGridClass();
+    return;
+  }
+  // 그 외 (기출문제/특수/메타 없는 케이스) — 기존 collapse UI 유지
   const all_sections = extractAllH2Sections(md);
   let tabs = '<div class="lv-tabs">';
   tabs += `<div class="lv-tab expand-all-btn" onclick="expandAllSections()">모두 펼침</div>`;
@@ -2711,6 +2891,56 @@ function toggleSection(name, event) {
     if (tab) tab.classList.toggle('active', d.open);
     d.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+}
+
+// lawear-6be6 2026-05-28: 옵션 A — 3컬럼/2컬럼 grid 토글 헬퍼.
+//   .tab-col[data-col="left|mid|right"] 의 .hidden 클래스 + .col-toggles label.active 동기화.
+//   그리드 컬럼 수는 updateColGridClass() 가 자동 조정 (3→2→1).
+function toggleCol(colName, on) {
+  const col = document.querySelector(`.tab-col[data-col="${colName}"]`);
+  if (col) col.classList.toggle('hidden', !on);
+  const lab = document.querySelector(`.col-toggles label.col-toggle[data-col-target="${colName}"]`);
+  if (lab) lab.classList.toggle('active', !!on);
+  updateColGridClass();
+}
+function expandAllCols() {
+  document.querySelectorAll('.col-toggles label.col-toggle').forEach(lab => {
+    const cb = lab.querySelector('input[type="checkbox"]');
+    if (cb && !cb.checked) {
+      cb.checked = true;
+      const target = lab.dataset.colTarget;
+      const col = document.querySelector(`.tab-col[data-col="${target}"]`);
+      if (col) col.classList.remove('hidden');
+      lab.classList.add('active');
+    } else {
+      lab.classList.add('active');
+    }
+  });
+  updateColGridClass();
+}
+function collapseAllCols() {
+  document.querySelectorAll('.col-toggles label.col-toggle').forEach(lab => {
+    const cb = lab.querySelector('input[type="checkbox"]');
+    if (cb && cb.checked) {
+      cb.checked = false;
+      const target = lab.dataset.colTarget;
+      const col = document.querySelector(`.tab-col[data-col="${target}"]`);
+      if (col) col.classList.add('hidden');
+      lab.classList.remove('active');
+    } else {
+      lab.classList.remove('active');
+    }
+  });
+  updateColGridClass();
+}
+function updateColGridClass() {
+  // 보이는 컬럼 개수에 따라 grid-template-columns 자동 조정 (3 / 2 / 1)
+  const root = document.getElementById('tab-cols-root');
+  if (!root) return;
+  const visible = root.querySelectorAll('.tab-col:not(.hidden)').length;
+  root.classList.remove('cols-2', 'cols-1');
+  if (visible === 2) root.classList.add('cols-2');
+  else if (visible <= 1) root.classList.add('cols-1');
 }
 
 function wrapLvToc(html) {

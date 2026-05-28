@@ -1,13 +1,13 @@
 ---
-description: lawear 17895 Lv.4 자유노트 시안 작성 스킬 — 사용자 검증 샘플 N개를 정독·정량·태그·구조 분석 후 차별화된 시안 3~4종을 게시판 등재. 사안형/약술형 자동 분기, 목차 누락 자동 보강, TTS 친화 + [case] 4단계 룰 + R-09 자체 검증.
+description: lawear 17895 **부동산등기법 전용** Lv.4 자유노트 시안 작성 스킬 — 사용자 검증 샘플 N개를 정독·정량·태그·구조 분석 후 차별화된 시안 3~4종을 게시판 등재. 사안형/약술형 자동 분기, 목차 누락 자동 보강, TTS 친화 + [case] 4단계 룰 + R-09 자체 검증. 대상: docs/tts-new/{연도}_사용자_부동산등기법/{순환}/*.md의 ## Lv.4 자유노트 섹션.
 ---
 
-# dev-le-17895-lv4-draft — Lv.4 자유노트 시안 작성 스킬
+# dev-le-17895-budeung-lv4-draft — Lv.4 자유노트 시안 작성 스킬
 
 ## 트리거
 
-- 사용자: `/dev-le-17895-lv4-draft {대상.md 경로}` + 참조 샘플 경로들
-- 예: `/dev-le-17895-lv4-draft 부등법/2순환/27_모의고사_07.md 참조 25,26_모의고사_07.md`
+- 사용자: `/dev-le-17895-budeung-lv4-draft {대상.md 경로}` + 참조 샘플 경로들
+- 예: `/dev-le-17895-budeung-lv4-draft 부등법/2순환/27_모의고사_07.md 참조 25,26_모의고사_07.md`
 - 트리 경로로도 OK: `2025/부동산등기법/2순환/모의고사_07/03_말소회복등기`
 
 ## 입력
@@ -212,7 +212,7 @@ forbidden = set(no_ws) - {'#','.',',','*','-','(',')','乙','甲','丙','丁','�
 ## 호출 예시
 
 ```
-/dev-le-17895-lv4-draft 부등법/2순환/27_모의고사_07.md
+/dev-le-17895-budeung-lv4-draft 부등법/2순환/27_모의고사_07.md
 참조: 25_모의고사_07.md (요건), 26_모의고사_07.md (이해관계인)
 ```
 
@@ -220,7 +220,7 @@ forbidden = set(no_ws) - {'#','.',',','*','-','(',')','乙','甲','丙','丁','�
 
 약술형 (사안 없음) 케이스:
 ```
-/dev-le-17895-lv4-draft 부등법/2순환/30_모의고사_08.md
+/dev-le-17895-budeung-lv4-draft 부등법/2순환/30_모의고사_08.md
 참조: (같은 주제 검증 샘플 없음 — 단독 약술형)
 ```
 
@@ -229,7 +229,7 @@ forbidden = set(no_ws) - {'#','.',',','*','-','(',')','乙','甲','丙','丁','�
 ## 스킬 자기참조 점검 (생성 직후)
 
 ```bash
-grep -nE '/(dev-)?le-17895-lv4-draft' /Users/nhn/zman-lab/lawear/.claude/commands/dev-le-17895-lv4-draft.md
+grep -nE '/(dev-)?le-17895-lv4-draft' /Users/nhn/zman-lab/lawear/.claude/commands/dev-le-17895-budeung-lv4-draft.md
 ```
 
-본문 모든 자기참조가 `/dev-le-17895-lv4-draft` 인지 확인 ([[feedback_skill_naming_dev_le_prefix]]).
+본문 모든 자기참조가 `/dev-le-17895-budeung-lv4-draft` 인지 확인 ([[feedback_skill_naming_dev_le_prefix]]).
