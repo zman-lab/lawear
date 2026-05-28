@@ -1095,6 +1095,7 @@
     <p class="modal-info" id="modal-info">0개 파일 머지</p>
     <label><input type="radio" name="merge-level" value="원본"> 원본</label>
     <label><input type="radio" name="merge-level" value="Lv.1" checked> Lv.1 빠른복습</label>
+    <label><input type="radio" name="merge-level" value="답안"> 답안 (모범답안)</label>
     <label><input type="radio" name="merge-level" value="Lv.4"> Lv.4 암기노트</label>
     <div class="modal-buttons">
       <button onclick="closeModal()">취소</button>
@@ -3171,6 +3172,16 @@ function formatLv4Merge(md, caseNum) {
   return `Case ${caseNum}. ${lines[0]}\n${lines.slice(1).join('\n')}`;
 }
 
+// lawear-da75 (2026-05-28) — 답안 단독 머지 (사용자 P1 회귀 보고 대응)
+//   모범답안 우선, 없으면 답안 fallback. stripEmphasis + ### 헤더 제거 + 3+ 줄바꿈 정리.
+function formatAnswerMerge(md, caseNum) {
+  const raw = extractSection(md, '모범답안') || extractSection(md, '답안');
+  const section = stripEmphasis(raw);
+  const cleaned = section.split('\n').filter(l => !/^###\s+/.test(l)).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  if (!cleaned) return `Case ${caseNum}. (답안 없음)`;
+  return `Case ${caseNum}.\n${cleaned}`;
+}
+
 function openDownloadModal() {
   if (selectedFiles.size === 0) { alert('파일을 1개 이상 체크하세요'); return; }
   // lawear-7ad6 v5 — user_input 전용: 원본/Lv.1/Lv.4 구분 없음 → modal skip + 바로 다운로드
@@ -3206,6 +3217,7 @@ async function doDownload(opts) {
       merged = formatUserInputMerge(md, meta);
     } else if (level === '원본') merged = formatOriginalMerge(md, caseNum);
     else if (level === 'Lv.1') merged = formatLv1Merge(md, caseNum);
+    else if (level === '답안') merged = formatAnswerMerge(md, caseNum);
     else if (level === 'Lv.4') merged = formatLv4Merge(md, caseNum);
     else merged = formatOriginalMerge(md, caseNum);  // fallback
     parts.push(merged);
