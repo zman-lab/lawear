@@ -12,6 +12,7 @@
 - **강사 주석** (`"2020년 변호사 1회차 모의고사 기출쟁점"`, `"대판 2020.10.15, 2020다227523 사안 기초"` 같은 출처 메모)
 - **요약 흔적** (원본 추출 단계에서 AI가 요약한 결과 — 본 작업 사고 원인)
 - **엔터 노이즈** (민법/민소 이혁준 강사 PDF — 사용자 명시)
+- **개행 오류** (원본 추출 당시 오류로 인해 문장에 여러 개행이 들어가서 인간이 읽기 힘든것들이 다수 있음.)
 
 → 정리 안 하면 B 세션 분설 추출 시 정독 방해 + 잘못된 verbatim 추출. **B 작업 선행 필수**.
 
@@ -100,3 +101,24 @@
 - 제목: `[bunseol-rework-라운드1-A] 원본 정리 detect 보고 — 사용자 검증 요청`
 - 본문: 위 출력 .md 핵심 + 객관 증거 5가지 결과 + 사용자 검증 요청 사항
 - 사용자 OK 신호 받으면 라운드 1 종료 (B/C/D 결과와 함께 new 머지)
+
+---
+
+## [SPEC ↔ 스킬 동기화]
+
+본 SESSION_A.md = 스킬 `dev-le-17895-new-file-bunseol-a`의 **SPEC (단일 진실)**.
+
+**스킬 개편 시 절대 강제 룰**:
+1. 본 SPEC 절대 경로 출력: `/Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/SESSION_A.md`
+2. SPEC 먼저 Read + 수정 + 사용자에게 보여주기 (diff)
+3. 사용자 OK 후 스킬 `.claude/commands/dev-le-17895-new-file-bunseol-a.md` 수정
+4. SPEC ↔ 스킬 일치 강제 (SPEC에 없는 룰 X)
+5. 사용자 변경 영역 보존
+
+**상세**: `SPEC_SYNC_RULES.md` 참조.
+
+스킬 frontmatter에 명시 강제:
+```yaml
+spec_path: /Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/SESSION_A.md
+master_skill: dev-le-17895-new-file-bunseol-index
+```

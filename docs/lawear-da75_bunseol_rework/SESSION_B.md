@@ -49,9 +49,9 @@
 - 분설 = 각 설문별 점수 표기 `(10점)(5점)`
 - 단일 = 전체 1 점수 + 하위 (1)(2)(3)
 - 사실관계 분기 (ㄱ/ㄴ) = 단일
-- 단독 N문제 + 공통 사실관계 0 = split 권고 (변환 X)
-- 위 사안에서 + 사실관계 부재 = missing (변환 X)
-- 의심 시 단일 (오버분설 X)
+- 단독 N문제 + 공통 사실관계 0 = split 권고 (변환 X -> 사용자가 찾을수 있도록 네비 찍고 보고할것)
+- 위 사안에서 + 사실관계 부재 = missing (변환 X -> 사용자가 찾을수 있도록 네비 찍고 보고할것)
+- 의심 시 단일 (오버분설 X -> 사용자가 찾을수 있도록 네비 찍고 보고할것)
 
 #### ③ 메인 직접 substring copy (verbatim 100% 보장)
 - 서브가 line range 보고 → 메인이 ## 문제 섹션 본문에서 정확 substring copy
@@ -109,3 +109,24 @@
 - 제목: `[bunseol-rework-라운드1-B] 분설 추출 스킬 작성 — 사용자 검증 요청`
 - 본문: 스킬 룰 13개 + 객관 증거 검증 결과 + 자체 유닛테스트 통과 결과 + 페르소나 QA 결과
 - 사용자 OK 신호 받으면 라운드 1 종료
+
+---
+
+## [SPEC ↔ 스킬 동기화]
+
+본 SESSION_B.md = 스킬 `dev-le-17895-new-file-bunseol-b`의 **SPEC (단일 진실)**.
+
+**스킬 개편 시 절대 강제 룰**:
+1. 본 SPEC 절대 경로 출력: `/Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/SESSION_B.md`
+2. SPEC 먼저 Read + 수정 + 사용자에게 보여주기 (diff)
+3. 사용자 OK 후 스킬 `.claude/commands/dev-le-17895-new-file-bunseol-b.md` 수정
+4. SPEC ↔ 스킬 일치 강제 (SPEC에 없는 룰 X)
+5. 사용자 변경 영역 보존
+
+**상세**: `SPEC_SYNC_RULES.md` 참조.
+
+스킬 frontmatter에 명시 강제:
+```yaml
+spec_path: /Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/SESSION_B.md
+master_skill: dev-le-17895-new-file-bunseol-index
+```

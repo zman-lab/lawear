@@ -101,3 +101,24 @@
 - 제목: `[bunseol-rework-라운드2-E] 9건 dry-run 결과 — 사용자 검증 요청`
 - 본문: 9 케이스 결과 표 + 객관 증거 결과 + 사용자 OK 신호 요청
 - 사용자 OK 신호 받으면 라운드 2 종료. **9건 통과 시만 G 세션 진행**.
+
+---
+
+## [SPEC ↔ 스킬 동기화]
+
+본 SESSION_E.md = 스킬 `dev-le-17895-new-file-bunseol-e`의 **SPEC (단일 진실)**.
+
+**스킬 개편 시 절대 강제 룰**:
+1. 본 SPEC 절대 경로 출력: `/Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/SESSION_E.md`
+2. SPEC 먼저 Read + 수정 + 사용자에게 보여주기 (diff)
+3. 사용자 OK 후 스킬 `.claude/commands/dev-le-17895-new-file-bunseol-e.md` 수정
+4. SPEC ↔ 스킬 일치 강제 (SPEC에 없는 룰 X)
+5. 사용자 변경 영역 보존
+
+**상세**: `SPEC_SYNC_RULES.md` 참조.
+
+스킬 frontmatter에 명시 강제:
+```yaml
+spec_path: /Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/SESSION_E.md
+master_skill: dev-le-17895-new-file-bunseol-index
+```

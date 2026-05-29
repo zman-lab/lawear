@@ -14,6 +14,8 @@
 
 > lawear-da75 본 세션이 분설 메타 작업 실패 (요약/패턴 매칭/오판) 후, 사용자 명시 룰 + 객관 증거 강제 + 7 세션 분배 + 워크트리 + 새 스킬 (`dev-le-17895-new-file-bunseol-*`) 구축 워크플로우.
 
+> 모든 세션은 강사 원본 PDF 참고 할 것:
+> 원본 경로: (`/Users/nhn/myftp/2026_USB/2025_법무사_합격/*`), (`/Users/nhn/myftp/2026_USB/2026_박문각_피뎁/*`)
 ---
 
 ## 1. 전체 목적
@@ -75,8 +77,8 @@ main (격리)
     ├ ② 라운드 1 (4 세션 동시, 베이스 = new):
     │   wt/a-원본정리      → 스킬 dev-le-17895-new-file-bunseol-a 작성
     │   wt/b-분설추출      → 스킬 dev-le-17895-new-file-bunseol-b 작성
-    │   wt/c-JS-UI 리뉴얼   → 스킬 dev-le-17895-new-file-bunseol-c 작성 (선택)
-    │   wt/d-옵션3-코드     → 스킬 dev-le-17895-new-file-bunseol-d 작성 (선택)
+    │   wt/c-JS-UI 리뉴얼   → 스킬 dev-le-17895-new-file-bunseol-c 작성 (UI 변경)
+    │   wt/d-옵션3-코드     → 스킬 dev-le-17895-new-file-bunseol-d 작성 (CODE 변경)
     │   각 완료 → new 머지
     │
     ├ ③ 라운드 2 (2 세션 동시, 베이스 = 머지된 new):
@@ -181,11 +183,28 @@ git -C /Users/nhn/zman-lab/lawear merge wt/a-원본정리
 본 작업은 사용자 시험 학습 도구 (17895) 데이터 정확성 작업. 잘못 = 사용자 학습 침해 = 시험 실패.
 
 - 답안 본문 노터치 (R-09)
-- 사용자 WIP M 파일 동시 작업 시 노터치
+- 사용자 WIP M 파일 동시 작업 시 사용자에게 네비 찍어주면서 무엇이 변경됐는지 먼저 확인 할 것
 - 사용자 학습 시간대 침해 X (보고만, 결정은 사용자 시간)
 - 의심 시 변환 X + 사용자 보고 (자율 변환 X)
 
 ---
 
-> 본 INDEX 룰 위반 시 작업 무효 + 재작업.
+> 본 INDEX 룰 위반 시 작업 무효 + 재작업 -> 커밋 됐더라도 리버트.
 > 새 파일 추가 시 사용자가 `/dev-le-17895-new-file-bunseol-index` 호출 → 마스터가 위 워크플로우 자동 안내.
+
+---
+
+## 11. SPEC ↔ 스킬 동기화 룰 (영구, 모든 스킬 적용)
+
+본 INDEX.md = 마스터 스킬 `dev-le-17895-new-file-bunseol-index`의 **SPEC (단일 진실)**.
+
+**스킬 개편 시 절대 강제 룰**:
+1. 본 SPEC 절대 경로 출력: `/Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/INDEX.md`
+2. SPEC 먼저 Read + 수정 + 사용자에게 보여주기 (diff)
+3. 사용자 OK 신호 후 스킬 `.claude/commands/dev-le-17895-new-file-bunseol-index.md` 수정
+4. SPEC ↔ 스킬 일치 강제 (SPEC에 없는 룰 스킬에 X)
+5. 사용자 변경 영역 보존
+
+**상세 룰 + 모든 SESSION 매핑**: `SPEC_SYNC_RULES.md` 참조 (이 폴더 내).
+
+스킬 frontmatter에 자기 `spec_path` 명시 강제. 마스터 스킬은 `sub_skills` list로 모든 서브 SPEC 경로 박기.

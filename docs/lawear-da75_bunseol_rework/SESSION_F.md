@@ -99,3 +99,24 @@ D 옵션 3 (사실관계 동적 inject) 실제 검증. 17896 시험 모드 + 모
 - 제목: `[bunseol-rework-라운드2-F] 17896 + 모바일 검증 — 옵션 3 채택 결정 요청`
 - 본문: 시나리오 7 결과 + 모바일 스크린샷 + 옵션 3 최종 채택 권고 + 사용자 시험 응시 가능 여부
 - 사용자 OK 신호 받으면 라운드 2 종료. **옵션 3 채택 결정**.
+
+---
+
+## [SPEC ↔ 스킬 동기화]
+
+본 SESSION_F.md = 스킬 `dev-le-17895-new-file-bunseol-f`의 **SPEC (단일 진실)**.
+
+**스킬 개편 시 절대 강제 룰**:
+1. 본 SPEC 절대 경로 출력: `/Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/SESSION_F.md`
+2. SPEC 먼저 Read + 수정 + 사용자에게 보여주기 (diff)
+3. 사용자 OK 후 스킬 `.claude/commands/dev-le-17895-new-file-bunseol-f.md` 수정
+4. SPEC ↔ 스킬 일치 강제 (SPEC에 없는 룰 X)
+5. 사용자 변경 영역 보존
+
+**상세**: `SPEC_SYNC_RULES.md` 참조.
+
+스킬 frontmatter에 명시 강제:
+```yaml
+spec_path: /Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/SESSION_F.md
+master_skill: dev-le-17895-new-file-bunseol-index
+```

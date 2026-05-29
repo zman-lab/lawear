@@ -99,3 +99,24 @@
 - 본문: 230 통계 + sample 10건 검증 결과 + main 머지 권고
 - 사용자 OK 신호 받으면 main 머지 → 본 분설 재작업 완료
 - 사용자 거부 시 new 브랜치 폐기 → main 무영향 (안전)
+
+---
+
+## [SPEC ↔ 스킬 동기화]
+
+본 SESSION_G.md = 스킬 `dev-le-17895-new-file-bunseol-g`의 **SPEC (단일 진실)**.
+
+**스킬 개편 시 절대 강제 룰**:
+1. 본 SPEC 절대 경로 출력: `/Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/SESSION_G.md`
+2. SPEC 먼저 Read + 수정 + 사용자에게 보여주기 (diff)
+3. 사용자 OK 후 스킬 `.claude/commands/dev-le-17895-new-file-bunseol-g.md` 수정
+4. SPEC ↔ 스킬 일치 강제 (SPEC에 없는 룰 X)
+5. 사용자 변경 영역 보존
+
+**상세**: `SPEC_SYNC_RULES.md` 참조.
+
+스킬 frontmatter에 명시 강제:
+```yaml
+spec_path: /Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/SESSION_G.md
+master_skill: dev-le-17895-new-file-bunseol-index
+```
