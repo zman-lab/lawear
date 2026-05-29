@@ -84,8 +84,8 @@ spec_path: /Users/nhn/zman-lab/lawear/docs/lawear-da75_bunseol_rework/INDEX.md
 sub_skills:
   - dev-le-17895-new-file-bunseol-a → SESSION_A.md
   - dev-le-17895-new-file-bunseol-b → SESSION_B.md
-  - dev-le-17895-new-file-bunseol-c → SESSION_C.md (선택)
-  - dev-le-17895-new-file-bunseol-d → SESSION_D.md (선택)
+  - dev-le-17895-new-file-bunseol-c → SESSION_C.md (UI 변경)
+  - dev-le-17895-new-file-bunseol-d → SESSION_D.md (CODE 변경)
   - dev-le-17895-new-file-bunseol-e → SESSION_E.md
   - dev-le-17895-new-file-bunseol-f → SESSION_F.md
   - dev-le-17895-new-file-bunseol-g → SESSION_G.md
