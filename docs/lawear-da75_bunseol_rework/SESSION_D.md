@@ -87,6 +87,33 @@
 - 유닛테스트 강화 — 사용자 명시 "유닛테스트 + QA 페르소나 + 체크리스트 강제"
 - **F 세션 검증 통과 후만 채택** — 옵션 3 신뢰 부족 → F 세션이 17896+모바일 실제 검증
 
+### dev-team Phase 1~6 호출 권장 (코드 작업, 옵션 3 신뢰 강화)
+
+본 세션 = 실제 코드 작업 (17895/17896 server.py + endpoint + merge.html JS + exam_mockup.html + 유닛테스트). 옵션 3 신뢰 부족 우려 → dev-team 풀 워크플로우 강제 권장.
+
+**호출 명령**: 워크트리 안에서 `/dev-team 17895/17896 사실관계 동적 inject endpoint + 메타 표준 + 매칭 버튼 보존 + 유닛테스트 + QA 페르소나 + 17896 모바일 시나리오 7가지`
+
+**Phase 매핑**:
+| Phase | 역할 | 본 세션 적용 |
+|-------|------|-----------|
+| 1 분석가 | 영향 범위 (수정 파일 + 호출자/피호출자 + 외부 의존성) | 17895/17896 server.py + merge.html + exam_mockup.html + 매칭 버튼 함수 사용처 |
+| 2 테크리드 | 설계 (하드코딩 방지 + DDL/Entity + API 시그니처 + 에러 처리 단계 + ReturnCode) | endpoint URL 변수화 + 메타 표준 명세 + 사실관계 inject 알고리즘 + 에러 케이스 |
+| 3 개발자 | 구현 (코딩 규칙 강제) | server.py 신규 endpoint + merge.html prepend + exam_mockup.html prepend |
+| 4 QA | 테스트 + 커버리지 + BDD-style + 예상 출력 + curl 검증 + Docker | 시나리오 7가지 유닛테스트 (정상/매칭/mismatch/모바일/매칭버튼/채점 사이드 효과/인계 없는 .md) |
+| 5 리뷰어 | 독립 코드 리뷰 (별도 Opus) | API 시그니처 안전 + 17896 채점 사이드 효과 0 + 매칭 버튼 보존 + verbatim 강제 |
+| 6 dev-qa 게이트 | 최종 검증 | F 세션 17896 + 모바일 실제 검증 통과 = dev-qa PASS |
+
+**Phase 2 보강 항목 (옵션 3 특화)**:
+- 검증 단계 표 + ReturnCode 매핑 (API 시그니처 변경)
+- 메타 표준 (`_분설_사실관계_source` 필드 명세)
+- 데이터 모델 변경 시 직렬화/캐시 영향 분석
+
+**분설 작업 룰 우선**: 본 SESSION_D.md 룰 (verbatim, 매칭 버튼 보존, 17896 영향 0) > dev-team.
+
+**옵션 3 신뢰 강화**: F 세션 (`-f` 스킬) 17896+모바일 시나리오 7가지 PASS = dev-team Phase 6 dev-qa 게이트 충족 조건. F 실패 시 D 재작업.
+
+**메인 직접 수정 룰**: 1회 실패 시 메인 직접 수정 가능. 단 Phase 5 리뷰 별도 Opus 강제.
+
 ---
 
 ## [출력]

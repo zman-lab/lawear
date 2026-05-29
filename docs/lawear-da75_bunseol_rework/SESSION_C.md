@@ -80,6 +80,26 @@
 - 17895 모든 페이지에서 분설박스 시각 검증 (다른 색 잔존 X)
 - 시험 모드 (17896)는 영향 X (별도 코드)
 
+### dev-team Phase 1~6 호출 권장 (코드 작업)
+
+본 세션 = 실제 코드 작업 (parseBunseolMeta + renderBunseolBox + CSS 다크그레이). dev-team 워크플로우 적용 권장.
+
+**호출 명령**: 워크트리 안에서 `/dev-team merge.html 분설박스 UI 리뉴얼 다크그레이 + multi-line YAML pipe + 이모지 제거 + 신규 필드 호환`
+
+**Phase 매핑**:
+| Phase | 역할 | 본 세션 적용 |
+|-------|------|-----------|
+| 1 분석가 | 영향 범위 (수정 파일 + 호출자/피호출자 + 영향 받는 파일) | merge.html 함수 사용처 + 다른 .md 렌더 영향 |
+| 2 테크리드 | 설계 방향 (하드코딩 방지 + 설정값 분리 + 네이밍) | 다크그레이 컬러 변수화 + multi-line 파싱 알고리즘 + legacy 호환 fallback |
+| 3 개발자 | 구현 (코딩 규칙 강제) | parseBunseolMeta v2 + renderBunseolBox v2 + CSS 갱신 |
+| 4 QA | 테스트 + 커버리지 + BDD-style 의도 + 예상 출력 명시 | parseBunseolMeta unit (신규/legacy/multi-line 케이스) + renderBunseolBox XSS escape + 모바일 반응형 |
+| 5 리뷰어 | 독립 코드 리뷰 (구현자 ≠ 리뷰어, 별도 Opus) | 사이드 효과 검증 9종 + 다른 색 잔존 0 + 단일 .md 영향 0 |
+| 6 dev-qa 게이트 | 최종 검증 | 17895 새로고침 시각 검증 + 사용자 OK 신호 |
+
+**분설 작업 룰 우선**: 본 SESSION_C.md 룰 (verbatim, 객관 증거, 정독 강제) > dev-team. Phase 1 14항목 중 N/A (proto/DB 등) 면제.
+
+**메인 직접 수정 룰**: 1회 실패 시 메인 직접 수정 가능. 단 Phase 5 리뷰는 별도 Opus 서브에이전트 강제 (자기 코드 자기 리뷰 X).
+
 ---
 
 ## [출력]
