@@ -3031,16 +3031,7 @@ function parseBunseolMeta(metaSection) {
     const key = label.replace(/\s+/g, '_');
     // _분설_{key}_요약: "..." — 라벨에 공백/한글 OK (key는 _로 정규화)
     const escKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    let sM = metaSection.match(new RegExp('_분설_' + escKey + '_요약:\\s*"([^"]+)"'));
-    if (!sM) {
-      // Fallback (lawear-da75 2026-05-28): 라벨에 괄호(상세 설명) 포함 시 메타 키는 simplified 패턴 빈출
-      //   "객체 1 (농협통장)" 라벨 → 메타 키 "객체_1" 형태 (괄호 부분 제거)
-      const simpleKey = label.replace(/\s*\([^)]*\)\s*/g, '').replace(/\s+/g, '_').trim().replace(/^_|_$/g, '');
-      if (simpleKey && simpleKey !== key) {
-        const simpleEsc = simpleKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        sM = metaSection.match(new RegExp('_분설_' + simpleEsc + '_요약:\\s*"([^"]+)"'));
-      }
-    }
+    const sM = metaSection.match(new RegExp('_분설_' + escKey + '_요약:\\s*"([^"]+)"'));
     if (sM) summaries[label] = sM[1];
   }
   return { count, labels, summaries };
