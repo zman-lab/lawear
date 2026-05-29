@@ -1,0 +1,99 @@
+# SESSION C — JS UI 리뉴얼 (선택)
+
+> **시작 전 필독**: `INDEX.md` + 메모리 4건
+> **베이스 브랜치**: `feature/bunseol-{YYYYMMDD}` (NOT main)
+> **워크트리**: `git worktree add ../lawear-c-JS-UI -b wt/c-JS-UI feature/bunseol-{YYYYMMDD}`
+> **선택**: UI 변경 시만 호출. 안 쓰면 스킵.
+
+---
+
+## [배경]
+
+분설박스 UI 리뉴얼:
+- **다크그레이 (#1f2937)** — 회사 환경 보안 (사용자 명시 "몰래 공부")
+- **이모지 제거** — 시각 자극 ↓
+- **multi-line YAML pipe `|` 지원** — verbatim 본문 표시
+- **신규 필드**: `_분설_사실관계`, `_분설_설문_N`, `_분설_설문_N_점수`
+- **legacy 호환**: `_분설_*_요약` (sender 작업 — 이미 sed 제거됨, 안전)
+
+이전 살구색 (#fef3c7) → 다크그레이 변경. 사용자 절대 룰 (회사 환경 노출 X).
+
+---
+
+## [입력]
+- INDEX.md + 메모리 4건
+- 현재 merge.html (`docs/tts-new/merge.html`) — 살구색 분설박스 CSS 존재
+- B 세션 분설 추출 스킬 결과 (메타 필드 형식 확인)
+
+---
+
+## [본 작업 — 스킬 + 코드]
+
+### 작성 스킬: `dev-le-17895-new-file-bunseol-c`
+
+**저장 위치**: `/Users/nhn/zman-lab/lawear/.claude/commands/dev-le-17895-new-file-bunseol-c.md`
+
+**스킬 책임 (1만)**: 분설박스 UI 리뉴얼 가이드 (CSS + parseBunseolMeta + renderBunseolBox 변경 명세 + 사이드 효과 검증)
+
+### 코드 변경
+
+#### CSS (`.bunseol-box` 영역)
+- background `#fef3c7` → `#1f2937` (다크그레이)
+- color `#1a1d23` → `#d1d5db` (gray-300)
+- border-left `#d97706` → `#4b5563` (gray-600)
+- 이모지 "📋" 제거
+- multi-line 사실관계 표시 (`.bunseol-fact` `white-space: pre-wrap`)
+- 설문 점수 강조 (`.bunseol-score`)
+
+#### `parseBunseolMeta` (신규 필드 + YAML pipe + legacy 호환)
+- 신규 필드: `_분설_사실관계`, `_분설_설문_N`, `_분설_설문_N_점수`
+- YAML pipe `|` multi-line 처리
+- legacy `_분설_*_요약` fallback (점진 마이그레이션)
+
+#### `renderBunseolBox` (verbatim 표시)
+- 사실관계 verbatim 표시 (multi-line)
+- 설문 verbatim + 점수
+- 답안 쟁점 노출 X (스포일러 방지)
+
+---
+
+## [검증]
+
+### 공통
+- 유닛테스트 (JS):
+  - parseBunseolMeta 신규 필드 추출 정확
+  - parseBunseolMeta legacy `_분설_*_요약` 호환
+  - YAML pipe multi-line 파싱
+  - renderBunseolBox HTML escape (XSS 방지)
+- 자체 체크리스트:
+  - [ ] 다크그레이 적용 (시각 검증)
+  - [ ] 이모지 제거
+  - [ ] multi-line 줄바꿈 정상
+  - [ ] 모바일 반응형 (@media 767px)
+  - [ ] 단일 .md (분설 메타 부재) = 박스 안 렌더 (UI 영향 0)
+  - [ ] 사이드 효과 검증 9종 (`feedback_3col_ui_workflow.md` 참조)
+- 페르소나 QA:
+  - **시각 QA**: 다크 보안 충족 + 살구색 잔존 0
+  - **사용자 시험관 QA**: 회사 환경 안전 + 학습 시 정독 가능
+
+### 특화
+- 17895 모든 페이지에서 분설박스 시각 검증 (다른 색 잔존 X)
+- 시험 모드 (17896)는 영향 X (별도 코드)
+
+---
+
+## [출력]
+
+- `merge.html` 변경 (commit)
+- `dev-le-17895-new-file-bunseol-c.md` 스킬 (commit)
+
+**E 세션이 입력으로 사용** (9 dry-run에서 시각 + 사이드 효과 검증).
+
+---
+
+## [결과 보고]
+
+게시판:
+- 제목: `[bunseol-rework-라운드1-C] 분설박스 UI 리뉴얼 + 다크그레이 — 사용자 검증 요청`
+- 본문: 변경 영역 + 사이드 효과 검증 9종 결과 + 17895 새로고침 검증 결과
+- 사용자 OK 신호 (17895 새로고침 후 시각 확인) 받으면 라운드 1 종료
