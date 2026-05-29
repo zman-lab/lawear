@@ -1,6 +1,17 @@
 # INDEX — 분설 메타 재작업 (7 세션 분배)
 
-> 본 INDEX는 7 세션 모두 시작 시 **필독**.
+> **선행 로드 (모든 세션 필수, 1순위)**: `/dev-response` — 응답 품질 룰 (팔로업 이모지 + 타임스탬프 + 게시판 링크 + 작업 순서 표 + 5분 건강체크 + 한영 자판)
+> **2순위**: 메모리 4건 자동 흡수 (CLAUDE.md auto memory — bunseol-verbatim-strict / skill-master-sub-pattern / worktree-for-risky-work / bunseol-decision-rules)
+> **3순위**: 본 INDEX 필독
+> **4순위**: 자기 SESSION_X.md 읽고 작업
+
+> 새 세션 시작 명령 예시:
+> ```
+> /dev-response   # 1순위 선행 로드
+> # 이후 자유 발화:
+> "docs/lawear-da75_bunseol_rework/SESSION_A.md 읽고 작업해줘"
+> ```
+
 > lawear-da75 본 세션이 분설 메타 작업 실패 (요약/패턴 매칭/오판) 후, 사용자 명시 룰 + 객관 증거 강제 + 7 세션 분배 + 워크트리 + 새 스킬 (`dev-le-17895-new-file-bunseol-*`) 구축 워크플로우.
 
 ---
